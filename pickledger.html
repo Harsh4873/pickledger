@@ -485,10 +485,12 @@ const DELETED_PICKS_KEY = 'pickledger_deleted_pick_ids';
 let activeFilter = 'ALL';
 let showSettled = false;
 const DEFAULT_MODEL_SERVER = 'https://pickledger.onrender.com';
+const QUERY_MODEL_SERVER = (new URLSearchParams(window.location.search).get('api') || '').trim();
+const SAVED_MODEL_SERVER = (localStorage.getItem('pickledger_model_server') || '').trim();
+const IS_SAVED_LOCALHOST = /^https?:\/\/(127\.0\.0\.1|localhost)(:\d+)?$/i.test(SAVED_MODEL_SERVER);
 const MODEL_SERVER =
-  (new URLSearchParams(window.location.search).get('api') || '').trim() ||
-  localStorage.getItem('pickledger_model_server') ||
-  DEFAULT_MODEL_SERVER;
+  QUERY_MODEL_SERVER ||
+  (IS_SAVED_LOCALHOST ? DEFAULT_MODEL_SERVER : (SAVED_MODEL_SERVER || DEFAULT_MODEL_SERVER));
 const GRADER_URL = `${MODEL_SERVER}/grade`;
 
 function getAddedPicks() {
@@ -1419,7 +1421,7 @@ async function runModel(model) {
       renderModelResults(picks);
     }
   } catch (e) {
-    setModelStatus(model, 'Server not reachable. Make sure pickgrader_server.py is running.', 'error');
+    setModelStatus(model, `Server not reachable at ${MODEL_SERVER}`, 'error');
   } finally {
     if (btn) {
       btn.disabled = false;
