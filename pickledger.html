@@ -143,19 +143,36 @@
   .clean-title { color: var(--text); }
 
   /* Trends */
-  .trend-league { margin-bottom: 28px; }
-  .trend-league-title { font-family: 'Bebas Neue', sans-serif; font-size: 24px; letter-spacing: 2px; color: var(--text); margin-bottom: 12px; display: flex; align-items: center; gap: 10px; }
-  .trend-league-count { font-family: 'DM Mono', monospace; font-size: 11px; color: var(--muted); font-weight: 400; }
-  .trend-card { background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 14px 16px; margin-bottom: 8px; display: flex; align-items: center; gap: 14px; transition: border-color 0.2s, background-color 0.3s; position: relative; }
-  .trend-card:hover { border-color: var(--accent); }
-  .trend-count { font-family: 'Bebas Neue', sans-serif; font-size: 32px; min-width: 36px; text-align: center; line-height: 1; }
-  .trend-count.hot { color: var(--accent); }
-  .trend-count.warm { color: var(--accent3); }
-  .trend-count.solo { color: var(--muted); }
-  .trend-body { flex: 1; min-width: 0; }
-  .trend-pick-text { font-weight: 500; font-size: 14px; margin-bottom: 4px; }
-  .trend-sources { display: flex; gap: 4px; flex-wrap: wrap; }
+  .trend-head { margin-bottom: 18px; }
+  .trend-title { font-family: 'Bebas Neue', sans-serif; font-size: 30px; letter-spacing: 2px; color: var(--text); }
+  .trend-subtitle { margin-top: 6px; font-family: 'DM Mono', monospace; font-size: 11px; color: var(--muted); letter-spacing: 0.5px; }
+  .trend-summary-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 10px; margin-bottom: 16px; }
+  .trend-summary-box { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 12px; }
+  .trend-summary-val { font-family: 'Bebas Neue', sans-serif; font-size: 28px; line-height: 1; color: var(--text); }
+  .trend-summary-label { margin-top: 4px; font-family: 'DM Mono', monospace; font-size: 10px; color: var(--muted); letter-spacing: 0.7px; }
+  .trend-board { display: grid; grid-template-columns: repeat(auto-fit, minmax(310px, 1fr)); gap: 12px; }
+  .trend-game-card { background: linear-gradient(180deg, rgba(77,166,255,0.06), transparent 40%), var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 14px; transition: border-color 0.2s, transform 0.2s; }
+  .trend-game-card:hover { border-color: var(--accent3); transform: translateY(-1px); }
+  .trend-game-card.strong { border-color: rgba(0,229,160,0.45); }
+  .trend-game-card.split { border-color: rgba(255,69,96,0.35); }
+  .trend-game-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; margin-bottom: 10px; }
+  .trend-game-name { font-family: 'Bebas Neue', sans-serif; font-size: 23px; letter-spacing: 1px; color: var(--text); line-height: 1; }
+  .trend-game-meta { margin-top: 4px; font-family: 'DM Mono', monospace; font-size: 10px; color: var(--muted); letter-spacing: 0.4px; }
+  .trend-strength-pill { font-family: 'DM Mono', monospace; font-size: 10px; letter-spacing: 0.5px; border: 1px solid var(--border); border-radius: 999px; padding: 4px 8px; color: var(--muted); white-space: nowrap; }
+  .trend-strength-pill.strong { border-color: rgba(0,229,160,0.45); color: var(--accent); background: rgba(0,229,160,0.08); }
+  .trend-strength-pill.lean { border-color: rgba(77,166,255,0.5); color: var(--accent3); background: rgba(77,166,255,0.08); }
+  .trend-strength-pill.split { border-color: rgba(255,69,96,0.4); color: var(--danger); background: rgba(255,69,96,0.08); }
+  .trend-market { border-top: 1px solid var(--border); padding-top: 10px; margin-top: 10px; }
+  .trend-market:first-of-type { border-top: none; padding-top: 0; margin-top: 0; }
+  .trend-market-row { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+  .trend-market-label { font-family: 'DM Mono', monospace; font-size: 10px; color: var(--muted); letter-spacing: 0.9px; }
+  .trend-market-signal { font-weight: 600; font-size: 14px; color: var(--text); text-align: right; }
+  .trend-market-detail { margin-top: 5px; font-family: 'DM Mono', monospace; font-size: 10px; color: var(--muted); line-height: 1.5; }
+  .trend-source-row { margin-top: 8px; display: flex; gap: 4px; flex-wrap: wrap; }
   .trend-source-pill { font-family: 'DM Mono', monospace; font-size: 9px; letter-spacing: 0.5px; padding: 2px 7px; border-radius: 10px; background: rgba(77,166,255,0.08); color: var(--accent3); white-space: nowrap; }
+  .trend-sport-section { margin-top: 20px; }
+  .trend-sport-title { font-family: 'Bebas Neue', sans-serif; font-size: 22px; letter-spacing: 1.5px; color: var(--text); margin-bottom: 8px; }
+  .trend-sport-meta { font-family: 'DM Mono', monospace; font-size: 10px; color: var(--muted); margin-bottom: 10px; letter-spacing: 0.4px; }
 
   /* Search */
   .search-wrap { position: relative; margin-bottom: 28px; }
@@ -300,7 +317,7 @@
 
   <!-- TRENDS TAB -->
   <div id="tab-trends" class="tab-content">
-    <div class="section-title clean-title">Consensus Picks By League</div>
+    <div class="section-title clean-title">Consensus Radar</div>
     <div id="trends-container"></div>
   </div>
 
@@ -330,6 +347,7 @@
           <label><input type="checkbox" value="nba" checked> NBA</label>
           <label><input type="checkbox" value="nhl" checked> NHL</label>
           <label><input type="checkbox" value="mlb" checked> MLB</label>
+          <label><input type="checkbox" value="epl" checked> EPL</label>
         </div>
         <button class="model-run-btn" id="btn-run-scores24" onclick="runModel('scores24')">RUN SCORES24 SCRAPER</button>
         <div class="model-status" id="status-scores24"></div>
@@ -422,17 +440,17 @@ const PICKS = [
   { id: 52, date: "Mar 13", source: "NBA Model", pick: "Over 225 (Jazz @ Trail Blazers)", sport: "NBA", units: 1, odds: -110, result: "pending" },
 
   // ── Supa · MLB · Mar 13 ──
-  { id: 53, date: "Mar 13", source: "Supa", pick: "Over 8.5 (Yankees vs Braves)", sport: "MLB", units: 3, odds: 100, result: "pending" },
+  { id: 53, date: "Mar 13", source: "Supa", pick: "Over 8.5 (Yankees vs Braves)", sport: "MLB", units: 1, odds: 100, result: "pending" },
 
   // ── J3 · NBA · Mar 13 ──
   { id: 54, date: "Mar 13", source: "J3", pick: "Timberwolves -1.5 1H (Timberwolves @ Warriors)", sport: "NBA", units: 1, odds: -110, result: "pending" },
 
   // ── SGPN · NBA · Mar 13 ──
-  { id: 66, date: "Mar 13", source: "SGPN", pick: "Clippers -11.5 (Bulls @ Clippers)", sport: "NBA", units: 3, odds: -110, result: "pending" },
+  { id: 66, date: "Mar 13", source: "SGPN", pick: "Clippers -11.5 (Bulls @ Clippers)", sport: "NBA", units: 1, odds: -110, result: "pending" },
   { id: 67, date: "Mar 13", source: "SGPN", pick: "Suns ML (Suns @ Raptors)", sport: "NBA", units: 1, odds: -110, result: "pending" },
 
   // ── SGPN · Tennis · Mar 13 ──
-  { id: 68, date: "Mar 13", source: "SGPN", pick: "Alcaraz Straight Sets", sport: "Other", units: 3, odds: -110, result: "pending" },
+  { id: 68, date: "Mar 13", source: "SGPN", pick: "Alcaraz Straight Sets", sport: "Other", units: 1, odds: -110, result: "pending" },
 
   // ── SGPN · WBC · Mar 14 ──
   { id: 69, date: "Mar 14", source: "SGPN", pick: "Japan -1.5 Run Line (Japan vs Venezuela)", sport: "WBC", units: 1, odds: -110, result: "pending" },
@@ -440,17 +458,17 @@ const PICKS = [
   { id: 71, date: "Mar 14", source: "SGPN", pick: "USA Over 9.5 (United States vs Canada)", sport: "WBC", units: 1, odds: -110, result: "pending" },
 
   // ── Scores24 Lock (Confidence >= 80%) · Mar 13 ──
-  { id: 72, date: "Mar 13", source: "Scores24 Lock", pick: "Over 10.5 (Dominican Republic vs Korea)", sport: "WBC", units: 3, odds: 100, result: "pending" },
-  { id: 73, date: "Mar 13", source: "Scores24 Lock", pick: "Over 9.5 (Canada vs USA)", sport: "WBC", units: 3, odds: -115, result: "pending" },
+  { id: 72, date: "Mar 13", source: "Scores24 Lock", pick: "Over 10.5 (Dominican Republic vs Korea)", sport: "WBC", units: 1, odds: 100, result: "pending" },
+  { id: 73, date: "Mar 13", source: "Scores24 Lock", pick: "Over 9.5 (Canada vs USA)", sport: "WBC", units: 1, odds: -115, result: "pending" },
 
   // ── Scores24 Consensus (User Vote >= 75%) · Mar 13 ──
-  { id: 74, date: "Mar 13", source: "Scores24 Consensus", pick: "Over 10.5 (Dominican Republic vs Korea)", sport: "WBC", units: 3, odds: 100, result: "pending" },
-  { id: 75, date: "Mar 13", source: "Scores24 Consensus", pick: "Over 9.5 (Canada vs USA)", sport: "WBC", units: 3, odds: -115, result: "pending" },
+  { id: 74, date: "Mar 13", source: "Scores24 Consensus", pick: "Over 10.5 (Dominican Republic vs Korea)", sport: "WBC", units: 1, odds: 100, result: "pending" },
+  { id: 75, date: "Mar 13", source: "Scores24 Consensus", pick: "Over 9.5 (Canada vs USA)", sport: "WBC", units: 1, odds: -115, result: "pending" },
 
   // ── Scores24 Hype (Suggestive Language) · Mar 13 ──
-  { id: 76, date: "Mar 13", source: "Scores24 Hype", pick: "Knicks -11.5 (Pacers vs Knicks) — \"appear more confident\"", sport: "NBA", units: 3, odds: -161, result: "pending" },
-  { id: 77, date: "Mar 13", source: "Scores24 Hype", pick: "Trail Blazers -12.5 (Trail Blazers vs Jazz) — \"confident performance\"", sport: "NBA", units: 3, odds: -161, result: "pending" },
-  { id: 78, date: "Mar 13", source: "Scores24 Hype", pick: "Over 9.5 (Canada vs USA)", sport: "WBC", units: 3, odds: -115, result: "pending" },
+  { id: 76, date: "Mar 13", source: "Scores24 Hype", pick: "Knicks -11.5 (Pacers vs Knicks) — \"appear more confident\"", sport: "NBA", units: 1, odds: -161, result: "pending" },
+  { id: 77, date: "Mar 13", source: "Scores24 Hype", pick: "Trail Blazers -12.5 (Trail Blazers vs Jazz) — \"confident performance\"", sport: "NBA", units: 1, odds: -161, result: "pending" },
+  { id: 78, date: "Mar 13", source: "Scores24 Hype", pick: "Over 9.5 (Canada vs USA)", sport: "WBC", units: 1, odds: -115, result: "pending" },
 
   // ── Scores24 · EPL · Mar 14 ──
   // Scraped from: python3 scores24_scraper.py --sport "premier league" --date YYYY-MM-DD
@@ -466,13 +484,19 @@ const ADDED_PICKS_KEY = 'pickledger_added_picks';
 const DELETED_PICKS_KEY = 'pickledger_deleted_pick_ids';
 let activeFilter = 'ALL';
 let showSettled = false;
-const GRADER_URL = 'http://127.0.0.1:8765/grade';
+const DEFAULT_MODEL_SERVER = 'http://127.0.0.1:8765';
+const MODEL_SERVER =
+  (new URLSearchParams(window.location.search).get('api') || '').trim() ||
+  localStorage.getItem('pickledger_model_server') ||
+  DEFAULT_MODEL_SERVER;
+const GRADER_URL = `${MODEL_SERVER}/grade`;
 
 function getAddedPicks() {
   try {
     const raw = localStorage.getItem(ADDED_PICKS_KEY);
     const parsed = raw ? JSON.parse(raw) : [];
-    return Array.isArray(parsed) ? parsed : [];
+    const list = Array.isArray(parsed) ? parsed : [];
+    return list.map(p => ({ ...p, units: 1 }));
   } catch {
     return [];
   }
@@ -660,6 +684,17 @@ function parsePickDateLabel(d) {
   return Number.isNaN(dt.getTime()) ? null : dt;
 }
 
+function isTodayPickDateLabel(d) {
+  const dt = parsePickDateLabel(d);
+  if (!dt) return false;
+  const now = new Date();
+  return dt.getMonth() === now.getMonth() && dt.getDate() === now.getDate();
+}
+
+function formatTodayPickDateLabel() {
+  return new Date().toLocaleString('en-US', { month: 'short', day: 'numeric' });
+}
+
 function formatStartLabel(iso) {
   if (!iso) return 'TBD';
   const dt = new Date(iso);
@@ -762,7 +797,7 @@ function renderSearch() {
     const resultLabel = p.result.toUpperCase();
     const plStr = p.result === 'pending' ? '—' : (p.pl >= 0 ? '+' : '') + p.pl + 'u';
     const plClass = p.pl > 0 ? 'positive' : p.pl < 0 ? 'negative' : 'neutral';
-    const uc = p.units >= 3 ? 'units-3' : 'units-1';
+    const uc = 'units-1';
 
     let relatedHTML = '';
     if (related.length) {
@@ -773,7 +808,7 @@ function renderSearch() {
           return `<div class="search-related-item">
             <span class="badge badge-source">${rp.source}</span>
             <span style="flex:1">${rp.pick}</span>
-            <span class="units-cell ${rp.units>=3?'units-3':'units-1'}">${rp.units}u</span>
+            <span class="units-cell units-1">1u</span>
             <span style="font-family:'DM Mono',monospace;font-size:11px">${rp.odds>0?'+':''}${rp.odds}</span>
             <span class="badge ${rb}" style="font-size:9px">${rp.result.toUpperCase()}</span>
           </div>`;
@@ -789,7 +824,7 @@ function renderSearch() {
         <span class="badge ${resultBadge}">${resultLabel}</span>
       </div>
       <div class="search-card-row">
-        <div class="search-card-field"><span class="search-card-field-label">UNITS</span><span class="search-card-field-val ${uc}">${p.units}u</span></div>
+        <div class="search-card-field"><span class="search-card-field-label">UNITS</span><span class="search-card-field-val units-1">1u</span></div>
         <div class="search-card-field"><span class="search-card-field-label">ODDS</span><span class="search-card-field-val">${p.odds>0?'+':''}${p.odds}</span></div>
         <div class="search-card-field"><span class="search-card-field-label">DATE</span><span class="search-card-field-val">${p.date}</span></div>
         <div class="search-card-field"><span class="search-card-field-label">P/L</span><span class="search-card-field-val ${plClass}">${plStr}</span></div>
@@ -813,65 +848,292 @@ function renderSearch() {
 }
 
 // ── Trends ──
-function getTrendKey(pick) {
-  const p = pick.pick;
-  const pm = p.match(/\(([^)]+)\)/);
-  let gk = '';
-  if (pm) {
-    const c = pm[1];
-    if (/\s+(vs|@)\s+/i.test(c)) { gk = c.split(/\s+(?:vs|@)\s+/i).map(t=>t.trim().toUpperCase()).sort().join(':'); }
-    else { gk = c.toUpperCase(); }
+function normalizeTrendTeam(name) {
+  return String(name || '').toUpperCase().replace(/[^A-Z0-9\s]/g, ' ').replace(/\s+/g, ' ').trim();
+}
+
+function canonicalGameKeyFromMatchup(matchupText) {
+  const parts = String(matchupText || '').split(/\s+(?:vs|@)\s+/i).map(s => normalizeTrendTeam(s)).filter(Boolean);
+  if (parts.length !== 2) return normalizeTrendTeam(matchupText);
+  return parts.sort((a, b) => a.localeCompare(b)).join(' vs ');
+}
+
+function formatLine(v) {
+  if (typeof v !== 'number' || Number.isNaN(v)) return 'n/a';
+  const abs = Math.abs(v);
+  const asText = Number.isInteger(abs) ? String(abs) : abs.toFixed(1);
+  const sign = v > 0 ? '+' : '-';
+  return `${sign}${asText}`;
+}
+
+function formatTotal(v) {
+  if (typeof v !== 'number' || Number.isNaN(v)) return 'n/a';
+  return Number.isInteger(v) ? String(v) : v.toFixed(1);
+}
+
+function parseSpreadSignal(pickText) {
+  const head = String(pickText || '').split('(', 1)[0].trim();
+  if (!head || /\b(over|under)\b/i.test(head)) return null;
+  if (/\b1h\b|first half|period/i.test(head)) return null;
+  const m = head.match(/^(.*?)\s*([+-]\d+(?:\.\d+)?)\b/i);
+  if (!m) return null;
+  const team = normalizeTrendTeam(m[1]);
+  const line = parseFloat(m[2]);
+  if (!team || Number.isNaN(line)) return null;
+  return { team, line };
+}
+
+function parseTotalSignal(pickText) {
+  const lower = String(pickText || '').toLowerCase();
+  if (lower.includes('team total') || /\btg\b/.test(lower)) return null;
+  const m = lower.match(/\b(over|under)\s+(\d+(?:\.\d+)?)\b/);
+  if (!m) return null;
+  const side = m[1].toUpperCase();
+  const line = parseFloat(m[2]);
+  if (Number.isNaN(line)) return null;
+  return { side, line };
+}
+
+function parseMoneylineSignal(pickText) {
+  const head = String(pickText || '').split('(', 1)[0].trim();
+  const m = head.match(/^(.*?)\s+ml\b/i);
+  if (!m) return null;
+  const team = normalizeTrendTeam(m[1]);
+  if (!team) return null;
+  return { team, line: null };
+}
+
+const MANUAL_MODEL_SIGNALS = [
+  { source: 'NBA Model v2', sport: 'NBA', matchup: 'Nets @ 76ers', market: 'spread', team: '76ers', line: -6.4, decision: 'BET' },
+  { source: 'NBA Model v2', sport: 'NBA', matchup: 'Nets @ 76ers', market: 'total', side: 'OVER', line: 224.2, decision: 'PASS' },
+  { source: 'NBA Model v2', sport: 'NBA', matchup: 'Bucks @ Hawks', market: 'spread', team: 'Hawks', line: -7.4, decision: 'BET' },
+  { source: 'NBA Model v2', sport: 'NBA', matchup: 'Bucks @ Hawks', market: 'total', side: 'OVER', line: 239.1, decision: 'BET' },
+  { source: 'NBA Model v2', sport: 'NBA', matchup: 'Hornets @ Spurs', market: 'spread', team: 'Spurs', line: -6.3, decision: 'BET' },
+  { source: 'NBA Model v2', sport: 'NBA', matchup: 'Hornets @ Spurs', market: 'total', side: 'OVER', line: 224.3, decision: 'PASS' },
+  { source: 'NBA Model v2', sport: 'NBA', matchup: 'Wizards @ Celtics', market: 'spread', team: 'Celtics', line: -13.5, decision: 'BET' },
+  { source: 'NBA Model v2', sport: 'NBA', matchup: 'Wizards @ Celtics', market: 'total', side: 'OVER', line: 227.9, decision: 'PASS' },
+  { source: 'NBA Model v2', sport: 'NBA', matchup: 'Magic @ Heat', market: 'spread', team: 'Magic', line: 0, decision: 'PASS' },
+  { source: 'NBA Model v2', sport: 'NBA', matchup: 'Magic @ Heat', market: 'total', side: 'OVER', line: 235.5, decision: 'BET' },
+  { source: 'NBA Model v2', sport: 'NBA', matchup: 'Nuggets @ Lakers', market: 'spread', team: 'Lakers', line: -5.2, decision: 'BET' },
+  { source: 'NBA Model v2', sport: 'NBA', matchup: 'Nuggets @ Lakers', market: 'total', side: 'OVER', line: 229.4, decision: 'BET' },
+  { source: 'NBA Model v2', sport: 'NBA', matchup: 'Kings @ Clippers', market: 'spread', team: 'Clippers', line: -13.4, decision: 'BET' },
+  { source: 'NBA Model v2', sport: 'NBA', matchup: 'Kings @ Clippers', market: 'total', side: 'OVER', line: 229.6, decision: 'BET' },
+];
+
+function getManualModelSignalsForToday() {
+  const todayLabel = formatTodayPickDateLabel();
+  return MANUAL_MODEL_SIGNALS.map(sig => ({ ...sig, date: todayLabel }));
+}
+
+function summarizeMarketVotes(votes, marketType) {
+  if (!votes.length) {
+    return {
+      hasSignal: false,
+      tone: 'split',
+      label: 'No actionable signal',
+      detail: 'No source has a live bet here.',
+      sourceList: [],
+      consensusCount: 0,
+      totalVotes: 0,
+      lineRange: null,
+    };
   }
-  const lower = p.toLowerCase();
-  let dir;
-  if (lower.match(/\bover\b/)) dir = 'OVER';
-  else if (lower.match(/\bunder\b/)) dir = 'UNDER';
-  else {
-    const tm = p.replace(/\s*(ML|PL|Money Line|Puck Line|Run Line|Straight Sets|1H).*$/i,'')
-                .replace(/\s*[\-\+]?\s*\d[\d\.]*\s*$/,'').replace(/\s*\(.*$/,'').trim().toUpperCase();
-    dir = tm || 'PICK';
+
+  const groups = {};
+  votes.forEach(v => {
+    const key = marketType === 'total' ? v.side : v.team;
+    if (!groups[key]) groups[key] = { votes: [], lines: [], sources: new Set() };
+    groups[key].votes.push(v);
+    if (typeof v.line === 'number' && !Number.isNaN(v.line)) groups[key].lines.push(v.line);
+    groups[key].sources.add(v.source);
+  });
+
+  const ranked = Object.entries(groups)
+    .map(([key, g]) => ({ key, count: g.votes.length, lines: g.lines, sources: [...g.sources] }))
+    .sort((a, b) => b.count - a.count);
+
+  const top = ranked[0];
+  const totalVotes = votes.length;
+  const lineMin = top.lines.length ? Math.min(...top.lines) : null;
+  const lineMax = top.lines.length ? Math.max(...top.lines) : null;
+  const lineRange = lineMin != null && lineMax != null ? Math.abs(lineMax - lineMin) : null;
+  const tone = top.count >= 3 ? 'strong' : top.count === 2 ? 'lean' : 'split';
+
+  let label = '';
+  if (marketType !== 'total') {
+    if (lineMin != null && lineMax != null) {
+      const lineText = lineMin === lineMax ? formatLine(lineMin) : `${formatLine(lineMin)} to ${formatLine(lineMax)}`;
+      label = `${top.key} ${lineText}`;
+    } else {
+      label = top.key;
+    }
+  } else {
+    if (lineMin != null && lineMax != null) {
+      const totalText = lineMin === lineMax ? formatTotal(lineMin) : `${formatTotal(lineMin)} to ${formatTotal(lineMax)}`;
+      label = `${top.key} ${totalText}`;
+    } else {
+      label = top.key;
+    }
   }
-  return `${dir}||${gk}`;
+
+  const disagreeCount = totalVotes - top.count;
+  const detail = disagreeCount > 0
+    ? `${top.count}/${totalVotes} sources align, ${disagreeCount} disagree.`
+    : `${top.count}/${totalVotes} sources align.`;
+
+  return {
+    hasSignal: true,
+    tone,
+    label,
+    detail,
+    sourceList: top.sources,
+    consensusCount: top.count,
+    totalVotes,
+    lineRange,
+  };
+}
+
+function buildMarketBlock(title, summary, passCount) {
+  const toneClass = summary.tone;
+  const passText = passCount ? ` ${passCount} source${passCount !== 1 ? 's' : ''} passed.` : '';
+  return `<div class="trend-market">
+    <div class="trend-market-row">
+      <div class="trend-market-label">${title}</div>
+      <div class="trend-market-signal">${summary.label}</div>
+    </div>
+    <div class="trend-market-detail">${summary.detail}${passText}</div>
+    <div class="trend-source-row">${summary.sourceList.map(s => `<span class="trend-source-pill">${s}</span>`).join('')}</div>
+    <div class="trend-strength-pill ${toneClass}" style="margin-top:8px;display:inline-block">${toneClass.toUpperCase()}</div>
+  </div>`;
 }
 
 function renderTrends() {
-  const picks = getPicks();
-  const bySport = {};
-  picks.forEach(p => { if(!bySport[p.sport]) bySport[p.sport]=[]; bySport[p.sport].push(p); });
-
+  const todayLabel = formatTodayPickDateLabel();
   const container = document.getElementById('trends-container');
-  const order = ['NHL','MLB','NBA','EPL','WBC','Other'];
-  const sportKeys = order.filter(s=>bySport[s]);
+  const includedSports = new Set(['NBA', 'MLB']);
+  const picks = getPicks().filter(p => p.result === 'pending' && isTodayPickDateLabel(p.date) && includedSports.has(p.sport));
 
-  if (!sportKeys.length) { container.innerHTML = '<div class="empty-state">No picks logged yet</div>'; return; }
+  if (!picks.length) {
+    container.innerHTML = `<div class="empty-state">No pending NBA/MLB trends for ${todayLabel}</div>`;
+    return;
+  }
 
-  container.innerHTML = sportKeys.map(sport => {
-    const sp = bySport[sport];
-    const groups = {};
-    sp.forEach(p => {
-      const key = getTrendKey(p);
-      if (!groups[key]) groups[key] = { picks:[], sources:new Set(), display:'' };
-      groups[key].picks.push(p);
-      groups[key].sources.add(p.source);
-      if (!groups[key].display) groups[key].display = p.pick;
-    });
-    const sorted = Object.values(groups).map(g=>({...g, count:g.sources.size, sourceList:[...g.sources]})).sort((a,b)=>b.count-a.count);
-    const top = sorted.slice(0, 5);
+  const gameMap = {};
+  picks.forEach(p => {
+    const gameLabel = extractGameKey(p.pick);
+    if (!gameLabel) return;
+    const gameKey = `${p.sport}::${canonicalGameKeyFromMatchup(gameLabel)}`;
+    if (!gameMap[gameKey]) {
+      gameMap[gameKey] = {
+        sport: p.sport,
+        gameLabel,
+        picks: [],
+        sources: new Set(),
+        sideVotes: [],
+        totalVotes: [],
+        sidePasses: 0,
+        totalPasses: 0,
+      };
+    }
 
-    return `<div class="trend-league">
-      <div class="trend-league-title">${sport} <span class="trend-league-count">${sp.length} picks across ${new Set(sp.map(p=>p.source)).size} sources</span></div>
-      ${top.map(t => {
-        const heat = t.count>=3?'hot':t.count===2?'warm':'solo';
-        return `<div class="trend-card">
-          <div class="trend-count ${heat}">${t.count}</div>
-          <div class="trend-body">
-            <div class="trend-pick-text">${t.display}</div>
-            <div class="trend-sources">${t.sourceList.map(s=>`<span class="trend-source-pill">${s}</span>`).join('')}</div>
-          </div>
-        </div>`;
-      }).join('')}
-    </div>`;
-  }).join('');
+    gameMap[gameKey].picks.push(p);
+    gameMap[gameKey].sources.add(p.source);
+    const spread = parseSpreadSignal(p.pick);
+    const moneyline = spread ? null : parseMoneylineSignal(p.pick);
+    if (spread) gameMap[gameKey].sideVotes.push({ source: p.source, ...spread });
+    if (moneyline) gameMap[gameKey].sideVotes.push({ source: p.source, ...moneyline });
+    const total = parseTotalSignal(p.pick);
+    if (total) gameMap[gameKey].totalVotes.push({ source: p.source, ...total });
+  });
+
+  const manualSignals = getManualModelSignalsForToday().filter(sig => includedSports.has(sig.sport));
+  manualSignals.forEach(sig => {
+    const gameKey = `${sig.sport}::${canonicalGameKeyFromMatchup(sig.matchup)}`;
+    if (!gameMap[gameKey]) {
+      gameMap[gameKey] = {
+        sport: sig.sport,
+        gameLabel: sig.matchup.replace(/\s*@\s*/g, ' vs '),
+        picks: [],
+        sources: new Set(),
+        sideVotes: [],
+        totalVotes: [],
+        sidePasses: 0,
+        totalPasses: 0,
+      };
+    }
+    gameMap[gameKey].sources.add(sig.source);
+    if (sig.market === 'spread') {
+      if (sig.decision === 'BET') gameMap[gameKey].sideVotes.push({ source: sig.source, team: normalizeTrendTeam(sig.team), line: sig.line });
+      else gameMap[gameKey].sidePasses += 1;
+    }
+    if (sig.market === 'side') {
+      if (sig.decision === 'BET') gameMap[gameKey].sideVotes.push({ source: sig.source, team: normalizeTrendTeam(sig.team), line: sig.line ?? null });
+      else gameMap[gameKey].sidePasses += 1;
+    }
+    if (sig.market === 'total') {
+      if (sig.decision === 'BET') gameMap[gameKey].totalVotes.push({ source: sig.source, side: sig.side, line: sig.line });
+      else gameMap[gameKey].totalPasses += 1;
+    }
+  });
+
+  const games = Object.values(gameMap).map(g => {
+    const sideSummary = summarizeMarketVotes(g.sideVotes, 'side');
+    const totalSummary = summarizeMarketVotes(g.totalVotes, 'total');
+    const strongSignals = [sideSummary, totalSummary].filter(s => s.consensusCount >= 3).length;
+    const splitSignals = [sideSummary, totalSummary].filter(s => s.tone === 'split' && s.totalVotes >= 2).length;
+    const cardTone = strongSignals > 0 ? 'strong' : splitSignals > 0 ? 'split' : 'lean';
+    const threeWay = [sideSummary, totalSummary].some(s => s.consensusCount >= 3 && s.consensusCount === s.totalVotes);
+    return { ...g, sideSummary, totalSummary, strongSignals, splitSignals, cardTone, threeWay };
+  }).sort((a, b) => {
+    if (a.sport !== b.sport) return a.sport.localeCompare(b.sport);
+    if (b.strongSignals !== a.strongSignals) return b.strongSignals - a.strongSignals;
+    if (a.splitSignals !== b.splitSignals) return a.splitSignals - b.splitSignals;
+    return a.gameLabel.localeCompare(b.gameLabel);
+  });
+
+  const bySport = games.reduce((acc, g) => {
+    if (!acc[g.sport]) acc[g.sport] = [];
+    acc[g.sport].push(g);
+    return acc;
+  }, {});
+
+  const fullConsensus = games.filter(g => g.threeWay).length;
+  const conflictGames = games.filter(g => g.splitSignals > 0).length;
+  const strongGames = games.filter(g => g.strongSignals > 0).length;
+
+  container.innerHTML = `
+    <div class="trend-head">
+      <div class="trend-title">Consensus Radar</div>
+      <div class="trend-subtitle">${todayLabel} only • Sports: NBA + MLB • Sources blended with manual model sheet</div>
+    </div>
+    <div class="trend-summary-grid">
+      <div class="trend-summary-box"><div class="trend-summary-val">${games.length}</div><div class="trend-summary-label">GAMES TRACKED</div></div>
+      <div class="trend-summary-box"><div class="trend-summary-val">${strongGames}</div><div class="trend-summary-label">STRONG SPOTS</div></div>
+      <div class="trend-summary-box"><div class="trend-summary-val">${fullConsensus}</div><div class="trend-summary-label">3-WAY AGREEMENTS</div></div>
+      <div class="trend-summary-box"><div class="trend-summary-val">${conflictGames}</div><div class="trend-summary-label">CONFLICT GAMES</div></div>
+    </div>
+    ${Object.entries(bySport).map(([sport, sportGames]) => `
+      <div class="trend-sport-section">
+        <div class="trend-sport-title">${sport}</div>
+        <div class="trend-sport-meta">${sportGames.length} games with pending signals</div>
+        <div class="trend-board">
+          ${sportGames.map(g => `
+            <div class="trend-game-card ${g.cardTone}">
+              <div class="trend-game-head">
+                <div>
+                  <div class="trend-game-name">${g.gameLabel}</div>
+                  <div class="trend-game-meta">${g.sources.size} sources active</div>
+                </div>
+                <div class="trend-strength-pill ${g.cardTone}">${g.cardTone === 'strong' ? 'HIGH ALIGNMENT' : g.cardTone === 'split' ? 'MIXED SIGNALS' : 'LEAN'}</div>
+              </div>
+              ${buildMarketBlock('SIDE', g.sideSummary, g.sidePasses)}
+              ${buildMarketBlock('TOTAL', g.totalSummary, g.totalPasses)}
+            </div>
+          `).join('')}
+        </div>
+      </div>
+    `).join('')}
+  `;
 }
 
 // ── Render ──
@@ -1015,7 +1277,7 @@ function render() {
 
     const pc=p.pl>0?'positive':p.pl<0?'negative':'neutral';
     const ps=p.result==='pending'?'&mdash;':(p.pl>=0?'+':'')+p.pl+'u';
-    const uc=p.units>=3?'units-3':'units-1';
+    const uc='units-1';
     const res=`<select class="result-select" onchange="setResult(${p.id},this.value)">
       <option value="pending" ${p.result==='pending'?'selected':''}>PENDING</option>
       <option value="win" ${p.result==='win'?'selected':''}>WIN</option>
@@ -1023,7 +1285,7 @@ function render() {
       <option value="push" ${p.result==='push'?'selected':''}>PUSH</option>
       <option value="delete">DELETE</option></select>`;
       rows.push(`<tr>
-      <td class="units-cell ${uc}">${p.units}u</td>
+      <td class="units-cell units-1">1u</td>
       <td style="font-family:'DM Mono',monospace;font-size:11px;color:var(--muted)">${p.date}</td>
       <td><span class="badge badge-source">${p.source}</span></td>
       <td>${p.pick}</td>
@@ -1069,7 +1331,6 @@ function toggleTheme() {
 }
 
 // ── Models Tab ──
-const MODEL_SERVER = 'http://127.0.0.1:8765';
 let pendingModelPicks = [];
 
 function setModelStatus(model, msg, state) {
@@ -1227,10 +1488,23 @@ function _extractPickSide(pickText) {
   return head.replace(/\s*[+-]?\d+(\.\d+)?\s*$/, '').replace(/\s+ml$/, '').trim();
 }
 
+function _marketKey(pickText) {
+  // Canonical market key used for fuzzy duplicate checks.
+  const head = pickText
+    .split('(')[0]
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, ' ')
+    .replace(/[\u2013\u2014]/g, '-')
+    .replace(/\s+ml$/, '');
+  return head;
+}
+
 function _isDuplicatePick(existingPick, newPick, dateStr) {
   // Same source, same date is the first filter
   if (existingPick.source !== newPick.source) return false;
   if (existingPick.date !== dateStr) return false;
+  if (String(existingPick.sport || '').toUpperCase() !== String(newPick.sport || '').toUpperCase()) return false;
 
   // Exact text match
   if (existingPick.pick === newPick.pick) return true;
@@ -1243,10 +1517,8 @@ function _isDuplicatePick(existingPick, newPick, dateStr) {
   // Same game? (teams match regardless of order)
   if (existTeams[0] !== newTeams[0] || existTeams[1] !== newTeams[1]) return false;
 
-  // Same side of the bet?
-  const existSide = _extractPickSide(existingPick.pick);
-  const newSide = _extractPickSide(newPick.pick);
-  return existSide === newSide;
+  // Same market for the same game?
+  return _marketKey(existingPick.pick) === _marketKey(newPick.pick);
 }
 
 function toggleAllModelPicks(checked) {
@@ -1272,8 +1544,10 @@ function _appendModelPicksToLedger(candidates) {
   const today = new Date();
   const dateStr = today.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
   const existingAdded = getAddedPicks();
-  const allCurrent = [...PICKS, ...existingAdded];
-  const maxId = allCurrent.reduce((m, p) => Math.max(m, Number(p.id) || 0), 0);
+  // Respect deleted IDs when checking duplicates, but keep max ID monotonic.
+  const activeLedgerPicks = getAllLedgerPicks();
+  const allKnownPicks = [...PICKS, ...existingAdded];
+  const maxId = allKnownPicks.reduce((m, p) => Math.max(m, Number(p.id) || 0), 0);
 
   let added = 0;
   let skippedDuplicates = 0;
@@ -1292,7 +1566,7 @@ function _appendModelPicksToLedger(candidates) {
       odds: Number(p.odds) || -110,
     };
 
-    const isDup = [...allCurrent, ...newEntries].some(ep => _isDuplicatePick(ep, shaped, dateStr));
+    const isDup = [...activeLedgerPicks, ...newEntries].some(ep => _isDuplicatePick(ep, shaped, dateStr));
     if (isDup) {
       skippedDuplicates++;
       return;

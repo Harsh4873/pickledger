@@ -17,16 +17,21 @@ import json
 import os
 import re
 import subprocess
+import sys
 import threading
 import uuid
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from typing import Any
 from urllib.error import URLError, HTTPError
 from urllib.request import Request, urlopen
 
-HOST = "127.0.0.1"
-PORT = 8765
+HOST = os.environ.get("HOST", "0.0.0.0")
+try:
+    PORT = int(os.environ.get("PORT", "8765"))
+except ValueError:
+    PORT = 8765
 
 SPORT_TO_ESPNSLUG = {
     "NBA": ("basketball", "nba"),
@@ -196,7 +201,10 @@ def grade_pick(pick: dict[str, Any], game: dict[str, Any]) -> str:
 
     # Full-game totals (Over/Under X)
     m_total = re.search(r"\b(over|under)\s+(\d+(?:\.\d+)?)\b", lower)
-    if m_total and "team total" not in lower and not lower.endswith(" tg"):
+    # Skip if "team total" or team-prefixed TG (e.g. "senators over 3 tg"),
+    # but allow game-level TG (e.g. "over 5.5 tg" where over/under is first word)
+    has_team_tg = lower.endswith(" tg") and not re.match(r"^(over|under)\b", lower)
+    if m_total and "team total" not in lower and not has_team_tg:
         side = m_total.group(1)
         line = float(m_total.group(2))
         if total_points == line:
@@ -398,6 +406,13 @@ def _run_script(python_bin: str, script: str, cwd: str, timeout: int = 300, extr
         timeout=timeout,
     )
     return result.stdout + result.stderr
+
+
+def _resolve_python_bin(preferred_path: str) -> str:
+    """Use model-specific venv if present; otherwise use current interpreter."""
+    if os.path.exists(preferred_path):
+        return preferred_path
+    return sys.executable
 
 
 def _parse_nba_output(output: str) -> list[dict[str, Any]]:
@@ -691,6 +706,103 @@ def _parse_mlb_output(output: str) -> list[dict[str, Any]]:
     return picks
 
 
+# ── Scores24 tip cleaning helpers ──────────────────────────────
+
+_MULTI_WORD_NICKNAMES = {
+    "trail blazers", "red sox", "white sox", "blue jays", "maple leafs",
+}
+
+
+def _shorten_team(full_name: str) -> str:
+    """'Philadelphia 76ers' → '76ers', 'Toronto Maple Leafs' → 'Maple Leafs'."""
+    parts = full_name.strip().split()
+    if len(parts) <= 1:
+        return full_name.strip()
+    last_two = " ".join(parts[-2:])
+    if last_two.lower() in _MULTI_WORD_NICKNAMES:
+        return last_two
+    return parts[-1]
+
+
+def _clean_scores24_pick(tip: str, matchup: str, sport: str) -> str:
+    """Convert raw Scores24 tip into clean format matching NBA/MLB model picks."""
+    # Strip "at odds of ..." suffix from tip
+    tip_clean = re.sub(r"\s*at odds of\s*[^\)]*\*?\s*$", "", tip).strip()
+
+    # Build shortened matchup
+    teams = matchup.split(" vs ")
+    home = teams[0].strip() if len(teams) > 0 else ""
+    away = teams[1].strip() if len(teams) > 1 else ""
+    home_short = _shorten_team(home)
+    away_short = _shorten_team(away)
+    matchup_short = f"{home_short} vs {away_short}"
+
+    # ── Pattern: "<Team> Handicap (<spread>)" ──
+    m = re.match(r"^(.+?)\s+Handicap\s*\(([+-]?\d+\.?\d*)\)", tip_clean, re.IGNORECASE)
+    if m:
+        team = _shorten_team(m.group(1))
+        spread = m.group(2)
+        if not spread.startswith(("+", "-")):
+            spread = "+" + spread
+        return f"{team} {spread} ({matchup_short})"
+
+    # ── Pattern: "<Team> Total goals/points Over/Under (<value>)" (team total) ──
+    m = re.match(
+        r"^(.+?)\s+Total\s+(goals|points)\s+(Over|Under)\s*\((\d+\.?\d*)\)",
+        tip_clean, re.IGNORECASE,
+    )
+    if m:
+        team = _shorten_team(m.group(1))
+        kind = m.group(2).lower()
+        direction = m.group(3)
+        value = m.group(4)
+        suffix = " TG" if kind == "goals" else ""
+        return f"{team} {direction} {value}{suffix} ({matchup_short})"
+
+    # ── Pattern: "Total goals/points Over/Under (<value>)" (game total) ──
+    m = re.match(
+        r"^Total\s+(goals|points)\s+(Over|Under)\s*\((\d+\.?\d*)\)",
+        tip_clean, re.IGNORECASE,
+    )
+    if m:
+        kind = m.group(1).lower()
+        direction = m.group(2)
+        value = m.group(3)
+        suffix = " TG" if kind == "goals" else ""
+        return f"{direction} {value}{suffix} ({matchup_short})"
+
+    # ── Pattern: "Both Teams To Score (Yes/No)" with optional period prefix ──
+    m = re.match(
+        r"^(?:.*?,\s*)?Both\s+Teams?\s+To\s+Score\s*\((Yes|No)\)",
+        tip_clean, re.IGNORECASE,
+    )
+    if m:
+        answer = m.group(1)
+        return f"BTTS {answer} ({matchup_short})"
+
+    # ── Pattern: "<Team> to win" → moneyline ──
+    m = re.match(r"^(.+?)\s+to\s+win$", tip_clean, re.IGNORECASE)
+    if m:
+        team = _shorten_team(m.group(1))
+        return f"{team} ML ({matchup_short})"
+
+    # ── Pattern: "<Team> ML" ──
+    m = re.match(r"^(.+?)\s+ML$", tip_clean, re.IGNORECASE)
+    if m:
+        team = _shorten_team(m.group(1))
+        return f"{team} ML ({matchup_short})"
+
+    # ── Pattern: "Over/Under (<value>)" (generic total) ──
+    m = re.match(r"^(Over|Under)\s*\((\d+\.?\d*)\)", tip_clean, re.IGNORECASE)
+    if m:
+        direction = m.group(1)
+        value = m.group(2)
+        return f"{direction} {value} ({matchup_short})"
+
+    # ── Fallback: cleaned tip + shortened matchup ──
+    return f"{tip_clean} ({matchup_short})"
+
+
 def _parse_scores24_output(output: str) -> list[dict[str, Any]]:
     """Parse Scores24 scraper stdout into pick dicts."""
     picks: list[dict[str, Any]] = []
@@ -718,24 +830,39 @@ def _parse_scores24_output(output: str) -> list[dict[str, Any]]:
         confidence = conf_m.group(1).strip() if conf_m else ""
         league = league_m.group(1).strip().upper() if league_m else ""
 
-        # Map league to sport code
+        # Map league to display sport tag conservatively.
+        # Only classify as major leagues on strong exact matches; otherwise
+        # keep the extracted league text (or broad sport bucket) to avoid
+        # incorrectly labeling other leagues as NBA/NHL/MLB.
+        league_norm = re.sub(r"\s+", " ", league).strip().upper()
         sport = "Other"
-        if "NBA" in league or "BASKETBALL" in league:
-            sport = "NBA"
-        elif "NHL" in league or "ICE-HOCKEY" in league or "HOCKEY" in league:
-            sport = "NHL"
-        elif "MLB" in league or "BASEBALL" in league:
-            sport = "MLB"
-        elif "PREMIER" in league or "EPL" in league or "SOCCER" in league:
-            sport = "EPL"
 
-        # Parse odds to numeric
+        if league_norm in {"NBA", "NATIONAL BASKETBALL ASSOCIATION"}:
+            sport = "NBA"
+        elif league_norm in {"NHL", "NATIONAL HOCKEY LEAGUE"}:
+            sport = "NHL"
+        elif league_norm in {"MLB", "MAJOR LEAGUE BASEBALL"}:
+            sport = "MLB"
+        elif league_norm in {"EPL", "ENGLISH PREMIER LEAGUE", "PREMIER LEAGUE"}:
+            sport = "EPL"
+        elif league_norm:
+            sport = league_norm
+
+        # Parse odds from Odds: field
         odds_val = -110
         if odds_str and odds_str != "[not found on page]":
             try:
-                odds_val = int(float(odds_str.replace("+", "")))
+                odds_val = int(float(odds_str.replace("+", "").replace("*", "")))
             except ValueError:
                 odds_val = -110
+
+        # Extract odds embedded in tip text (e.g. "at odds of -204*")
+        tip_odds_m = re.search(r"at odds of ([+-]?\d+)\*?", tip)
+        if tip_odds_m:
+            try:
+                odds_val = int(tip_odds_m.group(1))
+            except ValueError:
+                pass
 
         # Parse confidence to float
         conf_val = None
@@ -744,15 +871,15 @@ def _parse_scores24_output(output: str) -> list[dict[str, Any]]:
             if conf_num:
                 conf_val = int(conf_num.group(1))
 
-        # Build pick text: "Tip (Matchup)"
-        pick_text = f"{tip} ({matchup})"
+        # Clean the tip and build proper pick text
+        pick_text = _clean_scores24_pick(tip, matchup, sport)
 
         picks.append({
             "source": "Scores24",
             "pick": pick_text,
             "sport": sport,
             "odds": odds_val,
-            "units": 3 if conf_val and conf_val >= 80 else 1,
+            "units": 1,
             "probability": conf_val / 100 if conf_val else None,
             "edge": None,
             "decision": "BET",  # All Scores24 tips are presented as BET
@@ -763,9 +890,7 @@ def _parse_scores24_output(output: str) -> list[dict[str, Any]]:
 
 def run_nba_model(date_str: str | None = None) -> dict[str, Any]:
     """Execute the NBA model and return parsed picks."""
-    python_bin = os.path.join(NBA_MODEL_DIR, "venv", "bin", "python")
-    if not os.path.exists(python_bin):
-        return {"ok": False, "error": f"NBA venv not found at {python_bin}"}
+    python_bin = _resolve_python_bin(os.path.join(NBA_MODEL_DIR, "venv", "bin", "python"))
 
     try:
         output = _run_script(python_bin, "run_live.py", NBA_MODEL_DIR, timeout=300)
@@ -779,9 +904,7 @@ def run_nba_model(date_str: str | None = None) -> dict[str, Any]:
 
 def run_mlb_model(date_str: str | None = None) -> dict[str, Any]:
     """Execute the MLB model and return parsed picks."""
-    python_bin = os.path.join(MLB_MODEL_DIR, "venv", "bin", "python")
-    if not os.path.exists(python_bin):
-        return {"ok": False, "error": f"MLB venv not found at {python_bin}"}
+    python_bin = _resolve_python_bin(os.path.join(MLB_MODEL_DIR, "venv", "bin", "python"))
 
     extra = []
     if date_str:
@@ -799,49 +922,70 @@ def run_mlb_model(date_str: str | None = None) -> dict[str, Any]:
 
 def run_scores24_scraper(sports: list[str]) -> dict[str, Any]:
     """Execute the Scores24 scraper for selected sports."""
-    if not os.path.exists(SCORES24_VENV):
-        return {"ok": False, "error": f"Scores24 venv not found at {SCORES24_VENV}"}
+    python_bin = _resolve_python_bin(SCORES24_VENV)
 
     sport_map = {
         "nba": "basketball",
         "nhl": "ice-hockey",
         "mlb": "baseball",
+        "epl": "soccer",
     }
 
+    selected = [str(s).lower().strip() for s in sports if str(s).strip()]
+    if not selected:
+        selected = ["nba"]
+
     all_picks: list[dict[str, Any]] = []
+    errors: list[str] = []
     today_str = datetime.now().strftime("%Y-%m-%d")
     scraper_path = os.path.join(BASE_DIR, "scores24_scraper.py")
+    if not os.path.exists(scraper_path):
+        return {"ok": False, "error": f"scores24 scraper not found at {scraper_path}"}
 
-    for sport_code in sports:
+    def _run_one_sport(sport_code: str) -> tuple[str, list[dict[str, Any]], str | None]:
         sport_slug = sport_map.get(sport_code)
         if not sport_slug:
-            continue
+            return sport_code, [], f"Unsupported sport code: {sport_code}"
+
+        timeout_s = 240 if sport_code == "epl" else 120
 
         try:
             result = subprocess.run(
-                [SCORES24_VENV, scraper_path, "--sport", sport_slug, "--date", today_str],
+                [python_bin, scraper_path, "--sport", sport_slug, "--date", today_str],
                 cwd=BASE_DIR,
                 capture_output=True,
                 text=True,
-                timeout=180,
+                timeout=timeout_s,
             )
-            output = result.stdout + result.stderr
+            output = (result.stdout or "") + (result.stderr or "")
             picks = _parse_scores24_output(output)
-            # Override sport code from scraper to match our system
-            for p in picks:
-                if sport_code == "nba":
-                    p["sport"] = "NBA"
-                elif sport_code == "nhl":
-                    p["sport"] = "NHL"
-                elif sport_code == "mlb":
-                    p["sport"] = "MLB"
-            all_picks.extend(picks)
-        except subprocess.TimeoutExpired:
-            continue
-        except Exception:
-            continue
 
-    return {"ok": True, "picks": all_picks}
+            if result.returncode != 0 and not picks:
+                tail = " | ".join((output.strip().splitlines() or ["no output"])[-3:])
+                return sport_code, [], f"{sport_code}: scraper exited {result.returncode} ({tail})"
+
+            return sport_code, picks, None
+        except subprocess.TimeoutExpired:
+            return sport_code, [], f"{sport_code}: timed out after {timeout_s}s"
+        except Exception as exc:
+            return sport_code, [], f"{sport_code}: {exc}"
+
+    # Run selected sports in parallel so one slow league doesn't block all others.
+    max_workers = max(1, min(len(selected), 4))
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        futures = [executor.submit(_run_one_sport, sport_code) for sport_code in selected]
+        for future in as_completed(futures):
+            sport_code, picks, err = future.result()
+            if err:
+                errors.append(err)
+            if picks:
+                all_picks.extend(picks)
+
+    # If everything failed, surface why instead of silently returning 0 picks.
+    if not all_picks and errors:
+        return {"ok": False, "error": "; ".join(errors[:4])}
+
+    return {"ok": True, "picks": all_picks, "errors": errors}
 
 
 def _launch_job(target_fn, *args) -> str:
@@ -876,6 +1020,10 @@ class Handler(BaseHTTPRequestHandler):
         self._send_json(200, {"ok": True})
 
     def do_GET(self) -> None:  # noqa: N802
+        if self.path == "/health":
+            self._send_json(200, {"ok": True, "status": "healthy"})
+            return
+
         # Poll job status: GET /job-status?id=<job_id>
         if self.path.startswith("/job-status"):
             from urllib.parse import urlparse, parse_qs
@@ -941,7 +1089,7 @@ class Handler(BaseHTTPRequestHandler):
                 self._send_json(200, result)
 
         elif self.path == "/run-scores24":
-            sports = body.get("sports", ["nba", "nhl", "mlb"])
+            sports = body.get("sports", ["nba", "nhl", "mlb", "epl"])
             if async_mode:
                 job_id = _launch_job(run_scores24_scraper, sports)
                 self._send_json(200, {"ok": True, "job_id": job_id, "status": "running"})
