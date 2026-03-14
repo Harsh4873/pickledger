@@ -894,7 +894,17 @@ def run_nba_model(date_str: str | None = None) -> dict[str, Any]:
 
     try:
         output = _run_script(python_bin, "run_live.py", NBA_MODEL_DIR, timeout=300)
+        if "Traceback (most recent call last)" in output or "ModuleNotFoundError" in output:
+            tail = " | ".join((output.strip().splitlines() or ["no output"])[-12:])
+            return {"ok": False, "error": f"NBA model runtime failed ({tail})"}
+
         picks = _parse_nba_output(output)
+        if not picks:
+            if "No games found for today." in output:
+                return {"ok": True, "picks": [], "raw_lines": len(output.split("\n")), "note": "No NBA games found today"}
+            tail = " | ".join((output.strip().splitlines() or ["no output"])[-12:])
+            return {"ok": False, "error": f"NBA parser found no predictions ({tail})", "raw_lines": len(output.split("\n"))}
+
         return {"ok": True, "picks": picks, "raw_lines": len(output.split("\n"))}
     except subprocess.TimeoutExpired:
         return {"ok": False, "error": "NBA model timed out (5 min limit)"}
