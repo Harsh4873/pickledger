@@ -1,0 +1,1363 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PickLedger</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #080b0f; --surface: #0e1318; --card: #131920; --border: #1e2932;
+    --accent: #00e5a0; --accent3: #4da6ff; --gold: #ffd700;
+    --text: #e8edf2; --muted: #5a7085; --danger: #ff4560;
+    --win: #00e5a0; --loss: #ff4560; --push: #ffd700;
+    --grid-line: rgba(0,229,160,0.03);
+  }
+  body[data-theme="light"] {
+    --bg: #f0f4f8; --surface: #ffffff; --card: #ffffff; --border: #d4dfe9;
+    --accent: #00a870; --accent3: #2d8ae8; --gold: #b08800;
+    --text: #0f1923; --muted: #7a92a8; --danger: #e5304f;
+    --win: #00a870; --loss: #e5304f; --push: #b08800;
+    --grid-line: rgba(0,168,112,0.06);
+  }
+
+  body { background: var(--bg); color: var(--text); font-family: 'DM Sans', sans-serif; min-height: 100vh; overflow-x: hidden; transition: background-color 0.3s, color 0.3s; }
+  body::before { content: ''; position: fixed; inset: 0; background-image: linear-gradient(var(--grid-line) 1px, transparent 1px), linear-gradient(90deg, var(--grid-line) 1px, transparent 1px); background-size: 40px 40px; pointer-events: none; z-index: 0; }
+  .container { position: relative; z-index: 1; max-width: 1400px; margin: 0 auto; padding: 24px 20px; }
+
+  /* Header */
+  header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 0; padding-bottom: 20px; border-bottom: 1px solid var(--border); transition: border-color 0.3s; }
+  .logo-title { font-family: 'Bebas Neue', sans-serif; font-size: 42px; letter-spacing: 3px; line-height: 1; background: linear-gradient(135deg, var(--accent) 0%, var(--accent3) 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+  .logo-sub { font-family: 'DM Mono', monospace; font-size: 11px; color: var(--muted); letter-spacing: 2px; margin-top: 4px; }
+  .header-right { display: flex; flex-direction: column; align-items: flex-end; gap: 8px; }
+  .header-controls { display: flex; align-items: center; gap: 8px; }
+  .header-stat-val { font-family: 'Bebas Neue', sans-serif; font-size: 32px; color: var(--accent); text-align: right; }
+  .header-stat-label { font-size: 11px; color: var(--muted); letter-spacing: 1px; text-align: right; }
+
+  /* Theme toggle */
+  .theme-toggle { display: flex; align-items: center; gap: 7px; background: var(--card); border: 1px solid var(--border); border-radius: 20px; padding: 5px 10px 5px 8px; cursor: pointer; transition: border-color 0.2s, background-color 0.3s; user-select: none; }
+  .theme-toggle:hover { border-color: var(--accent); }
+  .refresh-btn { background: var(--card); border: 1px solid var(--border); border-radius: 20px; padding: 6px 12px; color: var(--muted); font-family: 'DM Mono', monospace; font-size: 10px; letter-spacing: 1px; cursor: pointer; transition: border-color 0.2s, color 0.2s, opacity 0.2s; }
+  .refresh-btn:hover { border-color: var(--accent); color: var(--text); }
+  .refresh-btn:disabled { opacity: 0.65; cursor: wait; }
+  .refresh-status { font-family: 'DM Mono', monospace; font-size: 10px; letter-spacing: 0.5px; color: var(--muted); text-align: right; min-height: 14px; }
+  .refresh-status.error { color: var(--danger); }
+  .refresh-status.ok { color: var(--accent3); }
+  .toggle-icon { font-size: 12px; line-height: 1; }
+  .toggle-label { font-family: 'DM Mono', monospace; font-size: 10px; letter-spacing: 1px; color: var(--muted); min-width: 32px; }
+  .toggle-track { width: 34px; height: 18px; background: var(--border); border-radius: 9px; position: relative; flex-shrink: 0; transition: background-color 0.3s; }
+  body[data-theme="light"] .toggle-track { background: var(--accent); }
+  .toggle-thumb { width: 12px; height: 12px; background: var(--muted); border-radius: 50%; position: absolute; top: 3px; left: 3px; transition: transform 0.3s cubic-bezier(0.34,1.56,0.64,1), background-color 0.3s; }
+  body[data-theme="light"] .toggle-thumb { transform: translateX(16px); background: #fff; }
+
+  /* Tabs */
+  .tabs { display: flex; gap: 0; margin: 0 0 28px 0; border-bottom: 2px solid var(--border); }
+  .tab { background: none; border: none; padding: 14px 28px; font-family: 'Bebas Neue', sans-serif; font-size: 17px; letter-spacing: 2px; color: var(--muted); cursor: pointer; position: relative; transition: color 0.2s; }
+  .tab:hover { color: var(--text); }
+  .tab.active { color: var(--accent); }
+  .tab.active::after { content: ''; position: absolute; bottom: -2px; left: 0; right: 0; height: 2px; background: var(--accent); }
+  .tab-content { display: none; }
+  .tab-content.active { display: block; }
+
+  /* Filter pills */
+  .filter-bar { display: flex; gap: 6px; margin-bottom: 20px; flex-wrap: wrap; align-items: center; position: relative; }
+  .filter-btn { background: var(--surface); border: 1px solid var(--border); border-radius: 6px; color: var(--muted); padding: 5px 12px; font-family: 'DM Mono', monospace; font-size: 11px; letter-spacing: 0.5px; cursor: pointer; transition: all 0.2s; }
+  .filter-btn:hover { border-color: var(--accent); color: var(--text); }
+  .filter-btn.active { background: var(--accent); color: #000; border-color: var(--accent); font-weight: 500; }
+  .filter-more-wrap { position: relative; display: inline-block; }
+  .filter-more-btn { width: 30px; height: 30px; border-radius: 50%; background: var(--surface); border: 1px solid var(--border); color: var(--muted); font-size: 16px; font-family: 'DM Sans', sans-serif; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.2s; line-height: 1; }
+  .filter-more-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .filter-more-btn.has-selection { border-color: var(--accent); color: var(--accent); background: rgba(0,229,160,0.08); }
+  body[data-theme="light"] .filter-more-btn.has-selection { background: rgba(0,168,112,0.08); }
+  .filter-dropdown { display: none; position: absolute; top: calc(100% + 6px); right: 0; background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 6px; min-width: 180px; z-index: 100; box-shadow: 0 8px 24px rgba(0,0,0,0.3); }
+  body[data-theme="light"] .filter-dropdown { box-shadow: 0 8px 24px rgba(0,0,0,0.1); }
+  .filter-dropdown.open { display: flex; flex-direction: column; gap: 2px; }
+  .filter-dropdown .filter-btn { text-align: left; border-radius: 4px; width: 100%; }
+
+  .section-title { font-family: 'Bebas Neue', sans-serif; font-size: 20px; letter-spacing: 2px; color: var(--muted); margin-bottom: 14px; }
+  .panel { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 24px; margin-bottom: 32px; transition: background-color 0.3s, border-color 0.3s; }
+  .stats-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 12px; margin-bottom: 32px; }
+  .stat-box { background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 16px; transition: background-color 0.3s, border-color 0.3s; }
+  .stat-box-val { font-family: 'Bebas Neue', sans-serif; font-size: 32px; line-height: 1; }
+  .stat-box-label { font-size: 11px; color: var(--muted); font-family: 'DM Mono', monospace; margin-top: 4px; letter-spacing: 0.5px; }
+  .positive { color: var(--win); } .negative { color: var(--loss); } .neutral { color: var(--push); }
+
+  /* Leaderboard */
+  .leaderboard { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 12px; margin-bottom: 32px; }
+  .source-card { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 18px; position: relative; overflow: hidden; transition: transform 0.2s, border-color 0.2s, background-color 0.3s; cursor: pointer; }
+  .source-card:hover { transform: translateY(-2px); border-color: var(--accent); }
+  .source-card.rank-1 { border-color: var(--gold); }
+  .source-card.rank-1::before { content: '\2605  BEST SOURCE'; position: absolute; top: 10px; right: 10px; font-family: 'DM Mono', monospace; font-size: 9px; letter-spacing: 1px; color: var(--gold); background: rgba(255,215,0,0.1); padding: 3px 7px; border-radius: 3px; }
+  .source-card.rank-2 { border-color: rgba(192,192,192,0.5); }
+  .source-card.rank-3 { border-color: rgba(205,127,50,0.5); }
+  .card-rank { font-family: 'Bebas Neue', sans-serif; font-size: 48px; color: var(--border); position: absolute; bottom: -8px; right: 12px; line-height: 1; user-select: none; }
+  .rank-1 .card-rank { color: rgba(255,215,0,0.15); }
+  .card-name { font-family: 'Bebas Neue', sans-serif; font-size: 22px; letter-spacing: 1px; margin-bottom: 12px; }
+  .score-bar-wrap { margin-bottom: 12px; }
+  .score-label { display: flex; justify-content: space-between; font-size: 11px; color: var(--muted); margin-bottom: 4px; font-family: 'DM Mono', monospace; }
+  .score-val { color: var(--text); font-weight: 500; }
+  .bar-bg { height: 4px; background: var(--border); border-radius: 2px; overflow: hidden; }
+  .bar-fill { height: 100%; border-radius: 2px; transition: width 0.6s ease; }
+  .bar-acc { background: var(--accent3); } .bar-roi { background: var(--accent); } .bar-score { background: linear-gradient(90deg, var(--accent), var(--accent3)); }
+  .algo-score { display: flex; align-items: center; gap: 10px; margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--border); }
+  .algo-score-val { font-family: 'Bebas Neue', sans-serif; font-size: 36px; line-height: 1; }
+  .algo-score-info { font-size: 11px; color: var(--muted); font-family: 'DM Mono', monospace; line-height: 1.6; }
+  .sport-board { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 10px; margin-bottom: 28px; }
+  .sport-card { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 14px; }
+  .sport-name { font-family: 'Bebas Neue', sans-serif; letter-spacing: 1px; font-size: 20px; }
+  .sport-meta { font-family: 'DM Mono', monospace; font-size: 11px; color: var(--muted); margin-top: 6px; line-height: 1.6; }
+  .sport-units { font-family: 'Bebas Neue', sans-serif; font-size: 30px; line-height: 1; margin-top: 10px; }
+  .algo-box { background: rgba(0,229,160,0.04); border: 1px solid rgba(0,229,160,0.2); border-radius: 10px; padding: 16px; margin-bottom: 32px; font-family: 'DM Mono', monospace; font-size: 11px; color: var(--muted); line-height: 1.8; transition: background-color 0.3s, border-color 0.3s; }
+  body[data-theme="light"] .algo-box { background: rgba(0,168,112,0.05); border-color: rgba(0,168,112,0.25); }
+  .algo-box strong { color: var(--accent); }
+
+  /* Table */
+  .table-wrap { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  thead tr { border-bottom: 2px solid var(--border); }
+  th { text-align: left; padding: 10px 12px; font-family: 'DM Mono', monospace; font-size: 10px; letter-spacing: 1px; color: var(--muted); font-weight: 400; }
+  td { padding: 10px 12px; border-bottom: 1px solid var(--border); transition: background-color 0.15s; }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: rgba(128,128,128,0.06); }
+  tr.game-group-row:hover td, tr.game-gap-row:hover td { background: transparent; }
+  .game-group-row td { background: rgba(77,166,255,0.08); border-bottom: 1px solid var(--border); font-family: 'DM Mono', monospace; font-size: 15px; color: var(--accent3); letter-spacing: 0.2px; }
+  .game-group-title { color: var(--text); font-weight: 500; margin-right: 8px; font-size: 15px; }
+  .game-gap-row td { padding: 6px 0; border: none; }
+
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-family: 'DM Mono', monospace; letter-spacing: 0.5px; font-weight: 500; }
+  .badge-win { background: rgba(0,229,160,0.15); color: var(--win); }
+  .badge-loss { background: rgba(255,69,96,0.15); color: var(--loss); }
+  .badge-push { background: rgba(255,215,0,0.15); color: var(--push); }
+  .badge-pending { background: rgba(77,166,255,0.15); color: var(--accent3); }
+  .badge-source { background: rgba(77,166,255,0.08); color: var(--accent3); font-size: 10px; }
+  .result-select { background: var(--surface); border: 1px solid var(--border); color: var(--accent3); padding: 2px 6px; border-radius: 4px; font-size: 11px; font-family: 'DM Mono', monospace; cursor: pointer; transition: border-color 0.2s; }
+  .result-select:hover { border-color: var(--accent); }
+  .units-cell { font-family: 'DM Mono', monospace; font-size: 12px; font-weight: 500; }
+  .units-3 { color: var(--accent); }
+  .units-1 { color: var(--muted); }
+
+  .empty-state { text-align: center; padding: 40px; color: var(--muted); font-family: 'DM Mono', monospace; font-size: 13px; }
+
+  .clean-title { color: var(--text); }
+
+  /* Trends */
+  .trend-league { margin-bottom: 28px; }
+  .trend-league-title { font-family: 'Bebas Neue', sans-serif; font-size: 24px; letter-spacing: 2px; color: var(--text); margin-bottom: 12px; display: flex; align-items: center; gap: 10px; }
+  .trend-league-count { font-family: 'DM Mono', monospace; font-size: 11px; color: var(--muted); font-weight: 400; }
+  .trend-card { background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 14px 16px; margin-bottom: 8px; display: flex; align-items: center; gap: 14px; transition: border-color 0.2s, background-color 0.3s; position: relative; }
+  .trend-card:hover { border-color: var(--accent); }
+  .trend-count { font-family: 'Bebas Neue', sans-serif; font-size: 32px; min-width: 36px; text-align: center; line-height: 1; }
+  .trend-count.hot { color: var(--accent); }
+  .trend-count.warm { color: var(--accent3); }
+  .trend-count.solo { color: var(--muted); }
+  .trend-body { flex: 1; min-width: 0; }
+  .trend-pick-text { font-weight: 500; font-size: 14px; margin-bottom: 4px; }
+  .trend-sources { display: flex; gap: 4px; flex-wrap: wrap; }
+  .trend-source-pill { font-family: 'DM Mono', monospace; font-size: 9px; letter-spacing: 0.5px; padding: 2px 7px; border-radius: 10px; background: rgba(77,166,255,0.08); color: var(--accent3); white-space: nowrap; }
+
+  /* Search */
+  .search-wrap { position: relative; margin-bottom: 28px; }
+  .search-input { width: 100%; padding: 16px 20px 16px 48px; background: var(--card); border: 2px solid var(--border); border-radius: 14px; color: var(--text); font-family: 'DM Sans', sans-serif; font-size: 16px; outline: none; transition: border-color 0.25s, box-shadow 0.25s, background-color 0.3s; }
+  .search-input::placeholder { color: var(--muted); }
+  .search-input:focus { border-color: var(--accent); box-shadow: 0 0 0 4px rgba(0,229,160,0.08); }
+  body[data-theme="light"] .search-input:focus { box-shadow: 0 0 0 4px rgba(0,168,112,0.1); }
+  .search-icon { position: absolute; left: 18px; top: 50%; transform: translateY(-50%); color: var(--muted); font-size: 18px; pointer-events: none; }
+  .search-meta { font-family: 'DM Mono', monospace; font-size: 11px; color: var(--muted); margin-bottom: 18px; letter-spacing: 0.5px; }
+  .search-results { display: flex; flex-direction: column; gap: 10px; }
+  .search-card { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 18px 20px; cursor: pointer; transition: border-color 0.2s, transform 0.15s, background-color 0.3s; }
+  .search-card:hover { border-color: var(--accent); transform: translateY(-1px); }
+  .search-card-top { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; flex-wrap: wrap; }
+  .search-card-pick { font-weight: 500; font-size: 15px; flex: 1; min-width: 200px; }
+  .search-card-odds { font-family: 'DM Mono', monospace; font-size: 13px; color: var(--text); }
+  .search-card-details { display: none; margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--border); }
+  .search-card.expanded .search-card-details { display: block; }
+  .search-card-row { display: flex; gap: 24px; flex-wrap: wrap; margin-bottom: 6px; }
+  .search-card-field { font-family: 'DM Mono', monospace; font-size: 11px; }
+  .search-card-field-label { color: var(--muted); margin-right: 6px; }
+  .search-card-field-val { color: var(--text); font-weight: 500; }
+  .search-card-related { margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--border); }
+  .search-card-related-title { font-family: 'DM Mono', monospace; font-size: 10px; letter-spacing: 1px; color: var(--accent); margin-bottom: 8px; }
+  .search-related-item { font-size: 12px; padding: 6px 0; border-bottom: 1px solid rgba(30,41,50,0.4); display: flex; align-items: center; gap: 8px; }
+  .search-related-item:last-child { border-bottom: none; }
+
+  .search-highlight { background: rgba(0,229,160,0.2); color: var(--accent); border-radius: 2px; padding: 0 2px; }
+  body[data-theme="light"] .search-highlight { background: rgba(0,168,112,0.15); }
+
+  /* Models Tab */
+  .models-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; }
+  .model-card { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 20px; transition: border-color 0.2s; }
+  .model-card:hover { border-color: var(--accent); }
+  .model-card-icon { font-size: 28px; margin-bottom: 8px; }
+  .model-card-title { font-family: 'Bebas Neue', sans-serif; font-size: 22px; letter-spacing: 1.5px; color: var(--text); margin-bottom: 6px; }
+  .model-card-desc { font-size: 12px; color: var(--muted); line-height: 1.5; margin-bottom: 14px; }
+  .model-run-btn { width: 100%; padding: 10px; background: transparent; border: 1px solid var(--accent); border-radius: 6px; color: var(--accent); font-family: 'Bebas Neue', sans-serif; font-size: 15px; letter-spacing: 1.5px; cursor: pointer; transition: all 0.2s; }
+  .model-run-btn:hover { background: var(--accent); color: var(--bg); }
+  .model-run-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .model-run-btn:disabled:hover { background: transparent; color: var(--accent); }
+  .model-status { font-family: 'DM Mono', monospace; font-size: 11px; color: var(--muted); margin-top: 10px; min-height: 18px; }
+  .model-status.running { color: var(--accent3); }
+  .model-status.error { color: var(--danger); }
+  .model-status.ok { color: var(--accent); }
+  .model-sport-select { display: flex; gap: 14px; margin-bottom: 12px; font-size: 12px; color: var(--muted); font-family: 'DM Mono', monospace; }
+  .model-sport-select label { display: flex; align-items: center; gap: 4px; cursor: pointer; }
+  .model-sport-select input[type="checkbox"] { accent-color: var(--accent); }
+  .model-result-bet { color: var(--accent); font-weight: 500; }
+  .model-result-pass { color: var(--muted); }
+
+  @media (max-width: 700px) {
+    .logo-title { font-size: 28px; }
+    .stats-grid { grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); }
+    .leaderboard { grid-template-columns: 1fr; }
+    .tab { padding: 12px 14px; font-size: 14px; letter-spacing: 1px; }
+    .search-input { font-size: 14px; padding: 14px 16px 14px 42px; }
+  }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <header>
+    <div>
+      <div class="logo-title">PICKLEDGER</div>
+      <div class="logo-sub">SOURCE PERFORMANCE TRACKER</div>
+    </div>
+    <div class="header-right">
+      <div class="header-controls">
+        <button class="theme-toggle" onclick="toggleTheme()" aria-label="Toggle theme">
+          <span class="toggle-icon">&#127769;</span>
+          <div class="toggle-track"><div class="toggle-thumb"></div></div>
+          <span class="toggle-icon">&#9728;&#65039;</span>
+          <span class="toggle-label" id="theme-label">DARK</span>
+        </button>
+        <button id="refresh-btn" class="refresh-btn" onclick="refreshAutoGrades()" aria-label="Auto-grade picks">REFRESH</button>
+      </div>
+      <div id="refresh-status" class="refresh-status">Ready to auto-grade</div>
+      <div>
+        <div class="header-stat-val" id="total-record">0-0</div>
+        <div class="header-stat-label">OVERALL RECORD</div>
+      </div>
+    </div>
+  </header>
+
+  <div class="tabs">
+    <button class="tab active" onclick="switchTab('home')">HOME</button>
+    <button class="tab" onclick="switchTab('search')">SEARCH</button>
+    <button class="tab" onclick="switchTab('rankings')">RANKINGS</button>
+    <button class="tab" onclick="switchTab('trends')">TRENDS</button>
+    <button class="tab" onclick="switchTab('models')">MODELS</button>
+  </div>
+
+  <!-- HOME TAB -->
+  <div id="tab-home" class="tab-content active">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
+      <div class="section-title clean-title" style="margin-bottom:0">Pick Log</div>
+      <button id="settled-toggle-btn" onclick="toggleShowSettled()" style="background:var(--surface);border:1px solid var(--border);border-radius:6px;color:var(--muted);padding:5px 12px;font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.5px;cursor:pointer;transition:all 0.2s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">SHOW SETTLED</button>
+    </div>
+    <div class="filter-bar" id="filter-bar"></div>
+    <div id="settled-stats-panel" style="display:none;margin-bottom:20px;"></div>
+    <div class="panel">
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>UNITS</th><th>DATE</th><th>SOURCE</th><th>PICK</th><th>SPORT</th><th>ODDS</th><th>RESULT</th><th>P/L</th></tr></thead>
+          <tbody id="pick-table-body"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- SEARCH TAB -->
+  <div id="tab-search" class="tab-content">
+    <div class="search-wrap">
+      <span class="search-icon">&#128269;</span>
+      <input type="text" class="search-input" id="search-input" placeholder="Search by team, game, or capper..." autocomplete="off" oninput="renderSearch()">
+    </div>
+    <div class="search-meta" id="search-meta"></div>
+    <div class="search-results" id="search-results">
+      <div class="empty-state">Type a team name, matchup, or source to search picks</div>
+    </div>
+  </div>
+
+  <!-- RANKINGS TAB -->
+  <div id="tab-rankings" class="tab-content">
+    <div class="section-title clean-title">Overall Stats</div>
+    <div class="stats-grid">
+      <div class="stat-box"><div class="stat-box-val" id="stat-picks">0</div><div class="stat-box-label">TOTAL PICKS</div></div>
+      <div class="stat-box"><div class="stat-box-val positive" id="stat-wins">0</div><div class="stat-box-label">WINS</div></div>
+      <div class="stat-box"><div class="stat-box-val negative" id="stat-losses">0</div><div class="stat-box-label">LOSSES</div></div>
+      <div class="stat-box"><div class="stat-box-val neutral" id="stat-pushes">0</div><div class="stat-box-label">PUSHES</div></div>
+      <div class="stat-box"><div class="stat-box-val" id="stat-pending" style="color:var(--accent3)">0</div><div class="stat-box-label">PENDING</div></div>
+      <div class="stat-box"><div class="stat-box-val" id="stat-acc">&mdash;</div><div class="stat-box-label">WIN RATE</div></div>
+      <div class="stat-box"><div class="stat-box-val" id="stat-units">+0u</div><div class="stat-box-label">NET UNITS</div></div>
+      <div class="stat-box"><div class="stat-box-val" id="stat-roi">&mdash;</div><div class="stat-box-label">ROI</div></div>
+    </div>
+    <div class="section-title clean-title">Sport Profitability</div>
+    <div class="sport-board" id="sport-board"><div class="empty-state" style="grid-column:1/-1">No decided picks yet</div></div>
+    <div class="section-title clean-title">Source Rankings</div>
+    <div class="leaderboard" id="leaderboard"><div class="empty-state" style="grid-column:1/-1">Waiting for results...</div></div>
+  </div>
+
+  <!-- TRENDS TAB -->
+  <div id="tab-trends" class="tab-content">
+    <div class="section-title clean-title">Consensus Picks By League</div>
+    <div id="trends-container"></div>
+  </div>
+
+  <!-- MODELS TAB -->
+  <div id="tab-models" class="tab-content">
+    <div class="section-title clean-title">Run Prediction Models</div>
+    <div class="models-grid">
+      <div class="model-card" id="model-card-mlb">
+        <div class="model-card-icon">&#9918;</div>
+        <div class="model-card-title">MLB Model</div>
+        <div class="model-card-desc">Run MLB prediction pipeline for today's games. Uses statsapi for real schedules + pitcher-based probability layers.</div>
+        <button class="model-run-btn" id="btn-run-mlb" onclick="runModel('mlb')">RUN MLB MODEL</button>
+        <div class="model-status" id="status-mlb"></div>
+      </div>
+      <div class="model-card" id="model-card-nba">
+        <div class="model-card-icon">&#127936;</div>
+        <div class="model-card-title">NBA Model</div>
+        <div class="model-card-desc">Run NBA prediction pipeline for today's slate. Uses live NBA API stats, official injury reports, and on/off court impact data.</div>
+        <button class="model-run-btn" id="btn-run-nba" onclick="runModel('nba')">RUN NBA MODEL</button>
+        <div class="model-status" id="status-nba"></div>
+      </div>
+      <div class="model-card" id="model-card-scores24">
+        <div class="model-card-icon">&#128270;</div>
+        <div class="model-card-title">Scores24 Scraper</div>
+        <div class="model-card-desc">Scrape today's predictions from scores24.live for NHL, NBA, and MLB. Extracts tips, confidence, odds, and user votes.</div>
+        <div class="model-sport-select">
+          <label><input type="checkbox" value="nba" checked> NBA</label>
+          <label><input type="checkbox" value="nhl" checked> NHL</label>
+          <label><input type="checkbox" value="mlb" checked> MLB</label>
+        </div>
+        <button class="model-run-btn" id="btn-run-scores24" onclick="runModel('scores24')">RUN SCORES24 SCRAPER</button>
+        <div class="model-status" id="status-scores24"></div>
+      </div>
+    </div>
+    <div id="model-results-section" style="display:none;">
+      <div class="section-title clean-title" style="margin-top:24px">Model Results</div>
+      <div class="panel">
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th style="width:32px"><input type="checkbox" id="model-select-all" onchange="toggleAllModelPicks(this.checked)" title="Select all"></th><th>SOURCE</th><th>PICK</th><th>SPORT</th><th>ODDS</th><th>PROB</th><th>EDGE</th><th>DECISION</th></tr></thead>
+            <tbody id="model-results-body"></tbody>
+          </table>
+        </div>
+      </div>
+      <div style="display:flex;gap:10px;margin-top:14px">
+        <button class="model-run-btn" id="btn-add-selected" onclick="addSelectedPicksToLedger()" style="flex:1">ADD SELECTED PICKS TO LEDGER</button>
+        <button class="model-run-btn" id="btn-add-picks" onclick="addModelPicksToLedger()" style="flex:1;opacity:0.7">ADD ALL BET PICKS TO LEDGER</button>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+// ╔══════════════════════════════════════════════════════════════╗
+// ║  PICK DATA — edited whenever new picks are logged           ║
+// ╚══════════════════════════════════════════════════════════════╝
+const PICKS = [
+  // ── Scores24 · NHL · Mar 13 ──
+  { id: 1, date: "Mar 13", source: "Scores24", pick: "Kings ML (Islanders vs Kings)", sport: "NHL", units: 1, odds: -143, result: "pending" },
+  { id: 2, date: "Mar 13", source: "Scores24", pick: "Blues ML (Blues vs Oilers)", sport: "NHL", units: 1, odds: -185, result: "pending" },
+  { id: 3, date: "Mar 14", source: "Scores24", pick: "Senators Over 3 TG (Senators vs Ducks)", sport: "NHL", units: 1, odds: -204, result: "pending" },
+  { id: 4, date: "Mar 14", source: "Scores24", pick: "Over 5.5 TG (Jets vs Avalanche)", sport: "NHL", units: 1, odds: -143, result: "pending" },
+  { id: 5, date: "Mar 14", source: "Scores24", pick: "Over 5.5 TG (Wild vs Rangers)", sport: "NHL", units: 1, odds: -141, result: "pending" },
+  { id: 6, date: "Mar 14", source: "Scores24", pick: "Sabres Over 3 TG (Sabres vs Maple Leafs)", sport: "NHL", units: 1, odds: -182, result: "pending" },
+
+  // ── Scores24 · NBA · Mar 13 ──
+  { id: 7, date: "Mar 13", source: "Scores24", pick: "Over 229.5 (Pistons vs Grizzlies)", sport: "NBA", units: 1, odds: -161, result: "pending" },
+  { id: 8, date: "Mar 13", source: "Scores24", pick: "Knicks -11.5 (Pacers vs Knicks)", sport: "NBA", units: 1, odds: -161, result: "pending" },
+  { id: 9, date: "Mar 13", source: "Scores24", pick: "Suns +5.5 (Raptors vs Suns)", sport: "NBA", units: 1, odds: -154, result: "pending" },
+  { id: 10, date: "Mar 13", source: "Scores24", pick: "Over 233.5 (Mavericks vs Cavaliers)", sport: "NBA", units: 1, odds: -147, result: "pending" },
+  { id: 11, date: "Mar 13", source: "Scores24", pick: "Over 227.5 (Rockets vs Pelicans)", sport: "NBA", units: 1, odds: -143, result: "pending" },
+  { id: 12, date: "Mar 13", source: "Scores24", pick: "Blazers -12.5 (Trail Blazers vs Jazz)", sport: "NBA", units: 1, odds: -161, result: "pending" },
+
+  // ── Scores24 · MLB · Mar 13 ──
+  { id: 13, date: "Mar 13", source: "Scores24", pick: "Braves ML (Braves vs Yankees)", sport: "MLB", units: 1, odds: -128, result: "pending" },
+  { id: 14, date: "Mar 13", source: "Scores24", pick: "Red Sox ML (Red Sox vs Rays)", sport: "MLB", units: 1, odds: -115, result: "pending" },
+  { id: 15, date: "Mar 13", source: "Scores24", pick: "Over 8.5 (Phillies vs Orioles)", sport: "MLB", units: 1, odds: -105, result: "pending" },
+  { id: 16, date: "Mar 13", source: "Scores24", pick: "Over 8.5 (Blue Jays vs Twins)", sport: "MLB", units: 1, odds: -106, result: "pending" },
+  { id: 17, date: "Mar 13", source: "Scores24", pick: "Under 11.5 (White Sox vs Cubs)", sport: "MLB", units: 1, odds: 100, result: "pending" },
+  { id: 18, date: "Mar 13", source: "Scores24", pick: "Under 12.5 (Rockies vs Rangers)", sport: "MLB", units: 1, odds: -115, result: "pending" },
+
+  // ── MLB Model (BET only) · Mar 13 ──
+  { id: 19, date: "Mar 13", source: "MLB Model", pick: "Tampa Bay ML (Rays vs Red Sox)", sport: "MLB", units: 1, odds: -110, result: "pending" },
+  { id: 20, date: "Mar 13", source: "MLB Model", pick: "Phillies ML (Orioles vs Phillies)", sport: "MLB", units: 1, odds: -110, result: "pending" },
+  { id: 21, date: "Mar 13", source: "MLB Model", pick: "Over 8.5 (Orioles vs Phillies)", sport: "MLB", units: 1, odds: -110, result: "pending" },
+  { id: 22, date: "Mar 13", source: "MLB Model", pick: "Yankees ML (Yankees vs Braves)", sport: "MLB", units: 1, odds: -110, result: "pending" },
+  { id: 23, date: "Mar 13", source: "MLB Model", pick: "Over 8.5 (Yankees vs Braves)", sport: "MLB", units: 1, odds: -110, result: "pending" },
+  { id: 24, date: "Mar 13", source: "MLB Model", pick: "Over 8.5 (Twins vs Blue Jays)", sport: "MLB", units: 1, odds: -110, result: "pending" },
+  { id: 25, date: "Mar 13", source: "MLB Model", pick: "Padres ML (Padres vs Athletics)", sport: "MLB", units: 1, odds: -110, result: "pending" },
+  { id: 26, date: "Mar 13", source: "MLB Model", pick: "Cubs ML (Cubs vs White Sox)", sport: "MLB", units: 1, odds: -110, result: "pending" },
+  { id: 27, date: "Mar 13", source: "MLB Model", pick: "Rangers ML (Rangers vs Rockies)", sport: "MLB", units: 1, odds: -110, result: "pending" },
+  { id: 28, date: "Mar 13", source: "MLB Model", pick: "Over 8.5 (Athletics vs Brewers)", sport: "MLB", units: 1, odds: -110, result: "pending" },
+  { id: 29, date: "Mar 13", source: "MLB Model", pick: "Over 8.5 (Pirates vs Tigers)", sport: "MLB", units: 1, odds: -110, result: "pending" },
+  { id: 30, date: "Mar 13", source: "MLB Model", pick: "Cardinals ML (Astros vs Cardinals)", sport: "MLB", units: 1, odds: -110, result: "pending" },
+  { id: 31, date: "Mar 13", source: "MLB Model", pick: "Over 8.5 (Astros vs Cardinals)", sport: "MLB", units: 1, odds: -110, result: "pending" },
+  { id: 32, date: "Mar 13", source: "MLB Model", pick: "Mets ML (Marlins vs Mets)", sport: "MLB", units: 1, odds: -110, result: "pending" },
+  { id: 33, date: "Mar 13", source: "MLB Model", pick: "Over 8.5 (Marlins vs Mets)", sport: "MLB", units: 1, odds: -110, result: "pending" },
+  { id: 34, date: "Mar 13", source: "MLB Model", pick: "Giants ML (Reds vs Giants)", sport: "MLB", units: 1, odds: -110, result: "pending" },
+  { id: 35, date: "Mar 13", source: "MLB Model", pick: "Over 8.5 (Reds vs Giants)", sport: "MLB", units: 1, odds: -110, result: "pending" },
+  { id: 36, date: "Mar 13", source: "MLB Model", pick: "Reds ML (Giants vs Reds)", sport: "MLB", units: 1, odds: -110, result: "pending" },
+  { id: 37, date: "Mar 13", source: "MLB Model", pick: "Over 8.5 (Giants vs Reds)", sport: "MLB", units: 1, odds: -110, result: "pending" },
+  { id: 38, date: "Mar 13", source: "MLB Model", pick: "Over 8.5 (Dodgers vs Mariners)", sport: "MLB", units: 1, odds: -110, result: "pending" },
+
+  // ── NBA Model (BET only) · Mar 13 ──
+  { id: 39, date: "Mar 13", source: "NBA Model", pick: "Pistons -13.5 (Grizzlies @ Pistons)", sport: "NBA", units: 1, odds: -110, result: "pending" },
+  { id: 40, date: "Mar 13", source: "NBA Model", pick: "Over 225 (Grizzlies @ Pistons)", sport: "NBA", units: 1, odds: -110, result: "pending" },
+  { id: 41, date: "Mar 13", source: "NBA Model", pick: "Knicks -10.7 (Knicks @ Pacers)", sport: "NBA", units: 1, odds: -110, result: "pending" },
+  { id: 42, date: "Mar 13", source: "NBA Model", pick: "Over 225 (Knicks @ Pacers)", sport: "NBA", units: 1, odds: -110, result: "pending" },
+  { id: 43, date: "Mar 13", source: "NBA Model", pick: "Under 225 (Suns @ Raptors)", sport: "NBA", units: 1, odds: -110, result: "pending" },
+  { id: 44, date: "Mar 13", source: "NBA Model", pick: "Cavaliers -3.4 (Cavaliers @ Mavericks)", sport: "NBA", units: 1, odds: -110, result: "pending" },
+  { id: 45, date: "Mar 13", source: "NBA Model", pick: "Over 225 (Cavaliers @ Mavericks)", sport: "NBA", units: 1, odds: -110, result: "pending" },
+  { id: 46, date: "Mar 13", source: "NBA Model", pick: "Rockets -2.6 (Pelicans @ Rockets)", sport: "NBA", units: 1, odds: -110, result: "pending" },
+  { id: 47, date: "Mar 13", source: "NBA Model", pick: "Timberwolves -7.1 (Timberwolves @ Warriors)", sport: "NBA", units: 1, odds: -110, result: "pending" },
+  { id: 48, date: "Mar 13", source: "NBA Model", pick: "Over 225 (Timberwolves @ Warriors)", sport: "NBA", units: 1, odds: -110, result: "pending" },
+  { id: 49, date: "Mar 13", source: "NBA Model", pick: "Clippers -2.9 (Bulls @ Clippers)", sport: "NBA", units: 1, odds: -110, result: "pending" },
+  { id: 50, date: "Mar 13", source: "NBA Model", pick: "Over 225 (Bulls @ Clippers)", sport: "NBA", units: 1, odds: -110, result: "pending" },
+  { id: 51, date: "Mar 13", source: "NBA Model", pick: "Trail Blazers -6.1 (Jazz @ Trail Blazers)", sport: "NBA", units: 1, odds: -110, result: "pending" },
+  { id: 52, date: "Mar 13", source: "NBA Model", pick: "Over 225 (Jazz @ Trail Blazers)", sport: "NBA", units: 1, odds: -110, result: "pending" },
+
+  // ── Supa · MLB · Mar 13 ──
+  { id: 53, date: "Mar 13", source: "Supa", pick: "Over 8.5 (Yankees vs Braves)", sport: "MLB", units: 3, odds: 100, result: "pending" },
+
+  // ── J3 · NBA · Mar 13 ──
+  { id: 54, date: "Mar 13", source: "J3", pick: "Timberwolves -1.5 1H (Timberwolves @ Warriors)", sport: "NBA", units: 1, odds: -110, result: "pending" },
+
+  // ── SGPN · NBA · Mar 13 ──
+  { id: 66, date: "Mar 13", source: "SGPN", pick: "Clippers -11.5 (Bulls @ Clippers)", sport: "NBA", units: 3, odds: -110, result: "pending" },
+  { id: 67, date: "Mar 13", source: "SGPN", pick: "Suns ML (Suns @ Raptors)", sport: "NBA", units: 1, odds: -110, result: "pending" },
+
+  // ── SGPN · Tennis · Mar 13 ──
+  { id: 68, date: "Mar 13", source: "SGPN", pick: "Alcaraz Straight Sets", sport: "Other", units: 3, odds: -110, result: "pending" },
+
+  // ── SGPN · WBC · Mar 14 ──
+  { id: 69, date: "Mar 14", source: "SGPN", pick: "Japan -1.5 Run Line (Japan vs Venezuela)", sport: "WBC", units: 1, odds: -110, result: "pending" },
+  { id: 70, date: "Mar 14", source: "SGPN", pick: "Korea Team Total Over 9.5 (Korea vs Dominican Republic)", sport: "WBC", units: 1, odds: -110, result: "pending" },
+  { id: 71, date: "Mar 14", source: "SGPN", pick: "USA Over 9.5 (United States vs Canada)", sport: "WBC", units: 1, odds: -110, result: "pending" },
+
+  // ── Scores24 Lock (Confidence >= 80%) · Mar 13 ──
+  { id: 72, date: "Mar 13", source: "Scores24 Lock", pick: "Over 10.5 (Dominican Republic vs Korea)", sport: "WBC", units: 3, odds: 100, result: "pending" },
+  { id: 73, date: "Mar 13", source: "Scores24 Lock", pick: "Over 9.5 (Canada vs USA)", sport: "WBC", units: 3, odds: -115, result: "pending" },
+
+  // ── Scores24 Consensus (User Vote >= 75%) · Mar 13 ──
+  { id: 74, date: "Mar 13", source: "Scores24 Consensus", pick: "Over 10.5 (Dominican Republic vs Korea)", sport: "WBC", units: 3, odds: 100, result: "pending" },
+  { id: 75, date: "Mar 13", source: "Scores24 Consensus", pick: "Over 9.5 (Canada vs USA)", sport: "WBC", units: 3, odds: -115, result: "pending" },
+
+  // ── Scores24 Hype (Suggestive Language) · Mar 13 ──
+  { id: 76, date: "Mar 13", source: "Scores24 Hype", pick: "Knicks -11.5 (Pacers vs Knicks) — \"appear more confident\"", sport: "NBA", units: 3, odds: -161, result: "pending" },
+  { id: 77, date: "Mar 13", source: "Scores24 Hype", pick: "Trail Blazers -12.5 (Trail Blazers vs Jazz) — \"confident performance\"", sport: "NBA", units: 3, odds: -161, result: "pending" },
+  { id: 78, date: "Mar 13", source: "Scores24 Hype", pick: "Over 9.5 (Canada vs USA)", sport: "WBC", units: 3, odds: -115, result: "pending" },
+
+  // ── Scores24 · EPL · Mar 14 ──
+  // Scraped from: python3 scores24_scraper.py --sport "premier league" --date YYYY-MM-DD
+  { id: 100, date: "Mar 14", source: "Scores24", pick: "Over 2.5 (Burnley vs Bournemouth)", sport: "EPL", units: 1, odds: -143, result: "pending" },
+  { id: 101, date: "Mar 14", source: "Scores24", pick: "Under 2.5 (Sunderland vs Brighton)", sport: "EPL", units: 1, odds: -133, result: "pending" },
+  { id: 102, date: "Mar 14", source: "Scores24", pick: "Everton +1.5 (Arsenal vs Everton)", sport: "EPL", units: 1, odds: -147, result: "pending" },
+  { id: 103, date: "Mar 14", source: "Scores24", pick: "BTTS Yes (Chelsea vs Newcastle United)", sport: "EPL", units: 1, odds: -204, result: "pending" },
+  { id: 104, date: "Mar 14", source: "Scores24", pick: "Over 2.5 (West Ham United vs Manchester City)", sport: "EPL", units: 1, odds: -182, result: "pending" },
+];
+
+// ── Engine ──
+const ADDED_PICKS_KEY = 'pickledger_added_picks';
+const DELETED_PICKS_KEY = 'pickledger_deleted_pick_ids';
+let activeFilter = 'ALL';
+let showSettled = false;
+const GRADER_URL = 'http://127.0.0.1:8765/grade';
+
+function getAddedPicks() {
+  try {
+    const raw = localStorage.getItem(ADDED_PICKS_KEY);
+    const parsed = raw ? JSON.parse(raw) : [];
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveAddedPicks(list) {
+  localStorage.setItem(ADDED_PICKS_KEY, JSON.stringify(list));
+}
+
+function getDeletedPickIds() {
+  try {
+    const raw = localStorage.getItem(DELETED_PICKS_KEY);
+    const parsed = raw ? JSON.parse(raw) : [];
+    return Array.isArray(parsed) ? parsed.map(v => String(v)) : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveDeletedPickIds(ids) {
+  localStorage.setItem(DELETED_PICKS_KEY, JSON.stringify(ids));
+}
+
+function getAllLedgerPicks() {
+  const deleted = new Set(getDeletedPickIds());
+  return [...PICKS, ...getAddedPicks()].filter(p => !deleted.has(String(p.id)));
+}
+
+function toggleMoreFilters(e) {
+  e.stopPropagation();
+  const dd = document.getElementById('filter-dropdown');
+  if (dd) dd.classList.toggle('open');
+}
+function closeMoreFilters() {
+  const dd = document.getElementById('filter-dropdown');
+  if (dd) dd.classList.remove('open');
+}
+document.addEventListener('click', function(e) {
+  const wrap = document.querySelector('.filter-more-wrap');
+  if (wrap && !wrap.contains(e.target)) closeMoreFilters();
+});
+
+function setRefreshStatus(msg, state) {
+  const el = document.getElementById('refresh-status');
+  if (!el) return;
+  el.textContent = msg;
+  el.classList.remove('error', 'ok');
+  if (state === 'error') el.classList.add('error');
+  if (state === 'ok') el.classList.add('ok');
+}
+
+async function refreshAutoGrades(silent = false) {
+  const btn = document.getElementById('refresh-btn');
+  if (!btn) return;
+
+  if (!silent) {
+    btn.disabled = true;
+    btn.textContent = 'REFRESHING';
+    setRefreshStatus('Calling local grader + live score APIs...', 'ok');
+  } else {
+    setRefreshStatus('Syncing game start times...', 'ok');
+  }
+
+  try {
+    const payload = {
+      picks: getAllLedgerPicks(),
+      existing: getResults(),
+      year: new Date().getFullYear(),
+    };
+
+    const res = await fetch(GRADER_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+
+    if (!res.ok) throw new Error('grader http error');
+    const data = await res.json();
+    if (!data.ok) throw new Error(data.error || 'grader failed');
+
+    const graded = data.graded || {};
+    const merged = getResults();
+    Object.entries(graded).forEach(([id, result]) => {
+      merged[id] = result;
+    });
+    localStorage.setItem('pickledger_results', JSON.stringify(merged));
+
+    const startTimes = data.startTimes || {};
+    const mergedTimes = getGameTimes();
+    Object.entries(startTimes).forEach(([id, iso]) => {
+      if (iso) mergedTimes[id] = iso;
+    });
+    localStorage.setItem('pickledger_game_times', JSON.stringify(mergedTimes));
+
+    render();
+    if (document.getElementById('tab-search').classList.contains('active')) {
+      renderSearch();
+    }
+
+    const summary = data.summary || {};
+    const updated = summary.updated || 0;
+    const attempted = summary.attempted || 0;
+    const syncedTimes = Object.keys(startTimes).length;
+    setRefreshStatus(`Updated ${updated} picks, synced ${syncedTimes} start times (${attempted} checked)`, 'ok');
+  } catch (err) {
+    if (!silent) setRefreshStatus('Grader offline. Start: python3 pickgrader_server.py', 'error');
+  } finally {
+    if (!silent) {
+      btn.disabled = false;
+      btn.textContent = 'REFRESH';
+    }
+  }
+}
+
+function toggleShowSettled() {
+  showSettled = !showSettled;
+  const btn = document.getElementById('settled-toggle-btn');
+  if (showSettled) {
+    btn.style.color = 'var(--accent3)';
+    btn.style.borderColor = 'var(--accent3)';
+    btn.textContent = 'SHOW PENDING';
+  } else {
+    btn.style.color = 'var(--muted)';
+    btn.style.borderColor = 'var(--border)';
+    btn.textContent = 'SHOW SETTLED';
+  }
+  render();
+}
+
+function calcPL(u,r) {
+  if(r==='push'||r==='pending') return 0;
+  if(r==='loss') return -u;
+  return u;
+}
+function getResults() { return JSON.parse(localStorage.getItem('pickledger_results')||'{}'); }
+function getGameTimes() { return JSON.parse(localStorage.getItem('pickledger_game_times')||'{}'); }
+
+function deletePick(id) {
+  const idStr = String(id);
+
+  const deleted = new Set(getDeletedPickIds());
+  deleted.add(idStr);
+  saveDeletedPickIds([...deleted]);
+
+  const keptAdded = getAddedPicks().filter(p => String(p.id) !== idStr);
+  saveAddedPicks(keptAdded);
+
+  const results = getResults();
+  if (Object.prototype.hasOwnProperty.call(results, idStr)) {
+    delete results[idStr];
+    localStorage.setItem('pickledger_results', JSON.stringify(results));
+  }
+
+  const gameTimes = getGameTimes();
+  if (Object.prototype.hasOwnProperty.call(gameTimes, idStr)) {
+    delete gameTimes[idStr];
+    localStorage.setItem('pickledger_game_times', JSON.stringify(gameTimes));
+  }
+
+  render();
+  if (document.getElementById('tab-search').classList.contains('active')) {
+    renderSearch();
+  }
+}
+
+function setResult(id,r) {
+  if (r === 'delete') {
+    deletePick(id);
+    return;
+  }
+  const o=getResults();
+  o[id]=r;
+  localStorage.setItem('pickledger_results',JSON.stringify(o));
+  render();
+}
+
+function missingStartTimesCount() {
+  const supported = new Set(['NBA', 'NHL', 'MLB', 'EPL', 'WBC']);
+  const times = getGameTimes();
+  return getPicks().filter(p => p.result === 'pending' && supported.has(p.sport) && !times[String(p.id)]).length;
+}
+
+function parsePickDateLabel(d) {
+  const dt = new Date(`${d} ${new Date().getFullYear()} 00:00:00`);
+  return Number.isNaN(dt.getTime()) ? null : dt;
+}
+
+function formatStartLabel(iso) {
+  if (!iso) return 'TBD';
+  const dt = new Date(iso);
+  if (Number.isNaN(dt.getTime())) return 'TBD';
+  return dt.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+}
+
+function getGameKeyForPick(p) {
+  return extractGameKey(p.pick) || `${p.sport}::${p.date}::${p.id}`;
+}
+
+function jumpToSource(source) {
+  activeFilter = source;
+  switchTab('home');
+  render();
+}
+
+function getPicks() {
+  const ov = getResults();
+  return getAllLedgerPicks().map(p => { const r=ov[p.id]||p.result; return {...p, result:r, pl:calcPL(p.units,r)}; });
+}
+
+function getSourceStats(source) {
+  const all=getPicks(), allSp=all.filter(p=>p.source===source);
+  if(!allSp.length) return null;
+  const sp=allSp.filter(p=>p.result!=='pending');
+  const w=sp.filter(p=>p.result==='win').length, l=sp.filter(p=>p.result==='loss').length;
+  const pu=sp.filter(p=>p.result==='push').length, pe=allSp.filter(p=>p.result==='pending').length;
+  const d=w+l, acc=d>0?w/d:0;
+  const nu=sp.reduce((s,p)=>s+p.pl,0), tw=sp.reduce((s,p)=>s+(p.result!=='push'?p.units:0),0);
+  const roi=tw>0?nu/tw:0;
+  if(!sp.length) return {source,count:allSp.length,wins:0,losses:0,pushes:0,pending:pe,acc:0,roi:0,netUnits:0,accScore:0,roiScore:50,consistencyScore:100,composite:0,eligible:false};
+  const mean=nu/sp.length, variance=sp.reduce((s,p)=>s+Math.pow(p.pl-mean,2),0)/sp.length;
+  const consistency=Math.max(0,1-Math.sqrt(variance)/3);
+  const aS=acc*100, rS=Math.min(100,Math.max(0,roi*100+50)), cS=consistency*100;
+  return {source,count:allSp.length,wins:w,losses:l,pushes:pu,pending:pe,acc,roi,netUnits:nu,accScore:aS,roiScore:rS,consistencyScore:cS,composite:parseFloat(((aS*0.4)+(rS*0.4)+(cS*0.2)).toFixed(1)),eligible:sp.length>=3};
+}
+function getColor(s) { return s>=65?'var(--win)':s>=45?'var(--push)':'var(--loss)'; }
+
+// ── Tabs ──
+function switchTab(name) {
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('.tab-content').forEach(t=>t.classList.remove('active'));
+  document.querySelector(`.tab[onclick*="${name}"]`).classList.add('active');
+  document.getElementById('tab-'+name).classList.add('active');
+  localStorage.setItem('pickledger_tab', name);
+  if (name === 'search') {
+    setTimeout(() => document.getElementById('search-input').focus(), 50);
+  }
+}
+
+// ── Search ──
+function extractGameKey(pickText) {
+  const m = pickText.match(/\(([^)]+)\)/);
+  if (!m) return null;
+  const inside = m[1];
+  if (/\s+(vs|@)\s+/i.test(inside)) {
+    return inside.split(/\s+(?:vs|@)\s+/i).map(t => t.trim()).sort((a,b) => a.localeCompare(b)).join(' vs ');
+  }
+  return inside;
+}
+
+function highlightText(text, query) {
+  if (!query) return text;
+  const escaped = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const re = new RegExp(`(${escaped})`, 'gi');
+  return text.replace(re, '<span class="search-highlight">$1</span>');
+}
+
+function renderSearch() {
+  const query = document.getElementById('search-input').value.trim().toLowerCase();
+  const container = document.getElementById('search-results');
+  const meta = document.getElementById('search-meta');
+  const picks = getPicks().filter(p => p.result === 'pending');
+
+  if (!query) {
+    meta.textContent = '';
+    container.innerHTML = '<div class="empty-state">Type a team name, matchup, or source to search pending picks</div>';
+    return;
+  }
+
+  const matches = picks.filter(p =>
+    p.pick.toLowerCase().includes(query) ||
+    p.source.toLowerCase().includes(query) ||
+    p.sport.toLowerCase().includes(query) ||
+    p.date.toLowerCase().includes(query)
+  );
+
+  meta.textContent = `${matches.length} result${matches.length !== 1 ? 's' : ''} for "${query}"`;
+
+  if (!matches.length) {
+    container.innerHTML = '<div class="empty-state">No pending picks match your search</div>';
+    return;
+  }
+
+  container.innerHTML = matches.map(p => {
+    const gameKey = extractGameKey(p.pick);
+    const related = gameKey ? picks.filter(rp => rp.id !== p.id && extractGameKey(rp.pick) === gameKey) : [];
+    const resultBadge = p.result === 'win' ? 'badge-win' : p.result === 'loss' ? 'badge-loss' : p.result === 'push' ? 'badge-push' : 'badge-pending';
+    const resultLabel = p.result.toUpperCase();
+    const plStr = p.result === 'pending' ? '—' : (p.pl >= 0 ? '+' : '') + p.pl + 'u';
+    const plClass = p.pl > 0 ? 'positive' : p.pl < 0 ? 'negative' : 'neutral';
+    const uc = p.units >= 3 ? 'units-3' : 'units-1';
+
+    let relatedHTML = '';
+    if (related.length) {
+      relatedHTML = `<div class="search-card-related">
+        <div class="search-card-related-title">RELATED PICKS ON THIS GAME (${related.length})</div>
+        ${related.map(rp => {
+          const rb = rp.result === 'win' ? 'badge-win' : rp.result === 'loss' ? 'badge-loss' : rp.result === 'push' ? 'badge-push' : 'badge-pending';
+          return `<div class="search-related-item">
+            <span class="badge badge-source">${rp.source}</span>
+            <span style="flex:1">${rp.pick}</span>
+            <span class="units-cell ${rp.units>=3?'units-3':'units-1'}">${rp.units}u</span>
+            <span style="font-family:'DM Mono',monospace;font-size:11px">${rp.odds>0?'+':''}${rp.odds}</span>
+            <span class="badge ${rb}" style="font-size:9px">${rp.result.toUpperCase()}</span>
+          </div>`;
+        }).join('')}
+      </div>`;
+    }
+
+    return `<div class="search-card" onclick="this.classList.toggle('expanded')">
+      <div class="search-card-top">
+        <span class="search-card-pick">${highlightText(p.pick, query)}</span>
+        <span class="badge badge-source">${highlightText(p.source, query)}</span>
+        <span style="color:var(--muted);font-size:12px">${p.sport}</span>
+        <span class="badge ${resultBadge}">${resultLabel}</span>
+      </div>
+      <div class="search-card-row">
+        <div class="search-card-field"><span class="search-card-field-label">UNITS</span><span class="search-card-field-val ${uc}">${p.units}u</span></div>
+        <div class="search-card-field"><span class="search-card-field-label">ODDS</span><span class="search-card-field-val">${p.odds>0?'+':''}${p.odds}</span></div>
+        <div class="search-card-field"><span class="search-card-field-label">DATE</span><span class="search-card-field-val">${p.date}</span></div>
+        <div class="search-card-field"><span class="search-card-field-label">P/L</span><span class="search-card-field-val ${plClass}">${plStr}</span></div>
+      </div>
+      <div class="search-card-details">
+        <div class="search-card-row">
+          <div class="search-card-field"><span class="search-card-field-label">RESULT</span>
+            <select class="result-select" onclick="event.stopPropagation()" onchange="event.stopPropagation();setResult(${p.id},this.value);renderSearch()">
+              <option value="pending" ${p.result==='pending'?'selected':''}>PENDING</option>
+              <option value="win" ${p.result==='win'?'selected':''}>WIN</option>
+              <option value="loss" ${p.result==='loss'?'selected':''}>LOSS</option>
+              <option value="push" ${p.result==='push'?'selected':''}>PUSH</option>
+              <option value="delete">DELETE</option>
+            </select>
+          </div>
+        </div>
+        ${relatedHTML}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ── Trends ──
+function getTrendKey(pick) {
+  const p = pick.pick;
+  const pm = p.match(/\(([^)]+)\)/);
+  let gk = '';
+  if (pm) {
+    const c = pm[1];
+    if (/\s+(vs|@)\s+/i.test(c)) { gk = c.split(/\s+(?:vs|@)\s+/i).map(t=>t.trim().toUpperCase()).sort().join(':'); }
+    else { gk = c.toUpperCase(); }
+  }
+  const lower = p.toLowerCase();
+  let dir;
+  if (lower.match(/\bover\b/)) dir = 'OVER';
+  else if (lower.match(/\bunder\b/)) dir = 'UNDER';
+  else {
+    const tm = p.replace(/\s*(ML|PL|Money Line|Puck Line|Run Line|Straight Sets|1H).*$/i,'')
+                .replace(/\s*[\-\+]?\s*\d[\d\.]*\s*$/,'').replace(/\s*\(.*$/,'').trim().toUpperCase();
+    dir = tm || 'PICK';
+  }
+  return `${dir}||${gk}`;
+}
+
+function renderTrends() {
+  const picks = getPicks();
+  const bySport = {};
+  picks.forEach(p => { if(!bySport[p.sport]) bySport[p.sport]=[]; bySport[p.sport].push(p); });
+
+  const container = document.getElementById('trends-container');
+  const order = ['NHL','MLB','NBA','EPL','WBC','Other'];
+  const sportKeys = order.filter(s=>bySport[s]);
+
+  if (!sportKeys.length) { container.innerHTML = '<div class="empty-state">No picks logged yet</div>'; return; }
+
+  container.innerHTML = sportKeys.map(sport => {
+    const sp = bySport[sport];
+    const groups = {};
+    sp.forEach(p => {
+      const key = getTrendKey(p);
+      if (!groups[key]) groups[key] = { picks:[], sources:new Set(), display:'' };
+      groups[key].picks.push(p);
+      groups[key].sources.add(p.source);
+      if (!groups[key].display) groups[key].display = p.pick;
+    });
+    const sorted = Object.values(groups).map(g=>({...g, count:g.sources.size, sourceList:[...g.sources]})).sort((a,b)=>b.count-a.count);
+    const top = sorted.slice(0, 5);
+
+    return `<div class="trend-league">
+      <div class="trend-league-title">${sport} <span class="trend-league-count">${sp.length} picks across ${new Set(sp.map(p=>p.source)).size} sources</span></div>
+      ${top.map(t => {
+        const heat = t.count>=3?'hot':t.count===2?'warm':'solo';
+        return `<div class="trend-card">
+          <div class="trend-count ${heat}">${t.count}</div>
+          <div class="trend-body">
+            <div class="trend-pick-text">${t.display}</div>
+            <div class="trend-sources">${t.sourceList.map(s=>`<span class="trend-source-pill">${s}</span>`).join('')}</div>
+          </div>
+        </div>`;
+      }).join('')}
+    </div>`;
+  }).join('');
+}
+
+// ── Render ──
+function render() {
+  const picks = getPicks();
+  const gameTimes = getGameTimes();
+
+  // Leaderboard (Rankings tab)
+  const rankingSources = [...new Set(picks.map(p => p.source))];
+  const stats = rankingSources.map(s=>getSourceStats(s)).filter(s=>s&&s.eligible);
+  stats.sort((a,b)=>b.composite-a.composite);
+  const lb = document.getElementById('leaderboard');
+  if(!stats.length) lb.innerHTML='<div class="empty-state" style="grid-column:1/-1">Need 3+ decided picks per source to rank</div>';
+  else lb.innerHTML=stats.map((s,i)=>{
+    const rank=i+1, rc=rank<=3?`rank-${rank}`:'', c=getColor(s.composite);
+    const roiStr=(s.roi>=0?'+':'')+(s.roi*100).toFixed(1)+'%', netStr=(s.netUnits>=0?'+':'')+s.netUnits+'u';
+    const pn=s.pending>0?` &bull; ${s.pending} pending`:'';
+    return `<div class="source-card ${rc}" onclick="jumpToSource(${JSON.stringify(s.source)})"><div class="card-rank">${rank}</div><div class="card-name">${s.source}</div>
+      <div class="score-bar-wrap"><div class="score-label"><span>ACCURACY</span><span class="score-val">${(s.acc*100).toFixed(1)}% (${s.wins}-${s.losses})</span></div><div class="bar-bg"><div class="bar-fill bar-acc" style="width:${s.accScore}%"></div></div></div>
+      <div class="score-bar-wrap"><div class="score-label"><span>ROI</span><span class="score-val" style="color:${s.roi>=0?'var(--win)':'var(--loss)'}">${roiStr} (${netStr})</span></div><div class="bar-bg"><div class="bar-fill bar-roi" style="width:${s.roiScore}%"></div></div></div>
+      <div class="score-bar-wrap"><div class="score-label"><span>CONSISTENCY</span><span class="score-val">${s.consistencyScore.toFixed(0)}/100</span></div><div class="bar-bg"><div class="bar-fill bar-score" style="width:${s.consistencyScore}%"></div></div></div>
+      <div class="algo-score"><div class="algo-score-val" style="color:${c}">${s.composite}</div><div class="algo-score-info">COMPOSITE SCORE<br>${s.count} picks${pn}<br>CLICK TO FILTER</div></div></div>`;
+  }).join('');
+
+  const sportBoard = document.getElementById('sport-board');
+  const decidedBySport = {};
+  picks.filter(p=>p.result!=='pending').forEach(p => {
+    if(!decidedBySport[p.sport]) decidedBySport[p.sport] = [];
+    decidedBySport[p.sport].push(p);
+  });
+  const sportStats = Object.entries(decidedBySport).map(([sport, sp]) => {
+    const w = sp.filter(p=>p.result==='win').length;
+    const l = sp.filter(p=>p.result==='loss').length;
+    const net = sp.reduce((s,p)=>s+p.pl,0);
+    const risk = sp.filter(p=>p.result!=='push').reduce((s,p)=>s+p.units,0);
+    const roi = risk>0 ? (net/risk*100) : 0;
+    return { sport, count: sp.length, w, l, net, roi };
+  }).sort((a,b)=>b.net-a.net);
+  if(!sportStats.length) {
+    sportBoard.innerHTML = '<div class="empty-state" style="grid-column:1/-1">No decided picks yet</div>';
+  } else {
+    sportBoard.innerHTML = sportStats.map(s => {
+      const pc = s.net>0 ? 'positive' : s.net<0 ? 'negative' : 'neutral';
+      const roiClass = s.roi>=0 ? 'positive' : 'negative';
+      return `<div class="sport-card">
+        <div class="sport-name">${s.sport}</div>
+        <div class="sport-meta">${s.w}-${s.l} record<br>${s.count} decided picks</div>
+        <div class="sport-units ${pc}">${s.net>=0?'+':''}${s.net}u</div>
+        <div class="sport-meta ${roiClass}">ROI ${s.roi>=0?'+':''}${s.roi.toFixed(1)}%</div>
+      </div>`;
+    }).join('');
+  }
+
+  // Filters (Home tab)
+  const PRIMARY_SPORTS = ['ALL', 'NHL', 'MLB', 'NBA', 'EPL'];
+  const sports=[...new Set(picks.map(p=>p.sport))], sources=[...new Set(picks.map(p=>p.source))];
+  const moreFilters = [...sports.filter(s=>!PRIMARY_SPORTS.includes(s)), ...sources];
+  const moreHasActive = moreFilters.includes(activeFilter);
+  let filterHtml = PRIMARY_SPORTS.map(f=>
+    `<button class="filter-btn ${activeFilter===f?'active':''}" onclick="activeFilter='${f}';render()">${f}</button>`
+  ).join('');
+  if (moreFilters.length) {
+    filterHtml += `<div class="filter-more-wrap"><button class="filter-more-btn ${moreHasActive?'has-selection':''}" onclick="toggleMoreFilters(event)" title="More filters">+</button>`;
+    filterHtml += `<div class="filter-dropdown" id="filter-dropdown">`;
+    filterHtml += moreFilters.map(f=>
+      `<button class="filter-btn ${activeFilter===f?'active':''}" onclick="activeFilter='${f}';closeMoreFilters();render()">${f}</button>`
+    ).join('');
+    filterHtml += `</div></div>`;
+  }
+  document.getElementById('filter-bar').innerHTML = filterHtml;
+
+  // Table (Home tab)
+  let filtered=picks;
+  if(activeFilter!=='ALL') filtered=picks.filter(p=>p.sport===activeFilter||p.source===activeFilter);
+  // settled mode: show only win/loss/push; default: show only pending
+  if(showSettled) filtered=filtered.filter(p=>p.result!=='pending');
+  else filtered=filtered.filter(p=>p.result==='pending');
+
+  const detailed = filtered.map(p => {
+    const key = getGameKeyForPick(p);
+    const iso = gameTimes[String(p.id)] || '';
+    const fromIso = iso ? new Date(iso).getTime() : NaN;
+    const fromDate = parsePickDateLabel(p.date);
+    const dayTs = fromDate ? fromDate.getTime() : Number.MAX_SAFE_INTEGER;
+    const sortTs = Number.isNaN(fromIso) ? dayTs : fromIso;
+    return { ...p, gameKey:key, startIso:iso, sortTs };
+  }).sort((a,b) => {
+    if(a.sortTs!==b.sortTs) return a.sortTs-b.sortTs;
+    if(a.gameKey!==b.gameKey) return a.gameKey.localeCompare(b.gameKey);
+    return a.id-b.id;
+  });
+
+  // Settled mini-stats panel
+  const settledPanel = document.getElementById('settled-stats-panel');
+  if (showSettled) {
+    const sp = filtered; // already filtered to settled + activeFilter scope
+    const sw=sp.filter(p=>p.result==='win').length, sl=sp.filter(p=>p.result==='loss').length;
+    const spu=sp.filter(p=>p.result==='push').length;
+    const sd=sw+sl, sacc=sd>0?(sw/sd*100).toFixed(1)+'%':'—';
+    const snu=sp.reduce((s,p)=>s+p.pl,0);
+    const stw=sp.filter(p=>p.result!=='push').reduce((s,p)=>s+p.units,0);
+    const sroi=stw>0?((snu/stw)*100).toFixed(1)+'%':'—';
+    const snuf=snu;
+    const filterLabel = activeFilter==='ALL'?'ALL SOURCES':activeFilter.toUpperCase();
+    settledPanel.style.display='block';
+    settledPanel.innerHTML=`
+      <div class="section-title clean-title" style="font-size:14px;margin-bottom:10px">Settled — ${filterLabel}</div>
+      <div class="stats-grid" style="margin-bottom:0">
+        <div class="stat-box"><div class="stat-box-val positive">${sw}</div><div class="stat-box-label">WINS</div></div>
+        <div class="stat-box"><div class="stat-box-val negative">${sl}</div><div class="stat-box-label">LOSSES</div></div>
+        <div class="stat-box"><div class="stat-box-val neutral">${spu}</div><div class="stat-box-label">PUSHES</div></div>
+        <div class="stat-box"><div class="stat-box-val ${sacc!=='—'?(parseFloat(sacc)>=50?'positive':'negative'):'neutral'}">${sacc}</div><div class="stat-box-label">WIN RATE</div></div>
+        <div class="stat-box"><div class="stat-box-val ${snuf>0?'positive':snuf<0?'negative':'neutral'}">${snuf>=0?'+':''}${snu}u</div><div class="stat-box-label">NET UNITS</div></div>
+        <div class="stat-box"><div class="stat-box-val ${sroi!=='—'?(parseFloat(sroi)>=0?'positive':'negative'):'neutral'}">${sroi}</div><div class="stat-box-label">ROI</div></div>
+      </div>`;
+  } else {
+    settledPanel.style.display='none';
+  }
+
+  const tbody=document.getElementById('pick-table-body');
+  if(!detailed.length) {
+    const msg = showSettled ? 'No settled picks for this filter yet' : 'No pending picks — click SHOW SETTLED to see results';
+    tbody.innerHTML=`<tr><td colspan="8" class="empty-state">${msg}</td></tr>`;
+  }
+  else {
+    const rows = [];
+    const groupStartTimes = {};
+    detailed.forEach(p => {
+      if (!groupStartTimes[p.gameKey] && p.startIso) groupStartTimes[p.gameKey] = p.startIso;
+    });
+    let lastGameKey = '';
+    detailed.forEach((p, idx) => {
+      if (p.gameKey !== lastGameKey) {
+        if (idx !== 0) {
+          rows.push('<tr class="game-gap-row"><td colspan="8"></td></tr>');
+        }
+        const groupIso = groupStartTimes[p.gameKey] || p.startIso;
+        rows.push(`<tr class="game-group-row"><td colspan="8"><span class="game-group-title">${extractGameKey(p.pick) || p.pick}</span>&bull; ${p.sport} &bull; ${p.date} &bull; ${formatStartLabel(groupIso)}</td></tr>`);
+        lastGameKey = p.gameKey;
+      }
+
+    const pc=p.pl>0?'positive':p.pl<0?'negative':'neutral';
+    const ps=p.result==='pending'?'&mdash;':(p.pl>=0?'+':'')+p.pl+'u';
+    const uc=p.units>=3?'units-3':'units-1';
+    const res=`<select class="result-select" onchange="setResult(${p.id},this.value)">
+      <option value="pending" ${p.result==='pending'?'selected':''}>PENDING</option>
+      <option value="win" ${p.result==='win'?'selected':''}>WIN</option>
+      <option value="loss" ${p.result==='loss'?'selected':''}>LOSS</option>
+      <option value="push" ${p.result==='push'?'selected':''}>PUSH</option>
+      <option value="delete">DELETE</option></select>`;
+      rows.push(`<tr>
+      <td class="units-cell ${uc}">${p.units}u</td>
+      <td style="font-family:'DM Mono',monospace;font-size:11px;color:var(--muted)">${p.date}</td>
+      <td><span class="badge badge-source">${p.source}</span></td>
+      <td>${p.pick}</td>
+      <td style="color:var(--muted);font-size:12px">${p.sport}</td>
+      <td style="font-family:'DM Mono',monospace">${p.odds>0?'+':''}${p.odds}</td>
+      <td>${res}</td>
+      <td class="${pc}" style="font-family:'DM Mono',monospace;font-weight:500">${ps}</td>
+    </tr>`);
+    });
+    tbody.innerHTML = rows.join('');
+  }
+
+  // Overall stats
+  const decided=picks.filter(p=>p.result!=='pending');
+  const w=decided.filter(p=>p.result==='win').length, l=decided.filter(p=>p.result==='loss').length;
+  const pu=decided.filter(p=>p.result==='push').length, pe=picks.filter(p=>p.result==='pending').length;
+  const d=w+l, acc=d>0?(w/d*100).toFixed(1)+'%':'—';
+  const nu=decided.reduce((s,p)=>s+p.pl,0), tw=decided.filter(p=>p.result!=='push').reduce((s,p)=>s+p.units,0);
+  const roi=tw>0?((nu/tw)*100).toFixed(1)+'%':'—', nuf=nu;
+  document.getElementById('total-record').textContent=`${w}-${l}`;
+  document.getElementById('stat-picks').textContent=picks.length;
+  document.getElementById('stat-wins').textContent=w;
+  document.getElementById('stat-losses').textContent=l;
+  document.getElementById('stat-pushes').textContent=pu;
+  document.getElementById('stat-pending').textContent=pe;
+  document.getElementById('stat-acc').textContent=acc;
+  const ue=document.getElementById('stat-units');
+  ue.textContent=(nuf>=0?'+':'')+nu+'u'; ue.className='stat-box-val '+(nuf>0?'positive':nuf<0?'negative':'neutral');
+  const re=document.getElementById('stat-roi'); re.textContent=roi;
+  if(roi!=='—') re.className='stat-box-val '+(parseFloat(roi)>=0?'positive':'negative');
+
+  // Trends
+  renderTrends();
+}
+
+function initTheme() {
+  if((localStorage.getItem('pickledger_theme')||'dark')==='light') { document.body.setAttribute('data-theme','light'); document.getElementById('theme-label').textContent='LIGHT'; }
+}
+function toggleTheme() {
+  const light=document.body.getAttribute('data-theme')==='light';
+  if(light) { document.body.removeAttribute('data-theme'); localStorage.setItem('pickledger_theme','dark'); document.getElementById('theme-label').textContent='DARK'; }
+  else { document.body.setAttribute('data-theme','light'); localStorage.setItem('pickledger_theme','light'); document.getElementById('theme-label').textContent='LIGHT'; }
+}
+
+// ── Models Tab ──
+const MODEL_SERVER = 'http://127.0.0.1:8765';
+let pendingModelPicks = [];
+
+function setModelStatus(model, msg, state) {
+  const el = document.getElementById('status-' + model);
+  if (!el) return;
+  el.textContent = msg;
+  el.className = 'model-status' + (state ? ' ' + state : '');
+}
+
+function _getTodayDateStr() {
+  // Returns MM/DD/YYYY for the model scripts
+  const d = new Date();
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  return `${mm}/${dd}/${d.getFullYear()}`;
+}
+
+async function _pollJob(jobId, model) {
+  const pollInterval = 3000; // 3 seconds
+  while (true) {
+    await new Promise(r => setTimeout(r, pollInterval));
+    try {
+      const resp = await fetch(`${MODEL_SERVER}/job-status?id=${jobId}`);
+      const data = await resp.json();
+      if (data.status === 'done') {
+        return data;
+      }
+      // still running
+    } catch (e) {
+      setModelStatus(model, 'Lost connection while polling...', 'error');
+      return null;
+    }
+  }
+}
+
+async function runModel(model) {
+  const btn = document.getElementById('btn-run-' + model);
+  if (btn) { btn.disabled = true; btn.textContent = 'RUNNING...'; }
+  setModelStatus(model, 'Connecting to server...', 'running');
+
+  let endpoint = '';
+  let body = { async: true, date: _getTodayDateStr() };
+  if (model === 'mlb') endpoint = '/run-mlb-model';
+  else if (model === 'nba') endpoint = '/run-nba-model';
+  else if (model === 'scores24') {
+    endpoint = '/run-scores24';
+    const checks = document.querySelectorAll('#model-card-scores24 input[type="checkbox"]:checked');
+    body.sports = Array.from(checks).map(c => c.value);
+    if (!body.sports.length) {
+      setModelStatus(model, 'Select at least one sport', 'error');
+      if (btn) { btn.disabled = false; btn.textContent = 'RUN SCORES24 SCRAPER'; }
+      return;
+    }
+  }
+
+  try {
+    setModelStatus(model, 'Launching model (async)...', 'running');
+    const resp = await fetch(MODEL_SERVER + endpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    });
+    const launch = await resp.json();
+    if (!launch.ok) {
+      setModelStatus(model, 'Error: ' + (launch.error || 'Unknown error'), 'error');
+      return;
+    }
+
+    if (launch.job_id) {
+      // Async mode — poll for results
+      setModelStatus(model, 'Model is running in background — polling for results...', 'running');
+      const data = await _pollJob(launch.job_id, model);
+      if (!data || !data.ok) {
+        setModelStatus(model, 'Error: ' + ((data && data.error) || 'Job failed'), 'error');
+        return;
+      }
+      const picks = data.picks || [];
+      setModelStatus(model, `Done. ${picks.length} prediction(s) returned.`, 'ok');
+      pendingModelPicks = picks;
+      renderModelResults(picks);
+    } else {
+      // Sync fallback (shouldn't happen but just in case)
+      const picks = launch.picks || [];
+      setModelStatus(model, `Done. ${picks.length} prediction(s) returned.`, 'ok');
+      pendingModelPicks = picks;
+      renderModelResults(picks);
+    }
+  } catch (e) {
+    setModelStatus(model, 'Server not reachable. Make sure pickgrader_server.py is running.', 'error');
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      const labels = { mlb: 'RUN MLB MODEL', nba: 'RUN NBA MODEL', scores24: 'RUN SCORES24 SCRAPER' };
+      btn.textContent = labels[model] || 'RUN';
+    }
+  }
+}
+
+function renderModelResults(picks) {
+  const section = document.getElementById('model-results-section');
+  const tbody = document.getElementById('model-results-body');
+  if (!picks.length) {
+    section.style.display = 'none';
+    return;
+  }
+  section.style.display = 'block';
+  tbody.innerHTML = picks.map((p, idx) => {
+    const isBet = p.decision === 'BET';
+    const cls = isBet ? 'model-result-bet' : 'model-result-pass';
+    const edgeStr = p.edge != null ? (p.edge > 0 ? '+' : '') + p.edge.toFixed(1) + '%' : '—';
+    const probStr = p.probability != null ? (p.probability * 100).toFixed(1) + '%' : '—';
+    const oddsStr = p.odds ? (p.odds > 0 ? '+' : '') + p.odds : '—';
+    return `<tr class="${isBet ? '' : 'model-result-pass-row'}" style="${isBet ? '' : 'opacity:0.5'}">
+      <td><input type="checkbox" class="model-pick-cb" data-idx="${idx}" ${isBet ? 'checked' : ''} onchange="updateModelSelectAll()"></td>
+      <td><span class="badge badge-source">${p.source}</span></td>
+      <td>${p.pick}</td>
+      <td style="color:var(--muted);font-size:12px">${p.sport}</td>
+      <td style="font-family:'DM Mono',monospace">${oddsStr}</td>
+      <td style="font-family:'DM Mono',monospace">${probStr}</td>
+      <td style="font-family:'DM Mono',monospace">${edgeStr}</td>
+      <td class="${cls}" style="font-family:'DM Mono',monospace;font-weight:500">${p.decision}</td>
+    </tr>`;
+  }).join('');
+  const addSelectedBtn = document.getElementById('btn-add-selected');
+  if (addSelectedBtn) {
+    addSelectedBtn.disabled = false;
+  }
+  const addAllBtn = document.getElementById('btn-add-picks');
+  if (addAllBtn) {
+    const betCount = picks.filter(p => p.decision === 'BET').length;
+    addAllBtn.disabled = betCount === 0;
+    addAllBtn.textContent = 'ADD ALL BET PICKS TO LEDGER';
+  }
+  updateModelSelectAll();
+}
+
+function _normalizeTeam(t) {
+  // Normalize team names for comparison: lowercase, strip whitespace
+  return t.trim().toLowerCase().replace(/[^a-z0-9\s]/g, '').replace(/\s+/g, ' ');
+}
+
+function _extractMatchupTeams(pickText) {
+  // Extract the two team names from "(TeamA vs/@ TeamB)" in a pick string
+  const m = pickText.match(/\(([^)]+)\)/);
+  if (!m) return null;
+  const parts = m[1].split(/\s+(?:vs|@)\s+/i);
+  if (parts.length !== 2) return null;
+  return [_normalizeTeam(parts[0]), _normalizeTeam(parts[1])].sort();
+}
+
+function _extractPickSide(pickText) {
+  // Extract the bet side (team name or Over/Under) from before the parentheses
+  const head = pickText.split('(')[0].trim().toLowerCase();
+  // Remove spread numbers, ML suffix
+  return head.replace(/\s*[+-]?\d+(\.\d+)?\s*$/, '').replace(/\s+ml$/, '').trim();
+}
+
+function _isDuplicatePick(existingPick, newPick, dateStr) {
+  // Same source, same date is the first filter
+  if (existingPick.source !== newPick.source) return false;
+  if (existingPick.date !== dateStr) return false;
+
+  // Exact text match
+  if (existingPick.pick === newPick.pick) return true;
+
+  // Fuzzy match: same game + same side (team or over/under direction)
+  const existTeams = _extractMatchupTeams(existingPick.pick);
+  const newTeams = _extractMatchupTeams(newPick.pick);
+  if (!existTeams || !newTeams) return false;
+
+  // Same game? (teams match regardless of order)
+  if (existTeams[0] !== newTeams[0] || existTeams[1] !== newTeams[1]) return false;
+
+  // Same side of the bet?
+  const existSide = _extractPickSide(existingPick.pick);
+  const newSide = _extractPickSide(newPick.pick);
+  return existSide === newSide;
+}
+
+function toggleAllModelPicks(checked) {
+  document.querySelectorAll('.model-pick-cb').forEach(cb => { cb.checked = checked; });
+}
+
+function updateModelSelectAll() {
+  const all = document.querySelectorAll('.model-pick-cb');
+  const checked = document.querySelectorAll('.model-pick-cb:checked');
+  const selectAll = document.getElementById('model-select-all');
+  if (selectAll) {
+    selectAll.checked = all.length > 0 && checked.length === all.length;
+    selectAll.indeterminate = checked.length > 0 && checked.length < all.length;
+  }
+  const btn = document.getElementById('btn-add-selected');
+  if (btn) {
+    btn.textContent = `ADD ${checked.length} SELECTED PICK(S) TO LEDGER`;
+    btn.disabled = checked.length === 0;
+  }
+}
+
+function _appendModelPicksToLedger(candidates) {
+  const today = new Date();
+  const dateStr = today.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  const existingAdded = getAddedPicks();
+  const allCurrent = [...PICKS, ...existingAdded];
+  const maxId = allCurrent.reduce((m, p) => Math.max(m, Number(p.id) || 0), 0);
+
+  let added = 0;
+  let skippedDuplicates = 0;
+  const newEntries = [];
+
+  candidates.forEach(p => {
+    const source = String(p.source || 'Model');
+    const pickText = String(p.pick || '').trim();
+    if (!pickText) return;
+
+    const shaped = {
+      source,
+      pick: pickText,
+      sport: String(p.sport || 'Other'),
+      units: Number(p.units) || 1,
+      odds: Number(p.odds) || -110,
+    };
+
+    const isDup = [...allCurrent, ...newEntries].some(ep => _isDuplicatePick(ep, shaped, dateStr));
+    if (isDup) {
+      skippedDuplicates++;
+      return;
+    }
+
+    newEntries.push({
+      id: maxId + 1 + added,
+      date: dateStr,
+      source: shaped.source,
+      pick: shaped.pick,
+      sport: shaped.sport,
+      units: shaped.units,
+      odds: shaped.odds,
+      result: 'pending'
+    });
+    added++;
+  });
+
+  if (newEntries.length) {
+    saveAddedPicks([...existingAdded, ...newEntries]);
+  }
+
+  return { added, skippedDuplicates };
+}
+
+function addSelectedPicksToLedger() {
+  const checked = document.querySelectorAll('.model-pick-cb:checked');
+  if (!checked.length) { alert('No picks selected.'); return; }
+
+  const indices = Array.from(checked).map(cb => parseInt(cb.dataset.idx));
+  const selected = indices.map(i => pendingModelPicks[i]).filter(Boolean);
+
+  const { added } = _appendModelPicksToLedger(selected);
+  render();
+  const btn = document.getElementById('btn-add-selected');
+  if (added > 0) {
+    btn.textContent = `${added} PICK(S) ADDED — VIEW IN HOME TAB`;
+    switchTab('home');
+  } else {
+    btn.textContent = 'NO NEW PICKS ADDED (DUPLICATES)';
+  }
+}
+
+function addModelPicksToLedger() {
+  const betPicks = pendingModelPicks.filter(p => p.decision === 'BET');
+  if (!betPicks.length) { alert('No BET picks to add.'); return; }
+
+  const { added } = _appendModelPicksToLedger(betPicks);
+  render();
+  const addAllBtn = document.getElementById('btn-add-picks');
+  if (added > 0) {
+    addAllBtn.textContent = `${added} PICK(S) ADDED — VIEW IN HOME TAB`;
+    switchTab('home');
+  } else {
+    addAllBtn.textContent = 'NO NEW BET PICKS ADDED (DUPLICATES)';
+  }
+}
+
+initTheme();
+const savedTab = localStorage.getItem('pickledger_tab') || 'home';
+if (savedTab !== 'home') switchTab(savedTab);
+render();
+if (missingStartTimesCount() > 0) {
+  refreshAutoGrades(true);
+}
+</script>
+</body>
+</html>
