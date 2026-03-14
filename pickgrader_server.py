@@ -1020,6 +1020,15 @@ class Handler(BaseHTTPRequestHandler):
         self._send_json(200, {"ok": True})
 
     def do_GET(self) -> None:  # noqa: N802
+        if self.path == "/":
+            self._send_json(200, {
+                "ok": True,
+                "service": "pickledger-grader",
+                "status": "healthy",
+                "endpoints": ["/health", "/grade", "/run-nba-model", "/run-mlb-model", "/run-scores24", "/job-status?id=<id>"],
+            })
+            return
+
         if self.path == "/health":
             self._send_json(200, {"ok": True, "status": "healthy"})
             return
