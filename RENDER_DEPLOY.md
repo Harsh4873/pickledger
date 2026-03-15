@@ -66,3 +66,18 @@ Optional: if you ever want to re-enable remote Scores24 scraping on Render, set:
 ## 6. Local Fallback
 
 No change to your local flow is required. If no `api` query/localStorage is set, frontend still uses `http://127.0.0.1:8765`.
+
+## 7. Build Failure: "No module named playwright"
+
+If Render fails with:
+
+- `/opt/render/project/src/.venv/bin/python: No module named playwright`
+
+then your service is still using an older manual build command that runs:
+
+- `python -m playwright install ...`
+
+Fix options:
+
+1. Preferred: Update Render build command to the new one in this doc (no Playwright install step needed).
+2. Compatibility: Keep the old build command; this repo includes `playwright` in `requirements.txt` so the module exists during build.
