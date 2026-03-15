@@ -2,8 +2,16 @@
 NBA Injury Report Fetcher — Uses the nbainjuries PyPI package.
 Pulls directly from official NBA injury reports (no API key needed).
 """
-from nbainjuries import injury
 from datetime import datetime
+
+try:
+    from nbainjuries import injury
+    _HAS_NBAINJURIES = True
+    _NBAINJURIES_IMPORT_ERROR = ""
+except Exception as exc:
+    # Render does not ship a JVM, and nbainjuries imports JPype on import.
+    _HAS_NBAINJURIES = False
+    _NBAINJURIES_IMPORT_ERROR = str(exc)
 
 # Team full name -> short name mapping
 TEAM_SHORT = {
@@ -31,6 +39,12 @@ def fetch_injuries(dt: datetime = None) -> dict:
         Dict keyed by short team name -> list of injured players.
     """
     import datetime as dt_module
+
+    if not _HAS_NBAINJURIES:
+        print("    [injury_report] WARNING: nbainjuries unavailable; running with no injury adjustments.")
+        if _NBAINJURIES_IMPORT_ERROR:
+            print(f"    [injury_report] Detail: {_NBAINJURIES_IMPORT_ERROR}")
+        return {}
     
     df = None
     if dt is None:
@@ -55,9 +69,20 @@ def fetch_injuries(dt: datetime = None) -> dict:
         # Fallback just in case
         if df is None or df.empty:
             dt = datetime(year=now.year, month=now.month, day=now.day, hour=17, minute=30)
-            df = injury.get_reportdata(dt, return_df=True)
+            try:
+                df = injury.get_reportdata(dt, return_df=True)
+            except Exception as exc:
+                print(f"    [injury_report] WARNING: fallback report fetch failed: {exc}")
+                return {}
     else:
-        df = injury.get_reportdata(dt, return_df=True)
+        try:
+            df = injury.get_reportdata(dt, return_df=True)
+        except Exception as exc:
+            print(f"    [injury_report] WARNING: injury report fetch failed: {exc}")
+            return {}
+
+    if df is None or df.empty:
+        return {}
     
     # Drop rows where Player Name is NaN (NOT YET SUBMITTED entries)
     df = df.dropna(subset=['Player Name'])
