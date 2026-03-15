@@ -11,7 +11,12 @@ import argparse
 import sys
 import re
 import json
+import os
 from datetime import datetime
+
+# Use a deterministic browser install path that survives Render builds.
+os.environ.setdefault("PLAYWRIGHT_BROWSERS_PATH", "0")
+
 from playwright.sync_api import sync_playwright, TimeoutError as PwTimeout
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━

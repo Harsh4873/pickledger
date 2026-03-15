@@ -960,9 +960,12 @@ def run_scores24_scraper(sports: list[str]) -> dict[str, Any]:
         timeout_s = 240 if sport_code == "epl" else 120
 
         try:
+            env = os.environ.copy()
+            env.setdefault("PLAYWRIGHT_BROWSERS_PATH", "0")
             result = subprocess.run(
                 [python_bin, scraper_path, "--sport", sport_slug, "--date", today_str],
                 cwd=BASE_DIR,
+                env=env,
                 capture_output=True,
                 text=True,
                 timeout=timeout_s,
