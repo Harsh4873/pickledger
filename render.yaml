@@ -4,11 +4,10 @@ services:
     env: python
     plan: starter
     buildCommand: |
-      apt-get update && apt-get install -y default-jre-headless
       pip install -r requirements.txt
       pip install -r NBAPredictionModel/requirements.txt
       pip install -r MLBPredictionModel/requirements.txt
-      python -m playwright install --with-deps chromium
+      python -m playwright install chromium
     startCommand: python pickgrader_server.py
     healthCheckPath: /health
     autoDeploy: true
