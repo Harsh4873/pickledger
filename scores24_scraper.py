@@ -98,6 +98,22 @@ def guess_urls(sport_slug: str, date_str: str, matchup_str: str) -> list[str]:
     ]
 
 
+def listing_url_candidates(sport_slug: str) -> list[str]:
+    """Try multiple known Scores24 listing URL patterns."""
+    candidates = [
+        f"{BASE}/en/predictions/{sport_slug}",
+        f"{BASE}/en/{sport_slug}/predictions",
+        f"{BASE}/en/{sport_slug}",
+    ]
+    seen = set()
+    out = []
+    for u in candidates:
+        if u not in seen:
+            seen.add(u)
+            out.append(u)
+    return out
+
+
 def scan_suggestive(text: str) -> list[str]:
     lower = text.lower()
     hits = []
@@ -165,10 +181,33 @@ DEEP_SEARCH_JS = """
 }
 """
 
+DIRECT_PREDICTION_LINKS_JS = r"""
+() => {
+    const links = document.querySelectorAll('a[href*="/m-"]');
+    const urls = new Set();
+    for (const a of links) {
+        const href = a.getAttribute('href');
+        if (!href) continue;
+        const abs = href.startsWith('http') ? href : 'https://scores24.live' + href;
+        if (/-prediction$/i.test(abs) || /\/m-\d{2}-\d{2}-\d{4}-/i.test(abs)) {
+            urls.add(abs);
+        }
+    }
+    return Array.from(urls);
+}
+"""
+
 def extract_subleague_links(page):
     try:
         return page.evaluate(DEEP_SEARCH_JS)
     except Exception as e:
+        return []
+
+
+def extract_prediction_links(page):
+    try:
+        return page.evaluate(DIRECT_PREDICTION_LINKS_JS)
+    except Exception:
         return []
 
 
@@ -440,16 +479,30 @@ def main():
             print_prediction(pred, {}, "Unknown", args.url)
             return
 
-        listing_url = args.url if args.url else f"{BASE}/en/predictions/{sport_slug}"
+        listing_urls = [args.url] if args.url else listing_url_candidates(sport_slug)
+        listing_url = listing_urls[0]
         print(f"Sport:          {sport_slug if args.sport else 'Unknown'}")
         if args.date:    print(f"Date requested: {args.date}")
         if args.matchup: print(f"Matchup:        {args.matchup}")
         print(f"Listing URL:    {listing_url}")
 
-        listing_page, status = load_page(ctx, listing_url)
+        listing_page = None
+        status = 0
+        used_listing_url = ""
+        for cand in listing_urls:
+            lp, st = load_page(ctx, cand)
+            if lp:
+                listing_page = lp
+                status = st
+                used_listing_url = cand
+                break
+            status = st
+
         if not listing_page:
             print(f"Listing page status: ❌ Page failed (status {status})")
             return
+        if used_listing_url and used_listing_url != listing_url:
+            print(f"Listing URL fallback: {used_listing_url}")
         print("Listing page status: ✅ Page loaded")
 
         cards = extract_listing_cards(listing_page)
@@ -466,6 +519,21 @@ def main():
                 c_data = f"{c.get('home','')} {c.get('away','')} {c.get('href','')}".lower()
                 if not all(p in c_data for p in matchup_parts): continue
             filtered.append(c)
+
+        # If card extraction is blocked/empty, fall back to direct prediction links.
+        if not filtered:
+            direct_links = extract_prediction_links(listing_page)
+            for href in direct_links:
+                c = {"href": href, "home": "", "away": "", "isoDate": "", "visDate": "", "visTime": "", "league": sport_label, "confidence": ""}
+                if variants:
+                    blob = href.lower()
+                    if not any(v.lower().replace(" ", "-") in blob for v in variants):
+                        continue
+                if matchup_parts:
+                    blob = href.lower()
+                    if not all(re.sub(r'[^a-z0-9]+', '-', p) in blob for p in matchup_parts):
+                        continue
+                filtered.append(c)
 
         # ── DEEP SEARCH LOGIC ──
         if not filtered and args.matchup:
