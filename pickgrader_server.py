@@ -21,7 +21,7 @@ import sys
 import threading
 import uuid
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from datetime import datetime
+from datetime import datetime, timedelta
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from typing import Any
 from urllib.error import URLError, HTTPError
@@ -986,7 +986,18 @@ def run_mlb_model(date_str: str | None = None) -> dict[str, Any]:
         return {"ok": False, "error": str(e)}
 
 
-def run_scores24_scraper(sports: list[str]) -> dict[str, Any]:
+def _resolve_scores24_date(date_str: str | None) -> str:
+    """Normalize incoming date to YYYY-MM-DD for scores24_scraper.py."""
+    if date_str:
+        for fmt in ("%Y-%m-%d", "%m/%d/%Y"):
+            try:
+                return datetime.strptime(date_str, fmt).strftime("%Y-%m-%d")
+            except ValueError:
+                pass
+    return datetime.now().strftime("%Y-%m-%d")
+
+
+def run_scores24_scraper(sports: list[str], date_str: str | None = None) -> dict[str, Any]:
     """Execute the Scores24 scraper for selected sports."""
     python_bin = _resolve_python_bin(SCORES24_VENV)
 
@@ -1003,7 +1014,7 @@ def run_scores24_scraper(sports: list[str]) -> dict[str, Any]:
 
     all_picks: list[dict[str, Any]] = []
     errors: list[str] = []
-    today_str = datetime.now().strftime("%Y-%m-%d")
+    target_date = _resolve_scores24_date(date_str)
     scraper_path = os.path.join(BASE_DIR, "scores24_scraper.py")
     if not os.path.exists(scraper_path):
         return {"ok": False, "error": f"scores24 scraper not found at {scraper_path}"}
@@ -1014,11 +1025,20 @@ def run_scores24_scraper(sports: list[str]) -> dict[str, Any]:
             return sport_code, [], f"Unsupported sport code: {sport_code}"
 
         timeout_s = 240 if sport_code == "epl" else 120
-        cmd = [python_bin, scraper_path, "--sport", sport_slug, "--date", today_str]
+        date_candidates = [target_date]
+        try:
+            base_date = datetime.strptime(target_date, "%Y-%m-%d")
+            fallback_prev = (base_date - timedelta(days=1)).strftime("%Y-%m-%d")
+            fallback_next = (base_date + timedelta(days=1)).strftime("%Y-%m-%d")
+            for candidate in (fallback_prev, fallback_next):
+                if candidate not in date_candidates:
+                    date_candidates.append(candidate)
+        except ValueError:
+            pass
 
-        def _invoke(env: dict[str, str]) -> subprocess.CompletedProcess[str]:
+        def _invoke(env: dict[str, str], scrape_date: str) -> subprocess.CompletedProcess[str]:
             return subprocess.run(
-                cmd,
+                [python_bin, scraper_path, "--sport", sport_slug, "--date", scrape_date],
                 cwd=BASE_DIR,
                 env=env,
                 capture_output=True,
@@ -1029,7 +1049,7 @@ def run_scores24_scraper(sports: list[str]) -> dict[str, Any]:
         try:
             env = os.environ.copy()
             env.setdefault("PLAYWRIGHT_BROWSERS_PATH", "0")
-            result = _invoke(env)
+            result = _invoke(env, date_candidates[0])
             output = (result.stdout or "") + (result.stderr or "")
 
             # Auto-heal missing browser installs in long-lived Render instances.
@@ -1037,10 +1057,23 @@ def run_scores24_scraper(sports: list[str]) -> dict[str, Any]:
                 ok, install_msg = _ensure_playwright_browsers(python_bin, env)
                 if not ok:
                     return sport_code, [], f"{sport_code}: Playwright install failed ({install_msg})"
-                result = _invoke(env)
+                result = _invoke(env, date_candidates[0])
                 output = (result.stdout or "") + (result.stderr or "")
 
             picks = _parse_scores24_output(output)
+
+            # Around date boundaries, listings may shift by one day depending on
+            # league timezone and deployment timezone. Retry adjacent dates.
+            if result.returncode == 0 and not picks and len(date_candidates) > 1:
+                for retry_date in date_candidates[1:]:
+                    retry = _invoke(env, retry_date)
+                    retry_output = (retry.stdout or "") + (retry.stderr or "")
+                    retry_picks = _parse_scores24_output(retry_output)
+                    if retry.returncode == 0 and retry_picks:
+                        result = retry
+                        output = retry_output
+                        picks = retry_picks
+                        break
 
             if result.returncode != 0 and not picks:
                 msg = _compact_error_text(output)
@@ -1191,11 +1224,12 @@ class Handler(BaseHTTPRequestHandler):
 
         elif self.path == "/run-scores24":
             sports = body.get("sports", ["nba", "nhl", "mlb", "epl"])
+            scrape_date = body.get("date")
             if async_mode:
-                job_id = _launch_job(run_scores24_scraper, sports)
+                job_id = _launch_job(run_scores24_scraper, sports, scrape_date)
                 self._send_json(200, {"ok": True, "job_id": job_id, "status": "running"})
             else:
-                result = run_scores24_scraper(sports)
+                result = run_scores24_scraper(sports, scrape_date)
                 self._send_json(200, result)
 
         else:
