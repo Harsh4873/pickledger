@@ -1348,12 +1348,24 @@ function _getTodayDateStr() {
   return `${mm}/${dd}/${d.getFullYear()}`;
 }
 
-async function _pollJob(jobId, model) {
+async function _pollJob(jobId, model, baseUrl = MODEL_SERVER, timeoutMs = 600000) {
   const pollInterval = 3000; // 3 seconds
+  const started = Date.now();
   while (true) {
+    const elapsedMs = Date.now() - started;
+    if (elapsedMs > timeoutMs) {
+      setModelStatus(model, 'Timed out waiting for model job', 'error');
+      return null;
+    }
+
     await new Promise(r => setTimeout(r, pollInterval));
     try {
-      const resp = await fetch(`${MODEL_SERVER}/job-status?id=${jobId}`);
+      if (model === 'scores24') {
+        const secs = Math.floor(elapsedMs / 1000);
+        setModelStatus(model, `Running local Scores24 scrape... ${secs}s`, 'running');
+      }
+
+      const resp = await fetch(`${baseUrl}/job-status?id=${jobId}`);
       const data = await resp.json();
       if (data.status === 'done') {
         return data;
@@ -1439,10 +1451,7 @@ function setScores24SyncMeta(meta) {
 }
 
 async function syncScores24FromServer() {
-  const serverCandidates = [LOCAL_SCORES24_SERVER];
-  if (MODEL_SERVER !== LOCAL_SCORES24_SERVER) {
-    serverCandidates.push(MODEL_SERVER);
-  }
+  const server = LOCAL_SCORES24_SERVER;
 
   const body = {
     async: true,
@@ -1450,43 +1459,34 @@ async function syncScores24FromServer() {
     sports: ['nba', 'nhl', 'mlb', 'epl'],
   };
 
-  let lastErr = '';
-  for (const server of serverCandidates) {
-    try {
-      const resp = await fetch(server + '/run-scores24', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body)
-      });
+  const resp = await fetch(server + '/run-scores24', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body)
+  });
 
-      const launch = await resp.json();
-      if (!launch.ok) {
-        throw new Error(launch.error || `HTTP ${resp.status}`);
-      }
-
-      let data = launch;
-      if (launch.job_id) {
-        data = await _pollJob(launch.job_id, 'scores24');
-      }
-      if (!data || !data.ok) {
-        throw new Error((data && data.error) || 'Scores24 job failed');
-      }
-
-      return {
-        picks: Array.isArray(data.picks) ? data.picks : [],
-        meta: {
-          updatedAt: new Date().toISOString(),
-          date: _getTodayDateStr(),
-          note: 'Synced from backend',
-          from: server.includes('127.0.0.1') ? 'local-backend' : 'remote-backend',
-        },
-      };
-    } catch (e) {
-      lastErr = `${server}: ${String(e && e.message ? e.message : e)}`;
-    }
+  const launch = await resp.json();
+  if (!launch.ok) {
+    throw new Error(launch.error || `HTTP ${resp.status}`);
   }
 
-  throw new Error(lastErr || 'No backend candidates available');
+  let data = launch;
+  if (launch.job_id) {
+    data = await _pollJob(launch.job_id, 'scores24', server, 600000);
+  }
+  if (!data || !data.ok) {
+    throw new Error((data && data.error) || 'Scores24 job failed');
+  }
+
+  return {
+    picks: Array.isArray(data.picks) ? data.picks : [],
+    meta: {
+      updatedAt: new Date().toISOString(),
+      date: _getTodayDateStr(),
+      note: 'Synced from localhost backend',
+      from: 'local-backend',
+    },
+  };
 }
 
 async function runModel(model) {
