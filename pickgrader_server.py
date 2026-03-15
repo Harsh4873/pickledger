@@ -863,7 +863,7 @@ def _parse_scores24_output(output: str) -> list[dict[str, Any]]:
     """Parse Scores24 scraper stdout into pick dicts."""
     picks: list[dict[str, Any]] = []
 
-    # Split by the ━━━ separators
+    # Split by the ━━━ separators (preferred path)
     blocks = re.split(r"━{10,}", output)
 
     for block in blocks:
@@ -939,6 +939,87 @@ def _parse_scores24_output(output: str) -> list[dict[str, Any]]:
             "probability": conf_val / 100 if conf_val else None,
             "edge": None,
             "decision": "BET",  # All Scores24 tips are presented as BET
+        })
+
+    if picks:
+        return picks
+
+    # Fallback path: parse repeated field sections even when separator glyphs
+    # are missing/normalized in subprocess output.
+    lines = [ln.rstrip("\n") for ln in output.splitlines()]
+    chunk: list[str] = []
+    chunks: list[str] = []
+    for ln in lines:
+        if ln.strip().startswith("Match:") and chunk:
+            chunks.append("\n".join(chunk))
+            chunk = [ln]
+            continue
+        if chunk or ln.strip().startswith("Match:"):
+            chunk.append(ln)
+    if chunk:
+        chunks.append("\n".join(chunk))
+
+    for block in chunks:
+        match_m = re.search(r"Match:\s*(.+)", block)
+        tip_m = re.search(r"Tip:\s*(.+)", block)
+        odds_m = re.search(r"Odds:\s*(.+)", block)
+        conf_m = re.search(r"Confidence:\s*(.+)", block)
+        league_m = re.search(r"League:\s*(.+)", block)
+
+        if not match_m or not tip_m:
+            continue
+
+        matchup = match_m.group(1).strip()
+        tip = tip_m.group(1).strip()
+        if not tip or tip == "[not found on page]":
+            continue
+
+        odds_str = odds_m.group(1).strip() if odds_m else ""
+        confidence = conf_m.group(1).strip() if conf_m else ""
+        league = league_m.group(1).strip().upper() if league_m else ""
+
+        league_norm = re.sub(r"\s+", " ", league).strip().upper()
+        sport = "Other"
+        if league_norm in {"NBA", "NATIONAL BASKETBALL ASSOCIATION"}:
+            sport = "NBA"
+        elif league_norm in {"NHL", "NATIONAL HOCKEY LEAGUE"}:
+            sport = "NHL"
+        elif league_norm in {"MLB", "MAJOR LEAGUE BASEBALL"}:
+            sport = "MLB"
+        elif league_norm in {"EPL", "ENGLISH PREMIER LEAGUE", "PREMIER LEAGUE"}:
+            sport = "EPL"
+        elif league_norm:
+            sport = league_norm
+
+        odds_val = -110
+        if odds_str and odds_str != "[not found on page]":
+            try:
+                odds_val = int(float(odds_str.replace("+", "").replace("*", "")))
+            except ValueError:
+                odds_val = -110
+
+        tip_odds_m = re.search(r"at odds of ([+-]?\d+)\*?", tip)
+        if tip_odds_m:
+            try:
+                odds_val = int(tip_odds_m.group(1))
+            except ValueError:
+                pass
+
+        conf_val = None
+        if confidence and confidence != "[not found on page]":
+            conf_num = re.search(r"(\d+)", confidence)
+            if conf_num:
+                conf_val = int(conf_num.group(1))
+
+        picks.append({
+            "source": "Scores24",
+            "pick": _clean_scores24_pick(tip, matchup, sport),
+            "sport": sport,
+            "odds": odds_val,
+            "units": 1,
+            "probability": conf_val / 100 if conf_val else None,
+            "edge": None,
+            "decision": "BET",
         })
 
     return picks
@@ -1078,6 +1159,10 @@ def run_scores24_scraper(sports: list[str], date_str: str | None = None) -> dict
             if result.returncode != 0 and not picks:
                 msg = _compact_error_text(output)
                 return sport_code, [], f"{sport_code}: scraper exited {result.returncode} ({msg})"
+
+            if not picks:
+                compact = _compact_error_text(output)
+                return sport_code, [], f"{sport_code}: no picks parsed ({compact})"
 
             return sport_code, picks, None
         except subprocess.TimeoutExpired:
