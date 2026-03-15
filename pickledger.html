@@ -341,15 +341,10 @@
       </div>
       <div class="model-card" id="model-card-scores24">
         <div class="model-card-icon">&#128270;</div>
-        <div class="model-card-title">Scores24 Scraper</div>
-        <div class="model-card-desc">Scrape today's predictions from scores24.live for NHL, NBA, and MLB. Extracts tips, confidence, odds, and user votes.</div>
-        <div class="model-sport-select">
-          <label><input type="checkbox" value="nba" checked> NBA</label>
-          <label><input type="checkbox" value="nhl" checked> NHL</label>
-          <label><input type="checkbox" value="mlb" checked> MLB</label>
-          <label><input type="checkbox" value="epl" checked> EPL</label>
-        </div>
-        <button class="model-run-btn" id="btn-run-scores24" onclick="runModel('scores24')">RUN SCORES24 SCRAPER</button>
+        <div class="model-card-title">Scores24 Manual Feed</div>
+        <div class="model-card-desc">One-click Scores24 sync. Tries backend sync first, then falls back to local feed/cache.</div>
+        <div class="model-status" id="scores24-sync-meta">Last sync: never</div>
+        <button class="model-run-btn" id="btn-run-scores24" onclick="runModel('scores24')">SYNC SCORES24 NOW</button>
         <div class="model-status" id="status-scores24"></div>
       </div>
     </div>
@@ -492,6 +487,8 @@ const MODEL_SERVER =
   QUERY_MODEL_SERVER ||
   (IS_SAVED_LOCALHOST ? DEFAULT_MODEL_SERVER : (SAVED_MODEL_SERVER || DEFAULT_MODEL_SERVER));
 const GRADER_URL = `${MODEL_SERVER}/grade`;
+const SCORES24_FEED_URL = './scores24_manual_feed.json';
+const SCORES24_CACHE_KEY = 'pickledger_scores24_feed_cache';
 
 function getAddedPicks() {
   try {
@@ -1368,25 +1365,171 @@ async function _pollJob(jobId, model) {
   }
 }
 
+async function loadScores24ManualFeed() {
+  const res = await fetch(`${SCORES24_FEED_URL}?t=${Date.now()}`);
+  if (!res.ok) {
+    throw new Error(`Feed HTTP ${res.status}`);
+  }
+
+  const payload = await res.json();
+  const picks = Array.isArray(payload) ? payload : payload.picks;
+  if (!Array.isArray(picks)) {
+    throw new Error('Invalid feed format: expected { picks: [] }');
+  }
+
+  const normalized = picks.map(p => ({
+    source: String(p.source || 'Scores24').trim() || 'Scores24',
+    pick: String(p.pick || '').trim(),
+    sport: String(p.sport || 'Other').trim() || 'Other',
+    odds: Number(p.odds) || -110,
+    units: Number(p.units) || 1,
+    probability: (p.probability == null ? null : Number(p.probability)),
+    edge: (p.edge == null ? null : Number(p.edge)),
+    decision: String(p.decision || 'BET').toUpperCase(),
+  })).filter(p => p.pick);
+
+  const meta = {
+    updatedAt: String(payload.updated_at || payload.updatedAt || '').trim(),
+    date: String(payload.date || '').trim(),
+    note: String(payload.note || '').trim(),
+  };
+
+  return { picks: normalized, meta };
+}
+
+function getScores24CachedFeed() {
+  try {
+    const raw = localStorage.getItem(SCORES24_CACHE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (!parsed || !Array.isArray(parsed.picks)) return null;
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+function saveScores24CachedFeed(payload) {
+  localStorage.setItem(SCORES24_CACHE_KEY, JSON.stringify(payload));
+}
+
+function formatScores24SyncMeta(meta) {
+  if (!meta) return 'Last sync: never';
+  const from = String(meta.from || '').trim();
+  const updatedAt = String(meta.updatedAt || '').trim();
+  const date = String(meta.date || '').trim();
+
+  const parts = [];
+  if (updatedAt) {
+    const dt = new Date(updatedAt);
+    const ts = Number.isNaN(dt.getTime()) ? updatedAt : dt.toLocaleString();
+    parts.push(ts);
+  }
+  if (date) parts.push(`for ${date}`);
+  if (from) parts.push(`[${from}]`);
+
+  return parts.length ? `Last sync: ${parts.join(' ')}` : 'Last sync: unknown';
+}
+
+function setScores24SyncMeta(meta) {
+  const el = document.getElementById('scores24-sync-meta');
+  if (!el) return;
+  el.textContent = formatScores24SyncMeta(meta);
+}
+
+async function syncScores24FromServer() {
+  const body = {
+    async: true,
+    date: _getTodayDateStr(),
+    sports: ['nba', 'nhl', 'mlb', 'epl'],
+  };
+
+  const resp = await fetch(MODEL_SERVER + '/run-scores24', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body)
+  });
+
+  const launch = await resp.json();
+  if (!launch.ok) {
+    throw new Error(launch.error || `HTTP ${resp.status}`);
+  }
+
+  let data = launch;
+  if (launch.job_id) {
+    data = await _pollJob(launch.job_id, 'scores24');
+  }
+  if (!data || !data.ok) {
+    throw new Error((data && data.error) || 'Scores24 job failed');
+  }
+
+  return {
+    picks: Array.isArray(data.picks) ? data.picks : [],
+    meta: {
+      updatedAt: new Date().toISOString(),
+      date: _getTodayDateStr(),
+      note: 'Synced from backend',
+      from: 'backend',
+    },
+  };
+}
+
 async function runModel(model) {
   const btn = document.getElementById('btn-run-' + model);
   if (btn) { btn.disabled = true; btn.textContent = 'RUNNING...'; }
   setModelStatus(model, 'Connecting to server...', 'running');
 
+  if (model === 'scores24') {
+    let backendErr = '';
+    try {
+      setModelStatus(model, 'Trying live Scores24 backend sync...', 'running');
+      const synced = await syncScores24FromServer();
+      pendingModelPicks = synced.picks;
+      renderModelResults(synced.picks);
+      saveScores24CachedFeed({ picks: synced.picks, meta: synced.meta });
+      setScores24SyncMeta(synced.meta);
+      setModelStatus(model, `Synced ${synced.picks.length} pick(s) from backend`, 'ok');
+    } catch (e) {
+      backendErr = String(e && e.message ? e.message : e);
+      try {
+        setModelStatus(model, 'Backend sync unavailable, loading feed file...', 'running');
+        const loaded = await loadScores24ManualFeed();
+        pendingModelPicks = loaded.picks;
+        renderModelResults(loaded.picks);
+
+        const meta = {
+          ...loaded.meta,
+          from: 'feed-file',
+          updatedAt: loaded.meta.updatedAt || new Date().toISOString(),
+        };
+        saveScores24CachedFeed({ picks: loaded.picks, meta });
+        setScores24SyncMeta(meta);
+        setModelStatus(model, `Loaded ${loaded.picks.length} pick(s) from feed file`, 'ok');
+      } catch (feedErr) {
+        const cached = getScores24CachedFeed();
+        if (cached && Array.isArray(cached.picks)) {
+          pendingModelPicks = cached.picks;
+          renderModelResults(cached.picks);
+          setScores24SyncMeta({ ...(cached.meta || {}), from: 'cache' });
+          setModelStatus(model, `Using cached Scores24 feed (${cached.picks.length} pick(s))`, 'ok');
+        } else {
+          const feedMsg = String(feedErr && feedErr.message ? feedErr.message : feedErr);
+          setModelStatus(model, `Sync failed (${backendErr}); feed unavailable (${feedMsg})`, 'error');
+        }
+      }
+    } finally {
+      if (btn) {
+        btn.disabled = false;
+        btn.textContent = 'SYNC SCORES24 NOW';
+      }
+    }
+    return;
+  }
+
   let endpoint = '';
   let body = { async: true, date: _getTodayDateStr() };
   if (model === 'mlb') endpoint = '/run-mlb-model';
   else if (model === 'nba') endpoint = '/run-nba-model';
-  else if (model === 'scores24') {
-    endpoint = '/run-scores24';
-    const checks = document.querySelectorAll('#model-card-scores24 input[type="checkbox"]:checked');
-    body.sports = Array.from(checks).map(c => c.value);
-    if (!body.sports.length) {
-      setModelStatus(model, 'Select at least one sport', 'error');
-      if (btn) { btn.disabled = false; btn.textContent = 'RUN SCORES24 SCRAPER'; }
-      return;
-    }
-  }
 
   try {
     setModelStatus(model, 'Launching model (async)...', 'running');
@@ -1425,7 +1568,7 @@ async function runModel(model) {
   } finally {
     if (btn) {
       btn.disabled = false;
-      const labels = { mlb: 'RUN MLB MODEL', nba: 'RUN NBA MODEL', scores24: 'RUN SCORES24 SCRAPER' };
+      const labels = { mlb: 'RUN MLB MODEL', nba: 'RUN NBA MODEL', scores24: 'SYNC SCORES24 NOW' };
       btn.textContent = labels[model] || 'RUN';
     }
   }
@@ -1627,7 +1770,17 @@ function addModelPicksToLedger() {
   }
 }
 
+function initScores24SyncMeta() {
+  const cached = getScores24CachedFeed();
+  if (cached && cached.meta) {
+    setScores24SyncMeta(cached.meta);
+  } else {
+    setScores24SyncMeta(null);
+  }
+}
+
 initTheme();
+initScores24SyncMeta();
 const savedTab = localStorage.getItem('pickledger_tab') || 'home';
 if (savedTab !== 'home') switchTab(savedTab);
 render();

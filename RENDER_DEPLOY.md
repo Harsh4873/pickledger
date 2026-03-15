@@ -16,7 +16,7 @@ Render deploys from GitHub, so push this project first.
 If you prefer manual setup, choose `Web Service` and use:
 
 - Build Command:
-  - `pip install -r requirements.txt && pip install -r NBAPredictionModel/requirements.txt && pip install -r MLBPredictionModel/requirements.txt && python -m playwright install chromium`
+  - `pip install -r requirements.txt && pip install -r NBAPredictionModel/requirements.txt && pip install -r MLBPredictionModel/requirements.txt`
 - Start Command:
   - `python pickgrader_server.py`
 - Health Check Path:
@@ -40,10 +40,29 @@ The frontend now reads this value automatically.
 
 1. Use at least Render `Starter` plan so the service does not sleep.
 2. Keep model runs async (already supported) to avoid browser timeouts.
-3. Scores24 scraping is the heaviest path; expect longer runtime there.
-4. If traffic grows, split scraping into a separate worker service.
-5. For persistent pick storage later, move from local browser storage to Postgres.
+3. Scores24 scraping is intentionally decoupled from Render in this setup.
+4. For persistent pick storage later, move from local browser storage to Postgres.
 
-## 5. Local Fallback
+## 5. Scores24 Is Local-Only (Manual Feed)
+
+The site still runs NBA and MLB models through Render, but Scores24 scraping is now handled outside Render.
+
+Frontend behavior:
+
+1. The Scores24 card reads from `scores24_manual_feed.json`.
+2. It no longer calls `/run-scores24` on Render.
+3. This avoids Cloudflare + Playwright runtime issues in hosted environments.
+
+Manual workflow:
+
+1. Ask Copilot to run local Scores24 scraping.
+2. Copilot updates `scores24_manual_feed.json` with fresh picks.
+3. Open the Models tab and click `LOAD SCORES24 FEED`.
+
+Optional: if you ever want to re-enable remote Scores24 scraping on Render, set:
+
+- `ENABLE_SCORES24_REMOTE=true`
+
+## 6. Local Fallback
 
 No change to your local flow is required. If no `api` query/localStorage is set, frontend still uses `http://127.0.0.1:8765`.

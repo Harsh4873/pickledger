@@ -6,13 +6,10 @@ services:
     buildCommand: >-
       pip install -r requirements.txt &&
       pip install -r NBAPredictionModel/requirements.txt &&
-      pip install -r MLBPredictionModel/requirements.txt &&
-      PLAYWRIGHT_BROWSERS_PATH=0 python -m playwright install chromium chromium-headless-shell
+      pip install -r MLBPredictionModel/requirements.txt
     startCommand: python pickgrader_server.py
     healthCheckPath: /health
     autoDeploy: true
     envVars:
       - key: PYTHON_VERSION
         value: 3.11.9
-      - key: PLAYWRIGHT_BROWSERS_PATH
-        value: "0"

@@ -33,6 +33,11 @@ try:
 except ValueError:
     PORT = 8765
 
+IS_RENDER_RUNTIME = os.environ.get("RENDER", "").strip().lower() == "true"
+ENABLE_SCORES24_REMOTE = os.environ.get("ENABLE_SCORES24_REMOTE", "").strip().lower() in {
+    "1", "true", "yes", "on",
+}
+
 SPORT_TO_ESPNSLUG = {
     "NBA": ("basketball", "nba"),
     "NHL": ("hockey", "nhl"),
@@ -1221,11 +1226,15 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_GET(self) -> None:  # noqa: N802
         if self.path == "/":
+            endpoints = ["/health", "/grade", "/run-nba-model", "/run-mlb-model", "/job-status?id=<id>"]
+            if ENABLE_SCORES24_REMOTE:
+                endpoints.append("/run-scores24")
             self._send_json(200, {
                 "ok": True,
                 "service": "pickledger-grader",
                 "status": "healthy",
-                "endpoints": ["/health", "/grade", "/run-nba-model", "/run-mlb-model", "/run-scores24", "/job-status?id=<id>"],
+                "scores24_remote_enabled": ENABLE_SCORES24_REMOTE,
+                "endpoints": endpoints,
             })
             return
 
@@ -1308,6 +1317,13 @@ class Handler(BaseHTTPRequestHandler):
                 self._send_json(200, result)
 
         elif self.path == "/run-scores24":
+            if IS_RENDER_RUNTIME and not ENABLE_SCORES24_REMOTE:
+                self._send_json(403, {
+                    "ok": False,
+                    "error": "Scores24 scraping is disabled on Render. Run it locally and sync scores24_manual_feed.json.",
+                })
+                return
+
             sports = body.get("sports", ["nba", "nhl", "mlb", "epl"])
             scrape_date = body.get("date")
             if async_mode:
