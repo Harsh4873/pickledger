@@ -19,7 +19,7 @@ from probability_layers import (
 from injury_impact import calculate_injury_adjustment
 from injury_report import fetch_injuries, get_team_out_players
 from main import format_output
-from live_data import fetch_all_team_stats, fetch_todays_games
+from live_data import fetch_all_team_stats, fetch_todays_games, fetch_espn_total_lines
 
 def create_team(id_num, name, is_home, stats_dict):
     stats = TeamStats(
@@ -89,8 +89,12 @@ def run_game(game_info, all_team_stats, injuries, ou_line=225.0):
         time.sleep(1) # Rate limiting
     
     total_injury_adj = inj_adj_home - inj_adj_away
-    l2_combined = f"Sit: {l2_reasons} | Inj [{home_name}: {inj_reason_home}] | [{away_name}: {inj_reason_away}]"
-    total_l2_with_inj = max(-0.15, min(0.15, total_l2_adj + total_injury_adj))
+    
+    # FIX D: Home court advantage — NBA home teams win ~58% historically (+3% edge)
+    home_court_adj = 0.03
+    
+    l2_combined = f"Sit: {l2_reasons} | HCA: +3.0% | Inj [{home_name}: {inj_reason_home}] | [{away_name}: {inj_reason_away}]"
+    total_l2_with_inj = max(-0.25, min(0.25, total_l2_adj + total_injury_adj + home_court_adj))
     
     # Layer 3: Matchup
     l3_adj, l3_reasons = calculate_layer3_matchup_modifier(home_team, away_team)
@@ -120,14 +124,23 @@ def main():
     print("   Data: Official NBA Injury Reports + NBA API Stats + On/Off Court Impact")
     print("="*80)
     
+    target_date = datetime.datetime.now().strftime('%Y-%m-%d')
+
     print("\n📡 Fetching today's games...")
-    games = fetch_todays_games()
+    games = fetch_todays_games(target_date)
     
     if not games:
         print("No games found for today.")
         return
         
     print(f"Found {len(games)} games.")
+
+    print("\n📡 Fetching market O/U lines from ESPN...")
+    total_lines = fetch_espn_total_lines(target_date)
+    if total_lines:
+        print(f"Found totals for {len(total_lines)} game(s).")
+    else:
+        print("No market totals found. Falling back to baseline 225.0 where needed.")
     
     print("\n📡 Fetching team stats for all NBA teams...")
     all_team_stats = fetch_all_team_stats()
@@ -138,9 +151,10 @@ def main():
     print("\n\n🎯 RUNNING PREDICTIONS FOR ALL GAMES\n")
     
     # Loop over all games today
-    # Assuming baseline 225.0 OU line for now, later we could pull live lines
     for game in games:
-        run_game(game, all_team_stats, injuries, ou_line=225.0)
+        key = (game['away_team'], game['home_team'])
+        ou_line = total_lines.get(key, 225.0)
+        run_game(game, all_team_stats, injuries, ou_line=ou_line)
 
 if __name__ == "__main__":
     main()

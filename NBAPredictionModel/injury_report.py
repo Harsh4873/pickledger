@@ -1,16 +1,9 @@
 """
 NBA Injury Report Fetcher — Uses the nbainjuries PyPI package.
 Pulls directly from official NBA injury reports (no API key needed).
-Falls back gracefully if JVM is unavailable (nbainjuries requires Java).
 """
+from nbainjuries import injury
 from datetime import datetime
-
-try:
-    from nbainjuries import injury
-    _HAS_NBAINJURIES = True
-except Exception:
-    _HAS_NBAINJURIES = False
-    print("    [injury_report] WARNING: nbainjuries unavailable (JVM not found). Injuries will be skipped.")
 
 # Team full name -> short name mapping
 TEAM_SHORT = {
@@ -38,11 +31,7 @@ def fetch_injuries(dt: datetime = None) -> dict:
         Dict keyed by short team name -> list of injured players.
     """
     import datetime as dt_module
-
-    if not _HAS_NBAINJURIES:
-        print("    [injury_report] Skipping injury fetch — nbainjuries not available.")
-        return {}
-
+    
     df = None
     if dt is None:
         now = datetime.now()

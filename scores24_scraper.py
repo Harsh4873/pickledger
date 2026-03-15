@@ -46,7 +46,7 @@ SUGGESTIVE_PHRASES = [
     "must bet", "no doubt", "clearly", "obvious",
 ]
 
-BASE = "https://scores24.live"
+BASE = os.environ.get("SCORES24_BASE_URL", "https://scores24.live").rstrip("/")
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 # HELPERS
@@ -114,6 +114,19 @@ def listing_url_candidates(sport_slug: str) -> list[str]:
     return out
 
 
+def _looks_like_cloudflare_block(text: str) -> bool:
+    blob = (text or "").lower()
+    signals = [
+        "attention required",
+        "just a moment",
+        "sorry, you have been blocked",
+        "performing security verification",
+        "cf-error-details",
+        "cloudflare",
+    ]
+    return any(sig in blob for sig in signals)
+
+
 def scan_suggestive(text: str) -> list[str]:
     lower = text.lower()
     hits = []
@@ -130,18 +143,35 @@ def scan_suggestive(text: str) -> list[str]:
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 def make_context(pw):
-    browser = pw.chromium.launch(
-        headless=True,
-        args=[
+    launch_args = {
+        "headless": True,
+        "args": [
             "--no-sandbox",
             "--disable-setuid-sandbox",
             "--disable-dev-shm-usage",
         ],
-    )
+    }
+
+    proxy_server = os.environ.get("PLAYWRIGHT_PROXY_SERVER", "").strip()
+    if proxy_server:
+        proxy_conf = {"server": proxy_server}
+        proxy_user = os.environ.get("PLAYWRIGHT_PROXY_USERNAME", "").strip()
+        proxy_pass = os.environ.get("PLAYWRIGHT_PROXY_PASSWORD", "").strip()
+        if proxy_user:
+            proxy_conf["username"] = proxy_user
+        if proxy_pass:
+            proxy_conf["password"] = proxy_pass
+        launch_args["proxy"] = proxy_conf
+
+    browser = pw.chromium.launch(**launch_args)
     ctx = browser.new_context(
         user_agent="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
         viewport={"width": 1280, "height": 900},
+        locale="en-US",
+        timezone_id="America/New_York",
     )
+    # Reduce obvious automation fingerprints; does not bypass hard blocks by itself.
+    ctx.add_init_script("Object.defineProperty(navigator, 'webdriver', { get: () => undefined });")
     return ctx
 
 
@@ -150,9 +180,36 @@ def load_page(ctx, url: str, wait_ms: int = 3000):
     try:
         resp = page.goto(url, timeout=25000, wait_until="domcontentloaded")
         status = resp.status if resp else 0
-        if status in (403, 404):
+
+        # Cloudflare checks can transiently return 403 first; allow one reload pass.
+        if status in (403, 429):
+            page.wait_for_timeout(4500)
+            try:
+                resp2 = page.reload(timeout=25000, wait_until="domcontentloaded")
+                if resp2:
+                    status = resp2.status
+            except Exception:
+                pass
+
+        if status == 404:
             page.close()
             return None, status
+
+        # Treat Cloudflare block pages as hard failures, even if status is 200.
+        title = ""
+        body_head = ""
+        try:
+            title = page.title()
+        except Exception:
+            pass
+        try:
+            body_head = page.evaluate("() => (document.body?.innerText || '').slice(0, 1200)")
+        except Exception:
+            pass
+        if _looks_like_cloudflare_block(f"{title}\n{body_head}"):
+            page.close()
+            return None, 403
+
         page.wait_for_timeout(wait_ms)
         return page, status
     except PwTimeout:
@@ -174,7 +231,7 @@ DEEP_SEARCH_JS = """
     for (const a of links) {
         const href = a.getAttribute('href');
         if (href && href.includes('/predictions')) {
-            urls.add(href.startsWith('http') ? href : 'https://scores24.live' + href);
+            urls.add(href.startsWith('http') ? href : new URL(href, window.location.origin).href);
         }
     }
     return Array.from(urls);
@@ -188,7 +245,7 @@ DIRECT_PREDICTION_LINKS_JS = r"""
     for (const a of links) {
         const href = a.getAttribute('href');
         if (!href) continue;
-        const abs = href.startsWith('http') ? href : 'https://scores24.live' + href;
+        const abs = href.startsWith('http') ? href : new URL(href, window.location.origin).href;
         if (/-prediction$/i.test(abs) || /\/m-\d{2}-\d{2}-\d{4}-/i.test(abs)) {
             urls.add(abs);
         }
@@ -499,7 +556,11 @@ def main():
             status = st
 
         if not listing_page:
-            print(f"Listing page status: ❌ Page failed (status {status})")
+            if status == 403:
+                print("Listing page status: ❌ Cloudflare blocked this runtime (status 403)")
+                print("Hint: Configure PLAYWRIGHT_PROXY_SERVER (and optional PLAYWRIGHT_PROXY_USERNAME/PLAYWRIGHT_PROXY_PASSWORD) for Render.")
+            else:
+                print(f"Listing page status: ❌ Page failed (status {status})")
             return
         if used_listing_url and used_listing_url != listing_url:
             print(f"Listing URL fallback: {used_listing_url}")

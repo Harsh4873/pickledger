@@ -132,25 +132,29 @@ def calculate_injury_adjustment(team_name: str, players_out: list, season: str =
                 reasons.append(f"{matched} OUT (only {data.get('gp',0)} GP, skipped — too small sample)")
                 continue
             
-            # Impact is on_net - off_net. If positive, team is worse without them.
-            # KEY FIX: Injuries can ONLY hurt a team, never help.
-            # If a player has negative impact (team is "better" without them),
-            # treat their absence as neutral (0%). The season baseline Net Rating 
-            # already reflects the team's overall quality with these players in the rotation.
             raw_impact = data['impact']
+            mpg = data.get('mpg', 20.0)
+            minute_weight = min(1.0, mpg / 30.0)
+            
             if raw_impact <= 0:
-                # Team is "better" without them — cap at 0 (neutral)
-                reasons.append(
-                    f"{matched} OUT (Impact: {raw_impact:+.1f}, team neutral without → 0.0%)"
-                )
+                # FIX A: Even if on/off says team is "better" without them,
+                # high-MPG starters (25+ MPG) still cause rotation disruption.
+                # Apply a minimum floor penalty of -3% for starters.
+                if mpg >= 25.0:
+                    prob_impact = 0.03  # Minimum starter disruption penalty
+                    total_adj -= prob_impact
+                    reasons.append(
+                        f"{matched} OUT ({mpg:.0f} MPG, Impact: {raw_impact:+.1f}, "
+                        f"starter floor → {-prob_impact*100:+.1f}%)"
+                    )
+                else:
+                    reasons.append(
+                        f"{matched} OUT (Impact: {raw_impact:+.1f}, bench player neutral → 0.0%)"
+                    )
                 continue
             
             # Weight by minutes per game: a 30+ MPG starter gets full weight,
             # a 12 MPG bench player only gets 40% of their impact
-            mpg = data.get('mpg', 20.0)
-            minute_weight = min(1.0, mpg / 30.0)
-            
-            # Convert to probability: every 1.0 net rating diff ≈ 3% win probability
             prob_impact = raw_impact * 0.03 * minute_weight
             
             # Cap individual player impact at 12% max
@@ -162,10 +166,15 @@ def calculate_injury_adjustment(team_name: str, players_out: list, season: str =
                 f"Wt: {minute_weight:.0%} → {-prob_impact*100:+.1f}%)"
             )
         else:
-            reasons.append(f"{player_name} OUT (not found in on/off data)")
+            # FIX B: Players not found in on/off data (traded mid-season, etc.)
+            # get a default -5% penalty instead of being silently ignored.
+            # These are often key rotation players (VanVleet, Haliburton).
+            default_penalty = 0.05
+            total_adj -= default_penalty
+            reasons.append(f"{player_name} OUT (not in on/off data, default → {-default_penalty*100:+.1f}%)")
     
-    # Cap total at -15% (injuries can only hurt, so total_adj is always ≤ 0)
-    total_adj = max(-0.15, total_adj)
+    # FIX C: Raise cap from -15% to -25% so multi-injury games are properly penalized
+    total_adj = max(-0.25, total_adj)
     
     reason_str = ", ".join(reasons) if reasons else "No injury adjustments"
     return total_adj, reason_str

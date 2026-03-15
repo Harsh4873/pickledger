@@ -12,6 +12,9 @@ import requests
 from bs4 import BeautifulSoup
 import time
 from datetime import datetime
+import json
+from urllib.request import Request, urlopen
+from urllib.error import URLError, HTTPError
 
 _nba_teams = teams.get_teams()
 
@@ -57,6 +60,7 @@ def fetch_all_team_stats(season: str = '2025-26') -> dict:
     """
     Fetch advanced stats for all teams.
     Returns dict keyed by team name.
+    Blends season-long and last-10-game Net Rating (70/30).
     """
     time.sleep(0.6)
     stats = leaguedashteamstats.LeagueDashTeamStats(
@@ -66,18 +70,43 @@ def fetch_all_team_stats(season: str = '2025-26') -> dict:
     )
     df = stats.get_data_frames()[0]
     
+    # Also fetch last-10 stats for recent form blending
+    time.sleep(0.6)
+    try:
+        last10_stats = leaguedashteamstats.LeagueDashTeamStats(
+            measure_type_detailed_defense='Advanced',
+            season=season,
+            per_mode_detailed='PerGame',
+            last_n_games=10
+        )
+        last10_df = last10_stats.get_data_frames()[0]
+        last10_lookup = {}
+        for _, r10 in last10_df.iterrows():
+            last10_lookup[r10['TEAM_NAME']] = r10['NET_RATING']
+        print("  ✅ Last-10-game stats fetched for recent form blending.")
+    except Exception as e:
+        print(f"  ⚠️ Could not fetch last-10 stats: {e}. Using season-only.")
+        last10_lookup = {}
+    
     result = {}
     for _, row in df.iterrows():
-        # Normalize name (e.g. "Dallas Mavericks" -> "Mavericks")
         full_name = row['TEAM_NAME']
         if full_name == 'Portland Trail Blazers':
             short_name = 'Trail Blazers'
         else:
             short_name = full_name.split()[-1]  # Last word
         
+        season_nrtg = row['NET_RATING']
+        last10_nrtg = last10_lookup.get(full_name, season_nrtg)
+        
+        # FIX E: Blend 70% season + 30% last-10 for Net Rating
+        blended_nrtg = (season_nrtg * 0.70) + (last10_nrtg * 0.30)
+        
         result[short_name] = {
             'full_name': full_name,
-            'net_rating': row['NET_RATING'],
+            'net_rating': blended_nrtg,
+            'season_net_rating': season_nrtg,
+            'last10_net_rating': last10_nrtg,
             'off_rating': row['OFF_RATING'],
             'def_rating': row['DEF_RATING'],
             'ts_pct': row['TS_PCT'],
@@ -110,9 +139,15 @@ def fetch_todays_games(date_str: str = None) -> list:
     header = dfs[0]
     
     games = []
+    seen_game_ids = set()
     for _, row in header.iterrows():
+        game_id = str(row['GAME_ID'])
+        if game_id in seen_game_ids:
+            continue
+        seen_game_ids.add(game_id)
+
         games.append({
-            'game_id': row['GAME_ID'],
+            'game_id': game_id,
             'home_team_id': row['HOME_TEAM_ID'],
             'away_team_id': row['VISITOR_TEAM_ID'],
             'home_team': get_team_name(row['HOME_TEAM_ID']),
@@ -122,6 +157,72 @@ def fetch_todays_games(date_str: str = None) -> list:
         })
     
     return games
+
+
+def fetch_espn_total_lines(date_str: str = None) -> dict:
+    """
+    Fetch game total lines from ESPN scoreboard for the date.
+    Returns dict keyed by (away_team, home_team) -> total_line.
+    Falls back to empty dict on any fetch/parse error.
+    """
+    if date_str is None:
+        date_str = datetime.now().strftime('%Y-%m-%d')
+
+    try:
+        dt = datetime.strptime(date_str, '%Y-%m-%d')
+        yyyymmdd = dt.strftime('%Y%m%d')
+    except ValueError:
+        return {}
+
+    url = (
+        'https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard'
+        f'?dates={yyyymmdd}'
+    )
+
+    req = Request(url, headers={'User-Agent': 'Mozilla/5.0'})
+    try:
+        with urlopen(req, timeout=15) as resp:
+            payload = json.loads(resp.read().decode('utf-8'))
+    except (HTTPError, URLError, TimeoutError, json.JSONDecodeError):
+        return {}
+
+    lines = {}
+    for event in payload.get('events', []):
+        comps = event.get('competitions', [])
+        if not comps:
+            continue
+        comp = comps[0]
+        competitors = comp.get('competitors', [])
+        if len(competitors) != 2:
+            continue
+
+        away_name = ''
+        home_name = ''
+        for c in competitors:
+            team = c.get('team', {})
+            nickname = str(team.get('name', '')).strip()
+            if c.get('homeAway') == 'away':
+                away_name = nickname
+            elif c.get('homeAway') == 'home':
+                home_name = nickname
+
+        if not away_name or not home_name:
+            continue
+
+        total_line = None
+        odds_list = comp.get('odds', [])
+        if odds_list:
+            total_line = odds_list[0].get('overUnder')
+
+        if total_line is None:
+            continue
+
+        try:
+            lines[(away_name, home_name)] = float(total_line)
+        except (ValueError, TypeError):
+            continue
+
+    return lines
 
 def scrape_injury_report() -> dict:
     """

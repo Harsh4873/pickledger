@@ -479,6 +479,18 @@ def _ensure_playwright_browsers(python_bin: str, env: dict[str, str]) -> tuple[b
 def _parse_nba_output(output: str) -> list[dict[str, Any]]:
     """Parse NBA model stdout into pick dicts."""
     picks: list[dict[str, Any]] = []
+    seen_keys: set[tuple[str, str, str]] = set()
+
+    def _append_unique(pick: dict[str, Any]) -> None:
+        key = (
+            str(pick.get("source", "")),
+            str(pick.get("sport", "")),
+            str(pick.get("pick", "")),
+        )
+        if key in seen_keys:
+            return
+        seen_keys.add(key)
+        picks.append(pick)
 
     # The output has GAME: headers and ### prediction blocks separated by ===
     # Strategy: scan line-by-line, tracking current game context
@@ -529,7 +541,7 @@ def _parse_nba_output(output: str) -> list[dict[str, Any]]:
             if display_edge is not None and winner != current_home:
                 display_edge = -display_edge
 
-            picks.append({
+            _append_unique({
                 "source": "NBA Model",
                 "pick": pick_text,
                 "sport": "NBA",
@@ -556,9 +568,9 @@ def _parse_nba_output(output: str) -> list[dict[str, Any]]:
             matchup = f"{current_away} @ {current_home}"
             if ou_decision_raw.startswith("BET"):
                 ou_side = "Over" if "OVER" in ou_decision_raw else "Under"
-                picks.append({
+                _append_unique({
                     "source": "NBA Model",
-                    "pick": f"{ou_side} {line_val:.0f} ({matchup})",
+                    "pick": f"{ou_side} {line_val:.1f} ({matchup})",
                     "sport": "NBA",
                     "odds": -110,
                     "units": 1,
@@ -567,9 +579,9 @@ def _parse_nba_output(output: str) -> list[dict[str, Any]]:
                     "decision": "BET",
                 })
             else:
-                picks.append({
+                _append_unique({
                     "source": "NBA Model",
-                    "pick": f"O/U {line_val:.0f} ({matchup})",
+                    "pick": f"O/U {line_val:.1f} ({matchup})",
                     "sport": "NBA",
                     "odds": -110,
                     "units": 1,
