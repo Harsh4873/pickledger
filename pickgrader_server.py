@@ -393,6 +393,8 @@ SCORES24_VENV = os.path.join(BASE_DIR, ".venv", "bin", "python")
 # Tracks running/completed model jobs so the frontend can poll for results.
 _jobs: dict[str, dict[str, Any]] = {}
 _jobs_lock = threading.Lock()
+_playwright_install_lock = threading.Lock()
+_playwright_ready = False
 
 
 def _run_script(python_bin: str, script: str, cwd: str, timeout: int = 300, extra_args: list[str] | None = None) -> str:
@@ -413,6 +415,60 @@ def _resolve_python_bin(preferred_path: str) -> str:
     if os.path.exists(preferred_path):
         return preferred_path
     return sys.executable
+
+
+def _looks_like_playwright_browser_missing(output: str) -> bool:
+    text = output.lower()
+    return (
+        "executable doesn't exist" in text
+        or "playwright was just installed or updated" in text
+        or "please run the following command to download new browsers" in text
+    )
+
+
+def _compact_error_text(output: str, max_lines: int = 14) -> str:
+    """Compress subprocess output into a readable single-line summary."""
+    lines = [ln.strip() for ln in (output or "").splitlines() if ln.strip()]
+    if not lines:
+        return "no output"
+
+    # Prefer the most actionable Playwright line when present.
+    for ln in lines:
+        if "Executable doesn't exist at" in ln:
+            return ln
+
+    tail = lines[-max_lines:]
+    compact = " | ".join(tail)
+    compact = re.sub(r"\s+", " ", compact)
+    return compact[:1800]
+
+
+def _ensure_playwright_browsers(python_bin: str, env: dict[str, str]) -> tuple[bool, str]:
+    """Install Playwright Chromium browsers if missing in the current environment."""
+    global _playwright_ready
+
+    with _playwright_install_lock:
+        if _playwright_ready:
+            return True, "already-ready"
+
+        try:
+            install = subprocess.run(
+                [python_bin, "-m", "playwright", "install", "chromium", "chromium-headless-shell"],
+                cwd=BASE_DIR,
+                env=env,
+                capture_output=True,
+                text=True,
+                timeout=300,
+            )
+        except Exception as exc:
+            return False, str(exc)
+
+        if install.returncode == 0:
+            _playwright_ready = True
+            return True, "installed"
+
+        msg = _compact_error_text((install.stdout or "") + (install.stderr or ""))
+        return False, msg
 
 
 def _parse_nba_output(output: str) -> list[dict[str, Any]]:
@@ -958,24 +1014,37 @@ def run_scores24_scraper(sports: list[str]) -> dict[str, Any]:
             return sport_code, [], f"Unsupported sport code: {sport_code}"
 
         timeout_s = 240 if sport_code == "epl" else 120
+        cmd = [python_bin, scraper_path, "--sport", sport_slug, "--date", today_str]
 
-        try:
-            env = os.environ.copy()
-            env.setdefault("PLAYWRIGHT_BROWSERS_PATH", "0")
-            result = subprocess.run(
-                [python_bin, scraper_path, "--sport", sport_slug, "--date", today_str],
+        def _invoke(env: dict[str, str]) -> subprocess.CompletedProcess[str]:
+            return subprocess.run(
+                cmd,
                 cwd=BASE_DIR,
                 env=env,
                 capture_output=True,
                 text=True,
                 timeout=timeout_s,
             )
+
+        try:
+            env = os.environ.copy()
+            env.setdefault("PLAYWRIGHT_BROWSERS_PATH", "0")
+            result = _invoke(env)
             output = (result.stdout or "") + (result.stderr or "")
+
+            # Auto-heal missing browser installs in long-lived Render instances.
+            if result.returncode != 0 and _looks_like_playwright_browser_missing(output):
+                ok, install_msg = _ensure_playwright_browsers(python_bin, env)
+                if not ok:
+                    return sport_code, [], f"{sport_code}: Playwright install failed ({install_msg})"
+                result = _invoke(env)
+                output = (result.stdout or "") + (result.stderr or "")
+
             picks = _parse_scores24_output(output)
 
             if result.returncode != 0 and not picks:
-                tail = " | ".join((output.strip().splitlines() or ["no output"])[-3:])
-                return sport_code, [], f"{sport_code}: scraper exited {result.returncode} ({tail})"
+                msg = _compact_error_text(output)
+                return sport_code, [], f"{sport_code}: scraper exited {result.returncode} ({msg})"
 
             return sport_code, picks, None
         except subprocess.TimeoutExpired:
@@ -1064,6 +1133,16 @@ class Handler(BaseHTTPRequestHandler):
                     _jobs.pop(job_id, None)
         else:
             self._send_json(404, {"ok": False, "error": "Route not found"})
+
+    def do_HEAD(self) -> None:  # noqa: N802
+        if self.path in {"/", "/health"}:
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json; charset=utf-8")
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.end_headers()
+            return
+        self.send_response(404)
+        self.end_headers()
 
     def do_POST(self) -> None:  # noqa: N802
         try:
