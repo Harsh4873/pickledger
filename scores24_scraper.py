@@ -13,6 +13,7 @@ import re
 import json
 import os
 from datetime import datetime
+from zoneinfo import ZoneInfo
 
 # Use a deterministic browser install path that survives Render builds.
 os.environ.setdefault("PLAYWRIGHT_BROWSERS_PATH", "0")
@@ -75,6 +76,23 @@ def date_variants(date_str: str):
         dt.strftime("%d.%m.%y"),          
         dt.strftime("%Y-%m-%d"),          
     ]
+
+
+def _matches_requested_date(date_str: str, card: dict, variants: list[str]) -> bool:
+    combined = f"{card.get('isoDate','')} {card.get('visDate','')}".lower()
+    if any(v.lower() in combined for v in variants):
+        return True
+    # Some cards expose UTC startDate while listing/day filters are local (ET).
+    iso = (card.get("isoDate") or "").strip()
+    if not iso:
+        return False
+    try:
+        dt = datetime.fromisoformat(iso.replace("Z", "+00:00"))
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=ZoneInfo("UTC"))
+        return dt.astimezone(ZoneInfo("America/New_York")).strftime("%Y-%m-%d") == date_str
+    except Exception:
+        return False
 
 def guess_urls(sport_slug: str, date_str: str, matchup_str: str) -> list[str]:
     if not date_str or "vs" not in matchup_str.lower(): return []
@@ -318,6 +336,39 @@ def extract_listing_cards(page):
         return page.evaluate(LISTING_JS)
     except Exception as e:
         return []
+
+
+def hydrate_listing_page(page, rounds: int = 8):
+    """Scroll/click to reveal cards that load lazily on listing pages."""
+    stale_rounds = 0
+    for _ in range(rounds):
+        try:
+            before = page.evaluate("() => document.querySelectorAll('span[data-testid=\"PredictionCard\"]').length")
+        except Exception:
+            break
+        try:
+            page.evaluate("() => window.scrollTo(0, document.body.scrollHeight)")
+            page.wait_for_timeout(900)
+            clicked_more = page.evaluate(
+                """() => {
+                    const controls = Array.from(document.querySelectorAll('button, a'));
+                    const btn = controls.find(el => /show\\s+more|load\\s+more|more\\s+predictions/i.test((el.textContent || '').trim()));
+                    if (!btn) return false;
+                    btn.click();
+                    return true;
+                }"""
+            )
+            if clicked_more:
+                page.wait_for_timeout(1200)
+            after = page.evaluate("() => document.querySelectorAll('span[data-testid=\"PredictionCard\"]').length")
+        except Exception:
+            break
+        if after <= before:
+            stale_rounds += 1
+            if stale_rounds >= 2:
+                break
+        else:
+            stale_rounds = 0
 
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -565,6 +616,7 @@ def main():
         if used_listing_url and used_listing_url != listing_url:
             print(f"Listing URL fallback: {used_listing_url}")
         print("Listing page status: ✅ Page loaded")
+        hydrate_listing_page(listing_page)
 
         cards = extract_listing_cards(listing_page)
 
@@ -574,8 +626,7 @@ def main():
 
         for c in cards:
             if variants:
-                combined = f"{c.get('isoDate','')} {c.get('visDate','')}".lower()
-                if not any(v.lower() in combined for v in variants): continue
+                if not _matches_requested_date(args.date, c, variants): continue
             if matchup_parts:
                 c_data = f"{c.get('home','')} {c.get('away','')} {c.get('href','')}".lower()
                 if not all(p in c_data for p in matchup_parts): continue

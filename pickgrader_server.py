@@ -35,9 +35,10 @@ except ValueError:
     PORT = 8765
 
 IS_RENDER_RUNTIME = os.environ.get("RENDER", "").strip().lower() == "true"
-ENABLE_SCORES24_REMOTE = os.environ.get("ENABLE_SCORES24_REMOTE", "").strip().lower() in {
-    "1", "true", "yes", "on",
-}
+# Default to enabled so Render backend accepts scrape requests.
+# Set ENABLE_SCORES24_REMOTE=false explicitly to disable.
+_scores24_env = os.environ.get("ENABLE_SCORES24_REMOTE", "true").strip().lower()
+ENABLE_SCORES24_REMOTE = _scores24_env not in {"0", "false", "no", "off"}
 # Default to enabled (render.yaml sets this but Dashboard may not pick it up).
 # Set ENABLE_SPORTYTRADER_REMOTE=false explicitly to disable.
 _sportytrader_env = os.environ.get("ENABLE_SPORTYTRADER_REMOTE", "true").strip().lower()
