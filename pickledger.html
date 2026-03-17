@@ -1697,45 +1697,41 @@ async function syncScores24FromServer(sports = ['nba', 'nhl', 'mlb']) {
 
 async function syncSportyTraderFromServer() {
   const body = { async: true, date: _getTodayDateStr() };
-  const modelBase = String(MODEL_SERVER || '').trim().replace(/\/+$/, '');
-  const candidates = [MODEL_SERVER, LOCAL_SPORTYTRADER_SERVER]
+  // Try local first (matches Scores24 pattern), then Render backend as fallback
+  const candidates = [LOCAL_SPORTYTRADER_SERVER, MODEL_SERVER]
     .map(v => String(v || '').trim().replace(/\/+$/, ''))
     .filter((v, i, arr) => v && arr.indexOf(v) === i);
   let lastErr = 'SportyTrader sync failed';
 
   for (const server of candidates) {
-    const routes = /\/api$/i.test(server) ? ['/run-sportytrader'] : ['/run-sportytrader', '/api/run-sportytrader'];
-    for (const route of routes) {
-      try {
-        const resp = await fetch(`${server}${route}`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(body),
-        });
+    try {
+      const resp = await fetch(server + '/run-sportytrader', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
 
-        const launch = await resp.json();
-        if (!launch.ok) throw new Error(launch.error || `HTTP ${resp.status}`);
+      const launch = await resp.json();
+      if (!launch.ok) throw new Error(launch.error || `HTTP ${resp.status}`);
 
-        let data = launch;
-        if (launch.job_id) {
-          const pollBase = `${server}${route}`.replace(/\/(?:api\/)?run-sportytrader$/, '');
-          data = await _pollJob(launch.job_id, 'sportytrader', pollBase, 600000);
-        }
-        if (!data || !data.ok) throw new Error((data && data.error) || 'SportyTrader job failed');
-
-        const picks = Array.isArray(data.picks) ? data.picks.filter(p => String(p.sport || '').toUpperCase() === 'NBA') : [];
-        return {
-          picks,
-          meta: {
-            updatedAt: new Date().toISOString(),
-            date: _getTodayDateStr(),
-            note: 'Synced from backend',
-            from: (server === modelBase ? 'render-backend' : 'local-backend'),
-          },
-        };
-      } catch (e) {
-        lastErr = String(e && e.message ? e.message : e);
+      let data = launch;
+      if (launch.job_id) {
+        data = await _pollJob(launch.job_id, 'sportytrader', server, 600000);
       }
+      if (!data || !data.ok) throw new Error((data && data.error) || 'SportyTrader job failed');
+
+      const picks = Array.isArray(data.picks) ? data.picks.filter(p => String(p.sport || '').toUpperCase() === 'NBA') : [];
+      return {
+        picks,
+        meta: {
+          updatedAt: new Date().toISOString(),
+          date: _getTodayDateStr(),
+          note: 'Synced from backend',
+          from: (server === String(MODEL_SERVER || '').trim().replace(/\/+$/, '') ? 'render-backend' : 'local-backend'),
+        },
+      };
+    } catch (e) {
+      lastErr = String(e && e.message ? e.message : e);
     }
   }
 
