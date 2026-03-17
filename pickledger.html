@@ -1489,10 +1489,10 @@ async function _pollJob(jobId, model, baseUrl = MODEL_SERVER, timeoutMs = 600000
     try {
       if (model === 'scores24') {
         const secs = Math.floor(elapsedMs / 1000);
-        setModelStatus(model, `Running Scores24 scrape... ${secs}s`, 'running');
+        setModelStatus(model, `Running local Scores24 scrape... ${secs}s`, 'running');
       } else if (model === 'sportytrader') {
         const secs = Math.floor(elapsedMs / 1000);
-        setModelStatus(model, `Running SportyTrader scrape... ${secs}s`, 'running');
+        setModelStatus(model, `Running local SportyTrader scrape... ${secs}s`, 'running');
       }
 
       const resp = await fetch(`${baseUrl}/job-status?id=${jobId}`);
@@ -1655,52 +1655,44 @@ function setSportyTraderSyncMeta(meta) {
 }
 
 async function syncScores24FromServer(sports = ['nba', 'nhl', 'mlb']) {
+  const server = LOCAL_SCORES24_SERVER;
   const selectedSports = Array.isArray(sports) ? sports.map(s => String(s || '').toLowerCase().trim()).filter(Boolean) : [];
+
   const body = {
     async: true,
     date: _getTodayDateStr(),
     sports: selectedSports.length ? selectedSports : ['nba', 'nhl', 'mlb'],
   };
 
-  // Try Render backend first, then local as fallback
-  const candidates = [MODEL_SERVER, LOCAL_SCORES24_SERVER]
-    .map(v => String(v || '').trim().replace(/\/+$/, ''))
-    .filter((v, i, arr) => v && arr.indexOf(v) === i);
-  let lastErr = 'Scores24 sync failed';
+  const resp = await fetch(server + '/run-scores24', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
 
-  for (const server of candidates) {
-    try {
-      const resp = await fetch(server + '/run-scores24', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
-      });
-
-      const launch = await resp.json();
-      if (!launch.ok) throw new Error(launch.error || `HTTP ${resp.status}`);
-
-      let data = launch;
-      if (launch.job_id) {
-        data = await _pollJob(launch.job_id, 'scores24', server, 600000);
-      }
-      if (!data || !data.ok) throw new Error((data && data.error) || 'Scores24 job failed');
-
-      return {
-        picks: Array.isArray(data.picks) ? data.picks : [],
-        meta: {
-          updatedAt: new Date().toISOString(),
-          date: _getTodayDateStr(),
-          note: 'Synced from backend',
-          from: (server === String(MODEL_SERVER || '').trim().replace(/\/+$/, '') ? 'render-backend' : 'local-backend'),
-          leagues: body.sports.join(','),
-        },
-      };
-    } catch (e) {
-      lastErr = String(e && e.message ? e.message : e);
-    }
+  const launch = await resp.json();
+  if (!launch.ok) {
+    throw new Error(launch.error || `HTTP ${resp.status}`);
   }
 
-  throw new Error(lastErr);
+  let data = launch;
+  if (launch.job_id) {
+    data = await _pollJob(launch.job_id, 'scores24', server, 600000);
+  }
+  if (!data || !data.ok) {
+    throw new Error((data && data.error) || 'Scores24 job failed');
+  }
+
+  return {
+    picks: Array.isArray(data.picks) ? data.picks : [],
+    meta: {
+      updatedAt: new Date().toISOString(),
+      date: _getTodayDateStr(),
+      note: 'Synced from localhost backend',
+      from: 'local-backend',
+      leagues: body.sports.join(','),
+    },
+  };
 }
 
 async function syncSportyTraderFromServer() {
@@ -1765,7 +1757,31 @@ async function runSelectedScores24League() {
     setModelStatus('scores24', `Synced ${synced.picks.length} ${league.toUpperCase()} pick(s)`, 'ok');
   } catch (e) {
     const err = String(e && e.message ? e.message : e);
-    setModelStatus('scores24', `League sync failed (${err})`, 'error');
+    try {
+      const loaded = await loadScores24ManualFeed();
+      const sportMap = { nba: 'NBA', nhl: 'NHL', mlb: 'MLB' };
+      const targetSport = sportMap[league] || league.toUpperCase();
+      const filtered = (loaded.picks || []).filter(p => String(p.sport || '').toUpperCase() === targetSport);
+      if (filtered.length) {
+        const meta = {
+          ...loaded.meta,
+          updatedAt: loaded.meta && loaded.meta.updatedAt ? loaded.meta.updatedAt : new Date().toISOString(),
+          date: loaded.meta && loaded.meta.date ? loaded.meta.date : _getTodayDateStr(),
+          from: 'feed-fallback',
+          leagues: league,
+          note: loaded.meta && loaded.meta.note ? loaded.meta.note : 'Loaded from manual feed after backend failure',
+        };
+        pendingModelPicks = filtered;
+        renderModelResults(filtered);
+        saveScores24CachedFeed({ picks: filtered, meta });
+        setScores24SyncMeta(meta);
+        setModelStatus('scores24', `Backend blocked (${err}); loaded ${filtered.length} ${league.toUpperCase()} cached/feed pick(s)`, 'ok');
+      } else {
+        setModelStatus('scores24', `League sync failed (${err})`, 'error');
+      }
+    } catch {
+      setModelStatus('scores24', `League sync failed (${err})`, 'error');
+    }
   } finally {
     if (btn) {
       btn.disabled = false;

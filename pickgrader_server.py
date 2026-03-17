@@ -35,14 +35,12 @@ except ValueError:
     PORT = 8765
 
 IS_RENDER_RUNTIME = os.environ.get("RENDER", "").strip().lower() == "true"
-# Default to enabled so Render backend accepts scrape requests.
-# Set ENABLE_SCORES24_REMOTE=false explicitly to disable.
+# Default to enabled so Render backend accepts scrape requests unless explicitly disabled.
 _scores24_env = os.environ.get("ENABLE_SCORES24_REMOTE", "true").strip().lower()
 ENABLE_SCORES24_REMOTE = _scores24_env not in {"0", "false", "no", "off"}
-# Default to enabled (render.yaml sets this but Dashboard may not pick it up).
-# Set ENABLE_SPORTYTRADER_REMOTE=false explicitly to disable.
 _sportytrader_env = os.environ.get("ENABLE_SPORTYTRADER_REMOTE", "true").strip().lower()
 ENABLE_SPORTYTRADER_REMOTE = _sportytrader_env not in {"0", "false", "no", "off"}
+PLAYWRIGHT_PROXY_CONFIGURED = bool(os.environ.get("PLAYWRIGHT_PROXY_SERVER", "").strip())
 
 SPORT_TO_ESPNSLUG = {
     "NBA": ("basketball", "nba"),
@@ -1414,7 +1412,13 @@ class Handler(BaseHTTPRequestHandler):
         self._send_json(200, {"ok": True})
 
     def do_GET(self) -> None:  # noqa: N802
-        if self.path == "/":
+        path = self.path
+        if path == "/api":
+            path = "/"
+        elif path.startswith("/api/"):
+            path = path[4:]
+
+        if path == "/":
             endpoints = ["/health", "/grade", "/run-nba-model", "/run-mlb-model", "/job-status?id=<id>"]
             if ENABLE_SCORES24_REMOTE:
                 endpoints.append("/run-scores24")
@@ -1425,19 +1429,26 @@ class Handler(BaseHTTPRequestHandler):
                 "service": "pickledger-grader",
                 "status": "healthy",
                 "scores24_remote_enabled": ENABLE_SCORES24_REMOTE,
+                "playwright_proxy_configured": PLAYWRIGHT_PROXY_CONFIGURED,
                 "sportytrader_remote_enabled": ENABLE_SPORTYTRADER_REMOTE,
                 "endpoints": endpoints,
             })
             return
 
-        if self.path == "/health":
-            self._send_json(200, {"ok": True, "status": "healthy"})
+        if path == "/health":
+            self._send_json(200, {
+                "ok": True,
+                "status": "healthy",
+                "scores24_remote_enabled": ENABLE_SCORES24_REMOTE,
+                "playwright_proxy_configured": PLAYWRIGHT_PROXY_CONFIGURED,
+                "sportytrader_remote_enabled": ENABLE_SPORTYTRADER_REMOTE,
+            })
             return
 
         # Poll job status: GET /job-status?id=<job_id>
-        if self.path.startswith("/job-status"):
+        if path.startswith("/job-status"):
             from urllib.parse import urlparse, parse_qs
-            qs = parse_qs(urlparse(self.path).query)
+            qs = parse_qs(urlparse(path).query)
             job_id = (qs.get("id") or [""])[0]
             with _jobs_lock:
                 job = _jobs.get(job_id)
@@ -1464,6 +1475,12 @@ class Handler(BaseHTTPRequestHandler):
         self.end_headers()
 
     def do_POST(self) -> None:  # noqa: N802
+        path = self.path
+        if path == "/api":
+            path = "/"
+        elif path.startswith("/api/"):
+            path = path[4:]
+
         try:
             length = int(self.headers.get("Content-Length", "0"))
         except ValueError:
@@ -1480,7 +1497,7 @@ class Handler(BaseHTTPRequestHandler):
         async_mode = body.get("async", False)
         date_str = body.get("date")  # optional MM/DD/YYYY date for the model
 
-        if self.path == "/grade":
+        if path == "/grade":
             picks = body.get("picks", [])
             existing = body.get("existing", {})
             year = int(body.get("year") or datetime.now().year)
@@ -1492,7 +1509,7 @@ class Handler(BaseHTTPRequestHandler):
             result = auto_grade(picks, existing, year)
             self._send_json(200, {"ok": True, **result})
 
-        elif self.path == "/run-nba-model":
+        elif path == "/run-nba-model":
             if async_mode:
                 job_id = _launch_job(run_nba_model, date_str)
                 self._send_json(200, {"ok": True, "job_id": job_id, "status": "running"})
@@ -1500,7 +1517,7 @@ class Handler(BaseHTTPRequestHandler):
                 result = run_nba_model(date_str)
                 self._send_json(200, result)
 
-        elif self.path == "/run-mlb-model":
+        elif path == "/run-mlb-model":
             if async_mode:
                 job_id = _launch_job(run_mlb_model, date_str)
                 self._send_json(200, {"ok": True, "job_id": job_id, "status": "running"})
@@ -1508,7 +1525,7 @@ class Handler(BaseHTTPRequestHandler):
                 result = run_mlb_model(date_str)
                 self._send_json(200, result)
 
-        elif self.path == "/run-scores24":
+        elif path == "/run-scores24":
             if IS_RENDER_RUNTIME and not ENABLE_SCORES24_REMOTE:
                 self._send_json(403, {
                     "ok": False,
@@ -1528,7 +1545,7 @@ class Handler(BaseHTTPRequestHandler):
                 result = run_scores24_scraper(sports, scrape_date)
                 self._send_json(200, result)
 
-        elif self.path == "/run-sportytrader":
+        elif path == "/run-sportytrader":
             if IS_RENDER_RUNTIME and not ENABLE_SPORTYTRADER_REMOTE:
                 self._send_json(403, {
                     "ok": False,

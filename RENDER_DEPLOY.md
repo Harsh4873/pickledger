@@ -40,28 +40,30 @@ The frontend now reads this value automatically.
 
 1. Use at least Render `Starter` plan so the service does not sleep.
 2. Keep model runs async (already supported) to avoid browser timeouts.
-3. Scores24 scraping is intentionally decoupled from Render in this setup.
+3. Scores24 scraping can run on Render, but Cloudflare often blocks non-proxied Render egress IPs.
 4. For persistent pick storage later, move from local browser storage to Postgres.
 
-## 5. Scores24 Is Local-Only (Manual Feed)
+## 5. Scores24 On Render (Proxy Required For Stability)
 
-The site still runs NBA and MLB models through Render, but Scores24 scraping is now handled outside Render.
+The frontend tries Scores24 sync against your configured backend first, then localhost, then manual feed/cache fallback.
 
-Frontend behavior:
+Required Render env vars:
 
-1. The Scores24 card reads from `scores24_manual_feed.json`.
-2. It no longer calls `/run-scores24` on Render.
-3. This avoids Cloudflare + Playwright runtime issues in hosted environments.
+1. `ENABLE_SCORES24_REMOTE=true`
+2. `PLAYWRIGHT_PROXY_SERVER=<your proxy url>`
+3. Optional auth: `PLAYWRIGHT_PROXY_USERNAME`, `PLAYWRIGHT_PROXY_PASSWORD`
 
-Manual workflow:
+Without a proxy server, NHL (and sometimes other leagues) can fail with Cloudflare 403 errors.
+
+### Manual fallback workflow (still supported)
 
 1. Ask Copilot to run local Scores24 scraping.
 2. Copilot updates `scores24_manual_feed.json` with fresh picks.
 3. Open the Models tab and click `LOAD SCORES24 FEED`.
 
-Optional: if you ever want to re-enable remote Scores24 scraping on Render, set:
+Optional: to force manual-only mode on Render, set:
 
-- `ENABLE_SCORES24_REMOTE=true`
+- `ENABLE_SCORES24_REMOTE=false`
 
 ## 6. Local Fallback
 
