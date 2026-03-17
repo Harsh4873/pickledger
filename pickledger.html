@@ -1489,10 +1489,10 @@ async function _pollJob(jobId, model, baseUrl = MODEL_SERVER, timeoutMs = 600000
     try {
       if (model === 'scores24') {
         const secs = Math.floor(elapsedMs / 1000);
-        setModelStatus(model, `Running local Scores24 scrape... ${secs}s`, 'running');
+        setModelStatus(model, `Running Scores24 scrape... ${secs}s`, 'running');
       } else if (model === 'sportytrader') {
         const secs = Math.floor(elapsedMs / 1000);
-        setModelStatus(model, `Running local SportyTrader scrape... ${secs}s`, 'running');
+        setModelStatus(model, `Running SportyTrader scrape... ${secs}s`, 'running');
       }
 
       const resp = await fetch(`${baseUrl}/job-status?id=${jobId}`);
