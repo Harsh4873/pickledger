@@ -19,6 +19,7 @@ import re
 import subprocess
 import sys
 import threading
+import unicodedata
 import uuid
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timedelta
@@ -35,6 +36,9 @@ except ValueError:
 
 IS_RENDER_RUNTIME = os.environ.get("RENDER", "").strip().lower() == "true"
 ENABLE_SCORES24_REMOTE = os.environ.get("ENABLE_SCORES24_REMOTE", "").strip().lower() in {
+    "1", "true", "yes", "on",
+}
+ENABLE_SPORTYTRADER_REMOTE = os.environ.get("ENABLE_SPORTYTRADER_REMOTE", "").strip().lower() in {
     "1", "true", "yes", "on",
 }
 
@@ -393,6 +397,7 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 NBA_MODEL_DIR = os.path.join(BASE_DIR, "NBAPredictionModel")
 MLB_MODEL_DIR = os.path.join(BASE_DIR, "MLBPredictionModel")
 SCORES24_VENV = os.path.join(BASE_DIR, ".venv", "bin", "python")
+SPORTYTRADER_VENV = os.path.join(BASE_DIR, ".venv", "bin", "python")
 
 # ─── Async Job Store ──────────────────────────────────────────────────────────
 # Tracks running/completed model jobs so the frontend can poll for results.
@@ -785,6 +790,18 @@ _MULTI_WORD_NICKNAMES = {
     "trail blazers", "red sox", "white sox", "blue jays", "maple leafs",
 }
 
+_SCORES24_SPORT_ALIAS = {
+    "NBA": "NBA",
+    "NATIONAL BASKETBALL ASSOCIATION": "NBA",
+    "NHL": "NHL",
+    "NATIONAL HOCKEY LEAGUE": "NHL",
+    "MLB": "MLB",
+    "MAJOR LEAGUE BASEBALL": "MLB",
+    "EPL": "EPL",
+    "ENGLISH PREMIER LEAGUE": "EPL",
+    "PREMIER LEAGUE": "EPL",
+}
+
 
 def _shorten_team(full_name: str) -> str:
     """'Philadelphia 76ers' → '76ers', 'Toronto Maple Leafs' → 'Maple Leafs'."""
@@ -795,6 +812,17 @@ def _shorten_team(full_name: str) -> str:
     if last_two.lower() in _MULTI_WORD_NICKNAMES:
         return last_two
     return parts[-1]
+
+
+def _normalize_scores24_sport(raw_sport: str, fallback: str | None = None) -> str:
+    raw = str(raw_sport or "").strip()
+    norm = re.sub(r"\s+", " ", raw).strip().upper()
+    mapped = _SCORES24_SPORT_ALIAS.get(norm)
+    if mapped:
+        return mapped
+    if norm in {"OTHER", "BASKETBALL", "ICE-HOCKEY", "ICE HOCKEY", "BASEBALL", "SOCCER"} and fallback:
+        return fallback
+    return norm or (fallback or "Other")
 
 
 def _clean_scores24_pick(tip: str, matchup: str, sport: str) -> str:
@@ -876,6 +904,93 @@ def _clean_scores24_pick(tip: str, matchup: str, sport: str) -> str:
     return f"{tip_clean} ({matchup_short})"
 
 
+def _normalize_french_text(text: str) -> str:
+    normalized = unicodedata.normalize("NFKD", str(text or ""))
+    normalized = "".join(ch for ch in normalized if not unicodedata.combining(ch))
+    normalized = normalized.lower().replace("’", "'")
+    return re.sub(r"\s+", " ", normalized).strip()
+
+
+def _clean_sportytrader_pick(tip: str, matchup: str) -> str:
+    """Convert French SportyTrader NBA tip into the same pick format used in UI."""
+    tip_clean = re.sub(r"\s+", " ", str(tip or "")).strip()
+    teams = matchup.split(" vs ")
+    home = teams[0].strip() if len(teams) > 0 else ""
+    away = teams[1].strip() if len(teams) > 1 else ""
+    home_short = _shorten_team(home)
+    away_short = _shorten_team(away)
+    matchup_short = f"{home_short} vs {away_short}"
+
+    tip_norm = _normalize_french_text(tip_clean)
+    home_norm = _normalize_french_text(home)
+    away_norm = _normalize_french_text(away)
+    home_short_norm = _normalize_french_text(home_short)
+    away_short_norm = _normalize_french_text(away_short)
+
+    def _team_tokens(full_name_norm: str, short_name_norm: str) -> set[str]:
+        tokens = set()
+        for token in re.split(r"\s+", full_name_norm):
+            if len(token) >= 3 and token not in {"les", "the"}:
+                tokens.add(token)
+        if short_name_norm:
+            tokens.add(short_name_norm)
+        return tokens
+
+    home_tokens = _team_tokens(home_norm, home_short_norm)
+    away_tokens = _team_tokens(away_norm, away_short_norm)
+
+    def _resolve_team_name() -> str:
+        if home_norm and home_norm in tip_norm:
+            return home_short
+        if away_norm and away_norm in tip_norm:
+            return away_short
+        if home_short_norm and home_short_norm in tip_norm:
+            return home_short
+        if away_short_norm and away_short_norm in tip_norm:
+            return away_short
+        home_hits = sum(1 for token in home_tokens if re.search(rf"\b{re.escape(token)}\b", tip_norm))
+        away_hits = sum(1 for token in away_tokens if re.search(rf"\b{re.escape(token)}\b", tip_norm))
+        if away_hits > home_hits:
+            return away_short
+        if home_hits > away_hits:
+            return home_short
+        return home_short
+
+    # "<Team> gagne (prolongations incluses)" -> Moneyline
+    if re.search(r"\bgagne\b", tip_norm) and not re.search(r"\bpoints?\b", tip_norm):
+        team = _resolve_team_name()
+        return f"{team} ML ({matchup_short})"
+
+    # "<Team> gagne par X points d'ecart ou plus" / "par au moins X points"
+    m = re.search(r"\bgagne\b.*?\b(?:par|au moins)\s+(\d+)\s+points?", tip_norm)
+    if m:
+        margin = int(m.group(1))
+        spread = -(margin - 0.5)
+        team = _resolve_team_name()
+        spread_text = f"{spread:.1f}".rstrip("0").rstrip(".")
+        return f"{team} {spread_text} ({matchup_short})"
+
+    # "<Team> ne perd pas / ne perdent pas ... X points ou moins"
+    m = re.search(r"\bne perd(?:ent)? pas\b.*?(\d+)\s+points?", tip_norm)
+    if m:
+        margin = int(m.group(1))
+        spread = margin + 0.5
+        team = _resolve_team_name()
+        spread_text = f"+{spread:.1f}".rstrip("0").rstrip(".")
+        return f"{team} {spread_text} ({matchup_short})"
+
+    # "<Team> par au moins X points"
+    m = re.search(r"\bpar au moins\s+(\d+)\s+points?", tip_norm)
+    if m:
+        margin = int(m.group(1))
+        spread = -(margin - 0.5)
+        team = _resolve_team_name()
+        spread_text = f"{spread:.1f}".rstrip("0").rstrip(".")
+        return f"{team} {spread_text} ({matchup_short})"
+
+    return f"{tip_clean} ({matchup_short})"
+
+
 def _parse_scores24_output(output: str) -> list[dict[str, Any]]:
     """Parse Scores24 scraper stdout into pick dicts."""
     picks: list[dict[str, Any]] = []
@@ -901,25 +1016,8 @@ def _parse_scores24_output(output: str) -> list[dict[str, Any]]:
 
         odds_str = odds_m.group(1).strip() if odds_m else ""
         confidence = conf_m.group(1).strip() if conf_m else ""
-        league = league_m.group(1).strip().upper() if league_m else ""
-
-        # Map league to display sport tag conservatively.
-        # Only classify as major leagues on strong exact matches; otherwise
-        # keep the extracted league text (or broad sport bucket) to avoid
-        # incorrectly labeling other leagues as NBA/NHL/MLB.
-        league_norm = re.sub(r"\s+", " ", league).strip().upper()
-        sport = "Other"
-
-        if league_norm in {"NBA", "NATIONAL BASKETBALL ASSOCIATION"}:
-            sport = "NBA"
-        elif league_norm in {"NHL", "NATIONAL HOCKEY LEAGUE"}:
-            sport = "NHL"
-        elif league_norm in {"MLB", "MAJOR LEAGUE BASEBALL"}:
-            sport = "MLB"
-        elif league_norm in {"EPL", "ENGLISH PREMIER LEAGUE", "PREMIER LEAGUE"}:
-            sport = "EPL"
-        elif league_norm:
-            sport = league_norm
+        league = league_m.group(1).strip() if league_m else ""
+        sport = _normalize_scores24_sport(league)
 
         # Parse odds from Odds: field
         odds_val = -110
@@ -993,20 +1091,8 @@ def _parse_scores24_output(output: str) -> list[dict[str, Any]]:
 
         odds_str = odds_m.group(1).strip() if odds_m else ""
         confidence = conf_m.group(1).strip() if conf_m else ""
-        league = league_m.group(1).strip().upper() if league_m else ""
-
-        league_norm = re.sub(r"\s+", " ", league).strip().upper()
-        sport = "Other"
-        if league_norm in {"NBA", "NATIONAL BASKETBALL ASSOCIATION"}:
-            sport = "NBA"
-        elif league_norm in {"NHL", "NATIONAL HOCKEY LEAGUE"}:
-            sport = "NHL"
-        elif league_norm in {"MLB", "MAJOR LEAGUE BASEBALL"}:
-            sport = "MLB"
-        elif league_norm in {"EPL", "ENGLISH PREMIER LEAGUE", "PREMIER LEAGUE"}:
-            sport = "EPL"
-        elif league_norm:
-            sport = league_norm
+        league = league_m.group(1).strip() if league_m else ""
+        sport = _normalize_scores24_sport(league)
 
         odds_val = -110
         if odds_str and odds_str != "[not found on page]":
@@ -1103,7 +1189,11 @@ def run_scores24_scraper(sports: list[str], date_str: str | None = None) -> dict
         "nba": "basketball",
         "nhl": "ice-hockey",
         "mlb": "baseball",
-        "epl": "soccer",
+    }
+    sport_tag_map = {
+        "nba": "NBA",
+        "nhl": "NHL",
+        "mlb": "MLB",
     }
 
     selected = [str(s).lower().strip() for s in sports if str(s).strip()]
@@ -1122,7 +1212,7 @@ def run_scores24_scraper(sports: list[str], date_str: str | None = None) -> dict
         if not sport_slug:
             return sport_code, [], f"Unsupported sport code: {sport_code}"
 
-        timeout_s = 240 if sport_code == "epl" else 120
+        timeout_s = 120
         date_candidates = [target_date]
         try:
             base_date = datetime.strptime(target_date, "%Y-%m-%d")
@@ -1158,7 +1248,21 @@ def run_scores24_scraper(sports: list[str], date_str: str | None = None) -> dict
                 result = _invoke(env, date_candidates[0])
                 output = (result.stdout or "") + (result.stderr or "")
 
-            picks = _parse_scores24_output(output)
+            fallback_tag = sport_tag_map.get(sport_code)
+
+            def _normalize_and_filter(picks_in: list[dict[str, Any]]) -> list[dict[str, Any]]:
+                if not fallback_tag:
+                    return picks_in
+                kept: list[dict[str, Any]] = []
+                for pick in picks_in:
+                    normalized = _normalize_scores24_sport(pick.get("sport", ""), fallback_tag)
+                    if normalized != fallback_tag:
+                        continue
+                    pick["sport"] = normalized
+                    kept.append(pick)
+                return kept
+
+            picks = _normalize_and_filter(_parse_scores24_output(output))
 
             # Around date boundaries, listings may shift by one day depending on
             # league timezone and deployment timezone. Retry adjacent dates.
@@ -1166,7 +1270,7 @@ def run_scores24_scraper(sports: list[str], date_str: str | None = None) -> dict
                 for retry_date in date_candidates[1:]:
                     retry = _invoke(env, retry_date)
                     retry_output = (retry.stdout or "") + (retry.stderr or "")
-                    retry_picks = _parse_scores24_output(retry_output)
+                    retry_picks = _normalize_and_filter(_parse_scores24_output(retry_output))
                     if retry.returncode == 0 and retry_picks:
                         result = retry
                         output = retry_output
@@ -1205,6 +1309,77 @@ def run_scores24_scraper(sports: list[str], date_str: str | None = None) -> dict
     return {"ok": True, "picks": all_picks, "errors": errors}
 
 
+def run_sportytrader_scraper(date_str: str | None = None) -> dict[str, Any]:
+    """Execute the SportyTrader scraper (NBA only)."""
+    python_bin = _resolve_python_bin(SPORTYTRADER_VENV)
+    target_date = _resolve_scores24_date(date_str)
+    scraper_path = os.path.join(BASE_DIR, "sportytrader_scraper.py")
+    if not os.path.exists(scraper_path):
+        return {"ok": False, "error": f"sportytrader scraper not found at {scraper_path}"}
+
+    timeout_s = 120
+    env = os.environ.copy()
+    env.setdefault("PLAYWRIGHT_BROWSERS_PATH", "0")
+
+    def _invoke() -> subprocess.CompletedProcess[str]:
+        return subprocess.run(
+            [python_bin, scraper_path, "--sport", "nba", "--date", target_date],
+            cwd=BASE_DIR,
+            env=env,
+            capture_output=True,
+            text=True,
+            timeout=timeout_s,
+        )
+
+    try:
+        result = _invoke()
+        output = (result.stdout or "") + (result.stderr or "")
+        if result.returncode != 0 and _looks_like_playwright_browser_missing(output):
+            ok, install_msg = _ensure_playwright_browsers(python_bin, env)
+            if not ok:
+                return {"ok": False, "error": f"sportytrader: Playwright install failed ({install_msg})"}
+            result = _invoke()
+            output = (result.stdout or "") + (result.stderr or "")
+
+        picks: list[dict[str, Any]] = []
+        blocks = re.split(r"━{10,}", output)
+        for block in blocks:
+            match_m = re.search(r"Match:\s*(.+)", block)
+            tip_m = re.search(r"Tip:\s*(.+)", block)
+            league_m = re.search(r"League:\s*(.+)", block)
+            if not match_m or not tip_m:
+                continue
+
+            matchup = match_m.group(1).strip()
+            tip = tip_m.group(1).strip()
+            if not matchup or not tip:
+                continue
+            league = (league_m.group(1).strip() if league_m else "").upper()
+            if "NBA" not in league:
+                continue
+
+            picks.append({
+                "source": "SportyTrader",
+                "pick": _clean_sportytrader_pick(tip, matchup),
+                "sport": "NBA",
+                "odds": -110,
+                "units": 1,
+                "probability": None,
+                "edge": None,
+                "decision": "BET",
+            })
+
+        if result.returncode != 0 and not picks:
+            return {"ok": False, "error": f"sportytrader: scraper exited {result.returncode} ({_compact_error_text(output)})"}
+        if not picks:
+            return {"ok": False, "error": f"sportytrader: no picks parsed ({_compact_error_text(output)})"}
+        return {"ok": True, "picks": picks}
+    except subprocess.TimeoutExpired:
+        return {"ok": False, "error": f"sportytrader: timed out after {timeout_s}s"}
+    except Exception as exc:
+        return {"ok": False, "error": f"sportytrader: {exc}"}
+
+
 def _launch_job(target_fn, *args) -> str:
     """Launch a model run in a background thread and return a job_id."""
     job_id = uuid.uuid4().hex[:12]
@@ -1241,11 +1416,14 @@ class Handler(BaseHTTPRequestHandler):
             endpoints = ["/health", "/grade", "/run-nba-model", "/run-mlb-model", "/job-status?id=<id>"]
             if ENABLE_SCORES24_REMOTE:
                 endpoints.append("/run-scores24")
+            if ENABLE_SPORTYTRADER_REMOTE:
+                endpoints.append("/run-sportytrader")
             self._send_json(200, {
                 "ok": True,
                 "service": "pickledger-grader",
                 "status": "healthy",
                 "scores24_remote_enabled": ENABLE_SCORES24_REMOTE,
+                "sportytrader_remote_enabled": ENABLE_SPORTYTRADER_REMOTE,
                 "endpoints": endpoints,
             })
             return
@@ -1336,13 +1514,32 @@ class Handler(BaseHTTPRequestHandler):
                 })
                 return
 
-            sports = body.get("sports", ["nba", "nhl", "mlb", "epl"])
+            league = str(body.get("league", "")).strip().lower()
+            sports = body.get("sports")
+            if not isinstance(sports, list):
+                sports = [league] if league else ["nba", "nhl", "mlb"]
             scrape_date = body.get("date")
             if async_mode:
                 job_id = _launch_job(run_scores24_scraper, sports, scrape_date)
                 self._send_json(200, {"ok": True, "job_id": job_id, "status": "running"})
             else:
                 result = run_scores24_scraper(sports, scrape_date)
+                self._send_json(200, result)
+
+        elif self.path == "/run-sportytrader":
+            if IS_RENDER_RUNTIME and not ENABLE_SPORTYTRADER_REMOTE:
+                self._send_json(403, {
+                    "ok": False,
+                    "error": "SportyTrader scraping is disabled on Render. Run it locally and sync sportytrader_manual_feed.json.",
+                })
+                return
+
+            scrape_date = body.get("date")
+            if async_mode:
+                job_id = _launch_job(run_sportytrader_scraper, scrape_date)
+                self._send_json(200, {"ok": True, "job_id": job_id, "status": "running"})
+            else:
+                result = run_sportytrader_scraper(scrape_date)
                 self._send_json(200, result)
 
         else:

@@ -151,15 +151,25 @@
   .trend-summary-val { font-family: 'Bebas Neue', sans-serif; font-size: 28px; line-height: 1; color: var(--text); }
   .trend-summary-label { margin-top: 4px; font-family: 'DM Mono', monospace; font-size: 10px; color: var(--muted); letter-spacing: 0.7px; }
   .trend-board { display: grid; grid-template-columns: repeat(auto-fit, minmax(310px, 1fr)); gap: 12px; }
-  .trend-game-card { background: linear-gradient(180deg, rgba(77,166,255,0.06), transparent 40%), var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 14px; transition: border-color 0.2s, transform 0.2s; }
-  .trend-game-card:hover { border-color: var(--accent3); transform: translateY(-1px); }
-  .trend-game-card.strong { border-color: rgba(0,229,160,0.45); }
+  .trend-game-card { background: linear-gradient(180deg, rgba(77,166,255,0.06), transparent 40%), var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 14px; transition: border-color 0.2s, transform 0.2s, box-shadow 0.2s; cursor: pointer; }
+  .trend-game-card:hover { border-color: var(--accent3); transform: translateY(-2px); box-shadow: 0 12px 30px rgba(0,0,0,0.2); }
+  body[data-theme="light"] .trend-game-card:hover { box-shadow: 0 10px 22px rgba(15,25,35,0.12); }
+  .trend-game-card.expanded { border-color: var(--accent); }
+  .trend-game-card:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .trend-game-card.strong {
+    border-color: rgba(0,229,160,0.65);
+    background: linear-gradient(180deg, rgba(0,229,160,0.09), rgba(255,215,0,0.05) 65%, transparent), var(--card);
+  }
   .trend-game-card.split { border-color: rgba(255,69,96,0.35); }
   .trend-game-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; margin-bottom: 10px; }
   .trend-game-name { font-family: 'Bebas Neue', sans-serif; font-size: 23px; letter-spacing: 1px; color: var(--text); line-height: 1; }
   .trend-game-meta { margin-top: 4px; font-family: 'DM Mono', monospace; font-size: 10px; color: var(--muted); letter-spacing: 0.4px; }
   .trend-strength-pill { font-family: 'DM Mono', monospace; font-size: 10px; letter-spacing: 0.5px; border: 1px solid var(--border); border-radius: 999px; padding: 4px 8px; color: var(--muted); white-space: nowrap; }
-  .trend-strength-pill.strong { border-color: rgba(0,229,160,0.45); color: var(--accent); background: rgba(0,229,160,0.08); }
+  .trend-strength-pill.strong {
+    border-color: rgba(0,229,160,0.55);
+    color: var(--accent);
+    background: linear-gradient(90deg, rgba(0,229,160,0.13), rgba(255,215,0,0.11));
+  }
   .trend-strength-pill.lean { border-color: rgba(77,166,255,0.5); color: var(--accent3); background: rgba(77,166,255,0.08); }
   .trend-strength-pill.split { border-color: rgba(255,69,96,0.4); color: var(--danger); background: rgba(255,69,96,0.08); }
   .trend-market { border-top: 1px solid var(--border); padding-top: 10px; margin-top: 10px; }
@@ -173,6 +183,17 @@
   .trend-sport-section { margin-top: 20px; }
   .trend-sport-title { font-family: 'Bebas Neue', sans-serif; font-size: 22px; letter-spacing: 1.5px; color: var(--text); margin-bottom: 8px; }
   .trend-sport-meta { font-family: 'DM Mono', monospace; font-size: 10px; color: var(--muted); margin-bottom: 10px; letter-spacing: 0.4px; }
+  .trend-click-hint { margin-top: 10px; font-family: 'DM Mono', monospace; font-size: 10px; color: var(--muted); letter-spacing: 0.5px; }
+  .trend-deep-dive { margin-top: 12px; border-top: 1px dashed var(--border); padding-top: 12px; display: none; }
+  .trend-game-card.expanded .trend-deep-dive { display: block; }
+  .trend-deep-title { font-family: 'DM Mono', monospace; font-size: 10px; letter-spacing: 0.9px; color: var(--accent); margin-bottom: 8px; }
+  .trend-deep-note { font-family: 'DM Mono', monospace; font-size: 10px; color: var(--muted); line-height: 1.5; margin-bottom: 10px; }
+  .trend-evidence-list { display: flex; flex-direction: column; gap: 6px; }
+  .trend-evidence-item { border: 1px solid var(--border); border-radius: 8px; padding: 8px; background: rgba(77,166,255,0.05); }
+  .trend-evidence-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-family: 'DM Mono', monospace; font-size: 10px; }
+  .trend-evidence-source { color: var(--accent3); letter-spacing: 0.4px; }
+  .trend-evidence-origin { color: var(--muted); }
+  .trend-evidence-text { margin-top: 4px; font-size: 11px; color: var(--text); line-height: 1.4; }
 
   /* Search */
   .search-wrap { position: relative; margin-bottom: 28px; }
@@ -220,6 +241,7 @@
   .model-sport-select { display: flex; gap: 14px; margin-bottom: 12px; font-size: 12px; color: var(--muted); font-family: 'DM Mono', monospace; }
   .model-sport-select label { display: flex; align-items: center; gap: 4px; cursor: pointer; }
   .model-sport-select input[type="checkbox"] { accent-color: var(--accent); }
+  .model-league-select { width: 100%; margin: 10px 0 8px; padding: 8px; background: var(--surface); border: 1px solid var(--border); border-radius: 6px; color: var(--text); font-family: 'DM Mono', monospace; font-size: 11px; }
   .model-result-bet { color: var(--accent); font-weight: 500; }
   .model-result-pass { color: var(--muted); }
 
@@ -345,7 +367,21 @@
         <div class="model-card-desc">One-click Scores24 sync. Tries backend sync first, then falls back to local feed/cache.</div>
         <div class="model-status" id="scores24-sync-meta">Last sync: never</div>
         <button class="model-run-btn" id="btn-run-scores24" onclick="runModel('scores24')">SYNC SCORES24 NOW</button>
+        <select id="scores24-league-select" class="model-league-select">
+          <option value="nba">NBA only</option>
+          <option value="nhl">NHL only</option>
+          <option value="mlb">MLB only</option>
+        </select>
+        <button class="model-run-btn" id="btn-run-scores24-league" onclick="runSelectedScores24League()">SYNC SELECTED LEAGUE</button>
         <div class="model-status" id="status-scores24"></div>
+      </div>
+      <div class="model-card" id="model-card-sportytrader">
+        <div class="model-card-icon">&#127936;</div>
+        <div class="model-card-title">SportyTrader NBA Feed</div>
+        <div class="model-card-desc">One-click SportyTrader sync (NBA only). Tries backend first, then local feed/cache.</div>
+        <div class="model-status" id="sportytrader-sync-meta">Last sync: never</div>
+        <button class="model-run-btn" id="btn-run-sportytrader" onclick="runModel('sportytrader')">SYNC SPORTYTRADER NOW</button>
+        <div class="model-status" id="status-sportytrader"></div>
       </div>
     </div>
     <div id="model-results-section" style="display:none;">
@@ -489,7 +525,10 @@ const MODEL_SERVER =
 const GRADER_URL = `${MODEL_SERVER}/grade`;
 const SCORES24_FEED_URL = './scores24_manual_feed.json';
 const SCORES24_CACHE_KEY = 'pickledger_scores24_feed_cache';
+const SPORTYTRADER_FEED_URL = './sportytrader_manual_feed.json';
+const SPORTYTRADER_CACHE_KEY = 'pickledger_sportytrader_feed_cache';
 const LOCAL_SCORES24_SERVER = 'http://127.0.0.1:8765';
+const LOCAL_SPORTYTRADER_SERVER = 'http://127.0.0.1:8765';
 
 function getAddedPicks() {
   try {
@@ -717,8 +756,15 @@ function getPicks() {
   return getAllLedgerPicks().map(p => { const r=ov[p.id]||p.result; return {...p, result:r, pl:calcPL(p.units,r)}; });
 }
 
+function getRankingSourceKey(p) {
+  if (p.source === 'Scores24' && (p.sport === 'NBA' || p.sport === 'MLB' || p.sport === 'NHL')) {
+    return `Scores24${p.sport}`;
+  }
+  return p.source;
+}
+
 function getSourceStats(source) {
-  const all=getPicks(), allSp=all.filter(p=>p.source===source);
+  const all=getPicks(), allSp=all.filter(p=>getRankingSourceKey(p)===source);
   if(!allSp.length) return null;
   const sp=allSp.filter(p=>p.result!=='pending');
   const w=sp.filter(p=>p.result==='win').length, l=sp.filter(p=>p.result==='loss').length;
@@ -957,7 +1003,8 @@ function summarizeMarketVotes(votes, marketType) {
   const lineMin = top.lines.length ? Math.min(...top.lines) : null;
   const lineMax = top.lines.length ? Math.max(...top.lines) : null;
   const lineRange = lineMin != null && lineMax != null ? Math.abs(lineMax - lineMin) : null;
-  const tone = top.count >= 3 ? 'strong' : top.count === 2 ? 'lean' : 'split';
+  const unanimous = top.count === totalVotes;
+  const tone = (top.count >= 2 && unanimous) ? 'strong' : top.count >= 2 ? 'lean' : 'split';
 
   let label = '';
   if (marketType !== 'total') {
@@ -1007,6 +1054,59 @@ function buildMarketBlock(title, summary, passCount) {
   </div>`;
 }
 
+const expandedTrendGameKeys = new Set();
+
+function toggleTrendGame(key) {
+  if (!key) return;
+  if (expandedTrendGameKeys.has(key)) expandedTrendGameKeys.delete(key);
+  else expandedTrendGameKeys.add(key);
+  renderTrends();
+}
+
+function toggleTrendGameFromEl(el) {
+  if (!el) return;
+  const key = String(el.getAttribute('data-game-key') || '');
+  toggleTrendGame(key);
+}
+
+function describeTrendVote(v, marketType) {
+  if (marketType === 'total') {
+    return `${v.side} ${formatTotal(v.line)}`;
+  }
+  if (typeof v.line === 'number' && !Number.isNaN(v.line)) {
+    return `${v.team} ${formatLine(v.line)}`;
+  }
+  return `${v.team} ML`;
+}
+
+function buildTrendEvidenceBlock(title, votes, passes, marketType) {
+  const voteRows = votes.map(v => `<div class="trend-evidence-item">
+      <div class="trend-evidence-row">
+        <span class="trend-evidence-source">${v.source}</span>
+        <span class="trend-evidence-origin">${v.origin}</span>
+      </div>
+      <div class="trend-evidence-text">${describeTrendVote(v, marketType)}</div>
+    </div>`).join('');
+
+  const passRows = passes.map(v => `<div class="trend-evidence-item">
+      <div class="trend-evidence-row">
+        <span class="trend-evidence-source">${v.source}</span>
+        <span class="trend-evidence-origin">${v.origin}</span>
+      </div>
+      <div class="trend-evidence-text">PASS</div>
+    </div>`).join('');
+
+  const allRows = voteRows + passRows;
+  if (!allRows) {
+    return `<div class="trend-market"><div class="trend-market-label">${title} PROVENANCE</div><div class="trend-market-detail">No source signal logged.</div></div>`;
+  }
+
+  return `<div class="trend-market">
+    <div class="trend-market-label">${title} PROVENANCE</div>
+    <div class="trend-evidence-list">${allRows}</div>
+  </div>`;
+}
+
 function renderTrends() {
   const todayLabel = formatTodayPickDateLabel();
   const container = document.getElementById('trends-container');
@@ -1025,6 +1125,7 @@ function renderTrends() {
     const gameKey = `${p.sport}::${canonicalGameKeyFromMatchup(gameLabel)}`;
     if (!gameMap[gameKey]) {
       gameMap[gameKey] = {
+        key: gameKey,
         sport: p.sport,
         gameLabel,
         picks: [],
@@ -1033,6 +1134,8 @@ function renderTrends() {
         totalVotes: [],
         sidePasses: 0,
         totalPasses: 0,
+        sidePassSources: [],
+        totalPassSources: [],
       };
     }
 
@@ -1040,17 +1143,22 @@ function renderTrends() {
     gameMap[gameKey].sources.add(p.source);
     const spread = parseSpreadSignal(p.pick);
     const moneyline = spread ? null : parseMoneylineSignal(p.pick);
-    if (spread) gameMap[gameKey].sideVotes.push({ source: p.source, ...spread });
-    if (moneyline) gameMap[gameKey].sideVotes.push({ source: p.source, ...moneyline });
+    if (spread) gameMap[gameKey].sideVotes.push({ source: p.source, origin: 'Ledger pick', ...spread });
+    if (moneyline) gameMap[gameKey].sideVotes.push({ source: p.source, origin: 'Ledger pick', ...moneyline });
     const total = parseTotalSignal(p.pick);
-    if (total) gameMap[gameKey].totalVotes.push({ source: p.source, ...total });
+    if (total) gameMap[gameKey].totalVotes.push({ source: p.source, origin: 'Ledger pick', ...total });
   });
 
-  const manualSignals = getManualModelSignalsForToday().filter(sig => includedSports.has(sig.sport));
+  const todayLiveGameKeys = new Set(Object.keys(gameMap));
+  const manualSignals = getManualModelSignalsForToday()
+    .filter(sig => includedSports.has(sig.sport))
+    .filter(sig => todayLiveGameKeys.has(`${sig.sport}::${canonicalGameKeyFromMatchup(sig.matchup)}`));
+
   manualSignals.forEach(sig => {
     const gameKey = `${sig.sport}::${canonicalGameKeyFromMatchup(sig.matchup)}`;
     if (!gameMap[gameKey]) {
       gameMap[gameKey] = {
+        key: gameKey,
         sport: sig.sport,
         gameLabel: sig.matchup.replace(/\s*@\s*/g, ' vs '),
         picks: [],
@@ -1059,30 +1167,41 @@ function renderTrends() {
         totalVotes: [],
         sidePasses: 0,
         totalPasses: 0,
+        sidePassSources: [],
+        totalPassSources: [],
       };
     }
     gameMap[gameKey].sources.add(sig.source);
     if (sig.market === 'spread') {
-      if (sig.decision === 'BET') gameMap[gameKey].sideVotes.push({ source: sig.source, team: normalizeTrendTeam(sig.team), line: sig.line });
-      else gameMap[gameKey].sidePasses += 1;
+      if (sig.decision === 'BET') gameMap[gameKey].sideVotes.push({ source: sig.source, origin: 'Manual model sheet', team: normalizeTrendTeam(sig.team), line: sig.line });
+      else {
+        gameMap[gameKey].sidePasses += 1;
+        gameMap[gameKey].sidePassSources.push({ source: sig.source, origin: 'Manual model sheet' });
+      }
     }
     if (sig.market === 'side') {
-      if (sig.decision === 'BET') gameMap[gameKey].sideVotes.push({ source: sig.source, team: normalizeTrendTeam(sig.team), line: sig.line ?? null });
-      else gameMap[gameKey].sidePasses += 1;
+      if (sig.decision === 'BET') gameMap[gameKey].sideVotes.push({ source: sig.source, origin: 'Manual model sheet', team: normalizeTrendTeam(sig.team), line: sig.line ?? null });
+      else {
+        gameMap[gameKey].sidePasses += 1;
+        gameMap[gameKey].sidePassSources.push({ source: sig.source, origin: 'Manual model sheet' });
+      }
     }
     if (sig.market === 'total') {
-      if (sig.decision === 'BET') gameMap[gameKey].totalVotes.push({ source: sig.source, side: sig.side, line: sig.line });
-      else gameMap[gameKey].totalPasses += 1;
+      if (sig.decision === 'BET') gameMap[gameKey].totalVotes.push({ source: sig.source, origin: 'Manual model sheet', side: sig.side, line: sig.line });
+      else {
+        gameMap[gameKey].totalPasses += 1;
+        gameMap[gameKey].totalPassSources.push({ source: sig.source, origin: 'Manual model sheet' });
+      }
     }
   });
 
   const games = Object.values(gameMap).map(g => {
     const sideSummary = summarizeMarketVotes(g.sideVotes, 'side');
     const totalSummary = summarizeMarketVotes(g.totalVotes, 'total');
-    const strongSignals = [sideSummary, totalSummary].filter(s => s.consensusCount >= 3).length;
+    const strongSignals = [sideSummary, totalSummary].filter(s => s.tone === 'strong').length;
     const splitSignals = [sideSummary, totalSummary].filter(s => s.tone === 'split' && s.totalVotes >= 2).length;
     const cardTone = strongSignals > 0 ? 'strong' : splitSignals > 0 ? 'split' : 'lean';
-    const threeWay = [sideSummary, totalSummary].some(s => s.consensusCount >= 3 && s.consensusCount === s.totalVotes);
+    const threeWay = [sideSummary, totalSummary].some(s => s.tone === 'strong' && s.consensusCount >= 2);
     return { ...g, sideSummary, totalSummary, strongSignals, splitSignals, cardTone, threeWay };
   }).sort((a, b) => {
     if (a.sport !== b.sport) return a.sport.localeCompare(b.sport);
@@ -1118,7 +1237,7 @@ function renderTrends() {
         <div class="trend-sport-meta">${sportGames.length} games with pending signals</div>
         <div class="trend-board">
           ${sportGames.map(g => `
-            <div class="trend-game-card ${g.cardTone}">
+            <div class="trend-game-card ${g.cardTone} ${expandedTrendGameKeys.has(g.key) ? 'expanded' : ''}" data-game-key="${g.key}" onclick="toggleTrendGameFromEl(this)" role="button" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();toggleTrendGameFromEl(this)}">
               <div class="trend-game-head">
                 <div>
                   <div class="trend-game-name">${g.gameLabel}</div>
@@ -1128,6 +1247,13 @@ function renderTrends() {
               </div>
               ${buildMarketBlock('SIDE', g.sideSummary, g.sidePasses)}
               ${buildMarketBlock('TOTAL', g.totalSummary, g.totalPasses)}
+              <div class="trend-click-hint">Click card for source provenance and deeper signal context</div>
+              <div class="trend-deep-dive" onclick="event.stopPropagation()">
+                <div class="trend-deep-title">WHERE THIS CAME FROM</div>
+                <div class="trend-deep-note">Signal details are generated from today\'s pending ledger picks plus active manual model-sheet entries. This panel does not fabricate external writeups.</div>
+                ${buildTrendEvidenceBlock('SIDE', g.sideVotes, g.sidePassSources, 'side')}
+                ${buildTrendEvidenceBlock('TOTAL', g.totalVotes, g.totalPassSources, 'total')}
+              </div>
             </div>
           `).join('')}
         </div>
@@ -1142,7 +1268,7 @@ function render() {
   const gameTimes = getGameTimes();
 
   // Leaderboard (Rankings tab)
-  const rankingSources = [...new Set(picks.map(p => p.source))];
+  const rankingSources = [...new Set(picks.map(p => getRankingSourceKey(p)))];
   const stats = rankingSources.map(s=>getSourceStats(s)).filter(s=>s&&s.eligible);
   stats.sort((a,b)=>b.composite-a.composite);
   const lb = document.getElementById('leaderboard');
@@ -1188,9 +1314,10 @@ function render() {
   }
 
   // Filters (Home tab)
-  const PRIMARY_SPORTS = ['ALL', 'NHL', 'MLB', 'NBA', 'EPL'];
-  const sports=[...new Set(picks.map(p=>p.sport))], sources=[...new Set(picks.map(p=>p.source))];
+  const PRIMARY_SPORTS = ['ALL', 'NHL', 'MLB', 'NBA'];
+  const sports=[...new Set(picks.map(p=>p.sport).filter(s=>s!=='EPL'))], sources=[...new Set(picks.map(p=>getRankingSourceKey(p)))];
   const moreFilters = [...sports.filter(s=>!PRIMARY_SPORTS.includes(s)), ...sources];
+  if (![...PRIMARY_SPORTS, ...moreFilters].includes(activeFilter)) activeFilter = 'ALL';
   const moreHasActive = moreFilters.includes(activeFilter);
   let filterHtml = PRIMARY_SPORTS.map(f=>
     `<button class="filter-btn ${activeFilter===f?'active':''}" onclick="activeFilter='${f}';render()">${f}</button>`
@@ -1207,7 +1334,7 @@ function render() {
 
   // Table (Home tab)
   let filtered=picks;
-  if(activeFilter!=='ALL') filtered=picks.filter(p=>p.sport===activeFilter||p.source===activeFilter);
+  if(activeFilter!=='ALL') filtered=picks.filter(p=>p.sport===activeFilter||p.source===activeFilter||getRankingSourceKey(p)===activeFilter);
   // settled mode: show only win/loss/push; default: show only pending
   if(showSettled) filtered=filtered.filter(p=>p.result!=='pending');
   else filtered=filtered.filter(p=>p.result==='pending');
@@ -1287,7 +1414,7 @@ function render() {
       rows.push(`<tr>
       <td class="units-cell units-1">1u</td>
       <td style="font-family:'DM Mono',monospace;font-size:11px;color:var(--muted)">${p.date}</td>
-      <td><span class="badge badge-source">${p.source}</span></td>
+      <td><span class="badge badge-source">${getRankingSourceKey(p)}</span></td>
       <td>${p.pick}</td>
       <td style="color:var(--muted);font-size:12px">${p.sport}</td>
       <td style="font-family:'DM Mono',monospace">${p.odds>0?'+':''}${p.odds}</td>
@@ -1363,6 +1490,9 @@ async function _pollJob(jobId, model, baseUrl = MODEL_SERVER, timeoutMs = 600000
       if (model === 'scores24') {
         const secs = Math.floor(elapsedMs / 1000);
         setModelStatus(model, `Running local Scores24 scrape... ${secs}s`, 'running');
+      } else if (model === 'sportytrader') {
+        const secs = Math.floor(elapsedMs / 1000);
+        setModelStatus(model, `Running local SportyTrader scrape... ${secs}s`, 'running');
       }
 
       const resp = await fetch(`${baseUrl}/job-status?id=${jobId}`);
@@ -1426,7 +1556,81 @@ function saveScores24CachedFeed(payload) {
   localStorage.setItem(SCORES24_CACHE_KEY, JSON.stringify(payload));
 }
 
+async function loadSportyTraderManualFeed() {
+  const res = await fetch(`${SPORTYTRADER_FEED_URL}?t=${Date.now()}`);
+  if (!res.ok) {
+    throw new Error(`Feed HTTP ${res.status}`);
+  }
+
+  const payload = await res.json();
+  const picks = Array.isArray(payload) ? payload : payload.picks;
+  if (!Array.isArray(picks)) {
+    throw new Error('Invalid feed format: expected { picks: [] }');
+  }
+
+  const normalized = picks.map(p => ({
+    source: String(p.source || 'SportyTrader').trim() || 'SportyTrader',
+    pick: String(p.pick || '').trim(),
+    sport: String(p.sport || 'NBA').trim() || 'NBA',
+    odds: Number(p.odds) || -110,
+    units: Number(p.units) || 1,
+    probability: (p.probability == null ? null : Number(p.probability)),
+    edge: (p.edge == null ? null : Number(p.edge)),
+    decision: String(p.decision || 'BET').toUpperCase(),
+  })).filter(p => p.pick && String(p.sport).toUpperCase() === 'NBA');
+
+  const meta = {
+    updatedAt: String(payload.updated_at || payload.updatedAt || '').trim(),
+    date: String(payload.date || '').trim(),
+    note: String(payload.note || '').trim(),
+  };
+
+  return { picks: normalized, meta };
+}
+
+function getSportyTraderCachedFeed() {
+  try {
+    const raw = localStorage.getItem(SPORTYTRADER_CACHE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (!parsed || !Array.isArray(parsed.picks)) return null;
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+function saveSportyTraderCachedFeed(payload) {
+  localStorage.setItem(SPORTYTRADER_CACHE_KEY, JSON.stringify(payload));
+}
+
 function formatScores24SyncMeta(meta) {
+  if (!meta) return 'Last sync: never';
+  const from = String(meta.from || '').trim();
+  const updatedAt = String(meta.updatedAt || '').trim();
+  const date = String(meta.date || '').trim();
+  const leagues = String(meta.leagues || '').trim();
+
+  const parts = [];
+  if (updatedAt) {
+    const dt = new Date(updatedAt);
+    const ts = Number.isNaN(dt.getTime()) ? updatedAt : dt.toLocaleString();
+    parts.push(ts);
+  }
+  if (date) parts.push(`for ${date}`);
+  if (leagues) parts.push(`(${leagues.toUpperCase()})`);
+  if (from) parts.push(`[${from}]`);
+
+  return parts.length ? `Last sync: ${parts.join(' ')}` : 'Last sync: unknown';
+}
+
+function setScores24SyncMeta(meta) {
+  const el = document.getElementById('scores24-sync-meta');
+  if (!el) return;
+  el.textContent = formatScores24SyncMeta(meta);
+}
+
+function formatSportyTraderSyncMeta(meta) {
   if (!meta) return 'Last sync: never';
   const from = String(meta.from || '').trim();
   const updatedAt = String(meta.updatedAt || '').trim();
@@ -1444,19 +1648,20 @@ function formatScores24SyncMeta(meta) {
   return parts.length ? `Last sync: ${parts.join(' ')}` : 'Last sync: unknown';
 }
 
-function setScores24SyncMeta(meta) {
-  const el = document.getElementById('scores24-sync-meta');
+function setSportyTraderSyncMeta(meta) {
+  const el = document.getElementById('sportytrader-sync-meta');
   if (!el) return;
-  el.textContent = formatScores24SyncMeta(meta);
+  el.textContent = formatSportyTraderSyncMeta(meta);
 }
 
-async function syncScores24FromServer() {
+async function syncScores24FromServer(sports = ['nba', 'nhl', 'mlb']) {
   const server = LOCAL_SCORES24_SERVER;
+  const selectedSports = Array.isArray(sports) ? sports.map(s => String(s || '').toLowerCase().trim()).filter(Boolean) : [];
 
   const body = {
     async: true,
     date: _getTodayDateStr(),
-    sports: ['nba', 'nhl', 'mlb', 'epl'],
+    sports: selectedSports.length ? selectedSports : ['nba', 'nhl', 'mlb'],
   };
 
   const resp = await fetch(server + '/run-scores24', {
@@ -1485,8 +1690,68 @@ async function syncScores24FromServer() {
       date: _getTodayDateStr(),
       note: 'Synced from localhost backend',
       from: 'local-backend',
+      leagues: body.sports.join(','),
     },
   };
+}
+
+async function syncSportyTraderFromServer() {
+  const server = LOCAL_SPORTYTRADER_SERVER;
+  const body = { async: true, date: _getTodayDateStr() };
+
+  const resp = await fetch(server + '/run-sportytrader', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+
+  const launch = await resp.json();
+  if (!launch.ok) {
+    throw new Error(launch.error || `HTTP ${resp.status}`);
+  }
+
+  let data = launch;
+  if (launch.job_id) {
+    data = await _pollJob(launch.job_id, 'sportytrader', server, 600000);
+  }
+  if (!data || !data.ok) {
+    throw new Error((data && data.error) || 'SportyTrader job failed');
+  }
+
+  const picks = Array.isArray(data.picks) ? data.picks.filter(p => String(p.sport || '').toUpperCase() === 'NBA') : [];
+  return {
+    picks,
+    meta: {
+      updatedAt: new Date().toISOString(),
+      date: _getTodayDateStr(),
+      note: 'Synced from localhost backend',
+      from: 'local-backend',
+    },
+  };
+}
+
+async function runSelectedScores24League() {
+  const btn = document.getElementById('btn-run-scores24-league');
+  const select = document.getElementById('scores24-league-select');
+  const league = String(select && select.value ? select.value : 'nba').toLowerCase();
+  if (btn) { btn.disabled = true; btn.textContent = 'RUNNING...'; }
+  setModelStatus('scores24', `Syncing Scores24 ${league.toUpperCase()} only...`, 'running');
+  try {
+    const synced = await syncScores24FromServer([league]);
+    pendingModelPicks = synced.picks;
+    renderModelResults(synced.picks);
+    saveScores24CachedFeed({ picks: synced.picks, meta: synced.meta });
+    setScores24SyncMeta(synced.meta);
+    setModelStatus('scores24', `Synced ${synced.picks.length} ${league.toUpperCase()} pick(s)`, 'ok');
+  } catch (e) {
+    const err = String(e && e.message ? e.message : e);
+    setModelStatus('scores24', `League sync failed (${err})`, 'error');
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.textContent = 'SYNC SELECTED LEAGUE';
+    }
+  }
 }
 
 async function runModel(model) {
@@ -1541,6 +1806,52 @@ async function runModel(model) {
     return;
   }
 
+  if (model === 'sportytrader') {
+    let backendErr = '';
+    try {
+      setModelStatus(model, 'Trying live SportyTrader backend sync...', 'running');
+      const synced = await syncSportyTraderFromServer();
+      pendingModelPicks = synced.picks;
+      renderModelResults(synced.picks);
+      saveSportyTraderCachedFeed({ picks: synced.picks, meta: synced.meta });
+      setSportyTraderSyncMeta(synced.meta);
+      setModelStatus(model, `Synced ${synced.picks.length} NBA pick(s) from backend`, 'ok');
+    } catch (e) {
+      backendErr = String(e && e.message ? e.message : e);
+      try {
+        setModelStatus(model, 'Backend sync unavailable, loading feed file...', 'running');
+        const loaded = await loadSportyTraderManualFeed();
+        pendingModelPicks = loaded.picks;
+        renderModelResults(loaded.picks);
+        const meta = {
+          ...loaded.meta,
+          from: 'feed-file',
+          updatedAt: loaded.meta.updatedAt || new Date().toISOString(),
+        };
+        saveSportyTraderCachedFeed({ picks: loaded.picks, meta });
+        setSportyTraderSyncMeta(meta);
+        setModelStatus(model, `Loaded ${loaded.picks.length} NBA pick(s) from feed file`, 'ok');
+      } catch (feedErr) {
+        const cached = getSportyTraderCachedFeed();
+        if (cached && Array.isArray(cached.picks)) {
+          pendingModelPicks = cached.picks;
+          renderModelResults(cached.picks);
+          setSportyTraderSyncMeta({ ...(cached.meta || {}), from: 'cache' });
+          setModelStatus(model, `Using cached SportyTrader feed (${cached.picks.length} pick(s))`, 'ok');
+        } else {
+          const feedMsg = String(feedErr && feedErr.message ? feedErr.message : feedErr);
+          setModelStatus(model, `Sync failed (${backendErr}); feed unavailable (${feedMsg})`, 'error');
+        }
+      }
+    } finally {
+      if (btn) {
+        btn.disabled = false;
+        btn.textContent = 'SYNC SPORTYTRADER NOW';
+      }
+    }
+    return;
+  }
+
   let endpoint = '';
   let body = { async: true, date: _getTodayDateStr() };
   if (model === 'mlb') endpoint = '/run-mlb-model';
@@ -1583,7 +1894,7 @@ async function runModel(model) {
   } finally {
     if (btn) {
       btn.disabled = false;
-      const labels = { mlb: 'RUN MLB MODEL', nba: 'RUN NBA MODEL', scores24: 'SYNC SCORES24 NOW' };
+      const labels = { mlb: 'RUN MLB MODEL', nba: 'RUN NBA MODEL', scores24: 'SYNC SCORES24 NOW', sportytrader: 'SYNC SPORTYTRADER NOW' };
       btn.textContent = labels[model] || 'RUN';
     }
   }
@@ -1794,8 +2105,18 @@ function initScores24SyncMeta() {
   }
 }
 
+function initSportyTraderSyncMeta() {
+  const cached = getSportyTraderCachedFeed();
+  if (cached && cached.meta) {
+    setSportyTraderSyncMeta(cached.meta);
+  } else {
+    setSportyTraderSyncMeta(null);
+  }
+}
+
 initTheme();
 initScores24SyncMeta();
+initSportyTraderSyncMeta();
 const savedTab = localStorage.getItem('pickledger_tab') || 'home';
 if (savedTab !== 'home') switchTab(savedTab);
 render();
