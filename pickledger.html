@@ -1697,8 +1697,8 @@ async function syncScores24FromServer(sports = ['nba', 'nhl', 'mlb']) {
 
 async function syncSportyTraderFromServer() {
   const body = { async: true, date: _getTodayDateStr() };
-  // Try local first (matches Scores24 pattern), then Render backend as fallback
-  const candidates = [LOCAL_SPORTYTRADER_SERVER, MODEL_SERVER]
+  // Try Render backend first, then local as fallback
+  const candidates = [MODEL_SERVER, LOCAL_SPORTYTRADER_SERVER]
     .map(v => String(v || '').trim().replace(/\/+$/, ''))
     .filter((v, i, arr) => v && arr.indexOf(v) === i);
   let lastErr = 'SportyTrader sync failed';
