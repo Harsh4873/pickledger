@@ -1757,6 +1757,7 @@ async function runSelectedScores24League() {
     setModelStatus('scores24', `Synced ${synced.picks.length} ${league.toUpperCase()} pick(s)`, 'ok');
   } catch (e) {
     const err = String(e && e.message ? e.message : e);
+    // Fallback 1: try the manual feed file
     try {
       const loaded = await loadScores24ManualFeed();
       const sportMap = { nba: 'NBA', nhl: 'NHL', mlb: 'MLB' };
@@ -1775,12 +1776,28 @@ async function runSelectedScores24League() {
         renderModelResults(filtered);
         saveScores24CachedFeed({ picks: filtered, meta });
         setScores24SyncMeta(meta);
-        setModelStatus('scores24', `Backend blocked (${err}); loaded ${filtered.length} ${league.toUpperCase()} cached/feed pick(s)`, 'ok');
+        setModelStatus('scores24', `Backend unavailable; loaded ${filtered.length} ${league.toUpperCase()} pick(s) from feed`, 'ok');
+      } else {
+        throw new Error('no matching picks in feed');
+      }
+    } catch {
+      // Fallback 2: try the browser localStorage cache
+      const cached = getScores24CachedFeed();
+      if (cached && Array.isArray(cached.picks) && cached.picks.length) {
+        const sportMap = { nba: 'NBA', nhl: 'NHL', mlb: 'MLB' };
+        const targetSport = sportMap[league] || league.toUpperCase();
+        const filtered = cached.picks.filter(p => String(p.sport || '').toUpperCase() === targetSport);
+        if (filtered.length) {
+          pendingModelPicks = filtered;
+          renderModelResults(filtered);
+          setScores24SyncMeta({ ...(cached.meta || {}), from: 'cache', leagues: league });
+          setModelStatus('scores24', `Using cached ${filtered.length} ${league.toUpperCase()} pick(s)`, 'ok');
+        } else {
+          setModelStatus('scores24', `League sync failed (${err})`, 'error');
+        }
       } else {
         setModelStatus('scores24', `League sync failed (${err})`, 'error');
       }
-    } catch {
-      setModelStatus('scores24', `League sync failed (${err})`, 'error');
     }
   } finally {
     if (btn) {
