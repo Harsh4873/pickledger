@@ -396,6 +396,7 @@ def auto_grade(picks: list[dict[str, Any]], existing: dict[str, str], year: int)
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 NBA_MODEL_DIR = os.path.join(BASE_DIR, "NBAPredictionModel")
 MLB_MODEL_DIR = os.path.join(BASE_DIR, "MLBPredictionModel")
+NBA_PROPS_MODEL_DIR = os.path.join(BASE_DIR, "NBAPlayerBettingModel")
 SCORES24_VENV = os.path.join(BASE_DIR, ".venv", "bin", "python")
 SPORTYTRADER_VENV = os.path.join(BASE_DIR, ".venv", "bin", "python")
 
@@ -600,6 +601,104 @@ def _parse_nba_output(output: str) -> list[dict[str, Any]]:
                     "edge": None,
                     "decision": "PASS",
                 })
+
+    return picks
+
+
+def _parse_nba_props_output(output: str) -> list[dict[str, Any]]:
+    """Parse NBA props model stdout into pick dicts."""
+    picks: list[dict[str, Any]] = []
+    current_player: dict[str, Any] | None = None
+    current_prop: dict[str, Any] | None = None
+    current_metrics: dict[str, Any] = {}
+
+    prop_key_lookup = {
+        "points": "points",
+        "rebounds": "rebounds",
+        "assists": "assists",
+    }
+
+    for raw_line in output.splitlines():
+        line = raw_line.strip()
+        if not line:
+            continue
+
+        player_m = re.match(
+            r"^PLAYER:\s*(.+?)\s*\|\s*(.+?)\s*\|\s*(.+?)\s*\|\s*vs\s+(.+)$",
+            line,
+            flags=re.IGNORECASE,
+        )
+        if player_m:
+            current_player = {
+                "name": player_m.group(1).strip(),
+                "position": player_m.group(2).strip(),
+                "team": player_m.group(3).strip(),
+                "opponent": player_m.group(4).strip(),
+            }
+            current_prop = None
+            current_metrics = {}
+            continue
+
+        prop_m = re.match(
+            r"^PROP:\s*(Points|Rebounds|Assists)\s*-\s*Line:\s*([0-9.]+)$",
+            line,
+            flags=re.IGNORECASE,
+        )
+        if prop_m:
+            prop_label = prop_m.group(1).strip()
+            current_prop = {
+                "label": prop_label,
+                "key": prop_key_lookup.get(prop_label.lower(), prop_label.lower()),
+                "line": float(prop_m.group(2)),
+            }
+            current_metrics = {}
+            continue
+
+        metrics_m = re.match(
+            r"^RF Predicted:\s*([0-9.]+)\s*\|\s*Direction:\s*(OVER|UNDER)\s*\|\s*Edge:\s*([0-9.]+)%$",
+            line,
+            flags=re.IGNORECASE,
+        )
+        if metrics_m:
+            current_metrics["predicted"] = float(metrics_m.group(1))
+            current_metrics["direction"] = metrics_m.group(2).upper()
+            current_metrics["edge"] = float(metrics_m.group(3))
+            continue
+
+        kelly_m = re.match(
+            r"^Confidence:\s*([0-9.]+)%\s*\|\s*Full Kelly:\s*([0-9.]+)%\s*\|\s*(?:1/4|¼)\s*Kelly:\s*([0-9.]+)% bankroll$",
+            line,
+            flags=re.IGNORECASE,
+        )
+        if kelly_m:
+            current_metrics["confidence"] = float(kelly_m.group(1))
+            current_metrics["full_kelly"] = float(kelly_m.group(2))
+            current_metrics["quarter_kelly"] = float(kelly_m.group(3))
+            continue
+
+        decision_m = re.match(r"^\*\*Decision:\s*(BET\s+(?:OVER|UNDER)\s+[0-9.]+|PASS)\*\*$", line, flags=re.IGNORECASE)
+        if decision_m and current_player and current_prop:
+            edge_pct = float(current_metrics.get("edge", 0.0))
+            quarter_kelly = float(current_metrics.get("quarter_kelly", 0.0))
+            direction = str(current_metrics.get("direction", "OVER")).upper()
+            true_prob = min(0.78, 0.5238 + (edge_pct * 0.008))
+
+            picks.append({
+                "source": "NBA Props Model",
+                "pick": (
+                    f"{current_player['name']} "
+                    f"{current_prop['key']} "
+                    f"{direction} "
+                    f"{current_prop['line']:.1f} "
+                    f"vs {current_player['opponent']}"
+                ),
+                "sport": "NBA",
+                "odds": -110,
+                "units": quarter_kelly,
+                "probability": true_prob,
+                "edge": edge_pct,
+                "decision": "BET" if decision_m.group(1).upper().startswith("BET") else "PASS",
+            })
 
     return picks
 
@@ -1158,6 +1257,46 @@ def run_nba_model(date_str: str | None = None) -> dict[str, Any]:
         return {"ok": False, "error": str(e)}
 
 
+def run_nba_props_model(date_str: str | None = None) -> dict[str, Any]:
+    """Execute the NBA props model and return parsed picks."""
+    python_bin = _resolve_python_bin(os.path.join(NBA_PROPS_MODEL_DIR, "venv", "bin", "python"))
+
+    extra = []
+    if date_str:
+        extra = [date_str]
+
+    try:
+        output = _run_script(python_bin, "run_props.py", NBA_PROPS_MODEL_DIR, timeout=300, extra_args=extra)
+        if "Traceback (most recent call last)" in output or "ModuleNotFoundError" in output:
+            tail = " | ".join((output.strip().splitlines() or ["no output"])[-12:])
+            return {"ok": False, "error": f"NBA props model runtime failed ({tail})"}
+
+        picks = _parse_nba_props_output(output)
+        if not picks:
+            if (
+                "No NBA games found for today." in output
+                or "No qualifying player props candidates" in output
+            ):
+                return {
+                    "ok": True,
+                    "picks": [],
+                    "raw_lines": len(output.split("\n")),
+                    "note": "No NBA props candidates found today",
+                }
+            tail = " | ".join((output.strip().splitlines() or ["no output"])[-12:])
+            return {
+                "ok": False,
+                "error": f"NBA props parser found no predictions ({tail})",
+                "raw_lines": len(output.split("\n")),
+            }
+
+        return {"ok": True, "picks": picks, "raw_lines": len(output.split("\n"))}
+    except subprocess.TimeoutExpired:
+        return {"ok": False, "error": "NBA props model timed out (5 min limit)"}
+    except Exception as e:
+        return {"ok": False, "error": str(e)}
+
+
 def run_mlb_model(date_str: str | None = None) -> dict[str, Any]:
     """Execute the MLB model and return parsed picks."""
     python_bin = _resolve_python_bin(os.path.join(MLB_MODEL_DIR, "venv", "bin", "python"))
@@ -1425,7 +1564,14 @@ class Handler(BaseHTTPRequestHandler):
             path = path[4:]
 
         if path == "/":
-            endpoints = ["/health", "/grade", "/run-nba-model", "/run-mlb-model", "/job-status?id=<id>"]
+            endpoints = [
+                "/health",
+                "/grade",
+                "/run-nba-model",
+                "/run-nba-props-model",
+                "/run-mlb-model",
+                "/job-status?id=<id>",
+            ]
             if ENABLE_SCORES24_REMOTE:
                 endpoints.append("/run-scores24")
             if ENABLE_SPORTYTRADER_REMOTE:
@@ -1521,6 +1667,14 @@ class Handler(BaseHTTPRequestHandler):
                 self._send_json(200, {"ok": True, "job_id": job_id, "status": "running"})
             else:
                 result = run_nba_model(date_str)
+                self._send_json(200, result)
+
+        elif path == "/run-nba-props-model":
+            if async_mode:
+                job_id = _launch_job(run_nba_props_model, date_str)
+                self._send_json(200, {"ok": True, "job_id": job_id, "status": "running"})
+            else:
+                result = run_nba_props_model(date_str)
                 self._send_json(200, result)
 
         elif path == "/run-mlb-model":

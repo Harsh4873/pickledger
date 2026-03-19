@@ -806,6 +806,13 @@
         <button class="model-run-btn" id="btn-run-nba" onclick="runModel('nba')">RUN NBA MODEL</button>
         <div class="model-status" id="status-nba"></div>
       </div>
+      <div class="model-card" id="model-card-nba-props">
+        <div class="model-card-icon">&#127919;</div>
+        <div class="model-card-title">NBA Props Model</div>
+        <div class="model-card-desc">Run NBA player props pipeline for today's slate. Uses live NBA API stats + Random Forest model to predict Points, Rebounds, and Assists with Kelly sizing.</div>
+        <button class="model-run-btn" id="btn-run-nba-props" onclick="runModel('nba-props')">RUN PROPS MODEL</button>
+        <div class="model-status" id="status-nba-props"></div>
+      </div>
       <div class="model-card" id="model-card-scores24">
         <div class="model-card-icon">&#128270;</div>
         <div class="model-card-title">Scores24 Manual Feed</div>
@@ -2374,6 +2381,7 @@ async function runModel(model) {
   let body = { async: true, date: _getTodayDateStr() };
   if (model === 'mlb') endpoint = '/run-mlb-model';
   else if (model === 'nba') endpoint = '/run-nba-model';
+  else if (model === 'nba-props') endpoint = '/run-nba-props-model';
 
   try {
     setModelStatus(model, 'Launching model (async)...', 'running');
@@ -2412,7 +2420,13 @@ async function runModel(model) {
   } finally {
     if (btn) {
       btn.disabled = false;
-      const labels = { mlb: 'RUN MLB MODEL', nba: 'RUN NBA MODEL', scores24: 'SYNC SCORES24 NOW', sportytrader: 'SYNC SPORTYTRADER NOW' };
+      const labels = {
+        mlb: 'RUN MLB MODEL',
+        nba: 'RUN NBA MODEL',
+        'nba-props': 'RUN PROPS MODEL',
+        scores24: 'SYNC SCORES24 NOW',
+        sportytrader: 'SYNC SPORTYTRADER NOW'
+      };
       btn.textContent = labels[model] || 'RUN';
     }
   }
