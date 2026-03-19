@@ -349,7 +349,7 @@ def fetch_last_10_averages(player_id: int, season: str) -> dict[str, float]:
     dashboard = playerdashboardbylastngames.PlayerDashboardByLastNGames(
         player_id=player_id,
         season=season,
-        season_type_all_star="Regular Season",
+        season_type_playoffs="Regular Season",
         per_mode_detailed="PerGame",
         last_n_games=10,
     )
@@ -363,7 +363,7 @@ def fetch_home_away_splits(player_id: int, season: str) -> dict[str, dict[str, f
     dashboard = playerdashboardbygamesplits.PlayerDashboardByGameSplits(
         player_id=player_id,
         season=season,
-        season_type_all_star="Regular Season",
+        season_type_playoffs="Regular Season",
         per_mode_detailed="PerGame",
     )
     frame = _first_frame_with_columns(dashboard.get_data_frames(), {"GROUP_VALUE", "PTS", "REB", "AST"})
