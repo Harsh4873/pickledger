@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>PickLedger</title>
-<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500;600&family=Fraunces:opsz,wght@9..144,600;9..144,700&display=swap" rel="stylesheet">
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -14,27 +14,93 @@
     --text: #e8edf2; --muted: #5a7085; --danger: #ff4560;
     --win: #00e5a0; --loss: #ff4560; --push: #ffd700;
     --grid-line: rgba(0,229,160,0.03);
+    --shadow-soft: 0 18px 40px rgba(0,0,0,0.18);
+    --panel-tint: transparent;
   }
   body[data-theme="light"] {
-    --bg: #f0f4f8; --surface: #ffffff; --card: #ffffff; --border: #d4dfe9;
-    --accent: #00a870; --accent3: #2d8ae8; --gold: #b08800;
-    --text: #0f1923; --muted: #7a92a8; --danger: #e5304f;
+    --bg: #f0f2f5; --surface: #f7f9fc; --card: #ffffff; --border: #dde2e8;
+    --accent: #0b9d74; --accent3: #2563eb; --gold: #ab8400;
+    --text: #0f1923; --muted: #607080; --danger: #d93b59;
     --win: #00a870; --loss: #e5304f; --push: #b08800;
-    --grid-line: rgba(0,168,112,0.06);
+    --grid-line: rgba(37,99,235,0.04);
+    --shadow-soft: 0 4px 20px rgba(15,25,40,0.08), 0 1px 4px rgba(15,25,40,0.04);
+    --panel-tint: linear-gradient(180deg, rgba(255,255,255,0.95), rgba(247,249,252,0.98));
   }
 
   body { background: var(--bg); color: var(--text); font-family: 'DM Sans', sans-serif; min-height: 100vh; overflow-x: hidden; transition: background-color 0.3s, color 0.3s; }
-  body::before { content: ''; position: fixed; inset: 0; background-image: linear-gradient(var(--grid-line) 1px, transparent 1px), linear-gradient(90deg, var(--grid-line) 1px, transparent 1px); background-size: 40px 40px; pointer-events: none; z-index: 0; }
-  .container { position: relative; z-index: 1; max-width: 1400px; margin: 0 auto; padding: 24px 20px; }
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background:
+      radial-gradient(circle at 12% 14%, rgba(0,229,160,0.08), transparent 28%),
+      radial-gradient(circle at 88% 10%, rgba(77,166,255,0.08), transparent 24%),
+      linear-gradient(180deg, rgba(255,255,255,0.015), transparent 28%);
+    pointer-events: none;
+    z-index: 0;
+  }
+  body[data-theme="light"]::before {
+    background:
+      radial-gradient(ellipse at 20% 0%, rgba(37,99,235,0.08) 0%, transparent 55%),
+      radial-gradient(ellipse at 80% 0%, rgba(11,157,116,0.07) 0%, transparent 45%),
+      linear-gradient(180deg, #f0f2f5, #f7f9fc);
+  }
+  body::after {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(120deg, transparent 0%, rgba(255,255,255,0.018) 48%, transparent 100%);
+    pointer-events: none;
+    z-index: 0;
+  }
+  body[data-theme="light"]::after { display: none; }
+  .container { position: relative; z-index: 1; max-width: 1440px; margin: 0 auto; padding: 28px 22px 34px; }
+  body[data-theme="light"] .container { max-width: 1480px; padding: 34px 26px 40px; }
 
   /* Header */
   header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 0; padding-bottom: 20px; border-bottom: 1px solid var(--border); transition: border-color 0.3s; }
+  body[data-theme="light"] header {
+    align-items: flex-start;
+    margin-bottom: 20px;
+    padding: 8px 0 32px;
+    border-bottom: 1px solid var(--border);
+  }
   .logo-title { font-family: 'Bebas Neue', sans-serif; font-size: 42px; letter-spacing: 3px; line-height: 1; background: linear-gradient(135deg, var(--accent) 0%, var(--accent3) 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
   .logo-sub { font-family: 'DM Mono', monospace; font-size: 11px; color: var(--muted); letter-spacing: 2px; margin-top: 4px; }
   .header-right { display: flex; flex-direction: column; align-items: flex-end; gap: 8px; }
   .header-controls { display: flex; align-items: center; gap: 8px; }
   .header-stat-val { font-family: 'Bebas Neue', sans-serif; font-size: 32px; color: var(--accent); text-align: right; }
   .header-stat-label { font-size: 11px; color: var(--muted); letter-spacing: 1px; text-align: right; }
+  body[data-theme="light"] .logo-title {
+    font-family: 'Fraunces', serif;
+    font-size: 54px;
+    font-weight: 700;
+    letter-spacing: -1px;
+    line-height: 0.95;
+    text-transform: none;
+  }
+  body[data-theme="light"] .logo-sub {
+    margin-top: 10px;
+    font-size: 10px;
+    letter-spacing: 2.4px;
+  }
+  body[data-theme="light"] .header-right {
+    gap: 14px;
+  }
+  body[data-theme="light"] .header-stat-val {
+    font-family: 'Fraunces', serif;
+    font-size: 44px;
+    font-weight: 700;
+    letter-spacing: -1px;
+  }
+  body[data-theme="light"] .header-stat-label {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
 
   /* Theme toggle */
   .theme-toggle { display: flex; align-items: center; gap: 7px; background: var(--card); border: 1px solid var(--border); border-radius: 20px; padding: 5px 10px 5px 8px; cursor: pointer; transition: border-color 0.2s, background-color 0.3s; user-select: none; }
@@ -51,23 +117,60 @@
   body[data-theme="light"] .toggle-track { background: var(--accent); }
   .toggle-thumb { width: 12px; height: 12px; background: var(--muted); border-radius: 50%; position: absolute; top: 3px; left: 3px; transition: transform 0.3s cubic-bezier(0.34,1.56,0.64,1), background-color 0.3s; }
   body[data-theme="light"] .toggle-thumb { transform: translateX(16px); background: #fff; }
+  body[data-theme="light"] .theme-toggle,
+  body[data-theme="light"] .refresh-btn,
+  body[data-theme="light"] .filter-btn,
+  body[data-theme="light"] .filter-more-btn,
+  body[data-theme="light"] .model-league-select,
+  body[data-theme="light"] .result-select {
+    background: rgba(255,255,255,0.7);
+    backdrop-filter: blur(10px);
+  }
 
   /* Tabs */
-  .tabs { display: flex; gap: 0; margin: 0 0 28px 0; border-bottom: 2px solid var(--border); }
-  .tab { background: none; border: none; padding: 14px 28px; font-family: 'Bebas Neue', sans-serif; font-size: 17px; letter-spacing: 2px; color: var(--muted); cursor: pointer; position: relative; transition: color 0.2s; }
+  .tabs { display: flex; gap: 4px; margin: 0 0 30px 0; border-bottom: 2px solid var(--border); }
+  .tab { background: none; border: none; padding: 14px 22px; font-family: 'Bebas Neue', sans-serif; font-size: 20px; letter-spacing: 1.8px; color: var(--muted); cursor: pointer; position: relative; transition: color 0.2s, transform 0.2s; }
   .tab:hover { color: var(--text); }
   .tab.active { color: var(--accent); }
   .tab.active::after { content: ''; position: absolute; bottom: -2px; left: 0; right: 0; height: 2px; background: var(--accent); }
   .tab-content { display: none; }
   .tab-content.active { display: block; }
+  .tab:focus-visible { outline: 2px solid var(--accent3); outline-offset: 2px; }
+  body[data-theme="light"] .tabs {
+    gap: 6px;
+    margin-bottom: 34px;
+    padding: 6px;
+    border-bottom: none;
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    background: #ffffff;
+    box-shadow: 0 2px 12px rgba(15,25,40,0.06);
+  }
+  body[data-theme="light"] .tab {
+    padding: 10px 20px;
+    border-radius: 10px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    color: var(--muted);
+  }
+  body[data-theme="light"] .tab.active {
+    color: var(--text);
+    background: var(--bg);
+    box-shadow: 0 1px 4px rgba(15,25,40,0.08);
+  }
+  body[data-theme="light"] .tab.active::after {
+    display: none;
+  }
 
   /* Filter pills */
-  .filter-bar { display: flex; gap: 6px; margin-bottom: 20px; flex-wrap: wrap; align-items: center; position: relative; }
-  .filter-btn { background: var(--surface); border: 1px solid var(--border); border-radius: 6px; color: var(--muted); padding: 5px 12px; font-family: 'DM Mono', monospace; font-size: 11px; letter-spacing: 0.5px; cursor: pointer; transition: all 0.2s; }
+  .filter-bar { display: flex; gap: 8px; margin-bottom: 24px; flex-wrap: wrap; align-items: center; position: relative; }
+  .filter-btn { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; color: var(--muted); padding: 8px 16px; font-family: 'DM Mono', monospace; font-size: 14px; letter-spacing: 0.5px; font-weight: 600; cursor: pointer; transition: all 0.2s; }
   .filter-btn:hover { border-color: var(--accent); color: var(--text); }
-  .filter-btn.active { background: var(--accent); color: #000; border-color: var(--accent); font-weight: 500; }
+  .filter-btn.active { background: var(--accent); color: #000; border-color: var(--accent); font-weight: 700; }
   .filter-more-wrap { position: relative; display: inline-block; }
-  .filter-more-btn { width: 30px; height: 30px; border-radius: 50%; background: var(--surface); border: 1px solid var(--border); color: var(--muted); font-size: 16px; font-family: 'DM Sans', sans-serif; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.2s; line-height: 1; }
+  .filter-more-btn { width: 36px; height: 36px; border-radius: 50%; background: var(--surface); border: 1px solid var(--border); color: var(--muted); font-size: 20px; font-family: 'DM Sans', sans-serif; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.2s; line-height: 1; }
   .filter-more-btn:hover { border-color: var(--accent); color: var(--accent); }
   .filter-more-btn.has-selection { border-color: var(--accent); color: var(--accent); background: rgba(0,229,160,0.08); }
   body[data-theme="light"] .filter-more-btn.has-selection { background: rgba(0,168,112,0.08); }
@@ -76,67 +179,270 @@
   .filter-dropdown.open { display: flex; flex-direction: column; gap: 2px; }
   .filter-dropdown .filter-btn { text-align: left; border-radius: 4px; width: 100%; }
 
-  .section-title { font-family: 'Bebas Neue', sans-serif; font-size: 20px; letter-spacing: 2px; color: var(--muted); margin-bottom: 14px; }
-  .panel { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 24px; margin-bottom: 32px; transition: background-color 0.3s, border-color 0.3s; }
-  .stats-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 12px; margin-bottom: 32px; }
-  .stat-box { background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 16px; transition: background-color 0.3s, border-color 0.3s; }
-  .stat-box-val { font-family: 'Bebas Neue', sans-serif; font-size: 32px; line-height: 1; }
-  .stat-box-label { font-size: 11px; color: var(--muted); font-family: 'DM Mono', monospace; margin-top: 4px; letter-spacing: 0.5px; }
+  .section-title { font-family: 'Bebas Neue', sans-serif; font-size: 34px; letter-spacing: 1.8px; color: var(--muted); margin-bottom: 18px; }
+  .panel { background: var(--card); border: 1px solid var(--border); border-radius: 18px; padding: 28px; margin-bottom: 34px; transition: background-color 0.3s, border-color 0.3s, box-shadow 0.3s, transform 0.25s; }
+  .stats-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 14px; margin-bottom: 34px; }
+  .stat-box { background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 20px; transition: background-color 0.3s, border-color 0.3s, box-shadow 0.3s; }
+  .stat-box-val { font-family: 'Bebas Neue', sans-serif; font-size: 40px; line-height: 0.95; }
+  .stat-box-label { font-size: 11px; color: var(--muted); font-family: 'DM Mono', monospace; margin-top: 6px; letter-spacing: 0.6px; }
+  body[data-theme="light"] .section-title {
+    margin-bottom: 20px;
+    font-family: 'Fraunces', serif;
+    font-size: 44px;
+    font-weight: 700;
+    letter-spacing: -1px;
+    color: var(--text);
+    line-height: 1;
+  }
+  body[data-theme="light"] .section-title.clean-title {
+    position: relative;
+    padding-left: 20px;
+  }
+  body[data-theme="light"] .section-title.clean-title::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 6px;
+    width: 5px;
+    height: 32px;
+    border-radius: 999px;
+    background: linear-gradient(180deg, var(--accent3), var(--accent));
+  }
+  body[data-theme="light"] .panel {
+    border-radius: 16px;
+    padding: 28px;
+    border-color: var(--border);
+  }
+  body[data-theme="light"] .stats-grid {
+    gap: 14px;
+  }
+  body[data-theme="light"] .stat-box {
+    border-radius: 14px;
+    padding: 20px 20px 22px;
+    border-color: var(--border);
+  }
+  body[data-theme="light"] .stat-box-val,
+  body[data-theme="light"] .trend-summary-val,
+  body[data-theme="light"] .sport-units {
+    font-family: 'Fraunces', serif;
+    font-weight: 700;
+    letter-spacing: -1px;
+    font-size: 44px;
+  }
+  body[data-theme="light"] .stat-box-label,
+  body[data-theme="light"] .trend-summary-label {
+    font-size: 10px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    margin-top: 8px;
+  }
   .positive { color: var(--win); } .negative { color: var(--loss); } .neutral { color: var(--push); }
 
   /* Leaderboard */
-  .leaderboard { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 12px; margin-bottom: 32px; }
-  .source-card { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 18px; position: relative; overflow: hidden; transition: transform 0.2s, border-color 0.2s, background-color 0.3s; cursor: pointer; }
-  .source-card:hover { transform: translateY(-2px); border-color: var(--accent); }
+  .leaderboard { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 18px; margin-bottom: 34px; }
+  .source-card { background: var(--card); border: 1px solid var(--border); border-radius: 18px; padding: 24px; position: relative; overflow: hidden; transition: transform 0.2s, border-color 0.2s, background-color 0.3s, box-shadow 0.2s; cursor: pointer; }
+  .source-card:hover { transform: translateY(-3px); border-color: var(--accent); box-shadow: 0 18px 34px rgba(0,0,0,0.16); }
   .source-card.rank-1 { border-color: var(--gold); }
   .source-card.rank-1::before { content: '\2605  BEST SOURCE'; position: absolute; top: 10px; right: 10px; font-family: 'DM Mono', monospace; font-size: 9px; letter-spacing: 1px; color: var(--gold); background: rgba(255,215,0,0.1); padding: 3px 7px; border-radius: 3px; }
   .source-card.rank-2 { border-color: rgba(192,192,192,0.5); }
   .source-card.rank-3 { border-color: rgba(205,127,50,0.5); }
-  .card-rank { font-family: 'Bebas Neue', sans-serif; font-size: 48px; color: var(--border); position: absolute; bottom: -8px; right: 12px; line-height: 1; user-select: none; }
+  .card-rank { font-family: 'Bebas Neue', sans-serif; font-size: 52px; color: var(--border); position: absolute; bottom: -8px; right: 12px; line-height: 1; user-select: none; }
   .rank-1 .card-rank { color: rgba(255,215,0,0.15); }
-  .card-name { font-family: 'Bebas Neue', sans-serif; font-size: 22px; letter-spacing: 1px; margin-bottom: 12px; }
+  .card-name { font-family: 'Bebas Neue', sans-serif; font-size: 28px; letter-spacing: 0.9px; margin-bottom: 14px; }
   .score-bar-wrap { margin-bottom: 12px; }
   .score-label { display: flex; justify-content: space-between; font-size: 11px; color: var(--muted); margin-bottom: 4px; font-family: 'DM Mono', monospace; }
   .score-val { color: var(--text); font-weight: 500; }
-  .bar-bg { height: 4px; background: var(--border); border-radius: 2px; overflow: hidden; }
-  .bar-fill { height: 100%; border-radius: 2px; transition: width 0.6s ease; }
+  .bar-bg { height: 5px; background: var(--border); border-radius: 2.5px; overflow: hidden; }
+  .bar-fill { height: 100%; border-radius: 2.5px; transition: width 0.6s ease; }
   .bar-acc { background: var(--accent3); } .bar-roi { background: var(--accent); } .bar-score { background: linear-gradient(90deg, var(--accent), var(--accent3)); }
   .algo-score { display: flex; align-items: center; gap: 10px; margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--border); }
-  .algo-score-val { font-family: 'Bebas Neue', sans-serif; font-size: 36px; line-height: 1; }
+  .algo-score-val { font-family: 'Bebas Neue', sans-serif; font-size: 40px; line-height: 1; }
   .algo-score-info { font-size: 11px; color: var(--muted); font-family: 'DM Mono', monospace; line-height: 1.6; }
-  .sport-board { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 10px; margin-bottom: 28px; }
-  .sport-card { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 14px; }
-  .sport-name { font-family: 'Bebas Neue', sans-serif; letter-spacing: 1px; font-size: 20px; }
-  .sport-meta { font-family: 'DM Mono', monospace; font-size: 11px; color: var(--muted); margin-top: 6px; line-height: 1.6; }
-  .sport-units { font-family: 'Bebas Neue', sans-serif; font-size: 30px; line-height: 1; margin-top: 10px; }
+  .sport-board { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 16px; margin-bottom: 30px; }
+  .sport-card { background: var(--card); border: 1px solid var(--border); border-radius: 18px; padding: 20px; transition: box-shadow 0.25s, border-color 0.25s, transform 0.2s; }
+  .sport-card:hover { transform: translateY(-2px); box-shadow: 0 14px 28px rgba(0,0,0,0.14); }
+  .sport-name { font-family: 'Bebas Neue', sans-serif; letter-spacing: 0.9px; font-size: 26px; }
+  .sport-meta { font-family: 'DM Mono', monospace; font-size: 11px; color: var(--muted); margin-top: 6px; line-height: 1.7; }
+  .sport-units { font-family: 'Bebas Neue', sans-serif; font-size: 36px; line-height: 0.95; margin-top: 12px; }
   .algo-box { background: rgba(0,229,160,0.04); border: 1px solid rgba(0,229,160,0.2); border-radius: 10px; padding: 16px; margin-bottom: 32px; font-family: 'DM Mono', monospace; font-size: 11px; color: var(--muted); line-height: 1.8; transition: background-color 0.3s, border-color 0.3s; }
   body[data-theme="light"] .algo-box { background: rgba(0,168,112,0.05); border-color: rgba(0,168,112,0.25); }
   .algo-box strong { color: var(--accent); }
 
-  /* Table */
+  /* === Table (used for Model Results, not Home pick log) === */
   .table-wrap { overflow-x: auto; }
-  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  table { width: 100%; border-collapse: separate; border-spacing: 0; font-size: 14px; }
   thead tr { border-bottom: 2px solid var(--border); }
-  th { text-align: left; padding: 10px 12px; font-family: 'DM Mono', monospace; font-size: 10px; letter-spacing: 1px; color: var(--muted); font-weight: 400; }
-  td { padding: 10px 12px; border-bottom: 1px solid var(--border); transition: background-color 0.15s; }
+  th { text-align: left; padding: 10px 14px 10px; font-family: 'DM Mono', monospace; font-size: 10px; letter-spacing: 1.5px; color: var(--muted); font-weight: 500; text-transform: uppercase; }
+  td { padding: 12px 14px; border-bottom: 1px solid var(--border); transition: background-color 0.15s; vertical-align: middle; }
   tr:last-child td { border-bottom: none; }
-  tr:hover td { background: rgba(128,128,128,0.06); }
-  tr.game-group-row:hover td, tr.game-gap-row:hover td { background: transparent; }
-  .game-group-row td { background: rgba(77,166,255,0.08); border-bottom: 1px solid var(--border); font-family: 'DM Mono', monospace; font-size: 15px; color: var(--accent3); letter-spacing: 0.2px; }
-  .game-group-title { color: var(--text); font-weight: 500; margin-right: 8px; font-size: 15px; }
-  .game-gap-row td { padding: 6px 0; border: none; }
 
-  .badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-family: 'DM Mono', monospace; letter-spacing: 0.5px; font-weight: 500; }
-  .badge-win { background: rgba(0,229,160,0.15); color: var(--win); }
-  .badge-loss { background: rgba(255,69,96,0.15); color: var(--loss); }
-  .badge-push { background: rgba(255,215,0,0.15); color: var(--push); }
+  /* === Pick Log Feed (Home tab) === */
+  .pick-feed { display: flex; flex-direction: column; gap: 0; }
+  .pick-feed-empty { text-align: center; padding: 50px 20px; color: var(--muted); font-family: 'DM Mono', monospace; font-size: 13px; }
+
+  /* Game header */
+  .game-header {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    padding: 20px 4px 10px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 0;
+  }
+  .game-header:first-child { padding-top: 6px; }
+  .game-header-title {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 24px;
+    letter-spacing: 1.2px;
+    color: var(--text);
+    line-height: 1;
+  }
+  .game-header-meta {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    color: var(--muted);
+    letter-spacing: 0.3px;
+  }
+
+  /* Individual pick bubble */
+  .pick-bubble {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 14px 16px;
+    margin: 0;
+    border-bottom: 1px solid rgba(128,128,128,0.08);
+    transition: background-color 0.2s, transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275), box-shadow 0.2s;
+    flex-wrap: wrap;
+    cursor: default;
+  }
+  .pick-bubble:last-child { border-bottom: none; }
+  .pick-bubble:hover, .pick-bubble.hover-active, .pick-bubble:focus-within {
+    background: var(--surface);
+    transform: scale(1.06) translateY(-2px);
+    box-shadow: 0 16px 40px rgba(0,0,0,0.18), 0 4px 12px rgba(0,0,0,0.12);
+    z-index: 20;
+    position: relative;
+    border-radius: 12px;
+  }
+  .pick-bubble-source {
+    font-family: 'DM Mono', monospace;
+    font-size: 14px;
+    letter-spacing: 0.5px;
+    font-weight: 400;
+    padding: 6px 14px;
+    border-radius: 20px;
+    background: rgba(77,166,255,0.14);
+    color: var(--accent3);
+    white-space: nowrap;
+    flex-shrink: 0;
+    min-width: 90px;
+    text-align: center;
+  }
+  .pick-bubble-pick {
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--text);
+    letter-spacing: -0.2px;
+    flex: 1;
+    min-width: 180px;
+  }
+  .pick-bubble-odds {
+    font-family: 'DM Mono', monospace;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text);
+    white-space: nowrap;
+  }
+  .pick-bubble-result {
+    flex-shrink: 0;
+  }
+  .pick-bubble-pl {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 18px;
+    letter-spacing: 0.5px;
+    min-width: 42px;
+    text-align: right;
+    flex-shrink: 0;
+  }
+  /* Game block wrapper */
+  .game-block {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    margin-bottom: 14px;
+    transition: border-color 0.2s, box-shadow 0.2s;
+  }
+  .game-block:hover {
+    border-color: rgba(77,166,255,0.25);
+    box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+  }
+  .game-block-header {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    padding: 16px 20px 12px;
+    background: linear-gradient(90deg, rgba(77,166,255,0.10) 0%, transparent 60%);
+    border-bottom: 1px solid var(--border);
+  }
+  .game-block-title {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 22px;
+    letter-spacing: 1.4px;
+    color: var(--text);
+    line-height: 1;
+  }
+  .game-block-meta {
+    font-family: 'DM Mono', monospace;
+    font-size: 15px;
+    font-weight: 400;
+    color: var(--muted);
+    letter-spacing: 0.3px;
+  }
+  .game-block-picks {
+    padding: 4px 4px;
+  }
+
+  /* Light mode pick feed overrides */
+  body[data-theme="light"] .game-block {
+    background: #ffffff;
+    border-color: var(--border);
+    box-shadow: 0 1px 6px rgba(15,25,40,0.05);
+  }
+  body[data-theme="light"] .game-block:hover {
+    border-color: rgba(37,99,235,0.3);
+    box-shadow: 0 10px 30px rgba(15,25,40,0.1);
+  }
+  body[data-theme="light"] .game-block-header {
+    background: linear-gradient(90deg, rgba(37,99,235,0.07) 0%, transparent 60%);
+    border-bottom-color: var(--border);
+  }
+  body[data-theme="light"] .pick-bubble:hover, 
+  body[data-theme="light"] .pick-bubble.hover-active,
+  body[data-theme="light"] .pick-bubble:focus-within {
+    background: #ffffff;
+    box-shadow: 0 20px 50px rgba(15,25,40,0.15), 0 8px 16px rgba(15,25,40,0.08);
+  }
+  body[data-theme="light"] .pick-bubble-source {
+    background: rgba(37,99,235,0.10);
+    color: var(--accent3);
+  }
+
+  .log-date-text,
+  .log-sport-text,
+  .log-odds-text,
+  .log-pl-text {
+    font-family: 'DM Mono', monospace;
+  }
+
+  .badge { display: inline-block; padding: 4px 12px; border-radius: 20px; font-size: 11px; font-family: 'DM Mono', monospace; letter-spacing: 0.4px; font-weight: 600; }
+  .badge-win { background: rgba(0,229,160,0.18); color: var(--win); }
+  .badge-loss { background: rgba(255,69,96,0.18); color: var(--loss); }
+  .badge-push { background: rgba(255,215,0,0.18); color: var(--push); }
   .badge-pending { background: rgba(77,166,255,0.15); color: var(--accent3); }
-  .badge-source { background: rgba(77,166,255,0.08); color: var(--accent3); font-size: 10px; }
-  .result-select { background: var(--surface); border: 1px solid var(--border); color: var(--accent3); padding: 2px 6px; border-radius: 4px; font-size: 11px; font-family: 'DM Mono', monospace; cursor: pointer; transition: border-color 0.2s; }
+  .badge-source { background: rgba(77,166,255,0.14); color: var(--accent3); font-size: 10px; }
+  .result-select { background: var(--surface); border: 1px solid var(--border); color: var(--accent3); padding: 4px 8px; border-radius: 8px; font-size: 11px; font-family: 'DM Mono', monospace; cursor: pointer; transition: border-color 0.2s; }
   .result-select:hover { border-color: var(--accent); }
-  .units-cell { font-family: 'DM Mono', monospace; font-size: 12px; font-weight: 500; }
-  .units-3 { color: var(--accent); }
-  .units-1 { color: var(--muted); }
 
   .empty-state { text-align: center; padding: 40px; color: var(--muted); font-family: 'DM Mono', monospace; font-size: 13px; }
 
@@ -144,15 +450,15 @@
 
   /* Trends */
   .trend-head { margin-bottom: 18px; }
-  .trend-title { font-family: 'Bebas Neue', sans-serif; font-size: 30px; letter-spacing: 2px; color: var(--text); }
+  .trend-title { font-family: 'Bebas Neue', sans-serif; font-size: 32px; letter-spacing: 2px; color: var(--text); }
   .trend-subtitle { margin-top: 6px; font-family: 'DM Mono', monospace; font-size: 11px; color: var(--muted); letter-spacing: 0.5px; }
-  .trend-summary-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 10px; margin-bottom: 16px; }
-  .trend-summary-box { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 12px; }
-  .trend-summary-val { font-family: 'Bebas Neue', sans-serif; font-size: 28px; line-height: 1; color: var(--text); }
+  .trend-summary-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 14px; margin-bottom: 18px; }
+  .trend-summary-box { background: var(--card); border: 1px solid var(--border); border-radius: 18px; padding: 18px; }
+  .trend-summary-val { font-family: 'Bebas Neue', sans-serif; font-size: 32px; line-height: 1; color: var(--text); }
   .trend-summary-label { margin-top: 4px; font-family: 'DM Mono', monospace; font-size: 10px; color: var(--muted); letter-spacing: 0.7px; }
-  .trend-board { display: grid; grid-template-columns: repeat(auto-fit, minmax(310px, 1fr)); gap: 12px; }
-  .trend-game-card { background: linear-gradient(180deg, rgba(77,166,255,0.06), transparent 40%), var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 14px; transition: border-color 0.2s, transform 0.2s, box-shadow 0.2s; cursor: pointer; }
-  .trend-game-card:hover { border-color: var(--accent3); transform: translateY(-2px); box-shadow: 0 12px 30px rgba(0,0,0,0.2); }
+  .trend-board { display: grid; grid-template-columns: repeat(auto-fit, minmax(330px, 1fr)); gap: 18px; }
+  .trend-game-card { background: linear-gradient(180deg, rgba(77,166,255,0.06), transparent 40%), var(--card); border: 1px solid var(--border); border-radius: 18px; padding: 18px; transition: border-color 0.2s, transform 0.2s, box-shadow 0.2s; cursor: pointer; }
+  .trend-game-card:hover { border-color: var(--accent3); transform: translateY(-3px); box-shadow: 0 16px 34px rgba(0,0,0,0.2); }
   body[data-theme="light"] .trend-game-card:hover { box-shadow: 0 10px 22px rgba(15,25,35,0.12); }
   .trend-game-card.expanded { border-color: var(--accent); }
   .trend-game-card:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
@@ -162,7 +468,7 @@
   }
   .trend-game-card.split { border-color: rgba(255,69,96,0.35); }
   .trend-game-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; margin-bottom: 10px; }
-  .trend-game-name { font-family: 'Bebas Neue', sans-serif; font-size: 23px; letter-spacing: 1px; color: var(--text); line-height: 1; }
+  .trend-game-name { font-family: 'Bebas Neue', sans-serif; font-size: 27px; letter-spacing: 0.9px; color: var(--text); line-height: 1; }
   .trend-game-meta { margin-top: 4px; font-family: 'DM Mono', monospace; font-size: 10px; color: var(--muted); letter-spacing: 0.4px; }
   .trend-strength-pill { font-family: 'DM Mono', monospace; font-size: 10px; letter-spacing: 0.5px; border: 1px solid var(--border); border-radius: 999px; padding: 4px 8px; color: var(--muted); white-space: nowrap; }
   .trend-strength-pill.strong {
@@ -181,7 +487,7 @@
   .trend-source-row { margin-top: 8px; display: flex; gap: 4px; flex-wrap: wrap; }
   .trend-source-pill { font-family: 'DM Mono', monospace; font-size: 9px; letter-spacing: 0.5px; padding: 2px 7px; border-radius: 10px; background: rgba(77,166,255,0.08); color: var(--accent3); white-space: nowrap; }
   .trend-sport-section { margin-top: 20px; }
-  .trend-sport-title { font-family: 'Bebas Neue', sans-serif; font-size: 22px; letter-spacing: 1.5px; color: var(--text); margin-bottom: 8px; }
+  .trend-sport-title { font-family: 'Bebas Neue', sans-serif; font-size: 24px; letter-spacing: 1.5px; color: var(--text); margin-bottom: 10px; }
   .trend-sport-meta { font-family: 'DM Mono', monospace; font-size: 10px; color: var(--muted); margin-bottom: 10px; letter-spacing: 0.4px; }
   .trend-click-hint { margin-top: 10px; font-family: 'DM Mono', monospace; font-size: 10px; color: var(--muted); letter-spacing: 0.5px; }
   .trend-deep-dive { margin-top: 12px; border-top: 1px dashed var(--border); padding-top: 12px; display: none; }
@@ -197,17 +503,17 @@
 
   /* Search */
   .search-wrap { position: relative; margin-bottom: 28px; }
-  .search-input { width: 100%; padding: 16px 20px 16px 48px; background: var(--card); border: 2px solid var(--border); border-radius: 14px; color: var(--text); font-family: 'DM Sans', sans-serif; font-size: 16px; outline: none; transition: border-color 0.25s, box-shadow 0.25s, background-color 0.3s; }
+  .search-input { width: 100%; padding: 16px 20px 16px 48px; background: var(--card); border: 2px solid var(--border); border-radius: 16px; color: var(--text); font-family: 'DM Sans', sans-serif; font-size: 16px; outline: none; transition: border-color 0.25s, box-shadow 0.25s, background-color 0.3s; }
   .search-input::placeholder { color: var(--muted); }
   .search-input:focus { border-color: var(--accent); box-shadow: 0 0 0 4px rgba(0,229,160,0.08); }
   body[data-theme="light"] .search-input:focus { box-shadow: 0 0 0 4px rgba(0,168,112,0.1); }
   .search-icon { position: absolute; left: 18px; top: 50%; transform: translateY(-50%); color: var(--muted); font-size: 18px; pointer-events: none; }
   .search-meta { font-family: 'DM Mono', monospace; font-size: 11px; color: var(--muted); margin-bottom: 18px; letter-spacing: 0.5px; }
   .search-results { display: flex; flex-direction: column; gap: 10px; }
-  .search-card { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 18px 20px; cursor: pointer; transition: border-color 0.2s, transform 0.15s, background-color 0.3s; }
-  .search-card:hover { border-color: var(--accent); transform: translateY(-1px); }
+  .search-card { background: var(--card); border: 1px solid var(--border); border-radius: 18px; padding: 20px 22px; cursor: pointer; transition: border-color 0.2s, transform 0.15s, background-color 0.3s, box-shadow 0.2s; }
+  .search-card:hover { border-color: var(--accent); transform: translateY(-2px); box-shadow: 0 16px 30px rgba(0,0,0,0.14); }
   .search-card-top { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; flex-wrap: wrap; }
-  .search-card-pick { font-weight: 500; font-size: 15px; flex: 1; min-width: 200px; }
+  .search-card-pick { font-weight: 600; font-size: 16px; flex: 1; min-width: 200px; }
   .search-card-odds { font-family: 'DM Mono', monospace; font-size: 13px; color: var(--text); }
   .search-card-details { display: none; margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--border); }
   .search-card.expanded .search-card-details { display: block; }
@@ -224,13 +530,13 @@
   body[data-theme="light"] .search-highlight { background: rgba(0,168,112,0.15); }
 
   /* Models Tab */
-  .models-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; }
-  .model-card { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 20px; transition: border-color 0.2s; }
-  .model-card:hover { border-color: var(--accent); }
-  .model-card-icon { font-size: 28px; margin-bottom: 8px; }
-  .model-card-title { font-family: 'Bebas Neue', sans-serif; font-size: 22px; letter-spacing: 1.5px; color: var(--text); margin-bottom: 6px; }
-  .model-card-desc { font-size: 12px; color: var(--muted); line-height: 1.5; margin-bottom: 14px; }
-  .model-run-btn { width: 100%; padding: 10px; background: transparent; border: 1px solid var(--accent); border-radius: 6px; color: var(--accent); font-family: 'Bebas Neue', sans-serif; font-size: 15px; letter-spacing: 1.5px; cursor: pointer; transition: all 0.2s; }
+  .models-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 18px; }
+  .model-card { background: var(--card); border: 1px solid var(--border); border-radius: 18px; padding: 24px; transition: border-color 0.2s, box-shadow 0.2s, transform 0.2s; }
+  .model-card:hover { border-color: var(--accent); transform: translateY(-2px); box-shadow: 0 18px 32px rgba(0,0,0,0.15); }
+  .model-card-icon { font-size: 30px; margin-bottom: 10px; }
+  .model-card-title { font-family: 'Bebas Neue', sans-serif; font-size: 26px; letter-spacing: 1.2px; color: var(--text); margin-bottom: 8px; }
+  .model-card-desc { font-size: 13px; color: var(--muted); line-height: 1.75; margin-bottom: 16px; }
+  .model-run-btn { width: 100%; padding: 12px; background: transparent; border: 1px solid var(--accent); border-radius: 10px; color: var(--accent); font-family: 'Bebas Neue', sans-serif; font-size: 15px; letter-spacing: 1.2px; cursor: pointer; transition: all 0.2s; }
   .model-run-btn:hover { background: var(--accent); color: var(--bg); }
   .model-run-btn:disabled { opacity: 0.4; cursor: not-allowed; }
   .model-run-btn:disabled:hover { background: transparent; color: var(--accent); }
@@ -244,6 +550,139 @@
   .model-league-select { width: 100%; margin: 10px 0 8px; padding: 8px; background: var(--surface); border: 1px solid var(--border); border-radius: 6px; color: var(--text); font-family: 'DM Mono', monospace; font-size: 11px; }
   .model-result-bet { color: var(--accent); font-weight: 500; }
   .model-result-pass { color: var(--muted); }
+
+  body[data-theme="light"] .panel,
+  body[data-theme="light"] .stat-box,
+  body[data-theme="light"] .source-card,
+  body[data-theme="light"] .sport-card,
+  body[data-theme="light"] .trend-summary-box,
+  body[data-theme="light"] .search-card,
+  body[data-theme="light"] .model-card,
+  body[data-theme="light"] .filter-dropdown {
+    background: var(--card);
+    box-shadow: var(--shadow-soft);
+    border-color: var(--border);
+  }
+  body[data-theme="light"] .panel {
+    border-color: var(--border);
+  }
+  body[data-theme="light"] .stat-box,
+  body[data-theme="light"] .sport-card,
+  body[data-theme="light"] .trend-summary-box {
+    border-color: var(--border);
+  }
+  body[data-theme="light"] .source-card,
+  body[data-theme="light"] .sport-card,
+  body[data-theme="light"] .trend-summary-box,
+  body[data-theme="light"] .search-card,
+  body[data-theme="light"] .model-card,
+  body[data-theme="light"] .trend-game-card {
+    border-radius: 18px;
+  }
+  body[data-theme="light"] .card-name,
+  body[data-theme="light"] .sport-name,
+  body[data-theme="light"] .trend-title,
+  body[data-theme="light"] .trend-game-name,
+  body[data-theme="light"] .model-card-title {
+    font-family: 'Fraunces', serif;
+    font-weight: 700;
+    letter-spacing: -0.3px;
+  }
+  body[data-theme="light"] .card-name {
+    font-size: 30px;
+    margin-bottom: 16px;
+    letter-spacing: -0.5px;
+  }
+  body[data-theme="light"] .sport-name {
+    font-size: 28px;
+    letter-spacing: -0.4px;
+  }
+  body[data-theme="light"] .trend-title {
+    font-size: 42px;
+    letter-spacing: -1px;
+  }
+  body[data-theme="light"] .trend-game-name {
+    font-size: 30px;
+    letter-spacing: -0.5px;
+  }
+  body[data-theme="light"] .model-card-title {
+    font-size: 30px;
+    margin-bottom: 10px;
+  }
+  body[data-theme="light"] .model-card-desc,
+  body[data-theme="light"] .sport-meta,
+  body[data-theme="light"] .algo-score-info,
+  body[data-theme="light"] .trend-market-detail,
+  body[data-theme="light"] .search-meta {
+    font-size: 12px;
+    line-height: 1.7;
+  }
+  body[data-theme="light"] .search-input {
+    border-radius: 18px;
+    padding: 18px 22px 18px 50px;
+    font-size: 17px;
+  }
+  body[data-theme="light"] .model-run-btn {
+    border-radius: 999px;
+    padding: 12px 14px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.8px;
+  }
+  body[data-theme="light"] .models-grid {
+    gap: 20px;
+  }
+  body[data-theme="light"] .leaderboard,
+  body[data-theme="light"] .trend-board {
+    gap: 20px;
+  }
+  body[data-theme="light"] .trend-summary-box,
+  body[data-theme="light"] .trend-game-card,
+  body[data-theme="light"] .trend-evidence-item {
+    border-color: var(--border);
+  }
+  body[data-theme="light"] .trend-game-card {
+    background: linear-gradient(180deg, rgba(52,121,216,0.03), rgba(255,255,255,0.9) 30%, #ffffff), var(--card);
+  }
+  body[data-theme="light"] .trend-game-card.strong {
+    border-color: rgba(11,157,116,0.20);
+    background: linear-gradient(180deg, rgba(11,157,116,0.05), rgba(255,255,255,0.92) 30%, #ffffff), var(--card);
+  }
+  body[data-theme="light"] .trend-game-card.split {
+    border-color: rgba(217,59,89,0.16);
+  }
+  body[data-theme="light"] .trend-strength-pill.strong {
+    border-color: rgba(11,157,116,0.22);
+    color: #12785c;
+    background: rgba(11,157,116,0.07);
+  }
+  body[data-theme="light"] .trend-strength-pill.lean {
+    border-color: rgba(52,121,216,0.20);
+    background: rgba(52,121,216,0.06);
+  }
+  body[data-theme="light"] .trend-strength-pill.split {
+    border-color: rgba(217,59,89,0.18);
+    background: rgba(217,59,89,0.06);
+  }
+  body[data-theme="light"] .source-card:hover,
+  body[data-theme="light"] .search-card:hover,
+  body[data-theme="light"] .model-card:hover,
+  body[data-theme="light"] .sport-card:hover {
+    box-shadow: 0 20px 40px rgba(27,47,39,0.10);
+    transform: translateY(-2px);
+  }
+  body[data-theme="light"] tr:hover td {
+    background: rgba(52,121,216,0.04);
+  }
+  body[data-theme="light"] .badge-source,
+  body[data-theme="light"] .trend-source-pill,
+  body[data-theme="light"] .trend-evidence-item {
+    background: rgba(52,121,216,0.06);
+  }
+  body[data-theme="light"] .algo-box {
+    background: linear-gradient(180deg, rgba(52,121,216,0.05), rgba(255,255,255,0.7));
+  }
 
   @media (max-width: 700px) {
     .logo-title { font-size: 28px; }
@@ -290,19 +729,27 @@
 
   <!-- HOME TAB -->
   <div id="tab-home" class="tab-content active">
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;">
       <div class="section-title clean-title" style="margin-bottom:0">Pick Log</div>
-      <button id="settled-toggle-btn" onclick="toggleShowSettled()" style="background:var(--surface);border:1px solid var(--border);border-radius:6px;color:var(--muted);padding:5px 12px;font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.5px;cursor:pointer;transition:all 0.2s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">SHOW SETTLED</button>
+      <button id="settled-toggle-btn" onclick="toggleShowSettled()" style="background:var(--surface);border:1px solid var(--border);border-radius:8px;color:var(--text);font-weight:600;padding:8px 16px;font-family:'DM Mono',monospace;font-size:14px;letter-spacing:0.5px;cursor:pointer;transition:all 0.2s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">SHOW SETTLED</button>
     </div>
     <div class="filter-bar" id="filter-bar"></div>
     <div id="settled-stats-panel" style="display:none;margin-bottom:20px;"></div>
     <div class="panel">
-      <div class="table-wrap">
-        <table>
-          <thead><tr><th>UNITS</th><th>DATE</th><th>SOURCE</th><th>PICK</th><th>SPORT</th><th>ODDS</th><th>RESULT</th><th>P/L</th></tr></thead>
-          <tbody id="pick-table-body"></tbody>
-        </table>
-      </div>
+      <div id="pick-feed" class="pick-feed"></div>
+      <script>
+      (function() {
+        const feed = document.getElementById('pick-feed');
+        feed.addEventListener('mouseover', function(e) {
+          const bubble = e.target.closest('.pick-bubble');
+          if (bubble) bubble.classList.add('hover-active');
+        });
+        feed.addEventListener('mouseout', function(e) {
+          const bubble = e.target.closest('.pick-bubble');
+          if (bubble) bubble.classList.remove('hover-active');
+        });
+      })();
+      </script>
     </div>
   </div>
 
@@ -337,9 +784,7 @@
     <div class="leaderboard" id="leaderboard"><div class="empty-state" style="grid-column:1/-1">Waiting for results...</div></div>
   </div>
 
-  <!-- TRENDS TAB -->
   <div id="tab-trends" class="tab-content">
-    <div class="section-title clean-title">Consensus Radar</div>
     <div id="trends-container"></div>
   </div>
 
@@ -789,6 +1234,17 @@ function switchTab(name) {
   localStorage.setItem('pickledger_tab', name);
   if (name === 'search') {
     setTimeout(() => document.getElementById('search-input').focus(), 50);
+  }
+  // Force Chrome to recalculate hover hit-testing after display:none toggle
+  if (name === 'home') {
+    const feed = document.getElementById('pick-feed');
+    if (feed) {
+      feed.style.pointerEvents = 'none';
+      void feed.offsetHeight; // force synchronous reflow
+      requestAnimationFrame(() => {
+        feed.style.pointerEvents = '';
+      });
+    }
   }
 }
 
@@ -1380,49 +1836,58 @@ function render() {
     settledPanel.style.display='none';
   }
 
-  const tbody=document.getElementById('pick-table-body');
+  const feed = document.getElementById('pick-feed');
   if(!detailed.length) {
     const msg = showSettled ? 'No settled picks for this filter yet' : 'No pending picks — click SHOW SETTLED to see results';
-    tbody.innerHTML=`<tr><td colspan="8" class="empty-state">${msg}</td></tr>`;
+    feed.innerHTML=`<div class="pick-feed-empty">${msg}</div>`;
   }
   else {
-    const rows = [];
+    const blocks = [];
     const groupStartTimes = {};
     detailed.forEach(p => {
       if (!groupStartTimes[p.gameKey] && p.startIso) groupStartTimes[p.gameKey] = p.startIso;
     });
     let lastGameKey = '';
+    let currentBubbles = [];
+    function flushBlock(gameTitle, gameMeta) {
+      if (!currentBubbles.length) return;
+      blocks.push(`<div class="game-block">
+        <div class="game-block-header">
+          <span class="game-block-title">${gameTitle}</span>
+          <span class="game-block-meta">${gameMeta}</span>
+        </div>
+        <div class="game-block-picks">${currentBubbles.join('')}</div>
+      </div>`);
+      currentBubbles = [];
+    }
+    let currentTitle = '', currentMeta = '';
     detailed.forEach((p, idx) => {
       if (p.gameKey !== lastGameKey) {
-        if (idx !== 0) {
-          rows.push('<tr class="game-gap-row"><td colspan="8"></td></tr>');
-        }
+        if (lastGameKey) flushBlock(currentTitle, currentMeta);
         const groupIso = groupStartTimes[p.gameKey] || p.startIso;
-        rows.push(`<tr class="game-group-row"><td colspan="8"><span class="game-group-title">${extractGameKey(p.pick) || p.pick}</span>&bull; ${p.sport} &bull; ${p.date} &bull; ${formatStartLabel(groupIso)}</td></tr>`);
+        currentTitle = extractGameKey(p.pick) || p.pick;
+        currentMeta = `${p.sport} &bull; ${p.date} &bull; ${formatStartLabel(groupIso)}`;
         lastGameKey = p.gameKey;
       }
-
-    const pc=p.pl>0?'positive':p.pl<0?'negative':'neutral';
-    const ps=p.result==='pending'?'&mdash;':(p.pl>=0?'+':'')+p.pl+'u';
-    const uc='units-1';
-    const res=`<select class="result-select" onchange="setResult(${p.id},this.value)">
-      <option value="pending" ${p.result==='pending'?'selected':''}>PENDING</option>
-      <option value="win" ${p.result==='win'?'selected':''}>WIN</option>
-      <option value="loss" ${p.result==='loss'?'selected':''}>LOSS</option>
-      <option value="push" ${p.result==='push'?'selected':''}>PUSH</option>
-      <option value="delete">DELETE</option></select>`;
-      rows.push(`<tr>
-      <td class="units-cell units-1">1u</td>
-      <td style="font-family:'DM Mono',monospace;font-size:11px;color:var(--muted)">${p.date}</td>
-      <td><span class="badge badge-source">${getRankingSourceKey(p)}</span></td>
-      <td>${p.pick}</td>
-      <td style="color:var(--muted);font-size:12px">${p.sport}</td>
-      <td style="font-family:'DM Mono',monospace">${p.odds>0?'+':''}${p.odds}</td>
-      <td>${res}</td>
-      <td class="${pc}" style="font-family:'DM Mono',monospace;font-weight:500">${ps}</td>
-    </tr>`);
+      const pc = p.pl>0 ? 'positive' : p.pl<0 ? 'negative' : 'neutral';
+      const ps = p.result==='pending' ? '&mdash;' : (p.pl>=0?'+':'')+p.pl+'u';
+      const res = `<select class="result-select" onchange="setResult(${p.id},this.value)">
+        <option value="pending" ${p.result==='pending'?'selected':''}>PENDING</option>
+        <option value="win" ${p.result==='win'?'selected':''}>WIN</option>
+        <option value="loss" ${p.result==='loss'?'selected':''}>LOSS</option>
+        <option value="push" ${p.result==='push'?'selected':''}>PUSH</option>
+        <option value="delete">DELETE</option></select>`;
+      const plHtml = showSettled ? `<span class="pick-bubble-pl ${pc}">${ps}</span>` : '';
+      currentBubbles.push(`<div class="pick-bubble">
+        <span class="pick-bubble-source">${getRankingSourceKey(p)}</span>
+        <span class="pick-bubble-pick">${p.pick}</span>
+        <span class="pick-bubble-odds">${p.odds>0?'+':''}${p.odds}</span>
+        <span class="pick-bubble-result">${res}</span>
+        ${plHtml}
+      </div>`);
     });
-    tbody.innerHTML = rows.join('');
+    flushBlock(currentTitle, currentMeta);
+    feed.innerHTML = blocks.join('');
   }
 
   // Overall stats
@@ -1970,12 +2435,12 @@ function renderModelResults(picks) {
     return `<tr class="${isBet ? '' : 'model-result-pass-row'}" style="${isBet ? '' : 'opacity:0.5'}">
       <td><input type="checkbox" class="model-pick-cb" data-idx="${idx}" ${isBet ? 'checked' : ''} onchange="updateModelSelectAll()"></td>
       <td><span class="badge badge-source">${p.source}</span></td>
-      <td>${p.pick}</td>
-      <td style="color:var(--muted);font-size:12px">${p.sport}</td>
-      <td style="font-family:'DM Mono',monospace">${oddsStr}</td>
-      <td style="font-family:'DM Mono',monospace">${probStr}</td>
-      <td style="font-family:'DM Mono',monospace">${edgeStr}</td>
-      <td class="${cls}" style="font-family:'DM Mono',monospace;font-weight:500">${p.decision}</td>
+      <td><div class="log-pick-main">${p.pick}</div></td>
+      <td><span class="log-sport-text">${p.sport}</span></td>
+      <td><span class="log-odds-text">${oddsStr}</span></td>
+      <td><span class="log-odds-text">${probStr}</span></td>
+      <td><span class="log-odds-text">${edgeStr}</span></td>
+      <td class="${cls}"><span class="log-pl-text">${p.decision}</span></td>
     </tr>`;
   }).join('');
   const addSelectedBtn = document.getElementById('btn-add-selected');

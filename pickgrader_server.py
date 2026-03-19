@@ -407,10 +407,16 @@ _playwright_install_lock = threading.Lock()
 _playwright_ready = False
 
 
+def _subprocess_run(*args: Any, **kwargs: Any) -> subprocess.CompletedProcess[str]:
+    """Launch child commands with a stable stdin for launchd-hosted runtimes."""
+    kwargs.setdefault("stdin", subprocess.DEVNULL)
+    return subprocess.run(*args, **kwargs)
+
+
 def _run_script(python_bin: str, script: str, cwd: str, timeout: int = 300, extra_args: list[str] | None = None) -> str:
     """Run a Python script and return its stdout."""
     cmd = [python_bin, script] + (extra_args or [])
-    result = subprocess.run(
+    result = _subprocess_run(
         cmd,
         cwd=cwd,
         capture_output=True,
@@ -462,7 +468,7 @@ def _ensure_playwright_browsers(python_bin: str, env: dict[str, str]) -> tuple[b
             return True, "already-ready"
 
         try:
-            install = subprocess.run(
+            install = _subprocess_run(
                 [python_bin, "-m", "playwright", "install", "chromium", "chromium-headless-shell"],
                 cwd=BASE_DIR,
                 env=env,
@@ -1225,7 +1231,7 @@ def run_scores24_scraper(sports: list[str], date_str: str | None = None) -> dict
             pass
 
         def _invoke(env: dict[str, str], scrape_date: str) -> subprocess.CompletedProcess[str]:
-            return subprocess.run(
+            return _subprocess_run(
                 [python_bin, scraper_path, "--sport", sport_slug, "--date", scrape_date],
                 cwd=BASE_DIR,
                 env=env,
@@ -1322,7 +1328,7 @@ def run_sportytrader_scraper(date_str: str | None = None) -> dict[str, Any]:
     env.setdefault("PLAYWRIGHT_BROWSERS_PATH", "0")
 
     def _invoke() -> subprocess.CompletedProcess[str]:
-        return subprocess.run(
+        return _subprocess_run(
             [python_bin, scraper_path, "--sport", "nba", "--date", target_date],
             cwd=BASE_DIR,
             env=env,
