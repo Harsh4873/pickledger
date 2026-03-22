@@ -848,15 +848,15 @@
       <div class="model-card" id="model-card-scores24">
         <div class="model-card-icon">&#128270;</div>
         <div class="model-card-title">Scores24 Manual Feed</div>
-        <div class="model-card-desc">Loads the committed Scores24 manual feed JSON from this repo and falls back to browser cache if needed.</div>
+        <div class="model-card-desc">One-click Scores24 sync. Tries backend sync first, then falls back to local feed/cache.</div>
         <div class="model-status" id="scores24-sync-meta">Last sync: never</div>
-        <button class="model-run-btn" id="btn-run-scores24" onclick="runModel('scores24')">LOAD SCORES24 FEED</button>
+        <button class="model-run-btn" id="btn-run-scores24" onclick="runModel('scores24')">SYNC SCORES24 NOW</button>
         <select id="scores24-league-select" class="model-league-select">
           <option value="nba">NBA only</option>
           <option value="nhl">NHL only</option>
           <option value="mlb">MLB only</option>
         </select>
-        <button class="model-run-btn" id="btn-run-scores24-league" onclick="runSelectedScores24League()">LOAD SELECTED LEAGUE</button>
+        <button class="model-run-btn" id="btn-run-scores24-league" onclick="runSelectedScores24League()">SYNC SELECTED LEAGUE</button>
         <div class="model-status" id="status-scores24"></div>
       </div>
       <div class="model-card" id="model-card-sportytrader">
@@ -894,7 +894,7 @@
 const PICKS = [];
 
 // ── Engine ──
-const STORAGE_VERSION = '2026_03_20_mar19_results_fix_v3';
+const STORAGE_VERSION = '2026_03_19_reset_v2';
 const ADDED_PICKS_KEY = `pickledger_added_picks_${STORAGE_VERSION}`;
 const DELETED_PICKS_KEY = `pickledger_deleted_pick_ids_${STORAGE_VERSION}`;
 const RESULTS_KEY = `pickledger_results_${STORAGE_VERSION}`;
@@ -932,9 +932,8 @@ const SCORES24_FEED_URL = './scores24_manual_feed.json';
 const SCORES24_CACHE_KEY = 'pickledger_scores24_feed_cache';
 const SPORTYTRADER_FEED_URL = './sportytrader_manual_feed.json';
 const SPORTYTRADER_CACHE_KEY = 'pickledger_sportytrader_feed_cache';
-const LOOPBACK_MODEL_SERVER = 'http://127.0.0.1:8765';
-const LOCAL_SCORES24_SERVER = LOOPBACK_MODEL_SERVER;
-const LOCAL_SPORTYTRADER_SERVER = LOOPBACK_MODEL_SERVER;
+const LOCAL_SCORES24_SERVER = DEFAULT_MODEL_SERVER;
+const LOCAL_SPORTYTRADER_SERVER = DEFAULT_MODEL_SERVER;
 let ledgerStateSyncTimer = null;
 let ledgerStateSyncInFlight = false;
 
@@ -1836,29 +1835,6 @@ function _parsePropPickParts(pickText) {
   };
 }
 
-function _extractParlayProbabilityFromDisplay(pick) {
-  const display = String(formatOddsOrProbabilityDisplay(pick.odds, pick.probability) || '').trim();
-  const m = display.match(/([0-9]+(?:\.[0-9]+)?)%/);
-  if (m) {
-    const pct = Number(m[1]);
-    if (Number.isFinite(pct)) {
-      return {
-        display: `${pct.toFixed(1)}%`,
-        pct,
-        prob: pct / 100,
-      };
-    }
-  }
-  const fallbackProb = normalizeProbabilityValue(pick.probability);
-  if (fallbackProb == null) return null;
-  const fallbackPct = fallbackProb * 100;
-  return {
-    display: `${fallbackPct.toFixed(1)}%`,
-    pct: fallbackPct,
-    prob: fallbackProb,
-  };
-}
-
 function _canonicalParlayGameLabel(pickText) {
   const matchup = extractGameKey(pickText);
   if (!matchup) return null;
@@ -1868,147 +1844,127 @@ function _canonicalParlayGameLabel(pickText) {
 }
 
 function _formatFairAmericanOdds(prob) {
-  if (!Number.isFinite(prob) || prob <= 0 || prob >= 1) return 'n/a';
   const fair = Math.round(((1 / prob) - 1) * 100);
   return `${fair > 0 ? '+' : ''}${fair}`;
 }
 
 function _getParlaySuggestions() {
-  try {
-    const pendingToday = getPicks().filter(p => (
-      p.result === 'pending' &&
-      p.sport === 'NBA' &&
-      String(p.source || '') === 'NBA Props Model' &&
-      isTodayPickDateLabel(p.date)
-    ));
+  const pendingToday = getPicks().filter(p => p.result === 'pending' && isTodayPickDateLabel(p.date));
+  const predictions = pendingToday
+    .filter(p => p.sport === 'NBA' && isNbaPropsSource(p.source))
+    .map(p => {
+      const prob = normalizeProbabilityValue(p.probability);
+      const parts = _parsePropPickParts(p.pick);
+      return {
+        ...p,
+        prob,
+        edgeNum: Number(p.edge),
+        confidenceNum: Number(p.confidence),
+        confidencePct: prob == null ? null : prob * 100,
+        parts,
+        gameLabel: _canonicalParlayGameLabel(p.pick),
+      };
+    });
 
-    const predictions = pendingToday
-      .map(p => {
-        const parts = _parsePropPickParts(p.pick);
-        const probabilityInfo = _extractParlayProbabilityFromDisplay(p);
-        return {
-          ...p,
-          parts,
-          probabilityInfo,
-          prob: probabilityInfo ? probabilityInfo.prob : null,
-          probPct: probabilityInfo ? probabilityInfo.pct : null,
-          probDisplay: probabilityInfo ? probabilityInfo.display : '—',
-          gameKey: _canonicalParlayGameLabel(p.pick) || `pick-${p.id}`,
-          gameLabel: extractGameKey(p.pick) || _canonicalParlayGameLabel(p.pick) || `Game ${p.id}`,
-        };
-      })
-      .filter(p => p.parts && p.prob != null);
+  const tier1 = predictions.filter(p =>
+    String(p.decision || '').toUpperCase() === 'BET' &&
+    p.prob != null &&
+    p.prob >= 0.61 &&
+    p.prob <= 0.74 &&
+    p.parts &&
+    p.parts.propWord === 'rebounds'
+  );
 
-    const tier1 = predictions.filter(p => (
-      p.parts.propWord === 'rebounds' &&
-      p.probPct >= 61 &&
-      p.probPct <= 74
-    ));
+  const tier2 = predictions.filter(p =>
+    String(p.decision || '').toUpperCase() === 'BET' &&
+    p.prob != null &&
+    p.prob >= 0.65 &&
+    p.prob <= 0.74 &&
+    p.parts &&
+    p.parts.propWord === 'assists'
+  );
 
-    const tier2 = tier1.length >= 3 ? [] : predictions.filter(p => (
-      p.parts.propWord === 'assists' &&
-      p.probPct >= 65 &&
-      p.probPct <= 74 &&
-      Math.round(p.probPct) !== 78
-    ));
+  const candidates = [...tier1, ...tier2.filter(p => !tier1.includes(p))];
+  if (candidates.length < 3) return { tier1: candidates, combos: [] };
 
-    const candidates = [...tier1];
-    if (candidates.length < 3) {
-      tier2.forEach(p => {
-        if (!candidates.includes(p)) candidates.push(p);
-      });
-    }
-
-    if (candidates.length < 3) {
-      return { candidates, combos: [] };
-    }
-
-    const combos = [];
-    for (let i = 0; i < candidates.length - 2; i++) {
-      for (let j = i + 1; j < candidates.length - 1; j++) {
-        for (let k = j + 1; k < candidates.length; k++) {
-          const legs = [candidates[i], candidates[j], candidates[k]];
-          const gameCounts = {};
-          legs.forEach(leg => {
-            gameCounts[leg.gameKey] = (gameCounts[leg.gameKey] || 0) + 1;
-          });
-          if (Math.max(...Object.values(gameCounts)) > 2) continue;
-          combos.push({
-            legs,
-            gameCounts,
-            combinedProb: legs.reduce((acc, leg) => acc * leg.prob, 1),
-          });
-        }
+  const combos = [];
+  for (let i = 0; i < candidates.length - 2; i++) {
+    for (let j = i + 1; j < candidates.length - 1; j++) {
+      for (let k = j + 1; k < candidates.length; k++) {
+        const legs = [candidates[i], candidates[j], candidates[k]];
+        const gameCounts = {};
+        legs.forEach(leg => {
+          const key = leg.gameLabel || `pick-${leg.id}`;
+          gameCounts[key] = (gameCounts[key] || 0) + 1;
+        });
+        if (Math.max(...Object.values(gameCounts)) > 2) continue;
+        const combinedProb = legs.reduce((acc, leg) => acc * leg.prob, 1);
+        combos.push({
+          legs,
+          gameCounts,
+          combinedProb,
+          uniqueGameCount: Object.keys(gameCounts).length,
+        });
       }
     }
-
-    combos.sort((a, b) => b.combinedProb - a.combinedProb);
-    return { candidates, combos: combos.slice(0, 3) };
-  } catch (err) {
-    return {
-      candidates: [],
-      combos: [],
-      error: err,
-    };
   }
+
+  combos.sort((a, b) => {
+    if (b.uniqueGameCount !== a.uniqueGameCount) return b.uniqueGameCount - a.uniqueGameCount;
+    return b.combinedProb - a.combinedProb;
+  });
+
+  return { tier1, combos: combos.slice(0, 3) };
 }
 
 function renderParlays() {
   const container = document.getElementById('parlays-container');
   if (!container) return;
-  try {
-    const { candidates, combos, error } = _getParlaySuggestions();
-    if (error) throw error;
+  const { tier1, combos } = _getParlaySuggestions();
 
-    if (candidates.length < 3 || !combos.length) {
-      const bestAvailable = [...candidates]
-        .sort((a, b) => (b.prob || 0) - (a.prob || 0))
-        .map(p => `${p.parts.playerName} ${p.parts.propWord} ${p.parts.direction} ${p.probDisplay}`)
-        .join(', ');
-      container.innerHTML = `
-        <div class="section-title clean-title">Parlay Suggestions</div>
-        <div class="parlay-subtitle">Tier 1: reb 61-74% | Tier 2 fill: ast 65-74%</div>
-        <div class="empty-state">⚠️ Thin slate — ${candidates.length} candidates only. Best available: ${bestAvailable || 'None'}</div>
-      `;
-      return;
-    }
-
-    const cards = combos.map((combo, idx) => {
-      const correlatedLeg = combo.legs.find(leg => combo.gameCounts[leg.gameKey] === 2) || null;
-      const legsHtml = combo.legs.map((leg, legIdx) => {
-        const propShort = leg.parts.propWord === 'assists' ? 'ast' : leg.parts.propWord === 'rebounds' ? 'reb' : leg.parts.propWord;
-        return `
-          <div class="parlay-leg">
-            <div class="parlay-leg-main">Leg ${legIdx + 1}: ${leg.parts.playerName} | ${propShort} ${leg.parts.direction} ${leg.parts.line.toFixed(1)}</div>
-            <div class="parlay-leg-meta">${leg.probDisplay} | ${leg.gameLabel}</div>
-          </div>
-        `;
-      }).join('');
-      return `
-        <div class="parlay-card">
-          <div class="parlay-header">
-            <div class="parlay-title">COMBO ${idx + 1}</div>
-            <div class="parlay-meta">Combined Prob: ${(combo.combinedProb * 100).toFixed(1)}%<br>Fair Odds: ${_formatFairAmericanOdds(combo.combinedProb)}</div>
-          </div>
-          ${legsHtml}
-          ${correlatedLeg ? `<div class="parlay-warn">⚠️ 2 legs from same game (${correlatedLeg.gameLabel})</div>` : ''}
-        </div>
-      `;
-    }).join('');
-
+  if (tier1.length < 3 || !combos.length) {
+    const bestAvailable = [...tier1]
+      .sort((a, b) => (b.prob || 0) - (a.prob || 0))
+      .slice(0, 5)
+      .map(p => `${p.parts ? p.parts.playerName : p.pick} (${((p.prob || 0) * 100).toFixed(1)}%)`)
+      .join(', ');
     container.innerHTML = `
       <div class="section-title clean-title">Parlay Suggestions</div>
       <div class="parlay-subtitle">Tier 1: reb 61-74% | Tier 2 fill: ast 65-74%</div>
-      <div class="parlay-grid">${cards}</div>
-      <div class="parlay-footnote">Top 3 combos sorted by combined probability.</div>
+      <div class="empty-state">⚠️  Thin slate today — only ${tier1.length} Tier 1 candidates. Straights only recommended.<br>Best available: ${bestAvailable || 'None'}</div>
     `;
-  } catch (err) {
-    console.error('Failed to render parlays tab:', err);
-    container.innerHTML = `
-      <div class="section-title clean-title">Parlay Suggestions</div>
-      <div class="empty-state">Could not load parlay suggestions right now. Please refresh and try again.</div>
-    `;
+    return;
   }
+
+  const cards = combos.map((combo, idx) => {
+    const correlatedGame = Object.entries(combo.gameCounts).find(([, count]) => count === 2)?.[0] || null;
+      const legsHtml = combo.legs.map((leg, legIdx) => {
+        const propShort = leg.parts.propWord === 'assists' ? 'ast' : 'reb';
+        return `
+        <div class="parlay-leg">
+          <div class="parlay-leg-main">Leg ${legIdx + 1}: ${leg.parts.playerName} | ${propShort} ${leg.parts.direction} ${leg.parts.line.toFixed(1)}</div>
+          <div class="parlay-leg-meta">Edge ${leg.edgeNum.toFixed(1)}% | Conf ${Math.round(leg.confidenceNum)}%</div>
+        </div>
+      `;
+    }).join('');
+    return `
+      <div class="parlay-card">
+        <div class="parlay-header">
+          <div class="parlay-title">COMBO ${idx + 1}</div>
+          <div class="parlay-meta">Combined Prob: ${(combo.combinedProb * 100).toFixed(1)}%<br>Fair Odds: ${_formatFairAmericanOdds(combo.combinedProb)}</div>
+        </div>
+        ${legsHtml}
+        ${correlatedGame ? `<div class="parlay-warn">⚠️  2 legs from same game (${correlatedGame}) — correlated risk</div>` : ''}
+      </div>
+    `;
+  }).join('');
+
+  container.innerHTML = `
+    <div class="section-title clean-title">Parlay Suggestions</div>
+    <div class="parlay-subtitle">Tier 1: reb 61-74% | Tier 2 fill: ast 65-74%</div>
+    <div class="parlay-grid">${cards}</div>
+    <div class="parlay-footnote">Top 3 combos sorted by game diversity first (3 unique games), then combined probability.</div>
+  `;
 }
 
 function renderTrends() {
@@ -2489,15 +2445,10 @@ async function loadNbaPropsGames() {
       throw new Error((stateData && stateData.error) || `HTTP ${stateResp.status}`);
     }
     const games = Array.isArray(stateData.nba_games) ? stateData.nba_games : [];
-    const gamesError = String((stateData && stateData.nba_games_error) || '').trim();
     const current = String(select.value || '');
     if (!games.length) {
-      select.innerHTML = '<option value="">No games found for today</option>';
-      if (gamesError) {
-        setModelStatus('nba-props', `Game list unavailable: ${gamesError}`, 'error');
-      } else {
-        setModelStatus('nba-props', 'No NBA games found for today\'s slate', 'ok');
-      }
+      select.innerHTML = '<option value="">No games found in DB yet</option>';
+      setModelStatus('nba-props', 'No NBA games found in local DB for today', 'ok');
       return;
     }
     const options = games.map((g) => {
@@ -2509,7 +2460,7 @@ async function loadNbaPropsGames() {
     if (current && games.some(g => String((g && g.label) || '').trim() === current)) {
       select.value = current;
     }
-    setModelStatus('nba-props', `Loaded ${options.length} game(s) for today\'s slate`, 'ok');
+    setModelStatus('nba-props', `Loaded ${options.length} game(s) from local DB`, 'ok');
   } catch (e) {
     setModelStatus('nba-props', `Game list unavailable: ${String(e && e.message ? e.message : e)}`, 'error');
   } finally {
@@ -2553,57 +2504,13 @@ async function _pollJob(jobId, model, baseUrl = MODEL_SERVER, timeoutMs = 600000
   }
 }
 
-function _normalizeFeedDate(dateStr) {
-  const raw = String(dateStr || '').trim();
-  if (!raw) return '';
-  if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) return raw;
-  const m = raw.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
-  if (!m) return '';
-  const [, mm, dd, yyyy] = m;
-  return `${yyyy}-${String(mm).padStart(2, '0')}-${String(dd).padStart(2, '0')}`;
-}
-
-function _getTodayFeedDate() {
-  return _normalizeFeedDate(_getTodayDateStr());
-}
-
-function _isFreshFeedMeta(meta, expectedDate = _getTodayFeedDate()) {
-  if (!meta || !expectedDate) return false;
-  return _normalizeFeedDate(meta.date) === expectedDate;
-}
-
-async function _fetchManualFeedPayload(candidates) {
-  let lastErr = 'Feed unavailable';
-  for (const url of candidates) {
-    try {
-      const res = await fetch(url, { cache: 'no-store' });
-      if (!res.ok) throw new Error(`Feed HTTP ${res.status}`);
-      return await res.json();
-    } catch (e) {
-      lastErr = String(e && e.message ? e.message : e);
-    }
-  }
-  throw new Error(lastErr);
-}
-
-function _buildManualFeedCandidates(feedUrl, endpointPath) {
-  const cacheBust = `t=${Date.now()}`;
-  const serverBases = [
-    MODEL_SERVER,
-    /^https?:$/i.test(window.location.protocol) ? window.location.origin : '',
-    DEFAULT_MODEL_SERVER,
-    LOOPBACK_MODEL_SERVER,
-  ].map(normalizeServerBase).filter((value, index, list) => value && list.indexOf(value) === index);
-
-  const candidates = serverBases.map(base => `${base}${endpointPath}?${cacheBust}`);
-  candidates.push(`${feedUrl}?${cacheBust}`);
-  return candidates.filter((value, index, list) => value && list.indexOf(value) === index);
-}
-
 async function loadScores24ManualFeed() {
-  const payload = await _fetchManualFeedPayload(
-    _buildManualFeedCandidates(SCORES24_FEED_URL, '/scores24-feed')
-  );
+  const res = await fetch(`${SCORES24_FEED_URL}?t=${Date.now()}`);
+  if (!res.ok) {
+    throw new Error(`Feed HTTP ${res.status}`);
+  }
+
+  const payload = await res.json();
   const picks = Array.isArray(payload) ? payload : payload.picks;
   if (!Array.isArray(picks)) {
     throw new Error('Invalid feed format: expected { picks: [] }');
@@ -2646,9 +2553,12 @@ function saveScores24CachedFeed(payload) {
 }
 
 async function loadSportyTraderManualFeed() {
-  const payload = await _fetchManualFeedPayload(
-    _buildManualFeedCandidates(SPORTYTRADER_FEED_URL, '/sportytrader-feed')
-  );
+  const res = await fetch(`${SPORTYTRADER_FEED_URL}?t=${Date.now()}`);
+  if (!res.ok) {
+    throw new Error(`Feed HTTP ${res.status}`);
+  }
+
+  const payload = await res.json();
   const picks = Array.isArray(payload) ? payload : payload.picks;
   if (!Array.isArray(picks)) {
     throw new Error('Invalid feed format: expected { picks: [] }');
@@ -2832,51 +2742,63 @@ async function runSelectedScores24League() {
   const btn = document.getElementById('btn-run-scores24-league');
   const select = document.getElementById('scores24-league-select');
   const league = String(select && select.value ? select.value : 'nba').toLowerCase();
-  if (btn) { btn.disabled = true; btn.textContent = 'LOADING...'; }
-  setModelStatus('scores24', `Loading Scores24 ${league.toUpperCase()} picks from feed file...`, 'running');
+  if (btn) { btn.disabled = true; btn.textContent = 'RUNNING...'; }
+  setModelStatus('scores24', `Syncing Scores24 ${league.toUpperCase()} only...`, 'running');
   try {
-    const loaded = await loadScores24ManualFeed();
-    const sportMap = { nba: 'NBA', nhl: 'NHL', mlb: 'MLB' };
-    const targetSport = sportMap[league] || league.toUpperCase();
-    const filtered = (loaded.picks || []).filter(p => String(p.sport || '').toUpperCase() === targetSport);
-    if (!filtered.length) {
-      throw new Error('no matching picks in feed');
-    }
-    const meta = {
-      ...loaded.meta,
-      updatedAt: loaded.meta && loaded.meta.updatedAt ? loaded.meta.updatedAt : new Date().toISOString(),
-      date: loaded.meta && loaded.meta.date ? loaded.meta.date : _getTodayDateStr(),
-      from: 'feed-file',
-      leagues: league,
-      note: loaded.meta && loaded.meta.note ? loaded.meta.note : 'Loaded from committed manual feed',
-    };
-    pendingModelPicks = filtered;
-    renderModelResults(filtered);
-    saveScores24CachedFeed({ picks: filtered, meta });
-    setScores24SyncMeta(meta);
-    setModelStatus('scores24', `Loaded ${filtered.length} ${league.toUpperCase()} pick(s) from feed file`, 'ok');
+    const synced = await syncScores24FromServer([league]);
+    pendingModelPicks = synced.picks;
+    renderModelResults(synced.picks);
+    saveScores24CachedFeed({ picks: synced.picks, meta: synced.meta });
+    setScores24SyncMeta(synced.meta);
+    setModelStatus('scores24', `Synced ${synced.picks.length} ${league.toUpperCase()} pick(s)`, 'ok');
   } catch (e) {
     const err = String(e && e.message ? e.message : e);
-    const cached = getScores24CachedFeed();
-    if (cached && Array.isArray(cached.picks) && cached.picks.length && _isFreshFeedMeta(cached.meta)) {
+    // Fallback 1: try the manual feed file
+    try {
+      const loaded = await loadScores24ManualFeed();
       const sportMap = { nba: 'NBA', nhl: 'NHL', mlb: 'MLB' };
       const targetSport = sportMap[league] || league.toUpperCase();
-      const filtered = cached.picks.filter(p => String(p.sport || '').toUpperCase() === targetSport);
+      const filtered = (loaded.picks || []).filter(p => String(p.sport || '').toUpperCase() === targetSport);
       if (filtered.length) {
+        const meta = {
+          ...loaded.meta,
+          updatedAt: loaded.meta && loaded.meta.updatedAt ? loaded.meta.updatedAt : new Date().toISOString(),
+          date: loaded.meta && loaded.meta.date ? loaded.meta.date : _getTodayDateStr(),
+          from: 'feed-fallback',
+          leagues: league,
+          note: loaded.meta && loaded.meta.note ? loaded.meta.note : 'Loaded from manual feed after backend failure',
+        };
         pendingModelPicks = filtered;
         renderModelResults(filtered);
-        setScores24SyncMeta({ ...(cached.meta || {}), from: 'cache', leagues: league });
-        setModelStatus('scores24', `Using cached ${filtered.length} ${league.toUpperCase()} pick(s)`, 'ok');
+        saveScores24CachedFeed({ picks: filtered, meta });
+        setScores24SyncMeta(meta);
+        setModelStatus('scores24', `Backend unavailable; loaded ${filtered.length} ${league.toUpperCase()} pick(s) from feed`, 'ok');
       } else {
-        setModelStatus('scores24', `Feed load failed (${err})`, 'error');
+        throw new Error('no matching picks in feed');
       }
-    } else {
-      setModelStatus('scores24', `Feed load failed (${err})`, 'error');
+    } catch {
+      // Fallback 2: try the browser localStorage cache
+      const cached = getScores24CachedFeed();
+      if (cached && Array.isArray(cached.picks) && cached.picks.length) {
+        const sportMap = { nba: 'NBA', nhl: 'NHL', mlb: 'MLB' };
+        const targetSport = sportMap[league] || league.toUpperCase();
+        const filtered = cached.picks.filter(p => String(p.sport || '').toUpperCase() === targetSport);
+        if (filtered.length) {
+          pendingModelPicks = filtered;
+          renderModelResults(filtered);
+          setScores24SyncMeta({ ...(cached.meta || {}), from: 'cache', leagues: league });
+          setModelStatus('scores24', `Using cached ${filtered.length} ${league.toUpperCase()} pick(s)`, 'ok');
+        } else {
+          setModelStatus('scores24', `League sync failed (${err})`, 'error');
+        }
+      } else {
+        setModelStatus('scores24', `League sync failed (${err})`, 'error');
+      }
     }
   } finally {
     if (btn) {
       btn.disabled = false;
-      btn.textContent = 'LOAD SELECTED LEAGUE';
+      btn.textContent = 'SYNC SELECTED LEAGUE';
     }
   }
 }
@@ -2884,43 +2806,54 @@ async function runSelectedScores24League() {
 async function runModel(model) {
   const btn = document.getElementById('btn-run-' + model);
   if (btn) { btn.disabled = true; btn.textContent = 'RUNNING...'; }
+  setModelStatus(model, 'Connecting to server...', 'running');
 
   if (model === 'scores24') {
+    let backendErr = '';
     try {
-      setModelStatus(model, 'Loading Scores24 manual feed file...', 'running');
-      const loaded = await loadScores24ManualFeed();
-      pendingModelPicks = loaded.picks;
-      renderModelResults(loaded.picks);
-
-      const meta = {
-        ...loaded.meta,
-        from: 'feed-file',
-        updatedAt: loaded.meta.updatedAt || new Date().toISOString(),
-      };
-      saveScores24CachedFeed({ picks: loaded.picks, meta });
-      setScores24SyncMeta(meta);
-      setModelStatus(model, `Loaded ${loaded.picks.length} pick(s) from feed file`, 'ok');
+      setModelStatus(model, 'Trying live Scores24 backend sync...', 'running');
+      const synced = await syncScores24FromServer();
+      pendingModelPicks = synced.picks;
+      renderModelResults(synced.picks);
+      saveScores24CachedFeed({ picks: synced.picks, meta: synced.meta });
+      setScores24SyncMeta(synced.meta);
+      setModelStatus(model, `Synced ${synced.picks.length} pick(s) from backend`, 'ok');
     } catch (e) {
-      const feedErr = String(e && e.message ? e.message : e);
-      const cached = getScores24CachedFeed();
-      if (cached && Array.isArray(cached.picks) && _isFreshFeedMeta(cached.meta)) {
-        pendingModelPicks = cached.picks;
-        renderModelResults(cached.picks);
-        setScores24SyncMeta({ ...(cached.meta || {}), from: 'cache' });
-        setModelStatus(model, `Using cached Scores24 feed (${cached.picks.length} pick(s))`, 'ok');
-      } else {
-        setModelStatus(model, `Feed unavailable (${feedErr})`, 'error');
+      backendErr = String(e && e.message ? e.message : e);
+      try {
+        setModelStatus(model, 'Backend sync unavailable, loading feed file...', 'running');
+        const loaded = await loadScores24ManualFeed();
+        pendingModelPicks = loaded.picks;
+        renderModelResults(loaded.picks);
+
+        const meta = {
+          ...loaded.meta,
+          from: 'feed-file',
+          updatedAt: loaded.meta.updatedAt || new Date().toISOString(),
+        };
+        saveScores24CachedFeed({ picks: loaded.picks, meta });
+        setScores24SyncMeta(meta);
+        setModelStatus(model, `Loaded ${loaded.picks.length} pick(s) from feed file`, 'ok');
+      } catch (feedErr) {
+        const cached = getScores24CachedFeed();
+        if (cached && Array.isArray(cached.picks)) {
+          pendingModelPicks = cached.picks;
+          renderModelResults(cached.picks);
+          setScores24SyncMeta({ ...(cached.meta || {}), from: 'cache' });
+          setModelStatus(model, `Using cached Scores24 feed (${cached.picks.length} pick(s))`, 'ok');
+        } else {
+          const feedMsg = String(feedErr && feedErr.message ? feedErr.message : feedErr);
+          setModelStatus(model, `Sync failed (${backendErr}); feed unavailable (${feedMsg})`, 'error');
+        }
       }
     } finally {
       if (btn) {
         btn.disabled = false;
-        btn.textContent = 'LOAD SCORES24 FEED';
+        btn.textContent = 'SYNC SCORES24 NOW';
       }
     }
     return;
   }
-
-  setModelStatus(model, 'Connecting to server...', 'running');
 
   if (model === 'sportytrader') {
     let backendErr = '';
@@ -2949,7 +2882,7 @@ async function runModel(model) {
         setModelStatus(model, `Loaded ${loaded.picks.length} NBA pick(s) from feed file`, 'ok');
       } catch (feedErr) {
         const cached = getSportyTraderCachedFeed();
-        if (cached && Array.isArray(cached.picks) && _isFreshFeedMeta(cached.meta)) {
+        if (cached && Array.isArray(cached.picks)) {
           pendingModelPicks = cached.picks;
           renderModelResults(cached.picks);
           setSportyTraderSyncMeta({ ...(cached.meta || {}), from: 'cache' });
@@ -3232,7 +3165,7 @@ function addModelPicksToLedger() {
 
 function initScores24SyncMeta() {
   const cached = getScores24CachedFeed();
-  if (cached && cached.meta && _isFreshFeedMeta(cached.meta)) {
+  if (cached && cached.meta) {
     setScores24SyncMeta(cached.meta);
   } else {
     setScores24SyncMeta(null);
@@ -3241,7 +3174,7 @@ function initScores24SyncMeta() {
 
 function initSportyTraderSyncMeta() {
   const cached = getSportyTraderCachedFeed();
-  if (cached && cached.meta && _isFreshFeedMeta(cached.meta)) {
+  if (cached && cached.meta) {
     setSportyTraderSyncMeta(cached.meta);
   } else {
     setSportyTraderSyncMeta(null);

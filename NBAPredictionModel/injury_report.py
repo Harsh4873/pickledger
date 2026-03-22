@@ -1,17 +1,14 @@
 """
-NBA Injury Report Fetcher — Uses the nbainjuries PyPI package.
-Pulls directly from official NBA injury reports (no API key needed).
+NBA Injury Report Fetcher.
+Uses scraper-based injuries by default (no JVM), with optional nbainjuries fallback.
 """
 from datetime import datetime
+import os
+import requests
+from bs4 import BeautifulSoup
 
-try:
-    from nbainjuries import injury
-    _HAS_NBAINJURIES = True
-    _NBAINJURIES_IMPORT_ERROR = ""
-except Exception as exc:
-    # Render does not ship a JVM, and nbainjuries imports JPype on import.
-    _HAS_NBAINJURIES = False
-    _NBAINJURIES_IMPORT_ERROR = str(exc)
+_HAS_NBAINJURIES = False
+_NBAINJURIES_IMPORT_ERROR = ""
 
 # Team full name -> short name mapping
 TEAM_SHORT = {
@@ -28,6 +25,144 @@ TEAM_SHORT = {
     "Utah Jazz": "Jazz", "Washington Wizards": "Wizards",
 }
 
+TEAM_ALIASES = {full.lower(): short for full, short in TEAM_SHORT.items()}
+for short in TEAM_SHORT.values():
+    TEAM_ALIASES[short.lower()] = short
+
+
+def _normalize_team_name(team_name: str) -> str:
+    if not team_name:
+        return team_name
+    cleaned = " ".join(str(team_name).split()).strip()
+    direct = TEAM_ALIASES.get(cleaned.lower())
+    if direct:
+        return direct
+    for full, short in TEAM_SHORT.items():
+        if cleaned.lower() in full.lower() or short.lower() in cleaned.lower():
+            return short
+    return cleaned
+
+
+def _normalize_status(status: str) -> str:
+    s = str(status or "").strip().lower()
+    if "out" in s:
+        return "Out"
+    if "doubt" in s:
+        return "Doubtful"
+    if "question" in s or "gtd" in s or "game-time" in s:
+        return "Questionable"
+    if "probable" in s:
+        return "Probable"
+    return str(status or "").strip().title() or "Unknown"
+
+
+def _fetch_scraped_injuries() -> dict:
+    scraped = _scrape_cbs_injuries()
+    if not scraped:
+        scraped = _scrape_rotowire_injuries()
+    if not scraped:
+        return {}
+    injuries = {}
+    for team_raw, players in scraped.items():
+        team = _normalize_team_name(team_raw)
+        if team not in injuries:
+            injuries[team] = []
+        for p in players or []:
+            name = str(p.get("name", "")).strip()
+            if not name:
+                continue
+            status = _normalize_status(p.get("status", ""))
+            reason = str(p.get("injury", "")).strip() or str(p.get("reason", "")).strip()
+            injuries[team].append({
+                "name": name,
+                "status": status,
+                "reason": reason,
+            })
+    return injuries
+
+
+def _scrape_cbs_injuries() -> dict:
+    url = "https://www.cbssports.com/nba/injuries/"
+    headers = {"User-Agent": "Mozilla/5.0"}
+    try:
+        resp = requests.get(url, headers=headers, timeout=12)
+        resp.raise_for_status()
+        soup = BeautifulSoup(resp.text, "html.parser")
+    except Exception as exc:
+        print(f"    [injury_report] WARNING: CBS scrape failed: {exc}")
+        return {}
+
+    injuries = {}
+    for wrapper in soup.select(".TableBaseWrapper"):
+        team_lockup = wrapper.select_one(".TeamLogoNameLockup-name, .TeamName")
+        if not team_lockup:
+            continue
+        team = team_lockup.get_text(" ", strip=True)
+        if not team:
+            continue
+        team_key = _normalize_team_name(team)
+        injuries.setdefault(team_key, [])
+
+        table = wrapper.select_one("table.TableBase-table")
+        if not table:
+            continue
+        for row in table.select("tbody tr"):
+            cells = [td.get_text(" ", strip=True) for td in row.find_all("td")]
+            if len(cells) < 5:
+                continue
+            raw_player = cells[0].strip()
+            player_name = raw_player
+            first_dot = raw_player.find(". ")
+            if first_dot != -1 and first_dot + 2 < len(raw_player):
+                # CBS often formats as "N. Last First Last"; keep the full-name tail.
+                player_name = raw_player[first_dot + 2 :].strip()
+            status = cells[4]
+            injury_type = cells[3]
+            injuries[team_key].append({
+                "name": player_name.strip(),
+                "status": status.strip(),
+                "injury": injury_type.strip(),
+            })
+
+    return {k: v for k, v in injuries.items() if v}
+
+
+def _scrape_rotowire_injuries() -> dict:
+    url = "https://www.rotowire.com/basketball/injury-report.php"
+    headers = {"User-Agent": "Mozilla/5.0"}
+    try:
+        resp = requests.get(url, headers=headers, timeout=12)
+        resp.raise_for_status()
+        soup = BeautifulSoup(resp.text, "html.parser")
+    except Exception as exc:
+        print(f"    [injury_report] WARNING: Rotowire scrape failed: {exc}")
+        return {}
+
+    injuries = {}
+    current_team = None
+    for el in soup.find_all(["div", "tr"]):
+        team_header = el.find(class_=lambda x: x and "team" in str(x).lower())
+        if team_header:
+            team_text = team_header.get_text(strip=True)
+            if team_text and len(team_text) > 2:
+                current_team = team_text
+                injuries.setdefault(current_team, [])
+
+        cells = el.find_all("td")
+        if not cells or len(cells) < 2 or not current_team:
+            continue
+        player_name = cells[0].get_text(strip=True)
+        status = cells[1].get_text(strip=True)
+        injury_detail = cells[2].get_text(strip=True) if len(cells) > 2 else ""
+        if player_name and any(s in status.lower() for s in ["out", "doubtful", "questionable", "probable", "day-to-day", "gtd"]):
+            injuries[current_team].append({
+                "name": player_name,
+                "status": status,
+                "injury": injury_detail,
+            })
+    return injuries
+
+
 def fetch_injuries(dt: datetime = None) -> dict:
     """
     Fetch official NBA injury report.
@@ -40,11 +175,30 @@ def fetch_injuries(dt: datetime = None) -> dict:
     """
     import datetime as dt_module
 
-    if not _HAS_NBAINJURIES:
-        print("    [injury_report] WARNING: nbainjuries unavailable; running with no injury adjustments.")
-        if _NBAINJURIES_IMPORT_ERROR:
-            print(f"    [injury_report] Detail: {_NBAINJURIES_IMPORT_ERROR}")
+    # Default path: scraper injuries (safe on Render and local; no JVM/JPype).
+    scraped = _fetch_scraped_injuries()
+    if scraped:
+        print("    [injury_report] Using scraper-based injury report.")
+        return scraped
+
+    # Optional fallback: nbainjuries for environments where JVM integration is known-safe.
+    if os.getenv("NBA_ENABLE_NBAINJURIES", "0") != "1":
+        print("    [injury_report] WARNING: scraper returned no injuries and nbainjuries is disabled.")
         return {}
+
+    global _HAS_NBAINJURIES, _NBAINJURIES_IMPORT_ERROR
+    if not _HAS_NBAINJURIES:
+        try:
+            from nbainjuries import injury as _injury
+            globals()["injury"] = _injury
+            _HAS_NBAINJURIES = True
+            _NBAINJURIES_IMPORT_ERROR = ""
+        except Exception as exc:
+            _NBAINJURIES_IMPORT_ERROR = str(exc)
+            print("    [injury_report] WARNING: nbainjuries unavailable; running with no injury adjustments.")
+            if _NBAINJURIES_IMPORT_ERROR:
+                print(f"    [injury_report] Detail: {_NBAINJURIES_IMPORT_ERROR}")
+            return {}
     
     df = None
     if dt is None:

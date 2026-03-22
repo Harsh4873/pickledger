@@ -2,8 +2,8 @@
 """
 SportyTrader NBA Scraper
 ========================
-Scrapes NBA pronostics from SportyTrader's French basket page and prints
-Scores24-style blocks so existing backend parsers can consume them.
+Scrapes NBA picks from SportyTrader and prints Scores24-style blocks so
+existing backend parsers can consume them.
 """
 
 from __future__ import annotations
@@ -14,11 +14,21 @@ import re
 import sys
 from datetime import datetime
 
-os.environ.setdefault("PLAYWRIGHT_BROWSERS_PATH", "0")
+def _default_playwright_browsers_path() -> str:
+    configured = os.environ.get("PLAYWRIGHT_BROWSERS_PATH", "").strip()
+    if configured:
+        return configured
+    darwin_cache = os.path.expanduser("~/Library/Caches/ms-playwright")
+    if sys.platform == "darwin" and os.path.isdir(darwin_cache):
+        return darwin_cache
+    return "0"
+
+
+os.environ["PLAYWRIGHT_BROWSERS_PATH"] = _default_playwright_browsers_path()
 
 from playwright.sync_api import sync_playwright, TimeoutError as PwTimeout
 
-SPORTYTRADER_URL = "https://www.sportytrader.com/pronostics/basket/"
+SPORTYTRADER_URL = "https://www.sportytrader.com/us/picks/basketball/usa/nba-306/"
 
 FRENCH_MONTHS = {
     "janvier": 1,
@@ -46,6 +56,8 @@ NOISE_LINES = {
     "basket",
     "live",
     "pronostic basket",
+    "detail",
+    "bet now!",
 }
 
 
@@ -86,6 +98,20 @@ def _parse_french_datetime(text: str) -> datetime | None:
         return None
 
 
+def _parse_english_datetime(text: str) -> datetime | None:
+    compact = re.sub(r"\s+", " ", (text or "").strip())
+    for fmt in ("%b %d, %Y, %I:%M %p", "%B %d, %Y, %I:%M %p"):
+        try:
+            return datetime.strptime(compact, fmt)
+        except ValueError:
+            continue
+    return None
+
+
+def _parse_sportytrader_datetime(text: str) -> datetime | None:
+    return _parse_french_datetime(text) or _parse_english_datetime(text)
+
+
 def _looks_like_team(line: str) -> bool:
     if not line:
         return False
@@ -98,7 +124,7 @@ def _looks_like_team(line: str) -> bool:
         return False
     if re.search(r"\d{4}", line):
         return False
-    if "nba" in low and "etats-unis" in low:
+    if "nba" in low and ("etats-unis" in low or "usa" in low):
         return False
     return bool(re.search(r"[A-Za-zÀ-ÿ]", line))
 
@@ -115,6 +141,14 @@ def _is_noise(line: str) -> bool:
         return True
     if low.startswith("stake"):
         return True
+    if low.startswith("bonus up to"):
+        return True
+    if low.startswith("new customers only"):
+        return True
+    if low.startswith("commercial content"):
+        return True
+    if low.startswith("odds"):
+        return True
     return False
 
 
@@ -125,7 +159,7 @@ def _extract_blocks(page_text: str, target_date: datetime | None) -> list[dict[s
     seen: set[tuple[str, str, str, str]] = set()
 
     for i, line in enumerate(lines):
-        dt = _parse_french_datetime(line)
+        dt = _parse_sportytrader_datetime(line)
         if not dt:
             continue
         if target_date and dt.date() != target_date.date():
@@ -159,13 +193,14 @@ def _extract_blocks(page_text: str, target_date: datetime | None) -> list[dict[s
             continue
 
         tip = ""
-        pron_idx = -1
+        marker_idx = -1
         for k, candidate in enumerate(window):
-            if _normalize_for_cmp(candidate).startswith("pronostic "):
-                pron_idx = k
+            cmp = _normalize_for_cmp(candidate)
+            if cmp.startswith("pronostic ") or cmp.endswith(" picks") or cmp == "picks":
+                marker_idx = k
                 break
-        if pron_idx >= 0:
-            for candidate in window[pron_idx + 1 : pron_idx + 8]:
+        if marker_idx >= 0:
+            for candidate in window[marker_idx + 1 : marker_idx + 8]:
                 if _is_noise(candidate):
                     continue
                 tip = candidate
@@ -178,7 +213,7 @@ def _extract_blocks(page_text: str, target_date: datetime | None) -> list[dict[s
             "home": home,
             "away": away,
             "tip": tip,
-            "league": "Etats-Unis - NBA",
+            "league": "USA - NBA",
         }
         key = (row["datetime"], row["home"], row["away"], row["tip"])
         if key in seen:
@@ -229,8 +264,8 @@ def main() -> None:
                 "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
                 "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"
             ),
-            locale="fr-FR",
-            timezone_id="Europe/Paris",
+            locale="en-US",
+            timezone_id="America/New_York",
             viewport={"width": 1365, "height": 900},
         )
         page = ctx.new_page()

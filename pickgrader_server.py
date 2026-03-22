@@ -16,9 +16,11 @@ from __future__ import annotations
 import json
 import os
 import re
+import sqlite3
 import subprocess
 import sys
 import threading
+import time
 import unicodedata
 import uuid
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -26,6 +28,7 @@ from datetime import datetime, timedelta
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from typing import Any
 from urllib.error import URLError, HTTPError
+from urllib.parse import urlencode, urlparse
 from urllib.request import Request, urlopen
 
 HOST = os.environ.get("HOST", "0.0.0.0")
@@ -51,12 +54,929 @@ SPORT_TO_ESPNSLUG = {
 }
 
 USER_AGENT = "PickLedgerAutoGrader/1.0"
+ODDS_API_KEY = os.environ.get("ODDS_API_KEY", "").strip()
+ODDS_API_REGION = os.environ.get("ODDS_API_REGION", "us").strip() or "us"
+ODDS_API_BOOKMAKERS = os.environ.get("ODDS_API_BOOKMAKERS", "").strip()
+ODDS_API_BASE = "https://api.the-odds-api.com/v4"
+ODDS_API_CACHE_TTL_S = 90
+
+ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY", "").strip()
+ANTHROPIC_API_URL = os.environ.get("ANTHROPIC_API_URL", "https://api.anthropic.com/v1/messages").strip() or "https://api.anthropic.com/v1/messages"
+ANTHROPIC_MODEL = os.environ.get("ANTHROPIC_MODEL", "").strip()
+ANTHROPIC_VERSION = os.environ.get("ANTHROPIC_VERSION", "2023-06-01").strip() or "2023-06-01"
+ANTHROPIC_MAX_TOKENS_DEFAULT = 800
+
+SPORT_TO_ODDS_API_KEY = {
+    "NBA": "basketball_nba",
+    "MLB": "baseball_mlb",
+}
+
+TEAM_ABBREVIATION_ALIASES = {
+    "WAS": {"WSH"},
+    "WSH": {"WAS"},
+    "NOP": {"NO"},
+    "NO": {"NOP"},
+    "GSW": {"GS"},
+    "GS": {"GSW"},
+    "PHX": {"PHO"},
+    "PHO": {"PHX"},
+    "SAS": {"SA"},
+    "SA": {"SAS"},
+    "NYK": {"NY"},
+    "NY": {"NYK"},
+    "BKN": {"BRK"},
+    "BRK": {"BKN"},
+}
+
+PROP_MARKET_TO_ODDS_API_KEY = {
+    "points": "player_points",
+    "rebounds": "player_rebounds",
+    "assists": "player_assists",
+}
+
+_odds_cache: dict[str, tuple[float, Any]] = {}
+_odds_cache_lock = threading.Lock()
+_ledger_state_lock = threading.Lock()
+LEDGER_DB_FILE = os.environ.get(
+    "LEDGER_DB_FILE",
+    os.path.join(os.path.dirname(os.path.abspath(__file__)), "pickledger.db"),
+)
+LEDGER_STATE_FILE = os.environ.get(
+    "LEDGER_STATE_FILE",
+    os.path.join(os.path.dirname(os.path.abspath(__file__)), "pickledger_state.json"),
+)
+LEDGER_STATE_KEY = "primary"
+
+
+def _default_playwright_browsers_path() -> str:
+    configured = os.environ.get("PLAYWRIGHT_BROWSERS_PATH", "").strip()
+    if configured:
+        return configured
+    darwin_cache = os.path.expanduser("~/Library/Caches/ms-playwright")
+    if sys.platform == "darwin" and os.path.isdir(darwin_cache):
+        return darwin_cache
+    return "0"
 
 
 def normalize(text: str) -> str:
     text = text.lower()
     text = re.sub(r"[^a-z0-9\s]", " ", text)
     return re.sub(r"\s+", " ", text).strip()
+
+
+def _default_ledger_state() -> dict[str, Any]:
+    return {
+        "version": 1,
+        "savedAt": "",
+        "addedPicks": [],
+        "deletedPickIds": [],
+        "results": {},
+        "gameTimes": {},
+    }
+
+
+def _coerce_ledger_state(payload: dict[str, Any]) -> dict[str, Any]:
+    state = _default_ledger_state()
+    if isinstance(payload.get("version"), int):
+        state["version"] = int(payload["version"])
+    if isinstance(payload.get("savedAt"), str):
+        state["savedAt"] = payload["savedAt"].strip()
+
+    added = payload.get("addedPicks")
+    deleted = payload.get("deletedPickIds")
+    results = payload.get("results")
+    game_times = payload.get("gameTimes")
+
+    if isinstance(added, list):
+        state["addedPicks"] = added
+    if isinstance(deleted, list):
+        state["deletedPickIds"] = [str(v) for v in deleted]
+    if isinstance(results, dict):
+        state["results"] = {str(k): v for k, v in results.items()}
+    if isinstance(game_times, dict):
+        state["gameTimes"] = {str(k): v for k, v in game_times.items()}
+    return state
+
+
+def _ledger_db_connect() -> sqlite3.Connection:
+    conn = sqlite3.connect(LEDGER_DB_FILE, timeout=5)
+    conn.row_factory = sqlite3.Row
+    return conn
+
+
+def _ensure_ledger_state_table(conn: sqlite3.Connection) -> None:
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS ledger_state (
+            state_key TEXT PRIMARY KEY,
+            state_json TEXT NOT NULL DEFAULT '{}',
+            updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
+        )
+        """
+    )
+
+
+def _ensure_picks_table(conn: sqlite3.Connection) -> None:
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS picks (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            sport TEXT NOT NULL DEFAULT 'Other',
+            source TEXT NOT NULL DEFAULT '',
+            pick TEXT NOT NULL DEFAULT '',
+            date TEXT NOT NULL DEFAULT '',
+            units INTEGER NOT NULL DEFAULT 1,
+            odds INTEGER NOT NULL DEFAULT -110,
+            result TEXT NOT NULL DEFAULT 'pending',
+            notes TEXT NOT NULL DEFAULT '',
+            start_time TEXT NOT NULL DEFAULT '',
+            created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
+            updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
+        )
+        """
+    )
+
+
+def _sync_picks_table_from_state(conn: sqlite3.Connection, state: dict[str, Any]) -> None:
+    _ensure_picks_table(conn)
+    added = state.get("addedPicks")
+    deleted = state.get("deletedPickIds")
+    results = state.get("results")
+    game_times = state.get("gameTimes")
+    added_list = added if isinstance(added, list) else []
+    deleted_ids = {str(v) for v in deleted} if isinstance(deleted, list) else set()
+    result_map = results if isinstance(results, dict) else {}
+    game_time_map = game_times if isinstance(game_times, dict) else {}
+    now_iso = datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")
+
+    rows: list[tuple[Any, ...]] = []
+    for item in added_list:
+        if not isinstance(item, dict):
+            continue
+        pick_id_raw = item.get("id")
+        pick_id_str = str(pick_id_raw)
+        if pick_id_str in deleted_ids:
+            continue
+        try:
+            pick_id = int(pick_id_raw)
+        except (TypeError, ValueError):
+            continue
+        try:
+            units = int(item.get("units", 1))
+        except (TypeError, ValueError):
+            units = 1
+        try:
+            odds = int(float(item.get("odds", -110)))
+        except (TypeError, ValueError):
+            odds = -110
+        rows.append((
+            pick_id,
+            str(item.get("sport", "Other") or "Other"),
+            str(item.get("source", "") or ""),
+            str(item.get("pick", "") or ""),
+            str(item.get("date", "") or ""),
+            units,
+            odds,
+            str(result_map.get(pick_id_str, item.get("result", "pending")) or "pending"),
+            str(item.get("notes", "") or ""),
+            str(game_time_map.get(pick_id_str, item.get("start_time", "")) or ""),
+            str(item.get("created_at", "") or now_iso),
+            now_iso,
+        ))
+
+    conn.execute("DELETE FROM picks")
+    if rows:
+        conn.executemany(
+            """
+            INSERT INTO picks (
+                id, sport, source, pick, date, units, odds, result, notes, start_time, created_at, updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            rows,
+        )
+
+
+def _load_ledger_state_from_sql() -> dict[str, Any] | None:
+    try:
+        with _ledger_db_connect() as conn:
+            _ensure_ledger_state_table(conn)
+            row = conn.execute(
+                "SELECT state_json FROM ledger_state WHERE state_key = ? LIMIT 1",
+                (LEDGER_STATE_KEY,),
+            ).fetchone()
+        if not row:
+            return None
+        payload = json.loads(str(row["state_json"] or "{}"))
+        if isinstance(payload, dict):
+            return _coerce_ledger_state(payload)
+    except (sqlite3.Error, json.JSONDecodeError, TypeError, ValueError):
+        return None
+    return None
+
+
+def _save_ledger_state_to_sql(state: dict[str, Any]) -> bool:
+    try:
+        payload = json.dumps(state, ensure_ascii=True, separators=(",", ":"))
+        with _ledger_db_connect() as conn:
+            _ensure_ledger_state_table(conn)
+            _sync_picks_table_from_state(conn, state)
+            conn.execute(
+                """
+                INSERT INTO ledger_state (state_key, state_json, updated_at)
+                VALUES (?, ?, strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
+                ON CONFLICT(state_key) DO UPDATE SET
+                    state_json=excluded.state_json,
+                    updated_at=excluded.updated_at
+                """,
+                (LEDGER_STATE_KEY, payload),
+            )
+        return True
+    except sqlite3.Error:
+        return False
+
+
+def _load_ledger_state_from_file() -> dict[str, Any] | None:
+    try:
+        with open(LEDGER_STATE_FILE, "r", encoding="utf-8") as f:
+            payload = json.load(f)
+        if isinstance(payload, dict):
+            return _coerce_ledger_state(payload)
+    except (FileNotFoundError, json.JSONDecodeError, OSError):
+        return None
+    return None
+
+
+def _save_ledger_state_to_file(state: dict[str, Any]) -> bool:
+    try:
+        with open(LEDGER_STATE_FILE, "w", encoding="utf-8") as f:
+            json.dump(state, f, ensure_ascii=True, indent=2)
+        return True
+    except OSError:
+        return False
+
+
+def _load_ledger_state() -> dict[str, Any]:
+    with _ledger_state_lock:
+        from_sql = _load_ledger_state_from_sql()
+        if from_sql is not None:
+            return from_sql
+
+        # One-time compatibility fallback: hydrate SQL from prior file-backed state.
+        from_file = _load_ledger_state_from_file()
+        if from_file is not None:
+            _save_ledger_state_to_sql(from_file)
+            return from_file
+    return _default_ledger_state()
+
+
+def _save_ledger_state(payload: dict[str, Any]) -> bool:
+    state = _coerce_ledger_state(payload)
+    state["savedAt"] = datetime.utcnow().isoformat() + "Z"
+    with _ledger_state_lock:
+        sql_ok = _save_ledger_state_to_sql(state)
+        file_ok = _save_ledger_state_to_file(state)
+    return sql_ok or file_ok
+
+
+def _extract_matchup_from_pick_text(pick_text: str) -> str | None:
+    text = str(pick_text or "")
+    matches = re.findall(r"\(([^)]+)\)", text)
+    if not matches:
+        return None
+    for raw in matches:
+        value = re.sub(r"\s+", " ", raw).strip()
+        if re.search(r"\s+(vs|@)\s+", value, flags=re.IGNORECASE):
+            return value
+    value = re.sub(r"\s+", " ", matches[0]).strip()
+    return value or None
+
+
+def _parse_model_date_arg(date_str: str | None = None) -> tuple[str, str]:
+    if not date_str:
+        dt = datetime.now()
+    else:
+        dt = None
+        for fmt in ("%m/%d/%Y", "%Y-%m-%d"):
+            try:
+                dt = datetime.strptime(str(date_str).strip(), fmt)
+                break
+            except ValueError:
+                continue
+        if dt is None:
+            dt = datetime.now()
+    return dt.strftime("%Y-%m-%d"), dt.strftime("%m/%d/%Y")
+
+
+def _load_nba_games_from_sqlite(date_str: str | None = None) -> list[dict[str, str]]:
+    today_iso, today_us = _parse_model_date_arg(date_str)
+    labels: dict[str, str] = {}
+    try:
+        with _ledger_db_connect() as conn:
+            rows = conn.execute(
+                """
+                SELECT pick, date
+                FROM picks
+                WHERE UPPER(sport) = 'NBA'
+                ORDER BY id DESC
+                LIMIT 800
+                """
+            ).fetchall()
+    except sqlite3.Error:
+        return []
+
+    for row in rows:
+        row_date = str(row["date"] or "").strip()
+        if row_date and row_date not in {today_iso, today_us}:
+            continue
+        matchup = _extract_matchup_from_pick_text(str(row["pick"] or ""))
+        if not matchup:
+            continue
+        key = re.sub(r"[^a-z0-9]+", "", matchup.lower())
+        if key and key not in labels:
+            labels[key] = matchup
+
+    return [{"label": label} for label in labels.values()]
+
+
+def _load_nba_props_games_with_meta(date_str: str | None = None) -> dict[str, Any]:
+    db_games = _load_nba_games_from_sqlite(date_str)
+    if db_games:
+        return {"games": db_games, "source": "db", "error": None}
+
+    python_bin = _resolve_python_bin(os.path.join(NBA_PROPS_MODEL_DIR, "venv", "bin", "python"))
+    extra_args: list[str] = ["--list-game-ids"]
+    normalized_date = str(date_str or "").strip()
+    if normalized_date:
+        extra_args.insert(0, normalized_date)
+
+    try:
+        output = _run_script(
+            python_bin,
+            "run_props.py",
+            NBA_PROPS_MODEL_DIR,
+            timeout=90,
+            extra_args=extra_args,
+        )
+    except subprocess.TimeoutExpired:
+        return {"games": [], "source": "live", "error": "NBA props game lookup timed out"}
+    except (OSError, ValueError) as exc:
+        return {"games": [], "source": "live", "error": str(exc)}
+
+    if "Traceback (most recent call last)" in output or "ModuleNotFoundError" in output:
+        tail = " | ".join((output.strip().splitlines() or ["no output"])[-8:])
+        return {"games": [], "source": "live", "error": f"NBA props live slate failed ({tail})"}
+
+    error = None
+    error_match = re.search(r"Error loading NBA game IDs:\s*(.+)", output)
+    if error_match:
+        error = error_match.group(1).strip()
+
+    return {
+        "games": _extract_nba_props_games(output),
+        "source": "live",
+        "error": error,
+    }
+
+
+def _load_nba_props_games(date_str: str | None = None) -> list[dict[str, str]]:
+    return _load_nba_props_games_with_meta(date_str).get("games", [])
+
+
+def _normalize_person_name(text: str) -> str:
+    text = unicodedata.normalize("NFKD", str(text or ""))
+    text = "".join(ch for ch in text if not unicodedata.combining(ch))
+    text = re.sub(r"[^a-zA-Z0-9\s]", " ", text)
+    return re.sub(r"\s+", " ", text).strip().lower()
+
+
+def _american_implied_prob(odds: int | float | None) -> float | None:
+    try:
+        odds_val = int(float(odds)) if odds is not None else 0
+    except (ValueError, TypeError):
+        return None
+    if odds_val == 0:
+        return None
+    if odds_val > 0:
+        return 100.0 / (odds_val + 100.0)
+    return abs(odds_val) / (abs(odds_val) + 100.0)
+
+
+def _quarter_kelly_pct(odds: int | float | None, model_prob: float | None, max_bankroll_pct: float = 0.05) -> float | None:
+    try:
+        odds_val = int(float(odds)) if odds is not None else 0
+        prob_val = float(model_prob) if model_prob is not None else None
+    except (ValueError, TypeError):
+        return None
+    if not prob_val or prob_val <= 0 or prob_val >= 1 or odds_val == 0:
+        return None
+    if odds_val > 0:
+        b = odds_val / 100.0
+    else:
+        b = 100.0 / abs(odds_val)
+    q = 1.0 - prob_val
+    kelly = (b * prob_val - q) / b
+    if kelly <= 0:
+        return 0.0
+    return min(kelly / 4.0, max_bankroll_pct) * 100.0
+
+
+def _odds_cache_get(key: str) -> Any | None:
+    now = time.time()
+    with _odds_cache_lock:
+        cached = _odds_cache.get(key)
+        if not cached:
+            return None
+        expires_at, payload = cached
+        if expires_at <= now:
+            _odds_cache.pop(key, None)
+            return None
+        return payload
+
+
+def _odds_cache_set(key: str, payload: Any) -> Any:
+    with _odds_cache_lock:
+        _odds_cache[key] = (time.time() + ODDS_API_CACHE_TTL_S, payload)
+    return payload
+
+
+def _fetch_json_url(url: str, timeout: int = 20) -> Any:
+    req = Request(url, headers={"User-Agent": USER_AGENT})
+    with urlopen(req, timeout=timeout) as resp:
+        return json.loads(resp.read().decode("utf-8"))
+
+
+def _invoke_anthropic(
+    prompt: str,
+    *,
+    system: str | None = None,
+    max_tokens: int = ANTHROPIC_MAX_TOKENS_DEFAULT,
+    temperature: float = 0.2,
+    timeout: int = 60,
+) -> dict[str, Any]:
+    if not ANTHROPIC_API_KEY:
+        return {
+            "ok": False,
+            "error": "Missing ANTHROPIC_API_KEY. Set it in your environment before calling /ask-opus.",
+        }
+    if not ANTHROPIC_MODEL:
+        return {
+            "ok": False,
+            "error": "Missing ANTHROPIC_MODEL. Set it to the Opus model id before calling /ask-opus.",
+        }
+
+    clean_prompt = str(prompt or "").strip()
+    if not clean_prompt:
+        return {"ok": False, "error": "Prompt is required."}
+
+    try:
+        clean_max_tokens = int(max_tokens)
+    except (TypeError, ValueError):
+        clean_max_tokens = ANTHROPIC_MAX_TOKENS_DEFAULT
+    clean_max_tokens = max(1, min(clean_max_tokens, 4096))
+
+    try:
+        clean_temperature = float(temperature)
+    except (TypeError, ValueError):
+        clean_temperature = 0.2
+    clean_temperature = max(0.0, min(clean_temperature, 1.0))
+
+    payload: dict[str, Any] = {
+        "model": ANTHROPIC_MODEL,
+        "max_tokens": clean_max_tokens,
+        "temperature": clean_temperature,
+        "messages": [{"role": "user", "content": clean_prompt}],
+    }
+    if system is not None and str(system).strip():
+        payload["system"] = str(system).strip()
+
+    req = Request(
+        ANTHROPIC_API_URL,
+        data=json.dumps(payload).encode("utf-8"),
+        headers={
+            "x-api-key": ANTHROPIC_API_KEY,
+            "anthropic-version": ANTHROPIC_VERSION,
+            "content-type": "application/json",
+            "User-Agent": USER_AGENT,
+        },
+        method="POST",
+    )
+
+    try:
+        with urlopen(req, timeout=timeout) as resp:
+            raw = resp.read().decode("utf-8")
+            decoded = json.loads(raw)
+    except HTTPError as exc:
+        try:
+            err_raw = exc.read().decode("utf-8")
+            err_payload = json.loads(err_raw)
+            err_msg = str(err_payload.get("error") or err_payload)
+        except Exception:
+            err_msg = str(exc)
+        return {"ok": False, "error": f"Anthropic API error: {err_msg}"}
+    except (URLError, TimeoutError, json.JSONDecodeError) as exc:
+        return {"ok": False, "error": f"Anthropic request failed: {exc}"}
+
+    text_parts: list[str] = []
+    for block in decoded.get("content", []) if isinstance(decoded, dict) else []:
+        if isinstance(block, dict) and block.get("type") == "text":
+            text_parts.append(str(block.get("text", "")))
+
+    return {
+        "ok": True,
+        "model": decoded.get("model", ANTHROPIC_MODEL) if isinstance(decoded, dict) else ANTHROPIC_MODEL,
+        "response": "\n".join(part for part in text_parts if part).strip(),
+        "raw": decoded,
+    }
+
+
+def _should_enrich_market_odds(date_str: str | None = None) -> bool:
+    if not ODDS_API_KEY:
+        return False
+    if not date_str:
+        return True
+    for fmt in ("%Y-%m-%d", "%m/%d/%Y"):
+        try:
+            target = datetime.strptime(date_str, fmt).date()
+            return target >= datetime.now().date()
+        except ValueError:
+            continue
+    return True
+
+
+def _odds_api_query(path: str, params: dict[str, Any]) -> Any | None:
+    clean_params = {k: v for k, v in params.items() if v not in (None, "", [])}
+    clean_params["apiKey"] = ODDS_API_KEY
+    query = urlencode(clean_params, doseq=True)
+    url = f"{ODDS_API_BASE}{path}?{query}"
+    cached = _odds_cache_get(url)
+    if cached is not None:
+        return cached
+    try:
+        payload = _fetch_json_url(url)
+    except (HTTPError, URLError, TimeoutError, json.JSONDecodeError):
+        return None
+    return _odds_cache_set(url, payload)
+
+
+def _fetch_featured_market_odds(sport: str, markets: list[str]) -> list[dict[str, Any]]:
+    sport_key = SPORT_TO_ODDS_API_KEY.get(str(sport or "").upper())
+    if not sport_key or not markets:
+        return []
+    params: dict[str, Any] = {
+        "markets": ",".join(sorted(set(markets))),
+        "oddsFormat": "american",
+        "dateFormat": "iso",
+    }
+    if ODDS_API_BOOKMAKERS:
+        params["bookmakers"] = ODDS_API_BOOKMAKERS
+    else:
+        params["regions"] = ODDS_API_REGION
+    payload = _odds_api_query(f"/sports/{sport_key}/odds", params)
+    return payload if isinstance(payload, list) else []
+
+
+def _fetch_event_market_odds(sport: str, event_id: str, markets: list[str]) -> dict[str, Any] | None:
+    sport_key = SPORT_TO_ODDS_API_KEY.get(str(sport or "").upper())
+    if not sport_key or not event_id or not markets:
+        return None
+    params: dict[str, Any] = {
+        "markets": ",".join(sorted(set(markets))),
+        "oddsFormat": "american",
+        "dateFormat": "iso",
+    }
+    if ODDS_API_BOOKMAKERS:
+        params["bookmakers"] = ODDS_API_BOOKMAKERS
+    else:
+        params["regions"] = ODDS_API_REGION
+    payload = _odds_api_query(f"/sports/{sport_key}/events/{event_id}/odds", params)
+    return payload if isinstance(payload, dict) else None
+
+
+def _team_matches_name(team_text: str, candidate_name: str) -> bool:
+    t = normalize(team_text)
+    c = normalize(candidate_name)
+    if not t or not c:
+        return False
+    if t == c or t in c or (c in t and len(c) > 2):
+        return True
+    t_tokens = set(t.split())
+    c_tokens = set(c.split())
+    if t_tokens and c_tokens and (t_tokens & c_tokens):
+        if t_tokens <= c_tokens or c_tokens <= t_tokens:
+            return True
+        if len(t_tokens & c_tokens) >= min(2, len(t_tokens), len(c_tokens)):
+            return True
+    t_parts = t.split()
+    if t_parts:
+        last = t_parts[-1]
+        if len(last) >= 3 and last in c_tokens:
+            return True
+    return False
+
+
+def _player_names_match(name_a: str, name_b: str) -> bool:
+    a = _normalize_person_name(name_a)
+    b = _normalize_person_name(name_b)
+    if not a or not b:
+        return False
+    if a == b or a in b or b in a:
+        return True
+    a_parts = a.split()
+    b_parts = b.split()
+    if not a_parts or not b_parts:
+        return False
+    if a_parts[-1] != b_parts[-1]:
+        return False
+    return a_parts[0][0] == b_parts[0][0]
+
+
+def _extract_pick_head(pick_text: str) -> str:
+    return str(pick_text or "").split("(", 1)[0].strip()
+
+
+def _find_matching_event(events: list[dict[str, Any]], team_a: str | None, team_b: str | None) -> dict[str, Any] | None:
+    if not team_a or not team_b:
+        return None
+    for event in events:
+        home = str(event.get("home_team", ""))
+        away = str(event.get("away_team", ""))
+        direct = _team_matches_name(team_a, away) and _team_matches_name(team_b, home)
+        reverse = _team_matches_name(team_a, home) and _team_matches_name(team_b, away)
+        if direct or reverse:
+            return event
+    return None
+
+
+def _float_or_none(value: Any) -> float | None:
+    try:
+        return float(value)
+    except (ValueError, TypeError):
+        return None
+
+
+def _int_or_none(value: Any) -> int | None:
+    try:
+        return int(float(value))
+    except (ValueError, TypeError):
+        return None
+
+
+def _pick_market_descriptor(pick: dict[str, Any]) -> dict[str, Any] | None:
+    explicit_market = str(pick.get("market_type", "")).strip()
+    if explicit_market:
+        descriptor = {
+            "market_type": explicit_market,
+            "selection": pick.get("selection"),
+            "line": _float_or_none(pick.get("line")),
+            "team": pick.get("team"),
+            "player_name": pick.get("player_name"),
+            "away_team": pick.get("away_team"),
+            "home_team": pick.get("home_team"),
+        }
+        return descriptor
+
+    pick_text = str(pick.get("pick", ""))
+    head = _extract_pick_head(pick_text)
+    matchup = parse_matchup(pick_text)
+    away_team = matchup[0] if matchup else None
+    home_team = matchup[1] if matchup else None
+
+    ml_m = re.search(r"^(.*?)\s+ML\b", head, flags=re.IGNORECASE)
+    if ml_m:
+        return {
+            "market_type": "h2h",
+            "team": ml_m.group(1).strip(),
+            "away_team": away_team,
+            "home_team": home_team,
+        }
+
+    total_m = re.search(r"^(Over|Under)\s+(\d+(?:\.\d+)?)\b", head, flags=re.IGNORECASE)
+    if total_m:
+        return {
+            "market_type": "totals",
+            "selection": total_m.group(1).title(),
+            "line": float(total_m.group(2)),
+            "away_team": away_team,
+            "home_team": home_team,
+        }
+
+    spread_m = re.search(r"^(.*?)\s*([+-]\d+(?:\.\d+)?)\b", head)
+    if spread_m:
+        return {
+            "market_type": "spreads",
+            "team": spread_m.group(1).strip(),
+            "line": float(spread_m.group(2)),
+            "away_team": away_team,
+            "home_team": home_team,
+        }
+
+    prop_m = re.search(
+        r"^(.*?)\s+(points|rebounds|assists)\s+(OVER|UNDER)\s+(\d+(?:\.\d+)?)\s+vs\s+(.+)$",
+        pick_text,
+        flags=re.IGNORECASE,
+    )
+    if prop_m:
+        return {
+            "market_type": PROP_MARKET_TO_ODDS_API_KEY.get(prop_m.group(2).lower()),
+            "player_name": prop_m.group(1).strip(),
+            "selection": prop_m.group(3).title(),
+            "line": float(prop_m.group(4)),
+            "team": pick.get("team"),
+            "away_team": pick.get("away_team"),
+            "home_team": pick.get("home_team"),
+        }
+
+    return None
+
+
+def _best_market_price(event_payload: dict[str, Any], descriptor: dict[str, Any]) -> dict[str, Any] | None:
+    target_market = str(descriptor.get("market_type", ""))
+    target_line = _float_or_none(descriptor.get("line"))
+    selection = str(descriptor.get("selection", "") or "").title()
+    team = str(descriptor.get("team", "") or "")
+    player_name = str(descriptor.get("player_name", "") or "")
+    best: dict[str, Any] | None = None
+    nearest: dict[str, Any] | None = None
+
+    for bookmaker in event_payload.get("bookmakers", []) or []:
+        book_title = str(bookmaker.get("title") or bookmaker.get("key") or "").strip()
+        for market in bookmaker.get("markets", []) or []:
+            if str(market.get("key", "")).strip() != target_market:
+                continue
+            for outcome in market.get("outcomes", []) or []:
+                price = _int_or_none(outcome.get("price"))
+                if price is None:
+                    continue
+
+                matched = False
+                line_val = _float_or_none(outcome.get("point"))
+
+                if target_market == "h2h":
+                    matched = _team_matches_name(team, str(outcome.get("name", "")))
+                elif target_market == "totals":
+                    matched = (
+                        str(outcome.get("name", "")).strip().title() == selection
+                        and target_line is not None
+                        and line_val is not None
+                        and abs(line_val - target_line) < 0.001
+                    )
+                elif target_market == "spreads":
+                    matched = (
+                        _team_matches_name(team, str(outcome.get("name", "")))
+                        and target_line is not None
+                        and line_val is not None
+                        and abs(line_val - target_line) < 0.001
+                    )
+                elif target_market in {"player_points", "player_rebounds", "player_assists"}:
+                    same_player = _player_names_match(player_name, str(outcome.get("description", "")))
+                    same_side = str(outcome.get("name", "")).strip().title() == selection
+                    if same_player and same_side and target_line is not None and line_val is not None:
+                        if abs(line_val - target_line) < 0.001:
+                            matched = True
+                        elif abs(line_val - target_line) <= 1.0:
+                            candidate = {
+                                "odds": price,
+                                "bookmaker": book_title,
+                                "line": line_val,
+                                "line_delta": abs(line_val - target_line),
+                            }
+                            if nearest is None or (
+                                candidate["line_delta"] < nearest["line_delta"]
+                                or (
+                                    abs(candidate["line_delta"] - nearest["line_delta"]) < 0.001
+                                    and candidate["odds"] > nearest["odds"]
+                                )
+                            ):
+                                nearest = candidate
+
+                if matched:
+                    candidate = {
+                        "odds": price,
+                        "bookmaker": book_title,
+                        "line": line_val,
+                    }
+                    if best is None or candidate["odds"] > best["odds"]:
+                        best = candidate
+
+    return best or nearest
+
+
+def _replace_pick_line(pick_text: str, new_line: float | None) -> str:
+    if new_line is None:
+        return pick_text
+    line_text = f"{new_line:.1f}".rstrip("0").rstrip(".")
+    pick_text = re.sub(
+        r"(\s+(?:OVER|UNDER)\s+)(\d+(?:\.\d+)?)",
+        rf"\g<1>{line_text}",
+        pick_text,
+        count=1,
+        flags=re.IGNORECASE,
+    )
+    pick_text = re.sub(
+        r"(\b(?:Over|Under)\s+)(\d+(?:\.\d+)?)",
+        rf"\g<1>{line_text}",
+        pick_text,
+        count=1,
+    )
+    return pick_text
+
+
+def _enrich_picks_with_market_odds(picks: list[dict[str, Any]], date_str: str | None = None) -> list[dict[str, Any]]:
+    if not picks or not _should_enrich_market_odds(date_str):
+        return picks
+
+    sport_market_needs: dict[str, set[str]] = {}
+    event_cache: dict[tuple[str, str], dict[str, Any] | None] = {}
+    event_lookup_cache: dict[tuple[str, str, str], dict[str, Any] | None] = {}
+
+    for pick in picks:
+        if _int_or_none(pick.get("odds")) is not None:
+            continue
+        descriptor = _pick_market_descriptor(pick)
+        if not descriptor:
+            continue
+        sport = str(pick.get("sport", "")).upper()
+        market_type = str(descriptor.get("market_type", "")).strip()
+        if sport in SPORT_TO_ODDS_API_KEY and market_type in {"h2h", "totals", "spreads"}:
+            sport_market_needs.setdefault(sport, set()).add(market_type)
+
+    featured_by_sport = {
+        sport: _fetch_featured_market_odds(sport, list(markets))
+        for sport, markets in sport_market_needs.items()
+    }
+
+    for pick in picks:
+        if _int_or_none(pick.get("odds")) is not None:
+            continue
+
+        descriptor = _pick_market_descriptor(pick)
+        if not descriptor:
+            continue
+
+        sport = str(pick.get("sport", "")).upper()
+        away_team = str(descriptor.get("away_team") or "").strip()
+        home_team = str(descriptor.get("home_team") or "").strip()
+        if not away_team or not home_team:
+            matchup = parse_matchup(str(pick.get("pick", "")))
+            if matchup:
+                away_team, home_team = matchup
+        if not away_team or not home_team:
+            continue
+
+        event = _find_matching_event(featured_by_sport.get(sport, []), away_team, home_team)
+        if event is None and descriptor.get("market_type") in {"player_points", "player_rebounds", "player_assists"}:
+            lookup_key = (sport, away_team, home_team)
+            if lookup_key not in event_lookup_cache:
+                event_lookup_cache[lookup_key] = _find_matching_event(
+                    _fetch_featured_market_odds(sport, ["h2h"]),
+                    away_team,
+                    home_team,
+                )
+            event = event_lookup_cache[lookup_key]
+        if not event:
+            continue
+
+        payload = event
+        if descriptor.get("market_type") in {"player_points", "player_rebounds", "player_assists"}:
+            event_id = str(event.get("id", "")).strip()
+            event_key = (sport, event_id)
+            if event_key not in event_cache:
+                event_cache[event_key] = _fetch_event_market_odds(
+                    sport,
+                    event_id,
+                    [
+                        "player_points",
+                        "player_rebounds",
+                        "player_assists",
+                    ],
+                )
+            payload = event_cache[event_key] or {}
+
+        market_price = _best_market_price(payload or {}, descriptor)
+        if not market_price:
+            continue
+
+        pick["odds"] = market_price["odds"]
+        if market_price.get("bookmaker"):
+            pick["odds_bookmaker"] = market_price["bookmaker"]
+        actual_line = _float_or_none(market_price.get("line"))
+        if actual_line is not None:
+            pick["market_line"] = actual_line
+            if descriptor.get("market_type") in {"player_points", "player_rebounds", "player_assists"}:
+                pick["pick"] = _replace_pick_line(str(pick.get("pick", "")), actual_line)
+                pick["line"] = actual_line
+
+        implied_prob = _american_implied_prob(pick.get("odds"))
+        if implied_prob is not None:
+            pick["market_implied_probability"] = round(implied_prob, 4)
+            model_prob = _float_or_none(pick.get("probability"))
+            if model_prob is not None:
+                pick["market_edge"] = round((model_prob - implied_prob) * 100.0, 2)
+                quarter_kelly = _quarter_kelly_pct(pick.get("odds"), model_prob)
+                if quarter_kelly is not None:
+                    pick["units"] = round(quarter_kelly, 2)
+
+    return picks
 
 
 def parse_pick_date(date_text: str, year: int) -> str | None:
@@ -80,6 +1000,21 @@ def fetch_scoreboard(sport: str, league: str, yyyymmdd: str) -> dict[str, Any] |
         return None
 
 
+def fetch_event_summary(sport: str, league: str, event_id: str) -> dict[str, Any] | None:
+    if not event_id:
+        return None
+    url = (
+        f"https://site.api.espn.com/apis/site/v2/sports/{sport}/{league}/summary"
+        f"?event={event_id}"
+    )
+    req = Request(url, headers={"User-Agent": USER_AGENT})
+    try:
+        with urlopen(req, timeout=15) as resp:
+            return json.loads(resp.read().decode("utf-8"))
+    except (HTTPError, URLError, TimeoutError, json.JSONDecodeError):
+        return None
+
+
 def competitor_fields(comp: dict[str, Any]) -> list[str]:
     team = comp.get("team", {})
     out = [
@@ -91,16 +1026,27 @@ def competitor_fields(comp: dict[str, Any]) -> list[str]:
     return [f for f in out if f]
 
 
+def _team_code_aliases(value: str) -> set[str]:
+    code = re.sub(r"[^A-Za-z]", "", str(value or "")).upper()
+    if not code:
+        return set()
+    return {code, *TEAM_ABBREVIATION_ALIASES.get(code, set())}
+
+
 def team_matches_competitor(team_text: str, comp: dict[str, Any]) -> bool:
     t = normalize(team_text)
     if not t:
         return False
 
+    comp_code_aliases = _team_code_aliases(str(comp.get("team", {}).get("abbreviation", "")))
+    if _team_code_aliases(team_text) & comp_code_aliases:
+        return True
+
     for field in competitor_fields(comp):
         nf = normalize(field)
         if t == nf:
             return True
-        if t in nf:
+        if len(t) > 3 and t in nf:
             return True
         if nf in t and len(nf) > 2:
             return True
@@ -149,7 +1095,11 @@ def get_games(scoreboard: dict[str, Any], completed_only: bool) -> list[dict[str
             continue
 
         start_time = str(comp0.get("date") or event.get("date") or "")
-        games.append({"competitors": parsed, "startTime": start_time})
+        games.append({
+            "competitors": parsed,
+            "startTime": start_time,
+            "eventId": str(event.get("id") or ""),
+        })
     return games
 
 
@@ -164,20 +1114,50 @@ def parse_matchup(pick_text: str) -> tuple[str, str] | None:
     return parts[0].strip(), parts[1].strip()
 
 
+def parse_nba_player_prop_pick(pick_text: str) -> dict[str, Any] | None:
+    prop_m = re.search(
+        r"^(.*?)\s+(points|rebounds|assists)\s+(OVER|UNDER)\s+(\d+(?:\.\d+)?)\s+vs\s+(.+?)(?:\s*\(|$)",
+        str(pick_text or "").strip(),
+        flags=re.IGNORECASE,
+    )
+    if not prop_m:
+        return None
+    return {
+        "player_name": prop_m.group(1).strip(),
+        "stat_key": prop_m.group(2).strip().lower(),
+        "selection": prop_m.group(3).strip().upper(),
+        "line": float(prop_m.group(4)),
+        "opponent": prop_m.group(5).strip(),
+    }
+
+
 def find_game_for_pick(games: list[dict[str, Any]], pick_text: str) -> dict[str, Any] | None:
     matchup = parse_matchup(pick_text)
-    if not matchup:
+    if matchup:
+        team_a, team_b = matchup
+        for game in games:
+            c1 = game["competitors"][0]["raw"]
+            c2 = game["competitors"][1]["raw"]
+
+            direct = team_matches_competitor(team_a, c1) and team_matches_competitor(team_b, c2)
+            reverse = team_matches_competitor(team_a, c2) and team_matches_competitor(team_b, c1)
+            if direct or reverse:
+                return game
+
+    prop_descriptor = parse_nba_player_prop_pick(pick_text)
+    if not prop_descriptor:
         return None
 
-    team_a, team_b = matchup
-    for game in games:
-        c1 = game["competitors"][0]["raw"]
-        c2 = game["competitors"][1]["raw"]
+    opponent = str(prop_descriptor.get("opponent") or "").strip()
+    if not opponent:
+        return None
 
-        direct = team_matches_competitor(team_a, c1) and team_matches_competitor(team_b, c2)
-        reverse = team_matches_competitor(team_a, c2) and team_matches_competitor(team_b, c1)
-        if direct or reverse:
-            return game
+    matches = [
+        game for game in games
+        if any(team_matches_competitor(opponent, comp["raw"]) for comp in game["competitors"])
+    ]
+    if len(matches) == 1:
+        return matches[0]
 
     return None
 
@@ -199,6 +1179,73 @@ def parse_line(pattern: str, text: str) -> float | None:
         return float(m.group(1))
     except (ValueError, TypeError):
         return None
+
+
+def _summary_stat_value_to_float(value: Any) -> float | None:
+    if value in (None, ""):
+        return None
+    text = str(value).strip()
+    if not text:
+        return None
+    if "/" in text:
+        text = text.split("/", 1)[0].strip()
+    if ":" in text:
+        return None
+    try:
+        return float(text)
+    except (TypeError, ValueError):
+        return None
+
+
+def _extract_nba_player_stat(summary: dict[str, Any], player_name: str, stat_key: str) -> float | None:
+    label_targets = {
+        "points": {"PTS"},
+        "rebounds": {"REB", "TREB", "TOTREB", "TOTAL REBOUNDS"},
+        "assists": {"AST"},
+    }
+    targets = label_targets.get(stat_key)
+    if not targets:
+        return None
+
+    boxscore = summary.get("boxscore", {}) if isinstance(summary, dict) else {}
+    players = boxscore.get("players", []) if isinstance(boxscore, dict) else []
+    for team_block in players if isinstance(players, list) else []:
+        stat_sections = team_block.get("statistics", []) if isinstance(team_block, dict) else []
+        for section in stat_sections if isinstance(stat_sections, list) else []:
+            raw_labels = section.get("labels", []) if isinstance(section, dict) else []
+            labels = [str(label).strip().upper() for label in raw_labels if str(label).strip()]
+            stat_idx = next((idx for idx, label in enumerate(labels) if label in targets), None)
+            if stat_idx is None:
+                continue
+            athletes = section.get("athletes", []) if isinstance(section, dict) else []
+            for athlete in athletes if isinstance(athletes, list) else []:
+                athlete_info = athlete.get("athlete", {}) if isinstance(athlete, dict) else {}
+                display_name = str(athlete_info.get("displayName", "")).strip()
+                if not _player_names_match(player_name, display_name):
+                    continue
+                stats = athlete.get("stats", []) if isinstance(athlete, dict) else []
+                if stat_idx >= len(stats):
+                    return None
+                return _summary_stat_value_to_float(stats[stat_idx])
+    return None
+
+
+def grade_nba_prop_pick(pick: dict[str, Any], game: dict[str, Any], summary: dict[str, Any] | None) -> str:
+    prop = parse_nba_player_prop_pick(str(pick.get("pick", "")))
+    if not prop or not summary:
+        return "push"
+
+    actual = _extract_nba_player_stat(summary, str(prop["player_name"]), str(prop["stat_key"]))
+    if actual is None:
+        return "push"
+
+    line = float(prop["line"])
+    selection = str(prop["selection"])
+    if abs(actual - line) < 1e-9:
+        return "push"
+    if selection == "OVER":
+        return "win" if actual > line else "loss"
+    return "win" if actual < line else "loss"
 
 
 def grade_pick(pick: dict[str, Any], game: dict[str, Any]) -> str:
@@ -345,6 +1392,7 @@ def auto_grade(picks: list[dict[str, Any]], existing: dict[str, str], year: int)
     start_times: dict[str, str] = {}
     attempted = 0
     board_cache: dict[tuple[str, str], dict[str, Any] | None] = {}
+    summary_cache: dict[tuple[str, str], dict[str, Any] | None] = {}
 
     for (sport_key, d), batch in all_grouped.items():
         sport, league = SPORT_TO_ESPNSLUG[sport_key]
@@ -376,7 +1424,14 @@ def auto_grade(picks: list[dict[str, Any]], existing: dict[str, str], year: int)
             game = find_game_for_pick(games, str(pick.get("pick", "")))
             if not game:
                 continue
-            result = grade_pick(pick, game)
+            if sport_key == "NBA" and parse_nba_player_prop_pick(str(pick.get("pick", ""))):
+                event_id = str(game.get("eventId") or "").strip()
+                summary_key = (sport_key, event_id)
+                if summary_key not in summary_cache:
+                    summary_cache[summary_key] = fetch_event_summary(sport, league, event_id)
+                result = grade_nba_prop_pick(pick, game, summary_cache.get(summary_key))
+            else:
+                result = grade_pick(pick, game)
             if result in {"win", "loss", "push"}:
                 graded[str(pick["id"])] = result
 
@@ -458,6 +1513,24 @@ def _compact_error_text(output: str, max_lines: int = 14) -> str:
     compact = " | ".join(tail)
     compact = re.sub(r"\s+", " ", compact)
     return compact[:1800]
+
+
+def _looks_like_transient_scores24_listing_failure(output: str) -> bool:
+    text = (output or "").lower()
+    if "listing page status" not in text:
+        return False
+    transient_signals = (
+        "status 408",
+        "status 429",
+        "status 500",
+        "status 502",
+        "status 503",
+        "status 504",
+        "just a moment",
+        "attention required",
+        "performing security verification",
+    )
+    return any(sig in text for sig in transient_signals)
 
 
 def _ensure_playwright_browsers(python_bin: str, env: dict[str, str]) -> tuple[bool, str]:
@@ -557,11 +1630,15 @@ def _parse_nba_output(output: str) -> list[dict[str, Any]]:
                 "source": "NBA Model",
                 "pick": pick_text,
                 "sport": "NBA",
-                "odds": -110,
+                "odds": None,
                 "units": 1,
                 "probability": prob,
                 "edge": display_edge,
                 "decision": decision,
+                "team": winner,
+                "away_team": current_away,
+                "home_team": current_home,
+                "predicted_spread": spread_val,
             })
 
         # Over/Under decision: "**O/U Decision: BET OVER**"
@@ -584,22 +1661,31 @@ def _parse_nba_output(output: str) -> list[dict[str, Any]]:
                     "source": "NBA Model",
                     "pick": f"{ou_side} {line_val:.1f} ({matchup})",
                     "sport": "NBA",
-                    "odds": -110,
+                    "odds": None,
                     "units": 1,
                     "probability": None,
                     "edge": abs(model_total - line_val) if model_total else None,
                     "decision": "BET",
+                    "market_type": "totals",
+                    "selection": ou_side,
+                    "line": line_val,
+                    "away_team": current_away,
+                    "home_team": current_home,
                 })
             else:
                 _append_unique({
                     "source": "NBA Model",
                     "pick": f"O/U {line_val:.1f} ({matchup})",
                     "sport": "NBA",
-                    "odds": -110,
+                    "odds": None,
                     "units": 1,
                     "probability": None,
                     "edge": None,
                     "decision": "PASS",
+                    "market_type": "totals",
+                    "line": line_val,
+                    "away_team": current_away,
+                    "home_team": current_home,
                 })
 
     return picks
@@ -608,6 +1694,7 @@ def _parse_nba_output(output: str) -> list[dict[str, Any]]:
 def _parse_nba_props_output(output: str) -> list[dict[str, Any]]:
     """Parse NBA props model stdout into pick dicts."""
     picks: list[dict[str, Any]] = []
+    current_game: dict[str, str] | None = None
     current_player: dict[str, Any] | None = None
     current_prop: dict[str, Any] | None = None
     current_metrics: dict[str, Any] = {}
@@ -621,6 +1708,17 @@ def _parse_nba_props_output(output: str) -> list[dict[str, Any]]:
     for raw_line in output.splitlines():
         line = raw_line.strip()
         if not line:
+            continue
+
+        game_m = re.match(r"^GAME:\s*(.+?)\s*@\s*(.+)$", line, flags=re.IGNORECASE)
+        if game_m:
+            current_game = {
+                "away_team": game_m.group(1).strip(),
+                "home_team": game_m.group(2).strip(),
+            }
+            current_player = None
+            current_prop = None
+            current_metrics = {}
             continue
 
         player_m = re.match(
@@ -682,6 +1780,7 @@ def _parse_nba_props_output(output: str) -> list[dict[str, Any]]:
             quarter_kelly = float(current_metrics.get("quarter_kelly", 0.0))
             direction = str(current_metrics.get("direction", "OVER")).upper()
             true_prob = min(0.78, 0.5238 + (edge_pct * 0.008))
+            market_type = PROP_MARKET_TO_ODDS_API_KEY.get(current_prop["key"], "")
 
             picks.append({
                 "source": "NBA Props Model",
@@ -693,14 +1792,62 @@ def _parse_nba_props_output(output: str) -> list[dict[str, Any]]:
                     f"vs {current_player['opponent']}"
                 ),
                 "sport": "NBA",
-                "odds": -110,
+                "odds": None,
                 "units": quarter_kelly,
                 "probability": true_prob,
                 "edge": edge_pct,
                 "decision": "BET" if decision_m.group(1).upper().startswith("BET") else "PASS",
+                "market_type": market_type,
+                "selection": direction.title(),
+                "line": current_prop["line"],
+                "player_name": current_player["name"],
+                "team": current_player["team"],
+                "opponent": current_player["opponent"],
+                "away_team": current_game["away_team"] if current_game else None,
+                "home_team": current_game["home_team"] if current_game else None,
             })
 
     return picks
+
+
+def _extract_nba_props_game_ids(output: str) -> list[str]:
+    game_ids: list[str] = []
+    seen: set[str] = set()
+    for raw_line in output.splitlines():
+        line = raw_line.strip()
+        game_id_m = re.match(r"^GAME_ID:\s*([0-9A-Za-z]+)(?:\s*\|.*)?$", line)
+        if not game_id_m:
+            continue
+        game_id = game_id_m.group(1).strip()
+        if not game_id or game_id in seen:
+            continue
+        seen.add(game_id)
+        game_ids.append(game_id)
+    return game_ids
+
+
+def _extract_nba_props_games(output: str) -> list[dict[str, str]]:
+    games: list[dict[str, str]] = []
+    seen: set[str] = set()
+    for raw_line in output.splitlines():
+        line = raw_line.strip()
+        game_m = re.match(r"^GAME_ID:\s*([0-9A-Za-z]+)(?:\s*\|\s*(.+?)\s*@\s*(.+))?$", line)
+        if not game_m:
+            continue
+        game_id = game_m.group(1).strip()
+        if not game_id or game_id in seen:
+            continue
+        seen.add(game_id)
+        away_team = str(game_m.group(2) or "").strip()
+        home_team = str(game_m.group(3) or "").strip()
+        label = f"{away_team} @ {home_team}" if away_team and home_team else game_id
+        games.append({
+            "game_id": game_id,
+            "away_team": away_team,
+            "home_team": home_team,
+            "label": label,
+        })
+    return games
 
 
 def _shorten_mlb_name(full_name: str) -> str:
@@ -752,22 +1899,31 @@ def _parse_mlb_output(output: str) -> list[dict[str, Any]]:
                         "source": "MLB Model",
                         "pick": f"{'Over' if ou_side == 'OVER' else 'Under'} {ou_line:.1f} ({matchup})",
                         "sport": "MLB",
-                        "odds": -110,
+                        "odds": None,
                         "units": 1,
                         "probability": None,
                         "edge": abs(predicted_total - ou_line),
                         "decision": "BET",
+                        "market_type": "totals",
+                        "selection": "Over" if ou_side == "OVER" else "Under",
+                        "line": ou_line,
+                        "away_team": current_team_a,
+                        "home_team": current_team_b,
                     })
                 else:
                     picks.append({
                         "source": "MLB Model",
                         "pick": f"O/U {ou_line:.1f} ({matchup})",
                         "sport": "MLB",
-                        "odds": -110,
+                        "odds": None,
                         "units": 1,
                         "probability": None,
                         "edge": None,
                         "decision": "PASS",
+                        "market_type": "totals",
+                        "line": ou_line,
+                        "away_team": current_team_a,
+                        "home_team": current_team_b,
                     })
                 continue
 
@@ -809,11 +1965,16 @@ def _parse_mlb_output(output: str) -> list[dict[str, Any]]:
                 "source": "MLB Model",
                 "pick": f"{bet_team} ML ({matchup})",
                 "sport": "MLB",
-                "odds": bet_odds if bet_odds != 0 else -110,
+                "odds": None,
                 "units": 1,
                 "probability": bet_prob,
                 "edge": edge,
                 "decision": decision,
+                "market_type": "h2h",
+                "team": bet_team,
+                "away_team": team_a,
+                "home_team": team_b,
+                "model_odds": bet_odds if bet_odds != 0 else None,
             })
         return picks
 
@@ -847,11 +2008,15 @@ def _parse_mlb_output(output: str) -> list[dict[str, Any]]:
                 "source": "MLB Model",
                 "pick": f"{winner} ML ({matchup})",
                 "sport": "MLB",
-                "odds": -110,
+                "odds": None,
                 "units": 1,
                 "probability": prob,
                 "edge": edge_val,
                 "decision": decision,
+                "market_type": "h2h",
+                "team": winner,
+                "away_team": current_away,
+                "home_team": current_home,
             })
 
             # Also emit total runs pick if available
@@ -864,22 +2029,32 @@ def _parse_mlb_output(output: str) -> list[dict[str, Any]]:
                         "source": "MLB Model",
                         "pick": f"Over {line} ({matchup})",
                         "sport": "MLB",
-                        "odds": -110,
+                        "odds": None,
                         "units": 1,
                         "probability": None,
                         "edge": total_val - line,
                         "decision": "BET",
+                        "market_type": "totals",
+                        "selection": "Over",
+                        "line": line,
+                        "away_team": current_away,
+                        "home_team": current_home,
                     })
                 elif total_val < line - 0.5:
                     picks.append({
                         "source": "MLB Model",
                         "pick": f"Under {line} ({matchup})",
                         "sport": "MLB",
-                        "odds": -110,
+                        "odds": None,
                         "units": 1,
                         "probability": None,
                         "edge": line - total_val,
                         "decision": "BET",
+                        "market_type": "totals",
+                        "selection": "Under",
+                        "line": line,
+                        "away_team": current_away,
+                        "home_team": current_home,
                     })
 
         if game_m:
@@ -930,10 +2105,23 @@ def _normalize_scores24_sport(raw_sport: str, fallback: str | None = None) -> st
     return norm or (fallback or "Other")
 
 
+def _strip_scores24_ot_qualifier(text: str) -> str:
+    cleaned = str(text or "")
+    # Remove bracketed OT inclusion notes such as "(inc. OT)", "(incl OT)", etc.
+    cleaned = re.sub(
+        r"\s*\((?=[^)]*\binc(?:l)?\.?\b)(?=[^)]*\bot\b)[^)]*\)\s*",
+        " ",
+        cleaned,
+        flags=re.IGNORECASE,
+    )
+    return re.sub(r"\s+", " ", cleaned).strip()
+
+
 def _clean_scores24_pick(tip: str, matchup: str, sport: str) -> str:
     """Convert raw Scores24 tip into clean format matching NBA/MLB model picks."""
     # Strip "at odds of ..." suffix from tip
     tip_clean = re.sub(r"\s*at odds of\s*[^\)]*\*?\s*$", "", tip).strip()
+    tip_clean = _strip_scores24_ot_qualifier(tip_clean)
 
     # Build shortened matchup
     teams = matchup.split(" vs ")
@@ -1125,12 +2313,12 @@ def _parse_scores24_output(output: str) -> list[dict[str, Any]]:
         sport = _normalize_scores24_sport(league)
 
         # Parse odds from Odds: field
-        odds_val = -110
+        odds_val = None
         if odds_str and odds_str != "[not found on page]":
             try:
                 odds_val = int(float(odds_str.replace("+", "").replace("*", "")))
             except ValueError:
-                odds_val = -110
+                odds_val = None
 
         # Extract odds embedded in tip text (e.g. "at odds of -204*")
         tip_odds_m = re.search(r"at odds of ([+-]?\d+)\*?", tip)
@@ -1148,7 +2336,7 @@ def _parse_scores24_output(output: str) -> list[dict[str, Any]]:
                 conf_val = int(conf_num.group(1))
 
         # Clean the tip and build proper pick text
-        pick_text = _clean_scores24_pick(tip, matchup, sport)
+        pick_text = _strip_scores24_ot_qualifier(_clean_scores24_pick(tip, matchup, sport))
 
         picks.append({
             "source": "Scores24",
@@ -1199,12 +2387,12 @@ def _parse_scores24_output(output: str) -> list[dict[str, Any]]:
         league = league_m.group(1).strip() if league_m else ""
         sport = _normalize_scores24_sport(league)
 
-        odds_val = -110
+        odds_val = None
         if odds_str and odds_str != "[not found on page]":
             try:
                 odds_val = int(float(odds_str.replace("+", "").replace("*", "")))
             except ValueError:
-                odds_val = -110
+                odds_val = None
 
         tip_odds_m = re.search(r"at odds of ([+-]?\d+)\*?", tip)
         if tip_odds_m:
@@ -1221,7 +2409,7 @@ def _parse_scores24_output(output: str) -> list[dict[str, Any]]:
 
         picks.append({
             "source": "Scores24",
-            "pick": _clean_scores24_pick(tip, matchup, sport),
+            "pick": _strip_scores24_ot_qualifier(_clean_scores24_pick(tip, matchup, sport)),
             "sport": sport,
             "odds": odds_val,
             "units": 1,
@@ -1250,6 +2438,7 @@ def run_nba_model(date_str: str | None = None) -> dict[str, Any]:
             tail = " | ".join((output.strip().splitlines() or ["no output"])[-12:])
             return {"ok": False, "error": f"NBA parser found no predictions ({tail})", "raw_lines": len(output.split("\n"))}
 
+        picks = _enrich_picks_with_market_odds(picks, date_str)
         return {"ok": True, "picks": picks, "raw_lines": len(output.split("\n"))}
     except subprocess.TimeoutExpired:
         return {"ok": False, "error": "NBA model timed out (5 min limit)"}
@@ -1257,42 +2446,147 @@ def run_nba_model(date_str: str | None = None) -> dict[str, Any]:
         return {"ok": False, "error": str(e)}
 
 
-def run_nba_props_model(date_str: str | None = None) -> dict[str, Any]:
+def run_nba_props_model(
+    date_str: str | None = None,
+    game_id: str | None = None,
+    game_label: str | None = None,
+) -> dict[str, Any]:
     """Execute the NBA props model and return parsed picks."""
     python_bin = _resolve_python_bin(os.path.join(NBA_PROPS_MODEL_DIR, "venv", "bin", "python"))
 
     extra = []
     if date_str:
         extra = [date_str]
+    selected_game_id = str(game_id or "").strip()
+    selected_game_label = str(game_label or "").strip()
 
-    try:
-        output = _run_script(python_bin, "run_props.py", NBA_PROPS_MODEL_DIR, timeout=300, extra_args=extra)
-        if "Traceback (most recent call last)" in output or "ModuleNotFoundError" in output:
-            tail = " | ".join((output.strip().splitlines() or ["no output"])[-12:])
-            return {"ok": False, "error": f"NBA props model runtime failed ({tail})"}
+    if selected_game_label and not selected_game_id:
+        try:
+            list_output = _run_script(
+                python_bin,
+                "run_props.py",
+                NBA_PROPS_MODEL_DIR,
+                timeout=180,
+                extra_args=extra + ["--list-game-ids"],
+            )
+            if "Traceback (most recent call last)" in list_output or "ModuleNotFoundError" in list_output:
+                tail = " | ".join((list_output.strip().splitlines() or ["no output"])[-12:])
+                return {"ok": False, "error": f"NBA props model runtime failed ({tail})"}
+            games = _extract_nba_props_games(list_output)
+            target = selected_game_label.casefold()
+            for game in games:
+                label = str(game.get("label") or "").strip()
+                if label and label.casefold() == target:
+                    selected_game_id = str(game.get("game_id") or "").strip()
+                    break
+            if not selected_game_id:
+                return {"ok": False, "error": "Selected game is not available in today's NBA slate"}
+        except subprocess.TimeoutExpired:
+            return {"ok": False, "error": "NBA props game lookup timed out"}
+        except Exception as e:
+            return {"ok": False, "error": str(e)}
 
-        picks = _parse_nba_props_output(output)
-        if not picks:
-            if (
-                "No NBA games found for today." in output
-                or "No qualifying player props candidates" in output
-            ):
+    if selected_game_id:
+        try:
+            chunk_output = _run_script(
+                python_bin,
+                "run_props.py",
+                NBA_PROPS_MODEL_DIR,
+                timeout=180,
+                extra_args=extra + [f"--game-ids={selected_game_id}"],
+            )
+            if "Traceback (most recent call last)" in chunk_output or "ModuleNotFoundError" in chunk_output:
+                tail = " | ".join((chunk_output.strip().splitlines() or ["no output"])[-12:])
+                return {"ok": False, "error": f"NBA props model runtime failed ({tail})"}
+            picks = _parse_nba_props_output(chunk_output)
+            if not picks:
                 return {
                     "ok": True,
                     "picks": [],
-                    "raw_lines": len(output.split("\n")),
+                    "raw_lines": len(chunk_output.split("\n")),
+                    "note": "No NBA props candidates found for selected game",
+                }
+            picks = _enrich_picks_with_market_odds(picks, date_str)
+            return {"ok": True, "picks": picks, "raw_lines": len(chunk_output.split("\n"))}
+        except subprocess.TimeoutExpired:
+            return {"ok": False, "error": "NBA props model timed out (per-game run limit)"}
+        except Exception as e:
+            return {"ok": False, "error": str(e)}
+
+    try:
+        list_output = _run_script(
+            python_bin,
+            "run_props.py",
+            NBA_PROPS_MODEL_DIR,
+            timeout=180,
+            extra_args=extra + ["--list-game-ids"],
+        )
+        if "Traceback (most recent call last)" in list_output or "ModuleNotFoundError" in list_output:
+            tail = " | ".join((list_output.strip().splitlines() or ["no output"])[-12:])
+            return {"ok": False, "error": f"NBA props model runtime failed ({tail})"}
+
+        game_ids = _extract_nba_props_game_ids(list_output)
+        if not game_ids:
+            if "No NBA games found for today." in list_output:
+                return {
+                    "ok": True,
+                    "picks": [],
+                    "raw_lines": len(list_output.split("\n")),
                     "note": "No NBA props candidates found today",
                 }
-            tail = " | ".join((output.strip().splitlines() or ["no output"])[-12:])
+            output = _run_script(python_bin, "run_props.py", NBA_PROPS_MODEL_DIR, timeout=300, extra_args=extra)
+            if "Traceback (most recent call last)" in output or "ModuleNotFoundError" in output:
+                tail = " | ".join((output.strip().splitlines() or ["no output"])[-12:])
+                return {"ok": False, "error": f"NBA props model runtime failed ({tail})"}
+            picks = _parse_nba_props_output(output)
+            if not picks:
+                if (
+                    "No NBA games found for today." in output
+                    or "No qualifying player props candidates" in output
+                ):
+                    return {
+                        "ok": True,
+                        "picks": [],
+                        "raw_lines": len(output.split("\n")),
+                        "note": "No NBA props candidates found today",
+                    }
+                tail = " | ".join((output.strip().splitlines() or ["no output"])[-12:])
+                return {
+                    "ok": False,
+                    "error": f"NBA props parser found no predictions ({tail})",
+                    "raw_lines": len(output.split("\n")),
+                }
+            picks = _enrich_picks_with_market_odds(picks, date_str)
+            return {"ok": True, "picks": picks, "raw_lines": len(output.split("\n"))}
+
+        all_picks: list[dict[str, Any]] = []
+        raw_lines = len(list_output.split("\n"))
+        for game_id in game_ids:
+            chunk_output = _run_script(
+                python_bin,
+                "run_props.py",
+                NBA_PROPS_MODEL_DIR,
+                timeout=180,
+                extra_args=extra + [f"--game-ids={game_id}"],
+            )
+            raw_lines += len(chunk_output.split("\n"))
+            if "Traceback (most recent call last)" in chunk_output or "ModuleNotFoundError" in chunk_output:
+                tail = " | ".join((chunk_output.strip().splitlines() or ["no output"])[-12:])
+                return {"ok": False, "error": f"NBA props model runtime failed ({tail})"}
+            all_picks.extend(_parse_nba_props_output(chunk_output))
+
+        if not all_picks:
             return {
-                "ok": False,
-                "error": f"NBA props parser found no predictions ({tail})",
-                "raw_lines": len(output.split("\n")),
+                "ok": True,
+                "picks": [],
+                "raw_lines": raw_lines,
+                "note": "No NBA props candidates found today",
             }
 
-        return {"ok": True, "picks": picks, "raw_lines": len(output.split("\n"))}
+        all_picks = _enrich_picks_with_market_odds(all_picks, date_str)
+        return {"ok": True, "picks": all_picks, "raw_lines": raw_lines}
     except subprocess.TimeoutExpired:
-        return {"ok": False, "error": "NBA props model timed out (5 min limit)"}
+        return {"ok": False, "error": "NBA props model timed out (per-game run limit)"}
     except Exception as e:
         return {"ok": False, "error": str(e)}
 
@@ -1308,6 +2602,7 @@ def run_mlb_model(date_str: str | None = None) -> dict[str, Any]:
     try:
         output = _run_script(python_bin, "run_today.py", MLB_MODEL_DIR, timeout=300, extra_args=extra)
         picks = _parse_mlb_output(output)
+        picks = _enrich_picks_with_market_odds(picks, date_str)
         return {"ok": True, "picks": picks, "raw_lines": len(output.split("\n"))}
     except subprocess.TimeoutExpired:
         return {"ok": False, "error": "MLB model timed out (5 min limit)"}
@@ -1381,7 +2676,7 @@ def run_scores24_scraper(sports: list[str], date_str: str | None = None) -> dict
 
         try:
             env = os.environ.copy()
-            env.setdefault("PLAYWRIGHT_BROWSERS_PATH", "0")
+            env.setdefault("PLAYWRIGHT_BROWSERS_PATH", _default_playwright_browsers_path())
             result = _invoke(env, date_candidates[0])
             output = (result.stdout or "") + (result.stderr or "")
 
@@ -1408,6 +2703,20 @@ def run_scores24_scraper(sports: list[str], date_str: str | None = None) -> dict
                 return kept
 
             picks = _normalize_and_filter(_parse_scores24_output(output))
+
+            # Scores24 listing pages can return transient timeout/protection pages.
+            # Retry the same request a couple of times before declaring no picks.
+            if result.returncode == 0 and not picks and _looks_like_transient_scores24_listing_failure(output):
+                for attempt in range(2):
+                    time.sleep(1.5 + attempt)
+                    retry_same = _invoke(env, date_candidates[0])
+                    retry_same_output = (retry_same.stdout or "") + (retry_same.stderr or "")
+                    retry_same_picks = _normalize_and_filter(_parse_scores24_output(retry_same_output))
+                    result = retry_same
+                    output = retry_same_output
+                    picks = retry_same_picks
+                    if retry_same.returncode == 0 and retry_same_picks:
+                        break
 
             # Around date boundaries, listings may shift by one day depending on
             # league timezone and deployment timezone. Retry adjacent dates.
@@ -1451,6 +2760,7 @@ def run_scores24_scraper(sports: list[str], date_str: str | None = None) -> dict
     if not all_picks and errors:
         return {"ok": False, "error": "; ".join(errors[:4])}
 
+    all_picks = _enrich_picks_with_market_odds(all_picks, date_str)
     return {"ok": True, "picks": all_picks, "errors": errors}
 
 
@@ -1464,7 +2774,7 @@ def run_sportytrader_scraper(date_str: str | None = None) -> dict[str, Any]:
 
     timeout_s = 120
     env = os.environ.copy()
-    env.setdefault("PLAYWRIGHT_BROWSERS_PATH", "0")
+    env.setdefault("PLAYWRIGHT_BROWSERS_PATH", _default_playwright_browsers_path())
 
     def _invoke() -> subprocess.CompletedProcess[str]:
         return _subprocess_run(
@@ -1507,7 +2817,7 @@ def run_sportytrader_scraper(date_str: str | None = None) -> dict[str, Any]:
                 "source": "SportyTrader",
                 "pick": _clean_sportytrader_pick(tip, matchup),
                 "sport": "NBA",
-                "odds": -110,
+                "odds": None,
                 "units": 1,
                 "probability": None,
                 "edge": None,
@@ -1518,6 +2828,7 @@ def run_sportytrader_scraper(date_str: str | None = None) -> dict[str, Any]:
             return {"ok": False, "error": f"sportytrader: scraper exited {result.returncode} ({_compact_error_text(output)})"}
         if not picks:
             return {"ok": False, "error": f"sportytrader: no picks parsed ({_compact_error_text(output)})"}
+        picks = _enrich_picks_with_market_odds(picks, date_str)
         return {"ok": True, "picks": picks}
     except subprocess.TimeoutExpired:
         return {"ok": False, "error": f"sportytrader: timed out after {timeout_s}s"}
@@ -1542,7 +2853,12 @@ def _launch_job(target_fn, *args) -> str:
 
 
 class Handler(BaseHTTPRequestHandler):
-    def _send_json(self, status: int, payload: dict[str, Any]) -> None:
+    def _send_json(
+        self,
+        status: int,
+        payload: dict[str, Any],
+        extra_headers: dict[str, str] | None = None,
+    ) -> None:
         data = json.dumps(payload).encode("utf-8")
         self.send_response(status)
         self.send_header("Content-Type", "application/json; charset=utf-8")
@@ -1550,6 +2866,9 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header("Access-Control-Allow-Origin", "*")
         self.send_header("Access-Control-Allow-Methods", "POST, GET, OPTIONS")
         self.send_header("Access-Control-Allow-Headers", "Content-Type")
+        if extra_headers:
+            for key, value in extra_headers.items():
+                self.send_header(key, value)
         self.end_headers()
         self.wfile.write(data)
 
@@ -1557,7 +2876,9 @@ class Handler(BaseHTTPRequestHandler):
         self._send_json(200, {"ok": True})
 
     def do_GET(self) -> None:  # noqa: N802
-        path = self.path
+        raw_path = self.path
+        parsed = urlparse(raw_path)
+        path = parsed.path or raw_path
         if path == "/api":
             path = "/"
         elif path.startswith("/api/"):
@@ -1566,10 +2887,12 @@ class Handler(BaseHTTPRequestHandler):
         if path == "/":
             endpoints = [
                 "/health",
+                "/ledger-state",
                 "/grade",
                 "/run-nba-model",
                 "/run-nba-props-model",
                 "/run-mlb-model",
+                "/ask-opus",
                 "/job-status?id=<id>",
             ]
             if ENABLE_SCORES24_REMOTE:
@@ -1580,6 +2903,9 @@ class Handler(BaseHTTPRequestHandler):
                 "ok": True,
                 "service": "pickledger-grader",
                 "status": "healthy",
+                "odds_api_enabled": bool(ODDS_API_KEY),
+                "anthropic_enabled": bool(ANTHROPIC_API_KEY),
+                "anthropic_model": ANTHROPIC_MODEL,
                 "scores24_remote_enabled": ENABLE_SCORES24_REMOTE,
                 "playwright_proxy_configured": PLAYWRIGHT_PROXY_CONFIGURED,
                 "sportytrader_remote_enabled": ENABLE_SPORTYTRADER_REMOTE,
@@ -1591,16 +2917,46 @@ class Handler(BaseHTTPRequestHandler):
             self._send_json(200, {
                 "ok": True,
                 "status": "healthy",
+                "odds_api_enabled": bool(ODDS_API_KEY),
+                "anthropic_enabled": bool(ANTHROPIC_API_KEY),
+                "anthropic_model": ANTHROPIC_MODEL,
                 "scores24_remote_enabled": ENABLE_SCORES24_REMOTE,
                 "playwright_proxy_configured": PLAYWRIGHT_PROXY_CONFIGURED,
                 "sportytrader_remote_enabled": ENABLE_SPORTYTRADER_REMOTE,
             })
             return
 
+        if path == "/ledger-state":
+            state = _load_ledger_state()
+            nba_games_meta = _load_nba_props_games_with_meta()
+            self._send_json(200, {
+                "ok": True,
+                "state": state,
+                "nba_games": nba_games_meta.get("games", []),
+                "nba_games_source": nba_games_meta.get("source"),
+                "nba_games_error": nba_games_meta.get("error"),
+            })
+            return
+
+        if path in {"/scores24-feed", "/sportytrader-feed"}:
+            feed_name = "scores24_manual_feed.json" if path == "/scores24-feed" else "sportytrader_manual_feed.json"
+            feed_path = os.path.join(BASE_DIR, feed_name)
+            if not os.path.exists(feed_path):
+                self._send_json(404, {"ok": False, "error": f"{feed_name} not found"})
+                return
+            try:
+                with open(feed_path, encoding="utf-8") as fh:
+                    payload = json.load(fh)
+            except Exception as exc:
+                self._send_json(500, {"ok": False, "error": f"Failed to read {feed_name}: {exc}"})
+                return
+            self._send_json(200, payload, extra_headers={"Cache-Control": "no-store"})
+            return
+
         # Poll job status: GET /job-status?id=<job_id>
         if path.startswith("/job-status"):
-            from urllib.parse import urlparse, parse_qs
-            qs = parse_qs(urlparse(path).query)
+            from urllib.parse import parse_qs
+            qs = parse_qs(parsed.query)
             job_id = (qs.get("id") or [""])[0]
             with _jobs_lock:
                 job = _jobs.get(job_id)
@@ -1617,7 +2973,7 @@ class Handler(BaseHTTPRequestHandler):
             self._send_json(404, {"ok": False, "error": "Route not found"})
 
     def do_HEAD(self) -> None:  # noqa: N802
-        if self.path in {"/", "/health"}:
+        if self.path in {"/", "/health", "/ledger-state", "/api/ledger-state"}:
             self.send_response(200)
             self.send_header("Content-Type", "application/json; charset=utf-8")
             self.send_header("Access-Control-Allow-Origin", "*")
@@ -1648,6 +3004,19 @@ class Handler(BaseHTTPRequestHandler):
 
         async_mode = body.get("async", False)
         date_str = body.get("date")  # optional MM/DD/YYYY date for the model
+        game_id = body.get("game_id")
+        game_label = body.get("game_label")
+
+        if path == "/ledger-state":
+            state = body.get("state", body)
+            if not isinstance(state, dict):
+                self._send_json(400, {"ok": False, "error": "Invalid ledger state payload"})
+                return
+            if not _save_ledger_state(state):
+                self._send_json(500, {"ok": False, "error": "Failed to persist ledger state"})
+                return
+            self._send_json(200, {"ok": True, "state": _load_ledger_state()})
+            return
 
         if path == "/grade":
             picks = body.get("picks", [])
@@ -1671,10 +3040,10 @@ class Handler(BaseHTTPRequestHandler):
 
         elif path == "/run-nba-props-model":
             if async_mode:
-                job_id = _launch_job(run_nba_props_model, date_str)
+                job_id = _launch_job(run_nba_props_model, date_str, game_id, game_label)
                 self._send_json(200, {"ok": True, "job_id": job_id, "status": "running"})
             else:
-                result = run_nba_props_model(date_str)
+                result = run_nba_props_model(date_str, game_id, game_label)
                 self._send_json(200, result)
 
         elif path == "/run-mlb-model":
@@ -1720,6 +3089,20 @@ class Handler(BaseHTTPRequestHandler):
             else:
                 result = run_sportytrader_scraper(scrape_date)
                 self._send_json(200, result)
+
+        elif path == "/ask-opus":
+            prompt = body.get("prompt")
+            system = body.get("system")
+            max_tokens = body.get("max_tokens", ANTHROPIC_MAX_TOKENS_DEFAULT)
+            temperature = body.get("temperature", 0.2)
+
+            result = _invoke_anthropic(
+                str(prompt or ""),
+                system=str(system) if system is not None else None,
+                max_tokens=max_tokens,
+                temperature=temperature,
+            )
+            self._send_json(200 if result.get("ok") else 400, result)
 
         else:
             self._send_json(404, {"ok": False, "error": "Route not found"})

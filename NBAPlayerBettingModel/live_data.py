@@ -1,6 +1,9 @@
 from __future__ import annotations
 
+import os
+import sys
 import time
+import unicodedata
 from collections.abc import Iterable
 from datetime import datetime
 from functools import lru_cache
@@ -18,6 +21,19 @@ from nba_api.stats.endpoints import (
 from nba_api.stats.static import teams
 
 from data_models import OpponentDefenseStats, PlayerSeasonStats
+
+# Import injury report from sibling NBAPredictionModel directory
+_PARENT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+_NBA_MODEL_DIR = os.path.join(_PARENT_DIR, "NBAPredictionModel")
+if _NBA_MODEL_DIR not in sys.path:
+    sys.path.insert(0, _NBA_MODEL_DIR)
+try:
+    from injury_report import fetch_injuries  # type: ignore[import-untyped]
+    _HAS_INJURY_REPORT = True
+except ImportError:
+    _HAS_INJURY_REPORT = False
+    def fetch_injuries(*args, **kwargs):  # type: ignore[misc]
+        return {}
 
 REQUEST_PAUSE_SECONDS = 0.35
 _NBA_TEAMS = teams.get_teams()
@@ -54,6 +70,45 @@ PLAYER_FEATURE_COLUMNS = [
 
 def _sleep() -> None:
     time.sleep(REQUEST_PAUSE_SECONDS)
+
+
+def _normalize_name_for_matching(name: str) -> str:
+    """Normalize a player name for fuzzy matching across data sources."""
+    text = unicodedata.normalize("NFKD", str(name or ""))
+    text = "".join(ch for ch in text if not unicodedata.combining(ch))
+    return text.strip().lower()
+
+
+def _build_injured_player_set(injuries: dict) -> set[str]:
+    """Build a set of normalized player names who are Out or Doubtful."""
+    excluded: set[str] = set()
+    for _team, players in injuries.items():
+        for player in players:
+            status = str(player.get("status", "")).strip()
+            if status in {"Out", "Doubtful"}:
+                excluded.add(_normalize_name_for_matching(player.get("name", "")))
+    return excluded
+
+
+def _is_player_injured(player_name: str, injured_names: set[str]) -> bool:
+    """Check if a player name matches any entry in the injured set."""
+    norm = _normalize_name_for_matching(player_name)
+    if not norm:
+        return False
+    # Exact match
+    if norm in injured_names:
+        return True
+    # Substring match (handles "first last" vs "first middle last" variants)
+    for inj_name in injured_names:
+        if norm in inj_name or inj_name in norm:
+            return True
+        # Last-name + first-initial match
+        norm_parts = norm.split()
+        inj_parts = inj_name.split()
+        if len(norm_parts) >= 2 and len(inj_parts) >= 2:
+            if norm_parts[-1] == inj_parts[-1] and norm_parts[0][0] == inj_parts[0][0]:
+                return True
+    return False
 
 
 def _parse_date(date_str: str | None) -> datetime:
@@ -177,6 +232,12 @@ def _rename_player_stat_columns(df: pd.DataFrame) -> pd.DataFrame:
     if "x2p_percent" not in renamed.columns:
         attempts = renamed.get("x2pa_per_game", pd.Series(dtype=float)).replace(0, pd.NA)
         renamed["x2p_percent"] = (renamed.get("x2p_per_game", 0.0) / attempts).fillna(0.0)
+
+    if "e_fg_percent" not in renamed.columns:
+        fga = renamed.get("fga_per_game", pd.Series(dtype=float)).replace(0, pd.NA)
+        fgm = renamed.get("fg_per_game", 0.0)
+        fg3m = renamed.get("x3p_per_game", 0.0)
+        renamed["e_fg_percent"] = ((fgm + 0.5 * fg3m) / fga).fillna(0.0)
 
     return renamed
 
@@ -535,6 +596,7 @@ def _build_selected_player(
 
 def load_props_slate(
     date_str: str | None = None,
+    game_ids: set[str] | None = None,
 ) -> tuple[
     list[dict[str, Any]],
     list[PlayerSeasonStats],
@@ -545,6 +607,9 @@ def load_props_slate(
     str,
 ]:
     games = fetch_todays_games(date_str)
+    if game_ids:
+        normalized_ids = {str(game_id).strip() for game_id in game_ids if str(game_id).strip()}
+        games = [game for game in games if str(game.get("game_id", "")).strip() in normalized_ids]
     season = get_current_season(date_str)
     player_df = fetch_player_pool(season)
 
@@ -568,14 +633,31 @@ def load_props_slate(
         & (player_df["games_played"] >= 10.0)
     ].copy()
 
+    # ── Injury filtering: remove Out / Doubtful players ──
+    injuries: dict = {}
+    injured_names: set[str] = set()
+    try:
+        injuries = fetch_injuries()
+        injured_names = _build_injured_player_set(injuries)
+        if injured_names:
+            before_count = len(qualified)
+            qualified = qualified[
+                ~qualified["PLAYER_NAME"].apply(lambda name: _is_player_injured(name, injured_names))
+            ].copy()
+            removed = before_count - len(qualified)
+            if removed > 0:
+                print(f"    [injury_filter] Removed {removed} injured player(s) (Out/Doubtful) from props pool.")
+    except Exception as exc:
+        print(f"    [injury_filter] WARNING: Could not fetch injury report: {exc}")
+
     selected_players: list[PlayerSeasonStats] = []
     for game in games:
         for team_id in (int(game["away_team_id"]), int(game["home_team_id"])):
             team_players = qualified[qualified["TEAM_ID"] == team_id].sort_values(
-                ["usage_rate", "points_per_game", "mp_per_game"],
-                ascending=[False, False, False],
+                ["mp_per_game"],
+                ascending=[False],
             )
-            for _, row in team_players.head(3).iterrows():
+            for _, row in team_players.head(5).iterrows():
                 selected_players.append(_build_selected_player(row, game, season))
 
     return (

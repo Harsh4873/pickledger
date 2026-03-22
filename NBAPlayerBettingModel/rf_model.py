@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import numpy as np
 import pandas as pd
+from scipy.stats import norm
 from sklearn.ensemble import RandomForestRegressor
 
 from data_models import OpponentDefenseStats, PlayerSeasonStats, PropPrediction
@@ -18,6 +19,8 @@ TARGET_COLUMNS = {
     "reb": "rebounds_per_game",
     "ast": "assists_per_game",
 }
+
+PROP_CONFIDENCE_PENALTY = {"pts": 0.0, "reb": 0.0, "ast": -5.0}
 
 BASE_FEATURE_COLUMNS = [
     "mp_per_game",
@@ -93,14 +96,15 @@ def _player_feature_row(player: PlayerSeasonStats) -> dict[str, float]:
 
 def _train_models(player_df: pd.DataFrame) -> tuple[dict[str, RandomForestRegressor], dict[str, float]]:
     train_df = player_df.copy()
-    fill_values = train_df[BASE_FEATURE_COLUMNS].median(numeric_only=True).to_dict()
-    x_train = train_df[BASE_FEATURE_COLUMNS].fillna(fill_values).astype(float)
+    available_features = [col for col in BASE_FEATURE_COLUMNS if col in train_df.columns]
+    fill_values = train_df[available_features].median(numeric_only=True).to_dict()
+    x_train = train_df[available_features].fillna(fill_values).astype(float)
 
     models: dict[str, RandomForestRegressor] = {}
     for prop_key, target_column in TARGET_COLUMNS.items():
         model = RandomForestRegressor(n_estimators=100, random_state=42)
         y_train = train_df[target_column].astype(float)
-        model.fit(x_train, y_train)
+        model.fit(x_train.values, y_train.values)
         models[prop_key] = model
 
     return models, {key: float(value) for key, value in fill_values.items()}
@@ -219,13 +223,19 @@ def build_prop_predictions(
             direction = "OVER" if adjusted_prediction >= line else "UNDER"
             line_denominator = max(line, 0.5)
             edge_pct = abs(adjusted_prediction - line) / line_denominator * 100.0
-            true_prob = min(0.78, 0.5238 + (edge_pct * 0.008))
 
             prediction_std = _prediction_std(model, features)
+            sigma = max(prediction_std + 1.5, 1.0)
+            if direction == "OVER":
+                true_prob = 1 - norm.cdf(line, loc=adjusted_prediction, scale=sigma)
+            else:
+                true_prob = norm.cdf(line, loc=adjusted_prediction, scale=sigma)
+            true_prob = float(np.clip(true_prob, 0.51, 0.74))
             confidence = _clip(100.0 - (prediction_std * 15.0), 0.0, 100.0)
+            confidence = _clip(confidence + PROP_CONFIDENCE_PENALTY[prop_key], 0.0, 100.0)
             full_kelly, quarter_kelly = get_recommended_stake(odds=-110, model_prob=true_prob)
 
-            decision = "BET" if edge_pct >= 6.0 and quarter_kelly > 0 and confidence >= 60.0 else "PASS"
+            decision = "BET" if edge_pct >= 8.0 and quarter_kelly > 0 and confidence >= 65.0 else "PASS"
 
             predictions.append(
                 PropPrediction(

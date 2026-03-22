@@ -15,8 +15,18 @@ import os
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
-# Use a deterministic browser install path that survives Render builds.
-os.environ.setdefault("PLAYWRIGHT_BROWSERS_PATH", "0")
+def _default_playwright_browsers_path() -> str:
+    configured = os.environ.get("PLAYWRIGHT_BROWSERS_PATH", "").strip()
+    if configured:
+        return configured
+    darwin_cache = os.path.expanduser("~/Library/Caches/ms-playwright")
+    if sys.platform == "darwin" and os.path.isdir(darwin_cache):
+        return darwin_cache
+    # Fall back to package-local browsers for environments like Render.
+    return "0"
+
+
+os.environ["PLAYWRIGHT_BROWSERS_PATH"] = _default_playwright_browsers_path()
 
 from playwright.sync_api import sync_playwright, TimeoutError as PwTimeout
 
