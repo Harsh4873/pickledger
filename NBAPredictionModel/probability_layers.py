@@ -114,6 +114,38 @@ def calculate_layer3_matchup_modifier(team: Team, opp_team: Team) -> tuple[float
     return adj, reason_str
 
 
+def combine_home_win_probability(
+    layer_probability: float,
+    predicted_spread: float,
+    home_team: Team,
+    away_team: Team,
+) -> float:
+    """
+    Blend the probability layers with the independent spread estimate.
+
+    The old model derived spread from win probability in a single linear pass.
+    That meant the spread carried no information of its own and probability was
+    effectively double-counting the same number. Spread now feeds the win model
+    as one feature among several instead of being the sole driver.
+    """
+    base_prob = _clamp_probability(layer_probability)
+    recent_form_edge = home_team.team_stats.last_10_win_pct - away_team.team_stats.last_10_win_pct
+    efficiency_edge = (
+        (home_team.team_stats.off_rating_10 - away_team.team_stats.off_rating_10)
+        - (home_team.team_stats.def_rating_10 - away_team.team_stats.def_rating_10)
+    )
+    rebound_edge = home_team.team_stats.reb_pct - away_team.team_stats.reb_pct
+
+    blended_logit = (
+        _logit(base_prob)
+        + (predicted_spread / 7.5) * 0.55
+        + recent_form_edge * 1.15
+        + efficiency_edge * 0.03
+        + rebound_edge * 8.0
+    )
+    return _sigmoid(blended_logit)
+
+
 def legacy_extremize_probability(raw_prob: float, factor: float = 1.3) -> float:
     """
     Extremized prob = 50% + (Raw prob - 50%) * 1.3
@@ -152,10 +184,28 @@ def predict_total_points(game_ctx: GameContext) -> float:
     return base_points + pace_adj + def_adj
 
 
-def predict_spread(home_prob: float) -> float:
+def legacy_predict_spread(home_prob: float) -> float:
     """
     Spread: (Extremized Prob - 0.50) * 30
     [Rule of thumb: 10% prob edge = ~3 point spread]
     """
     prob_diff = home_prob - 0.50
     return prob_diff * 30.0
+
+
+def predict_spread(home_team: Team, away_team: Team) -> float:
+    """
+    Predict the expected home scoring margin directly from team features.
+
+    This is intentionally independent from the probability output so spread can
+    inform the win model instead of being reverse-engineered from it.
+    """
+    net_rating_margin = (home_team.team_stats.net_rating - away_team.team_stats.net_rating) * 0.72
+    recent_form_margin = (home_team.team_stats.last_10_win_pct - away_team.team_stats.last_10_win_pct) * 8.0
+    efficiency_margin = (
+        (home_team.team_stats.off_rating_10 - away_team.team_stats.off_rating_10) * 0.14
+        - (home_team.team_stats.def_rating_10 - away_team.team_stats.def_rating_10) * 0.12
+    )
+    rebound_margin = (home_team.team_stats.reb_pct - away_team.team_stats.reb_pct) * 22.0
+
+    return net_rating_margin + recent_form_margin + efficiency_margin + rebound_margin

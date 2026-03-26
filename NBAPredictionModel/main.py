@@ -5,6 +5,7 @@ from probability_layers import (
     calculate_layer1_base_rate, 
     calculate_layer2_situational, 
     calculate_layer3_matchup_modifier, 
+    combine_home_win_probability,
     extremize_probability, 
     predict_total_points, 
     predict_spread
@@ -13,7 +14,7 @@ from market_mechanics import convert_american_to_implied, remove_vig, calculate_
 
 def format_output(game_ctx: GameContext, home_model_prob: float, home_odds: int, away_odds: int, 
                   l1_prob: float, l2_adj: float, l2_reason: str, l3_adj: float, l3_reason: str,
-                  raw_prob: float, extremized_prob: float):
+                  raw_prob: float, extremized_prob: float, predicted_spread: float | None = None):
     
     print("\n" + "="*80)
     print(f"### [{game_ctx.away_team.name}] vs [{game_ctx.home_team.name}] — [{game_ctx.date}] — [{game_ctx.venue.name}]\n")
@@ -39,7 +40,8 @@ def format_output(game_ctx: GameContext, home_model_prob: float, home_odds: int,
     print(f"- Extremized (×1.3): {extremized_prob*100:.1f}%\n")
     
     predicted_total = predict_total_points(game_ctx)
-    predicted_spread = predict_spread(extremized_prob)
+    if predicted_spread is None:
+        predicted_spread = predict_spread(game_ctx.home_team, game_ctx.away_team)
     
     print("**Model Predictions:**")
     if extremized_prob >= 0.5:
@@ -136,14 +138,29 @@ def run_pipeline():
     l3_reasons_combined = f"{den_team.name}: {l3_reasons} | {bos_team.name}: {l3_away_reasons}"
     
     # 6. Build Raw Prob
-    raw_prob = l1_prob + total_l2_adj + total_l3_adj
-    
+    layer_prob = l1_prob + total_l2_adj + total_l3_adj
+    predicted_spread = predict_spread(den_team, bos_team)
+    raw_prob = combine_home_win_probability(layer_prob, predicted_spread, den_team, bos_team)
+
     # 7. Extremize
     ext_prob = extremize_probability(raw_prob, factor=1.3)
     
     # 8. Output
     # market odds for Nuggets -120, Celtics +100
-    format_output(ctx, ext_prob, -120, +100, l1_prob, total_l2_adj, l2_reasons_combined, total_l3_adj, l3_reasons_combined, raw_prob, ext_prob)
+    format_output(
+        ctx,
+        ext_prob,
+        -120,
+        +100,
+        l1_prob,
+        total_l2_adj,
+        l2_reasons_combined,
+        total_l3_adj,
+        l3_reasons_combined,
+        raw_prob,
+        ext_prob,
+        predicted_spread=predicted_spread,
+    )
 
 if __name__ == "__main__":
     run_pipeline()

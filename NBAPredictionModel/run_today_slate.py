@@ -5,6 +5,7 @@ from probability_layers import (
     calculate_layer1_base_rate, 
     calculate_layer2_situational, 
     calculate_layer3_matchup_modifier, 
+    combine_home_win_probability,
     extremize_probability, 
     predict_total_points, 
     predict_spread
@@ -53,11 +54,26 @@ def test_matchup(away_name, away_data, home_name, home_data, ou_line):
     total_l3_adj = l3_adj - l3_away_adj
     l3_reasons_combined = f"{home_team.name}: {l3_reasons} | {away_team.name}: {l3_away_reasons}"
     
-    raw_prob = l1_prob + total_l2_adj + total_l3_adj
+    layer_prob = l1_prob + total_l2_adj + total_l3_adj
+    predicted_spread = predict_spread(home_team, away_team)
+    raw_prob = combine_home_win_probability(layer_prob, predicted_spread, home_team, away_team)
     ext_prob = extremize_probability(raw_prob)
     
     # Mock odds, pick -110/-110 as standard neutral line
-    format_output(ctx, ext_prob, -110, -110, l1_prob, total_l2_adj, l2_reasons_combined, total_l3_adj, l3_reasons_combined, raw_prob, ext_prob)
+    format_output(
+        ctx,
+        ext_prob,
+        -110,
+        -110,
+        l1_prob,
+        total_l2_adj,
+        l2_reasons_combined,
+        total_l3_adj,
+        l3_reasons_combined,
+        raw_prob,
+        ext_prob,
+        predicted_spread=predicted_spread,
+    )
 
     predicted_total = predict_total_points(ctx)
     print(f"**Over/Under Tooling:** Predicted Total {predicted_total:.1f} vs Line {ou_line}")
