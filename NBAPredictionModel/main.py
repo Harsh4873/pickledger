@@ -1,4 +1,5 @@
 import datetime
+from calibration import load_platt_scaler
 from data_models import Player, TeamStats, Team, Venue, GameContext
 from verification import VerificationGate
 from probability_layers import (
@@ -12,9 +13,10 @@ from probability_layers import (
 )
 from market_mechanics import convert_american_to_implied, remove_vig, calculate_edge, check_minimum_threshold, get_recommended_stake
 
-def format_output(game_ctx: GameContext, home_model_prob: float, home_odds: int, away_odds: int, 
+def format_output(game_ctx: GameContext, home_model_prob: float, home_odds: int, away_odds: int,
                   l1_prob: float, l2_adj: float, l2_reason: str, l3_adj: float, l3_reason: str,
-                  raw_prob: float, extremized_prob: float, predicted_spread: float | None = None):
+                  raw_prob: float, extremized_prob: float, predicted_spread: float | None = None,
+                  calibration_note: str = ""):
     
     print("\n" + "="*80)
     print(f"### [{game_ctx.away_team.name}] vs [{game_ctx.home_team.name}] — [{game_ctx.date}] — [{game_ctx.venue.name}]\n")
@@ -37,21 +39,22 @@ def format_output(game_ctx: GameContext, home_model_prob: float, home_odds: int,
     print(f"- Layer 2 situational adj: {l2_adj*100:+.1f}% because [{l2_reason}]")
     print(f"- Layer 3 matchup modifier: {l3_adj*100:+.1f}% because [{l3_reason}]")
     print(f"- Raw probability: {raw_prob*100:.1f}%")
-    print(f"- Extremized (×1.3): {extremized_prob*100:.1f}%\n")
+    print(f"- Extremized (pre-calibration): {extremized_prob*100:.1f}%")
+    print(f"- Calibrated probability: {home_model_prob*100:.1f}%\n")
     
     predicted_total = predict_total_points(game_ctx)
     if predicted_spread is None:
         predicted_spread = predict_spread(game_ctx.home_team, game_ctx.away_team)
     
     print("**Model Predictions:**")
-    if extremized_prob >= 0.5:
+    if home_model_prob >= 0.5:
         winner = game_ctx.home_team.name
         spread_val = predicted_spread
-        winner_prob = extremized_prob
+        winner_prob = home_model_prob
     else:
         winner = game_ctx.away_team.name
         spread_val = -predicted_spread
-        winner_prob = 1.0 - extremized_prob
+        winner_prob = 1.0 - home_model_prob
 
     print(f"- **Winner:** {winner} (Model Prob: {winner_prob*100:.1f}%)")
     print(f"- **Spread:** {winner} by {abs(spread_val):.2f} points")
@@ -62,7 +65,7 @@ def format_output(game_ctx: GameContext, home_model_prob: float, home_odds: int,
     true_home_implied, true_away_implied = remove_vig(home_odds, away_odds)
     print(f"**Market implied probability (vig-removed):** {game_ctx.home_team.name} {true_home_implied*100:.1f}% | {game_ctx.away_team.name} {true_away_implied*100:.1f}%")
     
-    edge = calculate_edge(extremized_prob, true_home_implied)
+    edge = calculate_edge(home_model_prob, true_home_implied)
     print(f"**Edge:** {game_ctx.home_team.name} {edge*100:+.1f}%")
     
     min_thresh = 0.05
@@ -76,15 +79,17 @@ def format_output(game_ctx: GameContext, home_model_prob: float, home_odds: int,
     if decision == "BET":
         # Calculate bet sizing for whichever side we have an edge on
         if edge > 0:
-            full_k, q_k = get_recommended_stake(home_odds, extremized_prob)
+            full_k, q_k = get_recommended_stake(home_odds, home_model_prob)
         else:
-            full_k, q_k = get_recommended_stake(away_odds, 1.0 - extremized_prob)
+            full_k, q_k = get_recommended_stake(away_odds, 1.0 - home_model_prob)
             
         print(f"**If BET:**")
         print(f"- Full Kelly: {full_k:.2f}% of bankroll")
         print(f"- ¼ Kelly stake: {q_k:.2f}% of bankroll")
         
     print("\n**Confidence band:** High")
+    if calibration_note:
+        print(f"**Calibration:** {calibration_note}")
     print("**Data gaps:** None")
     print("="*80 + "\n")
 
@@ -148,14 +153,16 @@ def run_pipeline():
     predicted_spread = predict_spread(den_team, bos_team)
     raw_prob = combine_home_win_probability(layer_prob, predicted_spread, den_team, bos_team)
 
-    # 7. Extremize
+    # 7. Extremize + calibrate
     ext_prob = extremize_probability(raw_prob, factor=1.3)
+    scaler, calibration_diag = load_platt_scaler()
+    calibrated_prob = scaler.calibrate(ext_prob)
     
     # 8. Output
     # market odds for Nuggets -120, Celtics +100
     format_output(
         ctx,
-        ext_prob,
+        calibrated_prob,
         -120,
         +100,
         l1_prob,
@@ -166,6 +173,7 @@ def run_pipeline():
         raw_prob,
         ext_prob,
         predicted_spread=predicted_spread,
+        calibration_note=calibration_diag.note,
     )
 
 if __name__ == "__main__":

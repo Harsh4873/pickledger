@@ -1,4 +1,5 @@
 import datetime
+from calibration import load_platt_scaler
 from data_models import Player, TeamStats, Team, Venue, GameContext
 from verification import VerificationGate
 from probability_layers import (
@@ -69,11 +70,13 @@ def test_matchup(away_name, away_data, home_name, home_data, ou_line):
     predicted_spread = predict_spread(home_team, away_team)
     raw_prob = combine_home_win_probability(layer_prob, predicted_spread, home_team, away_team)
     ext_prob = extremize_probability(raw_prob)
+    calibrator, calibration_diag = load_platt_scaler()
+    calibrated_prob = calibrator.calibrate(ext_prob)
     
     # Mock odds, pick -110/-110 as standard neutral line
     format_output(
         ctx,
-        ext_prob,
+        calibrated_prob,
         -110,
         -110,
         l1_prob,
@@ -84,6 +87,7 @@ def test_matchup(away_name, away_data, home_name, home_data, ou_line):
         raw_prob,
         ext_prob,
         predicted_spread=predicted_spread,
+        calibration_note=calibration_diag.note,
     )
 
     predicted_total = predict_total_points(ctx)

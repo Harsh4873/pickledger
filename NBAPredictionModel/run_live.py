@@ -7,6 +7,7 @@ Uses:
 """
 import datetime
 import time
+from calibration import load_platt_scaler
 from data_models import Player, TeamStats, Team, Venue, GameContext
 from probability_layers import (
     calculate_layer1_base_rate,
@@ -51,7 +52,7 @@ def create_team(id_num, name, is_home, stats_dict):
     p3 = Player(id_num*10+3, "Player 3", name, "C", "Active", 20.0)
     return Team(id_num, name, is_home, stats, [p1, p2, p3])
 
-def run_game(game_info, all_team_stats, injuries, ou_line=225.0):
+def run_game(game_info, all_team_stats, injuries, calibrator, calibration_note: str, ou_line=225.0):
     away_name = game_info['away_team']
     home_name = game_info['home_team']
     
@@ -120,10 +121,11 @@ def run_game(game_info, all_team_stats, injuries, ou_line=225.0):
     predicted_spread = predict_spread(home_team, away_team)
     raw_prob = combine_home_win_probability(layer_prob, predicted_spread, home_team, away_team)
     ext_prob = extremize_probability(raw_prob)
+    calibrated_prob = calibrator.calibrate(ext_prob)
     
     format_output(
         ctx,
-        ext_prob,
+        calibrated_prob,
         -110,
         -110,
         l1_prob,
@@ -134,6 +136,7 @@ def run_game(game_info, all_team_stats, injuries, ou_line=225.0):
         raw_prob,
         ext_prob,
         predicted_spread=predicted_spread,
+        calibration_note=calibration_note,
     )
     
     predicted_total = predict_total_points(ctx)
@@ -176,6 +179,7 @@ def main():
     
     print("\n📡 Fetching official NBA injury report...")
     injuries = fetch_injuries()
+    calibrator, calibration_diag = load_platt_scaler()
     
     print("\n\n🎯 RUNNING PREDICTIONS FOR ALL GAMES\n")
     
@@ -183,7 +187,7 @@ def main():
     for game in games:
         key = (game['away_team'], game['home_team'])
         ou_line = total_lines.get(key, 225.0)
-        run_game(game, all_team_stats, injuries, ou_line=ou_line)
+        run_game(game, all_team_stats, injuries, calibrator, calibration_diag.note, ou_line=ou_line)
 
 if __name__ == "__main__":
     main()
