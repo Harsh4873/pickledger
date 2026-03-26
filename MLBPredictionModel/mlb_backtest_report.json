@@ -1,0 +1,138 @@
+{
+  "dataset": "mlb_historical_dataset_2023_2024.csv",
+  "seasons_used": [
+    2023,
+    2024
+  ],
+  "validation_rows": 973,
+  "date_range": {
+    "start": "2024-07-20",
+    "end": "2024-09-30"
+  },
+  "moneyline_roi_strategy": "1 unit on the predicted side for games with matched market odds",
+  "calibration_mode": "fit",
+  "heuristic": {
+    "accuracy": 0.5611510791366906,
+    "log_loss": 0.6809397789140091,
+    "brier_score": 0.2440518707410583,
+    "roi": 0.22103608393601526,
+    "bets": 765,
+    "profit_units": 169.09260421105168,
+    "calibration_by_bucket": [
+      {
+        "bucket": "50-55",
+        "count": 505,
+        "avg_confidence": 0.522849786100026,
+        "win_rate": 0.5405940594059406
+      },
+      {
+        "bucket": "55-60",
+        "count": 284,
+        "avg_confidence": 0.5730415146744595,
+        "win_rate": 0.5598591549295775
+      },
+      {
+        "bucket": "60-65",
+        "count": 113,
+        "avg_confidence": 0.6188757605956324,
+        "win_rate": 0.5486725663716814
+      },
+      {
+        "bucket": "65-70",
+        "count": 49,
+        "avg_confidence": 0.6706629841663309,
+        "win_rate": 0.6938775510204082
+      },
+      {
+        "bucket": "70-75",
+        "count": 15,
+        "avg_confidence": 0.7175810687043476,
+        "win_rate": 0.8
+      },
+      {
+        "bucket": "75-80",
+        "count": 7,
+        "avg_confidence": 0.7680056467655554,
+        "win_rate": 0.8571428571428571
+      }
+    ]
+  },
+  "hybrid_model": {
+    "accuracy": 0.5765673175745119,
+    "log_loss": 0.6648861651206354,
+    "brier_score": 0.2368217877351726,
+    "roi": 0.04482927939868263,
+    "bets": 765,
+    "profit_units": 34.29439873999221,
+    "calibration_by_bucket": [
+      {
+        "bucket": "50-55",
+        "count": 615,
+        "avg_confidence": 0.5268292682926827,
+        "win_rate": 0.526829268292683
+      },
+      {
+        "bucket": "55-60",
+        "count": 109,
+        "avg_confidence": 0.5596330275229356,
+        "win_rate": 0.5596330275229358
+      },
+      {
+        "bucket": "60-65",
+        "count": 14,
+        "avg_confidence": 0.642857142857143,
+        "win_rate": 0.6428571428571429
+      },
+      {
+        "bucket": "65-70",
+        "count": 172,
+        "avg_confidence": 0.6744186046511628,
+        "win_rate": 0.6744186046511628
+      },
+      {
+        "bucket": "70-75",
+        "count": 27,
+        "avg_confidence": 0.7407407407407407,
+        "win_rate": 0.7407407407407407
+      },
+      {
+        "bucket": "80-85",
+        "count": 21,
+        "avg_confidence": 0.8095238095238096,
+        "win_rate": 0.8095238095238095
+      },
+      {
+        "bucket": "85-90",
+        "count": 7,
+        "avg_confidence": 0.857142857142857,
+        "win_rate": 0.8571428571428571
+      },
+      {
+        "bucket": "90-95",
+        "count": 8,
+        "avg_confidence": 0.92,
+        "win_rate": 1.0
+      }
+    ],
+    "delta_vs_heuristic": {
+      "accuracy_points": 0.01541623843782125,
+      "log_loss_improvement": 0.016053613793373778,
+      "brier_improvement": 0.007230083005885707,
+      "roi_delta": -0.17620680453733262
+    }
+  },
+  "totals_model": {
+    "heuristic_baseline": {
+      "rmse": 4.495872355779863,
+      "mae": 3.5108026721479964
+    },
+    "hybrid_model": {
+      "rmse": 4.329383382244959,
+      "mae": 3.4196370768632676
+    },
+    "delta_vs_heuristic": {
+      "rmse_improvement": 0.16648897353490355,
+      "mae_improvement": 0.09116559528472878
+    }
+  }
+}
