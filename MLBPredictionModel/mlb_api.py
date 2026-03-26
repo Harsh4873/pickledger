@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import time
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import Any
 
@@ -98,10 +99,29 @@ class StatsAPIClient:
         if cached is not None:
             return cached
 
+        return self._download_game_feed(game_pk)
+
+    def _download_game_feed(self, game_pk: int) -> dict[str, Any]:
+        cache_file = GAME_CACHE_DIR / f"{game_pk}.json"
+        cached = _read_json(cache_file)
+        if cached is not None:
+            return cached
         self._sleep()
         payload = statsapi.get("game", {"gamePk": game_pk})
         _write_json(cache_file, payload)
         return payload
+
+    def prefetch_game_feeds(self, game_pks: list[int], max_workers: int = 10) -> None:
+        missing = [
+            int(game_pk)
+            for game_pk in sorted(set(game_pks))
+            if not (GAME_CACHE_DIR / f"{int(game_pk)}.json").exists()
+        ]
+        if not missing:
+            return
+
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            list(executor.map(self._download_game_feed, missing))
 
     def get_person(self, player_id: int) -> dict[str, Any]:
         cache_file = PLAYER_CACHE_DIR / f"{player_id}.json"

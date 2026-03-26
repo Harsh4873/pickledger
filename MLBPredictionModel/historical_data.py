@@ -322,11 +322,17 @@ class HistoricalDatasetBuilder:
         self._load_static_context()
         rows: list[dict[str, Any]] = []
         for season in sorted(self.seasons):
-            team_history: dict[int, list[TeamHistoryRecord]] = defaultdict(list)
             season_games = sorted(
                 self.client.get_schedule_for_season(season),
                 key=lambda game: str(game.get("game_datetime") or game.get("game_date") or ""),
             )
+            final_game_pks = [
+                safe_int(game.get("game_id"))
+                for game in season_games
+                if "final" in str(game.get("status") or "").lower()
+            ]
+            self.client.prefetch_game_feeds(final_game_pks, max_workers=24)
+
             for game in season_games:
                 status = str(game.get("status") or "")
                 if "final" not in status.lower():
@@ -335,7 +341,6 @@ class HistoricalDatasetBuilder:
                 if row is None:
                     continue
                 rows.append(row)
-                self._update_team_history(team_history, row)
         frame = pd.DataFrame(rows).sort_values(["season", "game_date", "game_pk"]).reset_index(drop=True)
         return frame
 
@@ -565,43 +570,6 @@ class HistoricalDatasetBuilder:
             total_innings += innings_to_float(game_stat.get("inningsPitched"))
             total_er += safe_int(game_stat.get("earnedRuns"))
         return {"pitches": total_pitches, "innings": total_innings, "earned_runs": total_er}
-
-    def _update_team_history(
-        self,
-        team_history: dict[int, list[TeamHistoryRecord]],
-        row: dict[str, Any],
-    ) -> None:
-        game_date = datetime.strptime(row["game_date"], "%Y-%m-%d").date()
-        common = {
-            "game_date": game_date,
-            "venue_lat": safe_float(row["venue_lat"]),
-            "venue_lon": safe_float(row["venue_lon"]),
-            "timezone_offset": safe_int(row["venue_timezone_offset"]),
-        }
-
-        away_id = safe_int(row["away_team_id"])
-        home_id = safe_int(row["home_team_id"])
-        away_record = TeamHistoryRecord(
-            **common,
-            won=int(row["home_win"] == 0),
-            bullpen_pitches=safe_int(row["away_bullpen_pitches_game"]),
-            bullpen_innings=safe_float(row["away_bullpen_ip_game"]),
-            bullpen_earned_runs=safe_int(row["away_bullpen_er_game"]),
-            runs_scored=safe_int(row["away_score"]),
-            runs_allowed=safe_int(row["home_score"]),
-        )
-        home_record = TeamHistoryRecord(
-            **common,
-            won=safe_int(row["home_win"]),
-            bullpen_pitches=safe_int(row["home_bullpen_pitches_game"]),
-            bullpen_innings=safe_float(row["home_bullpen_ip_game"]),
-            bullpen_earned_runs=safe_int(row["home_bullpen_er_game"]),
-            runs_scored=safe_int(row["home_score"]),
-            runs_allowed=safe_int(row["away_score"]),
-        )
-        team_history[away_id].append(away_record)
-        team_history[home_id].append(home_record)
-
 
 def add_context_features(frame: pd.DataFrame) -> pd.DataFrame:
     frame = frame.copy()

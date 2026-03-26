@@ -1,145 +1,175 @@
-from data_models import Team, GameContext
+from __future__ import annotations
 
-def calculate_layer1_base_rate(team: Team, home_is_team: bool, h2h_win_pct_3yr: float) -> float:
-    """
-    Base rate = (Team wins / total games) weighted as:
-      - 40% season win %
-      - 35% last 30 days win %
-      - 25% H2H win % at this venue over last 3 years
-    """
-    season_weight = 0.40
-    recent_weight = 0.35
-    h2h_weight = 0.25
-    
-    # Simple weighted average
-    base_rate = (
-        (team.team_stats.season_win_pct * season_weight) + 
-        (team.team_stats.last_30_days_win_pct * recent_weight) + 
-        (h2h_win_pct_3yr * h2h_weight)
-    )
-                
-    return base_rate
+from typing import Mapping
 
-def calculate_layer2_situational(team: Team, opp_team: Team, game_ctx: GameContext) -> float:
+
+def _float(row: Mapping[str, object], key: str, default: float = 0.0) -> float:
+    try:
+        value = row.get(key, default)
+        if value in (None, ""):
+            return default
+        return float(value)
+    except (TypeError, ValueError):
+        return default
+
+
+def _wind_direction(row: Mapping[str, object]) -> str:
+    return str(row.get("wind_direction") or "unknown").lower()
+
+
+def calculate_layer1_base_rate(row: Mapping[str, object]) -> float:
     """
-    Apply adjustments to the base rate based on tonight's specific context.
-    Cap total situational adjustment at ±15% to avoid overconfidence.
+    Historical win baseline from team strength only.
+
+    The value is oriented from the home team's perspective so it can be used
+    directly as a home-win probability feature in the hybrid model.
     """
+    home_season = _float(row, "home_season_win_pct", 0.5)
+    home_recent = _float(row, "home_form_30d_win_pct", 0.5)
+    home_prior = _float(row, "home_prior_season_win_pct", 0.5)
+
+    away_season = _float(row, "away_season_win_pct", 0.5)
+    away_recent = _float(row, "away_form_30d_win_pct", 0.5)
+    away_prior = _float(row, "away_prior_season_win_pct", 0.5)
+
+    home_strength = 0.45 * home_season + 0.30 * home_recent + 0.25 * home_prior
+    away_strength = 0.45 * away_season + 0.30 * away_recent + 0.25 * away_prior
+
+    total_strength = home_strength + away_strength
+    if total_strength <= 0:
+        return 0.5
+    return max(0.05, min(0.95, home_strength / total_strength))
+
+
+def calculate_layer2_situational(row: Mapping[str, object]) -> tuple[float, str]:
     adj = 0.0
-    reasons = []
-    
-    # 1. Starting Pitcher ERA Advantage
-    era_diff = opp_team.starter_stats.era - team.starter_stats.era
-    if abs(era_diff) > 0.5:
-        # e.g. 1 run ERA advantage = 5% shift
-        shift = min((era_diff / 1.0) * 0.05, 0.08)
-        adj += shift
-        reasons.append(f"SP ERA Adv {'+' if shift>0 else ''}{shift*100:.1f}%")
-        
-    # 2. Weather
-    wind_out = game_ctx.weather.wind_direction.lower() == 'out'
-    wind_in = game_ctx.weather.wind_direction.lower() == 'in'
-    
-    if wind_out and game_ctx.weather.wind_speed_mph > 15:
-        # This usually impacts total (Over) but can also help the better hitting team slightly
-        adj += 0.01  # Minor tweak
-        reasons.append(f"Wind out >15mph +1.0%")
-    elif wind_in and game_ctx.weather.wind_speed_mph > 15:
+    reasons: list[str] = []
+
+    wind_direction = _wind_direction(row)
+    wind_speed = _float(row, "wind_speed_mph")
+    park_factor = _float(row, "park_factor_runs", 100.0)
+
+    if wind_direction == "out" and wind_speed >= 15:
+        adj += 0.01
+        reasons.append("wind out >=15 mph")
+    elif wind_direction == "in" and wind_speed >= 15:
         adj -= 0.01
-        reasons.append(f"Wind in >15mph -1.0%")
-        
-    # 3. Park Factor
-    if game_ctx.venue.park_factor_runs > 110:
+        reasons.append("wind in >=15 mph")
+
+    if park_factor >= 107:
+        adj += 0.01
+        reasons.append("hitter park")
+    elif park_factor <= 95:
+        adj -= 0.01
+        reasons.append("pitcher park")
+
+    home_rest = _float(row, "home_rest_days")
+    away_rest = _float(row, "away_rest_days")
+    if home_rest - away_rest >= 1:
+        adj += 0.015
+        reasons.append("home rest edge")
+    elif away_rest - home_rest >= 1:
+        adj -= 0.015
+        reasons.append("away rest edge")
+
+    home_travel = _float(row, "home_travel_flag")
+    away_travel = _float(row, "away_travel_flag")
+    if away_travel > home_travel:
         adj += 0.02
-        reasons.append("Park Factor Extreme >110 +2.0%")
-    elif game_ctx.venue.park_factor_runs < 90:
+        reasons.append("away travel fatigue")
+    elif home_travel > away_travel:
         adj -= 0.02
-        reasons.append("Park Factor Extreme <90 -2.0%")
-        
-    # 4. Travel Fatigue (cross-country)
-    if team.team_stats.travel_fatigue:
-        adj -= 0.03
-        reasons.append("Travel fatigue -3.0%")
-        
-    # 5. Bullpen Depleted
-    if team.team_stats.bullpen_pitches_yesterday > 70:
-        adj -= 0.03
-        reasons.append("Bullpen depleted -3.0%")
-        
-    # 6. Rest advantage
-    if team.starter_stats.days_rest >= 6: # 3+ extra days from normal 5
-        adj += 0.03
-        reasons.append("Rest advantage +3.0%")
-        
-    # Cap total situational adjustment at ±15% (0.15)
-    adj = max(-0.15, min(0.15, adj))
-    
-    reason_str = ", ".join(reasons) if reasons else "No major situational adjustments"
-    return adj, reason_str
+        reasons.append("home travel fatigue")
+
+    bullpen_usage_edge = _float(row, "away_bullpen_pitches_3d") - _float(row, "home_bullpen_pitches_3d")
+    if bullpen_usage_edge >= 35:
+        adj += 0.02
+        reasons.append("away bullpen taxed")
+    elif bullpen_usage_edge <= -35:
+        adj -= 0.02
+        reasons.append("home bullpen taxed")
+
+    adj = max(-0.12, min(0.12, adj))
+    return adj, ", ".join(reasons) if reasons else "neutral context"
 
 
-def calculate_layer3_pitcher_modifier(team_pitcher, opp_pitcher) -> float:
-    """
-    Pitcher edge = abs(SP1 FIP - SP2 FIP) capped at 1.5 run difference
-    Convert to probability: each 0.5 FIP diff ≈ 3% shift
-    """
-    fip_diff = opp_pitcher.fip - team_pitcher.fip
-    
-    # Cap the difference
-    fip_diff = max(-1.5, min(1.5, fip_diff))
-    
-    modifier = (fip_diff / 0.5) * 0.03
-    reason_str = f"FIP difference of {abs(fip_diff):.2f}"
-    
-    return modifier, reason_str
+def calculate_layer3_pitcher_modifier(row: Mapping[str, object]) -> tuple[float, str]:
+    home_fip = _float(row, "home_starter_fip", 4.2)
+    away_fip = _float(row, "away_starter_fip", 4.2)
+    fip_edge = away_fip - home_fip
+    fip_edge = max(-1.8, min(1.8, fip_edge))
+    modifier = (fip_edge / 0.5) * 0.025
+    modifier = max(-0.09, min(0.09, modifier))
+    return modifier, f"starter FIP edge {fip_edge:+.2f}"
 
 
-def extremize_probability(raw_prob: float, factor: float = 1.3) -> float:
-    """
-    Extremized prob = 50% + (Raw prob - 50%) * 1.3
-    Cap at 95%, floor at 5%.
-    """
+def extremize_probability(raw_prob: float, factor: float = 1.12) -> float:
     extremized = 0.50 + (raw_prob - 0.50) * factor
     return max(0.05, min(0.95, extremized))
 
 
-def predict_total_runs(game_ctx: GameContext) -> float:
-    """Calculates an expected run total based on pitching, park, and weather."""
-    base_runs = 9.0
-    
-    # Pitcher adj: avg FIP is roughly 4.0
-    h_fip = game_ctx.home_team.starter_stats.fip
-    a_fip = game_ctx.away_team.starter_stats.fip
-    pitcher_adj = (h_fip - 4.0) + (a_fip - 4.0)
-    
-    # Weather adj from prompt table
-    weather_adj = 0.0
-    wind_dir = game_ctx.weather.wind_direction.lower()
-    wind_spd = game_ctx.weather.wind_speed_mph
-    temp = game_ctx.weather.temp_f
-    
-    if wind_dir == 'out':
-        if wind_spd >= 20: weather_adj += 2.0
-        elif wind_spd >= 15: weather_adj += 1.5
-        elif wind_spd >= 10: weather_adj += 0.75
-    elif wind_dir == 'in':
-        if wind_spd >= 15: weather_adj -= 1.5
-        elif wind_spd >= 10: weather_adj -= 0.75
-        
-    if temp > 85: weather_adj += 0.4
-    elif temp < 50: weather_adj -= 0.5
-    
-    # Park adj
-    park_adj = (game_ctx.venue.park_factor_runs - 100) * 0.05
-    if game_ctx.venue.elevation_ft >= 5000:
-        park_adj += 1.0 # Coors field bump
-        
-    return base_runs + pitcher_adj + weather_adj + park_adj
+def heuristic_home_win_probability(row: Mapping[str, object]) -> float:
+    base = calculate_layer1_base_rate(row)
+    situational, _ = calculate_layer2_situational(row)
+    pitcher, _ = calculate_layer3_pitcher_modifier(row)
+    raw = max(0.05, min(0.95, base + situational + pitcher))
+    return extremize_probability(raw)
+
+
+def heuristic_features(row: Mapping[str, object]) -> dict[str, float]:
+    base = calculate_layer1_base_rate(row)
+    situational, _ = calculate_layer2_situational(row)
+    pitcher, _ = calculate_layer3_pitcher_modifier(row)
+    raw = max(0.05, min(0.95, base + situational + pitcher))
+    heuristic_prob = extremize_probability(raw)
+
+    return {
+        "heuristic_layer1_home_prob": base,
+        "heuristic_layer2_adj": situational,
+        "heuristic_layer3_adj": pitcher,
+        "heuristic_raw_home_prob": raw,
+        "heuristic_home_win_prob": heuristic_prob,
+    }
+
+
+def predict_total_runs(row: Mapping[str, object]) -> float:
+    """
+    Heuristic total used as a feature and safe fallback.
+
+    The dedicated totals model added later uses this as one input, not as the
+    final answer.
+    """
+    base_runs = 8.7
+    starter_component = (
+        (_float(row, "home_starter_fip", 4.2) - 4.2)
+        + (_float(row, "away_starter_fip", 4.2) - 4.2)
+    )
+    bullpen_component = (
+        ((_float(row, "home_bullpen_era_30d", 4.2) - 4.2) * 0.35)
+        + ((_float(row, "away_bullpen_era_30d", 4.2) - 4.2) * 0.35)
+    )
+    lineup_component = (
+        ((_float(row, "home_lineup_ops_proxy", 0.710) - 0.710) * 8.0)
+        + ((_float(row, "away_lineup_ops_proxy", 0.710) - 0.710) * 8.0)
+    )
+    park_component = (_float(row, "park_factor_runs", 100.0) - 100.0) * 0.05
+
+    weather_component = 0.0
+    wind_direction = _wind_direction(row)
+    wind_speed = _float(row, "wind_speed_mph")
+    temperature = _float(row, "temperature_f", 72.0)
+    if wind_direction == "out":
+        weather_component += min(1.6, wind_speed * 0.08)
+    elif wind_direction == "in":
+        weather_component -= min(1.4, wind_speed * 0.07)
+    if temperature >= 85:
+        weather_component += 0.35
+    elif 0 < temperature <= 50:
+        weather_component -= 0.45
+
+    total = base_runs + starter_component + bullpen_component + lineup_component + park_component + weather_component
+    return round(max(5.5, min(13.5, total)), 3)
 
 
 def predict_spread(home_prob: float) -> float:
-    """Converts a win probability into an expected run differential from the home team's perspective."""
-    # Rule of thumb: every 10% prob over 50% translates to roughly 1 run diff.
-    # 60% = +1.0 run edge. 40% = -1.0 run edge.
-    prob_diff = home_prob - 0.50
-    return prob_diff * 10.0
+    return round((home_prob - 0.50) * 9.0, 3)
