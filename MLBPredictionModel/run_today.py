@@ -6,6 +6,7 @@ from datetime import datetime
 from calibration import apply_moneyline_calibration
 from live_data import build_live_dataframe
 from moneyline_model import predict_home_win_probability
+from prediction_logging import append_prediction_rows, build_prediction_log_rows
 from probability_layers import predict_total_runs
 from totals_model import predict_totals
 
@@ -65,7 +66,10 @@ def main(argv: list[str] | None = None) -> int:
     print("=" * 60)
     print(f"Found {len(predictions)} games.\n")
 
-    for row in predictions.to_dict("records"):
+    prediction_rows = predictions.to_dict("records")
+    append_prediction_rows(build_prediction_log_rows(prediction_rows))
+
+    for row in prediction_rows:
         home_prob = float(row.get("calibrated_home_win_probability", row["raw_home_win_probability"]))
         away_prob = 1.0 - home_prob
         home_odds = _prob_to_american(home_prob)
