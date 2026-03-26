@@ -17,7 +17,8 @@ from market_mechanics import convert_american_to_implied, remove_vig, calculate_
 def format_output(game_ctx: GameContext, home_model_prob: float, home_odds: int, away_odds: int,
                   l1_prob: float, l2_adj: float, l2_reason: str, l3_adj: float, l3_reason: str,
                   raw_prob: float, extremized_prob: float, predicted_spread: float | None = None,
-                  calibration_note: str = ""):
+                  predicted_total: float | None = None, calibration_note: str = "",
+                  log_prediction: bool = True, log_calibration_flag: str = ""):
     
     print("\n" + "="*80)
     print(f"### [{game_ctx.away_team.name}] vs [{game_ctx.home_team.name}] — [{game_ctx.date}] — [{game_ctx.venue.name}]\n")
@@ -43,7 +44,8 @@ def format_output(game_ctx: GameContext, home_model_prob: float, home_odds: int,
     print(f"- Extremized (pre-calibration): {extremized_prob*100:.1f}%")
     print(f"- Calibrated probability: {home_model_prob*100:.1f}%\n")
     
-    predicted_total = predict_total_points(game_ctx)
+    if predicted_total is None:
+        predicted_total = predict_total_points(game_ctx)
     if predicted_spread is None:
         predicted_spread = predict_spread(game_ctx.home_team, game_ctx.away_team)
     
@@ -88,7 +90,14 @@ def format_output(game_ctx: GameContext, home_model_prob: float, home_odds: int,
         print(f"- Full Kelly: {full_k:.2f}% of bankroll")
         print(f"- ¼ Kelly stake: {q_k:.2f}% of bankroll")
 
-    append_prediction_log(game_ctx, predicted_spread, extremized_prob, home_model_prob)
+    if log_prediction:
+        append_prediction_log(
+            game_ctx,
+            predicted_spread,
+            extremized_prob,
+            home_model_prob,
+            calibration_flag=log_calibration_flag,
+        )
         
     print("\n**Confidence band:** High")
     if calibration_note:
@@ -184,6 +193,7 @@ def run_pipeline():
         ext_prob,
         predicted_spread=predicted_spread,
         calibration_note=calibration_diag.note,
+        log_calibration_flag=calibration_diag.log_flag,
     )
 
 if __name__ == "__main__":

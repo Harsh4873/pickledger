@@ -263,6 +263,23 @@ def predict_total_points(game_ctx: GameContext) -> float:
     return base_points + pace_adj + pace_diff_adj + def_adj + recent_total_adj + rest_adj + b2b_adj + injury_adj
 
 
+def legacy_predict_total_points(game_ctx: GameContext) -> float:
+    """
+    Legacy total model retained for side-by-side dashboard comparisons.
+    """
+    base_points = 225.0
+
+    h_pace = game_ctx.home_team.team_stats.pace
+    a_pace = game_ctx.away_team.team_stats.pace
+    pace_adj = ((h_pace - 99.0) + (a_pace - 99.0)) * 2.0
+
+    h_def = game_ctx.home_team.team_stats.def_rating_10
+    a_def = game_ctx.away_team.team_stats.def_rating_10
+    def_adj = ((h_def - 114.0) + (a_def - 114.0)) * 0.8
+
+    return base_points + pace_adj + def_adj
+
+
 def legacy_predict_spread(home_prob: float) -> float:
     """
     Spread: (Extremized Prob - 0.50) * 30

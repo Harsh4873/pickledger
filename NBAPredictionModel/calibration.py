@@ -5,6 +5,7 @@ from pathlib import Path
 
 _PROB_EPSILON = 1e-6
 MIN_PLATT_SAMPLES = 50
+UNCALIBRATED_CONFIDENCE_CAP = 0.75
 
 
 def _clamp_probability(probability: float) -> float:
@@ -31,13 +32,31 @@ class CalibrationDiagnostics:
     note: str
     class_distribution: str = ""
     balanced_distribution: str = ""
+    log_flag: str = ""
+
+
+def cap_probability_confidence(probability: float, cap: float = UNCALIBRATED_CONFIDENCE_CAP) -> float:
+    """
+    Cap certainty on either side of 50/50 while preserving the predicted side.
+    """
+    floor = 1.0 - cap
+    return max(floor, min(cap, _clamp_probability(probability)))
 
 
 class PlattScaler:
-    def __init__(self, a: float = 1.0, b: float = 0.0, fitted: bool = False):
+    def __init__(
+        self,
+        a: float = 1.0,
+        b: float = 0.0,
+        fitted: bool = False,
+        confidence_cap: float | None = None,
+        log_flag: str = "",
+    ):
         self.a = a
         self.b = b
         self.fitted = fitted
+        self.confidence_cap = confidence_cap
+        self.log_flag = log_flag
 
     def fit(
         self,
@@ -77,6 +96,8 @@ class PlattScaler:
         return self
 
     def calibrate(self, raw_probability: float) -> float:
+        if not self.fitted and self.confidence_cap is not None:
+            return cap_probability_confidence(raw_probability, self.confidence_cap)
         score = (self.a * _logit(raw_probability)) + self.b
         return _sigmoid(score)
 
@@ -107,19 +128,7 @@ def _class_balance_summary(outcomes: list[int]) -> tuple[str, str, list[float], 
     return before, after, sample_weights, is_imbalanced
 
 
-def load_platt_scaler(log_path: str | None = None) -> tuple[PlattScaler, CalibrationDiagnostics]:
-    prediction_log = Path(log_path) if log_path else _default_prediction_log_path()
-    scaler = PlattScaler()
-
-    if not prediction_log.exists():
-        return scaler, CalibrationDiagnostics(
-            fitted=False,
-            sample_count=0,
-            note="Calibration wrapper is active, but there are no logged outcomes yet. Fit begins once 50+ predictions have actual_home_win recorded.",
-            class_distribution="before=0 samples",
-            balanced_distribution="after=not available",
-        )
-
+def _load_logged_outcomes(prediction_log: Path) -> tuple[list[float], list[int]]:
     raw_probabilities: list[float] = []
     outcomes: list[int] = []
     with prediction_log.open("r", encoding="utf-8", newline="") as handle:
@@ -134,17 +143,43 @@ def load_platt_scaler(log_path: str | None = None) -> tuple[PlattScaler, Calibra
                 outcomes.append(int(float(outcome_value)))
             except ValueError:
                 continue
+    return raw_probabilities, outcomes
 
+
+def _fit_scaler_from_samples(
+    raw_probabilities: list[float],
+    outcomes: list[int],
+    min_samples: int,
+) -> tuple[PlattScaler, CalibrationDiagnostics]:
     sample_count = len(raw_probabilities)
     class_distribution, balanced_distribution, sample_weights, is_imbalanced = _class_balance_summary(outcomes)
-    if sample_count < MIN_PLATT_SAMPLES:
+    if sample_count < min_samples:
+        scaler = PlattScaler(
+            confidence_cap=UNCALIBRATED_CONFIDENCE_CAP,
+            log_flag="[UNCALIBRATED]",
+        )
+        note = (
+            "Calibration wrapper is active, but "
+            f"fewer than {MIN_PLATT_SAMPLES} logged predictions have realized outcomes. "
+            f"Confidence is temporarily capped at {UNCALIBRATED_CONFIDENCE_CAP * 100:.0f}% "
+            "until the sample is large enough."
+        )
+        if sample_count == 0:
+            note = (
+                "Calibration wrapper is active, but there are no logged outcomes yet. "
+                f"Confidence is temporarily capped at {UNCALIBRATED_CONFIDENCE_CAP * 100:.0f}% "
+                f"until {MIN_PLATT_SAMPLES}+ predictions have actual_home_win recorded."
+            )
         return scaler, CalibrationDiagnostics(
             fitted=False,
             sample_count=sample_count,
-            note="Calibration wrapper is active, but fewer than 50 logged predictions have realized outcomes. Raw outputs remain uncalibrated until the sample is large enough.",
-            class_distribution=class_distribution,
+            note=note,
+            class_distribution=class_distribution or "before=0 samples",
             balanced_distribution=balanced_distribution or "after=not available",
+            log_flag="[UNCALIBRATED]",
         )
+
+    scaler = PlattScaler()
 
     if is_imbalanced:
         scaler.fit(raw_probabilities, outcomes, sample_weights=sample_weights)
@@ -166,3 +201,19 @@ def load_platt_scaler(log_path: str | None = None) -> tuple[PlattScaler, Calibra
         class_distribution=class_distribution,
         balanced_distribution=balanced_distribution,
     )
+
+
+def fit_platt_scaler_from_log(
+    log_path: str | None = None,
+    min_samples: int = MIN_PLATT_SAMPLES,
+) -> tuple[PlattScaler, CalibrationDiagnostics]:
+    prediction_log = Path(log_path) if log_path else _default_prediction_log_path()
+    if not prediction_log.exists():
+        return _fit_scaler_from_samples([], [], min_samples=min_samples)
+
+    raw_probabilities, outcomes = _load_logged_outcomes(prediction_log)
+    return _fit_scaler_from_samples(raw_probabilities, outcomes, min_samples=min_samples)
+
+
+def load_platt_scaler(log_path: str | None = None) -> tuple[PlattScaler, CalibrationDiagnostics]:
+    return fit_platt_scaler_from_log(log_path=log_path, min_samples=MIN_PLATT_SAMPLES)
