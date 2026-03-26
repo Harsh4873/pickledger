@@ -850,13 +850,13 @@
         <div class="model-card-title">Scores24 Manual Feed</div>
         <div class="model-card-desc">Loads the committed Scores24 manual feed JSON from this repo and falls back to browser cache if needed.</div>
         <div class="model-status" id="scores24-sync-meta">Last sync: never</div>
-        <button class="model-run-btn" id="btn-run-scores24" onclick="runModel('scores24')">LOAD SCORES24 FEED</button>
+        <button class="model-run-btn" id="btn-run-scores24" onclick="runModel('scores24')">SYNC SCORES24 NOW</button>
         <select id="scores24-league-select" class="model-league-select">
           <option value="nba">NBA only</option>
           <option value="nhl">NHL only</option>
           <option value="mlb">MLB only</option>
         </select>
-        <button class="model-run-btn" id="btn-run-scores24-league" onclick="runSelectedScores24League()">LOAD SELECTED LEAGUE</button>
+        <button class="model-run-btn" id="btn-run-scores24-league" onclick="runSelectedScores24League()">SYNC SELECTED LEAGUE</button>
         <div class="model-status" id="status-scores24"></div>
       </div>
       <div class="model-card" id="model-card-sportytrader">
@@ -2832,51 +2832,72 @@ async function runSelectedScores24League() {
   const btn = document.getElementById('btn-run-scores24-league');
   const select = document.getElementById('scores24-league-select');
   const league = String(select && select.value ? select.value : 'nba').toLowerCase();
-  if (btn) { btn.disabled = true; btn.textContent = 'LOADING...'; }
-  setModelStatus('scores24', `Loading Scores24 ${league.toUpperCase()} picks from feed file...`, 'running');
+  if (btn) { btn.disabled = true; btn.textContent = 'SYNCING...'; }
+  setModelStatus('scores24', `Syncing Scores24 ${league.toUpperCase()} from backend...`, 'running');
   try {
-    const loaded = await loadScores24ManualFeed();
-    const sportMap = { nba: 'NBA', nhl: 'NHL', mlb: 'MLB' };
-    const targetSport = sportMap[league] || league.toUpperCase();
-    const filtered = (loaded.picks || []).filter(p => String(p.sport || '').toUpperCase() === targetSport);
+    const synced = await syncScores24FromServer([league]);
+    const filtered = Array.isArray(synced.picks) ? synced.picks : [];
     if (!filtered.length) {
-      throw new Error('no matching picks in feed');
+      throw new Error('no picks returned from backend');
     }
     const meta = {
-      ...loaded.meta,
-      updatedAt: loaded.meta && loaded.meta.updatedAt ? loaded.meta.updatedAt : new Date().toISOString(),
-      date: loaded.meta && loaded.meta.date ? loaded.meta.date : _getTodayDateStr(),
-      from: 'feed-file',
+      ...(synced.meta || {}),
+      updatedAt: synced.meta && synced.meta.updatedAt ? synced.meta.updatedAt : new Date().toISOString(),
+      date: synced.meta && synced.meta.date ? synced.meta.date : _getTodayDateStr(),
+      from: 'local-backend',
       leagues: league,
-      note: loaded.meta && loaded.meta.note ? loaded.meta.note : 'Loaded from committed manual feed',
+      note: synced.meta && synced.meta.note ? synced.meta.note : 'Synced from localhost backend',
     };
     pendingModelPicks = filtered;
     renderModelResults(filtered);
     saveScores24CachedFeed({ picks: filtered, meta });
     setScores24SyncMeta(meta);
-    setModelStatus('scores24', `Loaded ${filtered.length} ${league.toUpperCase()} pick(s) from feed file`, 'ok');
+    setModelStatus('scores24', `Synced ${filtered.length} ${league.toUpperCase()} pick(s) from backend`, 'ok');
   } catch (e) {
     const err = String(e && e.message ? e.message : e);
-    const cached = getScores24CachedFeed();
-    if (cached && Array.isArray(cached.picks) && cached.picks.length && _isFreshFeedMeta(cached.meta)) {
+    try {
+      setModelStatus('scores24', 'Backend unavailable, loading feed file...', 'running');
+      const loaded = await loadScores24ManualFeed();
       const sportMap = { nba: 'NBA', nhl: 'NHL', mlb: 'MLB' };
       const targetSport = sportMap[league] || league.toUpperCase();
-      const filtered = cached.picks.filter(p => String(p.sport || '').toUpperCase() === targetSport);
-      if (filtered.length) {
-        pendingModelPicks = filtered;
-        renderModelResults(filtered);
-        setScores24SyncMeta({ ...(cached.meta || {}), from: 'cache', leagues: league });
-        setModelStatus('scores24', `Using cached ${filtered.length} ${league.toUpperCase()} pick(s)`, 'ok');
-      } else {
-        setModelStatus('scores24', `Feed load failed (${err})`, 'error');
+      const fallbackPicks = (loaded.picks || []).filter(p => String(p.sport || '').toUpperCase() === targetSport);
+      if (!fallbackPicks.length) {
+        throw new Error('no matching picks in feed');
       }
-    } else {
-      setModelStatus('scores24', `Feed load failed (${err})`, 'error');
+      const meta = {
+        ...loaded.meta,
+        updatedAt: loaded.meta && loaded.meta.updatedAt ? loaded.meta.updatedAt : new Date().toISOString(),
+        date: loaded.meta && loaded.meta.date ? loaded.meta.date : _getTodayDateStr(),
+        from: 'feed-file',
+        leagues: league,
+      };
+      pendingModelPicks = fallbackPicks;
+      renderModelResults(fallbackPicks);
+      saveScores24CachedFeed({ picks: fallbackPicks, meta });
+      setScores24SyncMeta(meta);
+      setModelStatus('scores24', `Loaded ${fallbackPicks.length} ${league.toUpperCase()} pick(s) from feed file`, 'ok');
+    } catch (feedErr) {
+      const cached = getScores24CachedFeed();
+      if (cached && Array.isArray(cached.picks) && cached.picks.length && _isFreshFeedMeta(cached.meta)) {
+        const sportMap = { nba: 'NBA', nhl: 'NHL', mlb: 'MLB' };
+        const targetSport = sportMap[league] || league.toUpperCase();
+        const fallbackPicks = cached.picks.filter(p => String(p.sport || '').toUpperCase() === targetSport);
+        if (fallbackPicks.length) {
+          pendingModelPicks = fallbackPicks;
+          renderModelResults(fallbackPicks);
+          setScores24SyncMeta({ ...(cached.meta || {}), from: 'cache', leagues: league });
+          setModelStatus('scores24', `Using cached ${fallbackPicks.length} ${league.toUpperCase()} pick(s)`, 'ok');
+        } else {
+          setModelStatus('scores24', `Scores24 sync failed (${err})`, 'error');
+        }
+      } else {
+        setModelStatus('scores24', `Scores24 sync failed (${err})`, 'error');
+      }
     }
   } finally {
     if (btn) {
       btn.disabled = false;
-      btn.textContent = 'LOAD SELECTED LEAGUE';
+      btn.textContent = 'SYNC SELECTED LEAGUE';
     }
   }
 }
@@ -2887,34 +2908,43 @@ async function runModel(model) {
 
   if (model === 'scores24') {
     try {
-      setModelStatus(model, 'Loading Scores24 manual feed file...', 'running');
-      const loaded = await loadScores24ManualFeed();
-      pendingModelPicks = loaded.picks;
-      renderModelResults(loaded.picks);
-
-      const meta = {
-        ...loaded.meta,
-        from: 'feed-file',
-        updatedAt: loaded.meta.updatedAt || new Date().toISOString(),
-      };
-      saveScores24CachedFeed({ picks: loaded.picks, meta });
-      setScores24SyncMeta(meta);
-      setModelStatus(model, `Loaded ${loaded.picks.length} pick(s) from feed file`, 'ok');
+      setModelStatus(model, 'Trying live Scores24 backend sync...', 'running');
+      const synced = await syncScores24FromServer();
+      pendingModelPicks = synced.picks;
+      renderModelResults(synced.picks);
+      saveScores24CachedFeed({ picks: synced.picks, meta: synced.meta });
+      setScores24SyncMeta(synced.meta);
+      setModelStatus(model, `Synced ${synced.picks.length} pick(s) from backend`, 'ok');
     } catch (e) {
-      const feedErr = String(e && e.message ? e.message : e);
-      const cached = getScores24CachedFeed();
-      if (cached && Array.isArray(cached.picks) && _isFreshFeedMeta(cached.meta)) {
-        pendingModelPicks = cached.picks;
-        renderModelResults(cached.picks);
-        setScores24SyncMeta({ ...(cached.meta || {}), from: 'cache' });
-        setModelStatus(model, `Using cached Scores24 feed (${cached.picks.length} pick(s))`, 'ok');
-      } else {
-        setModelStatus(model, `Feed unavailable (${feedErr})`, 'error');
+      const backendErr = String(e && e.message ? e.message : e);
+      try {
+        setModelStatus(model, 'Backend sync unavailable, loading feed file...', 'running');
+        const loaded = await loadScores24ManualFeed();
+        pendingModelPicks = loaded.picks;
+        renderModelResults(loaded.picks);
+        const meta = {
+          ...loaded.meta,
+          from: 'feed-file',
+          updatedAt: loaded.meta.updatedAt || new Date().toISOString(),
+        };
+        saveScores24CachedFeed({ picks: loaded.picks, meta });
+        setScores24SyncMeta(meta);
+        setModelStatus(model, `Loaded ${loaded.picks.length} pick(s) from feed file`, 'ok');
+      } catch (feedErr) {
+        const cached = getScores24CachedFeed();
+        if (cached && Array.isArray(cached.picks) && _isFreshFeedMeta(cached.meta)) {
+          pendingModelPicks = cached.picks;
+          renderModelResults(cached.picks);
+          setScores24SyncMeta({ ...(cached.meta || {}), from: 'cache' });
+          setModelStatus(model, `Using cached Scores24 feed (${cached.picks.length} pick(s))`, 'ok');
+        } else {
+          setModelStatus(model, `Scores24 sync failed (${backendErr})`, 'error');
+        }
       }
     } finally {
       if (btn) {
         btn.disabled = false;
-        btn.textContent = 'LOAD SCORES24 FEED';
+        btn.textContent = 'SYNC SCORES24 NOW';
       }
     }
     return;

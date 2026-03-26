@@ -8,12 +8,39 @@ scans sub-league directories to hunt it down.
 """
 
 import argparse
-import sys
-import re
 import json
 import os
-from datetime import datetime
+import re
+import sys
+from datetime import datetime, timedelta
+from html import unescape
+from urllib.error import HTTPError
+from urllib.parse import urljoin
+from urllib.request import Request, urlopen
 from zoneinfo import ZoneInfo
+
+def _load_local_env() -> None:
+    base_dir = os.path.dirname(os.path.abspath(__file__))
+    for filename in (".env", ".env.local"):
+        path = os.path.join(base_dir, filename)
+        if not os.path.exists(path):
+            continue
+        try:
+            with open(path, "r", encoding="utf-8") as handle:
+                for raw_line in handle:
+                    line = raw_line.strip()
+                    if not line or line.startswith("#") or "=" not in line:
+                        continue
+                    key, value = line.split("=", 1)
+                    key = key.strip()
+                    value = value.strip().strip('"').strip("'")
+                    if key and key not in os.environ:
+                        os.environ[key] = value
+        except OSError:
+            continue
+
+
+_load_local_env()
 
 def _default_playwright_browsers_path() -> str:
     configured = os.environ.get("PLAYWRIGHT_BROWSERS_PATH", "").strip()
@@ -58,6 +85,19 @@ SUGGESTIVE_PHRASES = [
 ]
 
 BASE = os.environ.get("SCORES24_BASE_URL", "https://scores24.live").rstrip("/")
+LEAGUE_LISTING_HINTS = {
+    "nba": [f"{BASE}/en/basketball/l-usa-nba"],
+    "nhl": [f"{BASE}/en/ice-hockey/l-usa-nhl"],
+}
+SCORES24_BACKEND = os.environ.get("SCORES24_BACKEND", "auto").strip().lower() or "auto"
+OLOSTEP_API_KEY = os.environ.get("OLOSTEP_API_KEY", "").strip()
+OLOSTEP_API_BASE = os.environ.get("OLOSTEP_API_BASE", "https://api.olostep.com").rstrip("/")
+OLOSTEP_COUNTRY = os.environ.get("OLOSTEP_COUNTRY", "").strip()
+try:
+    OLOSTEP_WAIT_MS = max(0, int(os.environ.get("OLOSTEP_WAIT_BEFORE_SCRAPING_MS", "2500")))
+except ValueError:
+    OLOSTEP_WAIT_MS = 2500
+ALLOW_OLOSTEP_AUTO = os.environ.get("ALLOW_OLOSTEP_AUTO", "").strip().lower() in {"1", "true", "yes", "on"}
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 # HELPERS
@@ -126,9 +166,10 @@ def guess_urls(sport_slug: str, date_str: str, matchup_str: str) -> list[str]:
     ]
 
 
-def listing_url_candidates(sport_slug: str) -> list[str]:
+def listing_url_candidates(sport_slug: str, requested_sport: str | None = None) -> list[str]:
     """Try multiple known Scores24 listing URL patterns."""
-    candidates = [
+    requested_key = (requested_sport or "").strip().lower().replace(" ", "-")
+    candidates = list(LEAGUE_LISTING_HINTS.get(requested_key, [])) + [
         f"{BASE}/en/predictions/{sport_slug}",
         f"{BASE}/en/{sport_slug}/predictions",
         f"{BASE}/en/{sport_slug}",
@@ -166,11 +207,505 @@ def scan_suggestive(text: str) -> list[str]:
     return hits
 
 
+def should_use_olostep() -> bool:
+    if SCORES24_BACKEND == "olostep":
+        return True
+    if SCORES24_BACKEND == "playwright":
+        return False
+    if SCORES24_BACKEND == "auto":
+        return bool(OLOSTEP_API_KEY) and ALLOW_OLOSTEP_AUTO
+    return False
+
+
+def _olostep_headers() -> dict[str, str]:
+    if not OLOSTEP_API_KEY:
+        raise RuntimeError("OLOSTEP_API_KEY is not set")
+    return {
+        "Authorization": f"Bearer {OLOSTEP_API_KEY}",
+        "Content-Type": "application/json",
+    }
+
+
+def _olostep_scrape(url: str, formats: list[str] | None = None) -> dict:
+    payload: dict[str, object] = {
+        "url_to_scrape": url,
+        "formats": formats or ["markdown"],
+    }
+    if OLOSTEP_WAIT_MS:
+        payload["wait_before_scraping"] = OLOSTEP_WAIT_MS
+    if OLOSTEP_COUNTRY:
+        payload["country"] = OLOSTEP_COUNTRY
+
+    req = Request(
+        f"{OLOSTEP_API_BASE}/v1/scrapes",
+        headers=_olostep_headers(),
+        data=json.dumps(payload).encode("utf-8"),
+        method="POST",
+    )
+    with urlopen(req, timeout=120) as resp:
+        data = json.loads(resp.read().decode("utf-8"))
+    if not isinstance(data, dict):
+        raise RuntimeError("unexpected Olostep response shape")
+    return data
+
+
+def _collect_markdown_links(markdown: str) -> list[str]:
+    matches = re.findall(r"\((https?://[^)\s]+|/[^)\s]+)\)", markdown or "")
+    out: list[str] = []
+    for match in matches:
+        link = (match or "").strip()
+        if not link or link.startswith("data:"):
+            continue
+        out.append(link)
+    return out
+
+
+def _normalize_prediction_url(href: str) -> str:
+    href = (href or "").strip()
+    if not href:
+        return ""
+    return href if href.startswith("http") else urljoin(f"{BASE}/", href.lstrip("/"))
+
+
+def _normalize_prediction_page_url(url: str) -> str:
+    full_url = _normalize_prediction_url(url)
+    if not full_url:
+        return ""
+    if re.search(r"/m-\d{2}-\d{2}-\d{4}-", full_url) and not full_url.endswith("-prediction"):
+        return f"{full_url}-prediction"
+    return full_url
+
+
+def _dedupe_prediction_links(raw_links: list[str]) -> list[str]:
+    seen_links = set()
+    normalized_links: list[str] = []
+    for href in raw_links:
+        norm = _normalize_prediction_page_url(href)
+        if not norm or norm in seen_links:
+            continue
+        seen_links.add(norm)
+        normalized_links.append(norm)
+    return normalized_links
+
+
+def _url_matches_matchup(url: str, matchup_parts: list[str]) -> bool:
+    blob = (url or "").lower().replace("-", " ")
+    return all(part in blob for part in matchup_parts)
+
+
+def _target_date_slug(date_str: str | None) -> str:
+    if not date_str:
+        return ""
+    try:
+        return datetime.strptime(date_str, "%Y-%m-%d").strftime("%d-%m-%Y")
+    except ValueError:
+        return ""
+
+
+def _target_date_slugs(date_str: str | None) -> list[str]:
+    if not date_str:
+        return []
+    try:
+        base = datetime.strptime(date_str, "%Y-%m-%d")
+    except ValueError:
+        slug = _target_date_slug(date_str)
+        return [slug] if slug else []
+    return [
+        base.strftime("%d-%m-%Y"),
+        (base + timedelta(days=1)).strftime("%d-%m-%Y"),
+    ]
+
+
+def _extract_prediction_urls(scrape_obj: dict, date_str: str | None) -> list[str]:
+    result = scrape_obj.get("result") if isinstance(scrape_obj, dict) else {}
+    links_on_page = result.get("links_on_page") if isinstance(result, dict) else []
+    markdown = result.get("markdown_content") if isinstance(result, dict) else ""
+
+    raw_links: list[str] = []
+    if isinstance(links_on_page, list):
+        for item in links_on_page:
+            if isinstance(item, str):
+                raw_links.append(item)
+            elif isinstance(item, dict):
+                href = item.get("url") or item.get("href")
+                if isinstance(href, str):
+                    raw_links.append(href)
+
+    raw_links.extend(_collect_markdown_links(markdown if isinstance(markdown, str) else ""))
+
+    date_slugs = _target_date_slugs(date_str)
+    filtered: list[str] = []
+    seen = set()
+    for href in raw_links:
+        full_url = _normalize_prediction_page_url(href)
+        if not full_url:
+            continue
+        low = full_url.lower()
+        if "/m-" not in low and "-prediction" not in low:
+            continue
+        if date_slugs and not any(
+            f"/m-{slug}-" in low or f"/m-{slug}" in low or f"/{slug}-" in low or f"/{slug}" in low
+            for slug in date_slugs
+        ):
+            continue
+        if full_url in seen:
+            continue
+        seen.add(full_url)
+        filtered.append(full_url)
+    return filtered
+
+
+def _extract_subleague_urls(scrape_obj: dict) -> list[str]:
+    result = scrape_obj.get("result") if isinstance(scrape_obj, dict) else {}
+    links_on_page = result.get("links_on_page") if isinstance(result, dict) else []
+    markdown = result.get("markdown_content") if isinstance(result, dict) else ""
+    raw_links: list[str] = []
+    if isinstance(links_on_page, list):
+        for item in links_on_page:
+            if isinstance(item, str):
+                raw_links.append(item)
+            elif isinstance(item, dict):
+                href = item.get("url") or item.get("href")
+                if isinstance(href, str):
+                    raw_links.append(href)
+    raw_links.extend(_collect_markdown_links(markdown if isinstance(markdown, str) else ""))
+
+    out: list[str] = []
+    seen = set()
+    for href in raw_links:
+        full_url = _normalize_prediction_url(href)
+        if not full_url:
+            continue
+        low = full_url.lower()
+        if "/l-" not in low or "/predictions" not in low:
+            continue
+        if full_url in seen:
+            continue
+        seen.add(full_url)
+        out.append(full_url)
+    return out
+
+
+def _normalize_md_text(text: str) -> str:
+    text = unescape(text or "")
+    text = text.replace("\r", "")
+    return re.sub(r"[ \t]+", " ", text)
+
+
+def _first_match(patterns: list[str], text: str, flags: int = re.IGNORECASE) -> str:
+    for pattern in patterns:
+        match = re.search(pattern, text, flags)
+        if match:
+            return " ".join((match.group(1) or "").split()).strip()
+    return ""
+
+
+def _extract_matchup(markdown: str) -> tuple[str, str]:
+    patterns = [
+        r"\[([A-Z][A-Za-z0-9 .&'\-()]+)\]\(/en/[^)]+/t-[^)]+\)\s*\\-\s*\[([A-Z][A-Za-z0-9 .&'\-()]+)\]\(/en/[^)]+/t-[^)]+\)",
+        r"^([A-Z][A-Za-z0-9 .&'\-()]+)\s+vs\.?\s+([A-Z][A-Za-z0-9 .&'\-()]+?)\s+Prediction(?:\s+Today)?\b",
+        r"([A-Z][A-Za-z0-9 .&'\-()]+)\s*-\s*([A-Z][A-Za-z0-9 .&'\-()]+)\s+prediction",
+    ]
+    for pattern in patterns:
+        match = re.search(pattern, markdown, re.IGNORECASE | re.MULTILINE)
+        if match:
+            return " ".join(match.group(1).split()).strip(), " ".join(match.group(2).split()).strip()
+    return "", ""
+
+
+def _extract_title_matchup(markdown: str) -> tuple[str, str]:
+    compact = (markdown or "").splitlines()[0] if markdown else ""
+    match = re.search(
+        r"^\s*([A-Z][A-Za-z0-9 .&'\-()]+?)\s+vs\.?\s+([A-Z][A-Za-z0-9 .&'\-()]+?)(?:\s+(?:Prediction|Live Stream)\b|$)",
+        compact,
+        re.IGNORECASE,
+    )
+    if not match:
+        return "", ""
+    return " ".join(match.group(1).split()).strip(), " ".join(match.group(2).split()).strip()
+
+
+def _slug_similarity(candidate: str, target: str) -> int:
+    cand = re.sub(r"[^a-z0-9]+", " ", candidate.lower()).strip()
+    targ = re.sub(r"[^a-z0-9]+", " ", target.lower()).strip()
+    if not cand or not targ:
+        return 0
+    score = 0
+    cand_tokens = cand.split()
+    targ_tokens = targ.split()
+    cand_set = set(cand_tokens)
+    targ_set = set(targ_tokens)
+    score += len(cand_set & targ_set) * 5
+    if cand.endswith(targ) or targ.endswith(cand):
+        score += 4
+    if cand.startswith(targ) or targ.startswith(cand):
+        score += 3
+    return score
+
+
+def _extract_matchup_from_url(url: str, markdown: str) -> tuple[str, str]:
+    full_url = _normalize_prediction_page_url(url)
+    match = re.search(r"/m-\d{2}-\d{2}-\d{4}-(.+?)(?:-prediction)?/?$", full_url)
+    if not match:
+        return "", ""
+    slug = match.group(1).strip("-")
+    tokens = [tok for tok in slug.split("-") if tok]
+    if len(tokens) < 2:
+        return "", ""
+
+    hinted_home, hinted_away = _extract_title_matchup(markdown)
+    best_score = -1
+    best_pair = ("", "")
+    for idx in range(1, len(tokens)):
+        home = " ".join(tok.capitalize() for tok in tokens[:idx])
+        away = " ".join(tok.capitalize() for tok in tokens[idx:])
+        score = 0
+        if hinted_home or hinted_away:
+            score += _slug_similarity(home, hinted_home)
+            score += _slug_similarity(away, hinted_away)
+        score += min(idx, len(tokens) - idx)
+        if score > best_score:
+            best_score = score
+            best_pair = (home, away)
+    return best_pair
+
+
+def _extract_date_text(markdown: str) -> str:
+    compact = markdown[:2500]
+    dotted_match = re.search(r"\b(\d{2}\.\d{2}\.\d{2})\b[\s\S]{0,60}\b(\d{2}:\d{2})\b", compact)
+    if dotted_match:
+        return f"{dotted_match.group(1)} {dotted_match.group(2)}"
+    patterns = [
+        r"\b([A-Z][a-z]+ \d{1,2}, \d{4}(?:, \d{1,2}:\d{2}(?:\s*[AP]M)?)?)\b",
+        r"\b(\d{1,2} [A-Z][a-z]{2,8}(?: \d{4})?(?:, \d{2}:\d{2})?)\b",
+        r"\b(\d{4}-\d{2}-\d{2}(?: \d{2}:\d{2})?)\b",
+    ]
+    return _first_match(patterns, markdown, 0)
+
+
+def _extract_tip(markdown: str) -> str:
+    line_patterns = [
+        r"Our choice\s+([^\n]+)",
+        r"Our choice[:\s]*([^\n]+)",
+        r"(Total (?:goals|points) (?:Over|Under)\s*\([\d.]+\))",
+        r"([A-Za-z0-9 .&'\-]+ Handicap\s*\([+-]?[\d.]+\))",
+        r"([A-Za-z0-9 .&'\-]+ Total (?:goals|points) (?:Over|Under)\s*\([\d.]+\))",
+        r"(Both Teams To Score\s*\((?:Yes|No)\))",
+        r"([A-Za-z0-9 .&'\-]+ to win)",
+        r"((?:Over|Under)\s*\([\d.]+\))",
+    ]
+    tip = _first_match(line_patterns, markdown)
+    tip = re.sub(r"\s+at odds of\s+[^\s]+\*?", "", tip, flags=re.IGNORECASE)
+    return tip.rstrip(" .")
+
+
+def _extract_confidence(markdown: str) -> str:
+    candidates = re.findall(r"\b(\d{1,3})%\b", markdown or "")
+    for candidate in candidates:
+        try:
+            value = int(candidate)
+        except ValueError:
+            continue
+        if 30 <= value <= 100:
+            return f"{value}%"
+    return ""
+
+
+def _decimal_to_american(value: float) -> str:
+    if value <= 1:
+        return ""
+    if value >= 2:
+        return f"+{int(round((value - 1) * 100))}"
+    return str(int(round(-100 / (value - 1))))
+
+
+def _fractional_to_american(text: str) -> str:
+    try:
+        numerator, denominator = text.split("/", 1)
+        num = float(numerator)
+        den = float(denominator)
+        if den == 0:
+            return ""
+        decimal = 1 + (num / den)
+        return _decimal_to_american(decimal)
+    except (ValueError, ZeroDivisionError):
+        return ""
+
+
+def _extract_odds(markdown: str) -> str:
+    american = _first_match([r"at odds of\s*([+-]\d{3,4})\b"], markdown)
+    if american:
+        return american
+    fractional = _first_match([r"at odds of\s*(\d+/\d+)\*?"], markdown)
+    if fractional:
+        return _fractional_to_american(fractional)
+    decimal = _first_match([r"at odds of\s*(\d\.\d{1,2})\b"], markdown)
+    if decimal:
+        try:
+            return _decimal_to_american(float(decimal))
+        except ValueError:
+            return ""
+    return ""
+
+
+def _extract_league(markdown: str, fallback: str) -> str:
+    breadcrumb = re.findall(r"\[([A-Za-z0-9 .&'\-]+)\]\(/en/[^)]+/l-[^)]+/predictions\)", markdown or "")
+    if breadcrumb:
+        return " ".join(breadcrumb[-1].split()).strip()
+    league = _first_match(
+        [
+            r"(?:League|Tournament|Competition)[:\s]*([^\n]+)",
+            r"Breadcrumbs?[^\n]*\n([^\n]+)",
+        ],
+        markdown,
+    )
+    return league or fallback
+
+
+def _extract_olostep_prediction(scrape_obj: dict, sport_label: str, source_url: str = "") -> dict:
+    result = scrape_obj.get("result") if isinstance(scrape_obj, dict) else {}
+    markdown = result.get("markdown_content") if isinstance(result, dict) else ""
+    markdown = _normalize_md_text(markdown if isinstance(markdown, str) else "")
+    home, away = _extract_matchup(markdown)
+    if not home or not away or len(away.split()) == 1:
+        url_home, url_away = _extract_matchup_from_url(source_url, markdown)
+        if url_home and url_away:
+            home = url_home
+            away = url_away
+    return {
+        "homeTeam": home,
+        "awayTeam": away,
+        "date": _extract_date_text(markdown),
+        "tip": _extract_tip(markdown),
+        "primaryOdds": _extract_odds(markdown),
+        "confidence": _extract_confidence(markdown),
+        "votePcts": [],
+        "totalVotes": "",
+        "trends": [],
+        "oddsTable": [],
+        "pageText": markdown[:10000],
+        "league": _extract_league(markdown, sport_label),
+    }
+
+
+def _scrape_prediction_with_retry(url: str, sport_label: str, attempts: int = 2) -> dict:
+    last_pred: dict = {}
+    for _ in range(max(1, attempts)):
+        scrape = _olostep_scrape(url, ["markdown"])
+        pred = _extract_olostep_prediction(scrape, sport_label, url)
+        last_pred = pred
+        if pred.get("tip"):
+            return pred
+    return last_pred
+
+
+def run_with_olostep(args) -> int:
+    if args.url and not args.url.endswith("/predictions") and not args.url.endswith("/predictions/"):
+        direct_url = _normalize_prediction_page_url(args.url)
+        pred = _scrape_prediction_with_retry(direct_url, "Unknown")
+        if not pred.get("tip"):
+            print(f"⚠️  Loaded but extraction failed: {direct_url}")
+            return 1
+        print_prediction(pred, {"league": pred.get("league", "")}, "Unknown", direct_url)
+        return 0
+
+    sport_slug = resolve_sport(args.sport) if args.sport else "Unknown"
+    sport_label = (args.sport or sport_slug).upper()
+    listing_urls = [args.url] if args.url else listing_url_candidates(sport_slug, args.sport)
+    listing_url = listing_urls[0]
+    matchup_parts = [p.strip().lower() for p in args.matchup.split("vs") if p.strip()] if args.matchup else []
+    print(f"Sport:          {sport_slug if args.sport else 'Unknown'}")
+    if args.date:
+        print(f"Date requested: {args.date}")
+    if args.matchup:
+        print(f"Matchup:        {args.matchup}")
+    print(f"Listing URL:    {listing_url}")
+    print("Backend:        olostep")
+
+    filtered: list[dict] = []
+    used_listing_url = ""
+    for cand in listing_urls:
+        scrape = _olostep_scrape(cand, ["markdown"])
+        normalized_links = _dedupe_prediction_links(_extract_prediction_urls(scrape, args.date))
+        if matchup_parts and normalized_links:
+            normalized_links = [href for href in normalized_links if _url_matches_matchup(href, matchup_parts)]
+
+        # Only fan out into sub-leagues when the main listing did not already
+        # expose the direct prediction links we need.
+        if not normalized_links:
+            aggregated: list[str] = []
+            subleague_urls = _extract_subleague_urls(scrape)[:20]
+            for subleague_url in subleague_urls:
+                try:
+                    sub_scrape = _olostep_scrape(subleague_url, ["markdown"])
+                    sub_links = _dedupe_prediction_links(_extract_prediction_urls(sub_scrape, args.date))
+                    if matchup_parts:
+                        sub_links = [href for href in sub_links if _url_matches_matchup(href, matchup_parts)]
+                    aggregated.extend(sub_links)
+                    if matchup_parts and sub_links:
+                        break
+                except Exception:
+                    continue
+            normalized_links = _dedupe_prediction_links(aggregated)
+        if not normalized_links:
+            continue
+        used_listing_url = cand
+        for href in normalized_links:
+            filtered.append({
+                "href": href,
+                "home": "",
+                "away": "",
+                "isoDate": "",
+                "visDate": "",
+                "visTime": "",
+                "league": sport_label,
+                "confidence": "",
+            })
+        break
+
+    if used_listing_url and used_listing_url != listing_url:
+        print(f"Listing URL fallback: {used_listing_url}")
+    if not filtered:
+        print("Listing page status: ❌ No prediction links found via Olostep")
+        return 1
+    print("Listing page status: ✅ Page loaded")
+
+    if args.matchup:
+        filtered = [
+            card for card in filtered
+            if _url_matches_matchup(card["href"], matchup_parts)
+        ]
+        print(f"Matches found for request on listing: {len(filtered)}")
+
+    if not filtered:
+        return 0
+
+    stats = {"loaded": 0, "404": 0, "no_data": 0}
+    for card in filtered:
+        full_url = card["href"]
+        pred = _scrape_prediction_with_retry(full_url, sport_label)
+        if not pred.get("tip"):
+            print(f"\n⚠️  Loaded but no prediction data found on page: {full_url}")
+            stats["no_data"] += 1
+            continue
+        stats["loaded"] += 1
+        print_prediction(pred, {"league": pred.get("league", sport_label)}, sport_label, full_url)
+
+    print("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+    print("SUMMARY")
+    print(f"Total matches extracted:        {len(filtered)}")
+    print(f"Individual pages loaded:        {stats['loaded']}")
+    print(f"Individual pages 404'd:         {stats['404']}")
+    print("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+    return 0
+
+
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 # BROWSER HELPERS
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 def make_context(pw):
+    proxy_conf = None
     launch_args = {
         "headless": True,
         "args": [
@@ -246,6 +781,10 @@ def load_page(ctx, url: str, wait_ms: int = 3000):
     except Exception:
         page.close()
         return None, 500
+
+
+def pause_for_manual_cloudflare(ctx, url: str):
+    return
 
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -576,6 +1115,23 @@ def main():
         print(f"   Available: {', '.join(VALID_SPORTS)}")
         sys.exit(1)
 
+    if should_use_olostep():
+        try:
+            sys.exit(run_with_olostep(args))
+        except HTTPError as exc:
+            status = getattr(exc, "code", "?")
+            body = ""
+            try:
+                if exc.fp is not None:
+                    body = exc.read(300).decode("utf-8", errors="replace").replace("\n", " ")
+            except Exception:
+                body = ""
+            print(f"Olostep scrape failed (HTTP {status}): {body or exc}")
+            sys.exit(1)
+        except Exception as exc:
+            print(f"Olostep scrape failed: {exc}")
+            sys.exit(1)
+
     with sync_playwright() as pw:
         ctx = make_context(pw)
 
@@ -597,7 +1153,7 @@ def main():
             print_prediction(pred, {}, "Unknown", args.url)
             return
 
-        listing_urls = [args.url] if args.url else listing_url_candidates(sport_slug)
+        listing_urls = [args.url] if args.url else listing_url_candidates(sport_slug, args.sport)
         listing_url = listing_urls[0]
         print(f"Sport:          {sport_slug if args.sport else 'Unknown'}")
         if args.date:    print(f"Date requested: {args.date}")
@@ -620,6 +1176,7 @@ def main():
             if status == 403:
                 print("Listing page status: ❌ Cloudflare blocked this runtime (status 403)")
                 print("Hint: Configure PLAYWRIGHT_PROXY_SERVER (and optional PLAYWRIGHT_PROXY_USERNAME/PLAYWRIGHT_PROXY_PASSWORD) for Render.")
+                pause_for_manual_cloudflare(ctx, used_listing_url or listing_url)
             else:
                 print(f"Listing page status: ❌ Page failed (status {status})")
             return

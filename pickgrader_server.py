@@ -31,6 +31,29 @@ from urllib.error import URLError, HTTPError
 from urllib.parse import urlencode, urlparse
 from urllib.request import Request, urlopen
 
+def _load_local_env() -> None:
+    base_dir = os.path.dirname(os.path.abspath(__file__))
+    for filename in (".env", ".env.local"):
+        path = os.path.join(base_dir, filename)
+        if not os.path.exists(path):
+            continue
+        try:
+            with open(path, "r", encoding="utf-8") as handle:
+                for raw_line in handle:
+                    line = raw_line.strip()
+                    if not line or line.startswith("#") or "=" not in line:
+                        continue
+                    key, value = line.split("=", 1)
+                    key = key.strip()
+                    value = value.strip().strip('"').strip("'")
+                    if key and key not in os.environ:
+                        os.environ[key] = value
+        except OSError:
+            continue
+
+
+_load_local_env()
+
 HOST = os.environ.get("HOST", "0.0.0.0")
 try:
     PORT = int(os.environ.get("PORT", "8765"))
@@ -2626,9 +2649,9 @@ def run_scores24_scraper(sports: list[str], date_str: str | None = None) -> dict
     python_bin = _resolve_python_bin(SCORES24_VENV)
 
     sport_map = {
-        "nba": "basketball",
-        "nhl": "ice-hockey",
-        "mlb": "baseball",
+        "nba": "nba",
+        "nhl": "nhl",
+        "mlb": "mlb",
     }
     sport_tag_map = {
         "nba": "NBA",

@@ -2,8 +2,39 @@
 """Local sync script for Scores24 picks via macOS launchd."""
 
 import json
+import os
 from datetime import datetime
 from pathlib import Path
+
+def _load_local_env() -> None:
+    base_dir = Path(__file__).resolve().parent
+    for filename in (".env", ".env.local"):
+        path = base_dir / filename
+        if not path.exists():
+            continue
+        try:
+            for raw_line in path.read_text(encoding="utf-8").splitlines():
+                line = raw_line.strip()
+                if not line or line.startswith("#") or "=" not in line:
+                    continue
+                key, value = line.split("=", 1)
+                key = key.strip()
+                value = value.strip().strip('"').strip("'")
+                if key and key not in os.environ:
+                    os.environ[key] = value
+        except OSError:
+            continue
+
+
+def _env_flag(name: str) -> bool:
+    return os.environ.get(name, "").strip().lower() in {"1", "true", "yes", "on"}
+
+
+_load_local_env()
+
+if not _env_flag("ENABLE_SCORES24_LOCALSYNC"):
+    print("Scores24 launchd sync disabled. Set ENABLE_SCORES24_LOCALSYNC=true to enable it.")
+    raise SystemExit(0)
 
 import pickgrader_server as p
 
