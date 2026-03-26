@@ -23,26 +23,34 @@ def _logit(prob: float) -> float:
 
 def calculate_layer1_base_rate(team: Team, opp_team: Team, h2h_win_pct_2yr: float) -> float:
     """
-    Base rate = (Team A wins / total games) weighted as:
-      - 45% season Net Rating differential vs Opponent
-      - 30% last 10 games win % (recent form)
-      - 25% H2H win % over last 2 years
+    Base rate blends season quality with recency-sensitive 5/10 game form.
     """
-    net_rtg_weight = 0.45
-    recent_weight = 0.30
-    h2h_weight = 0.25
+    net_rtg_weight = 0.28
+    recent_5_weight = 0.22
+    recent_10_weight = 0.18
+    weighted_form_weight = 0.12
+    recent_point_diff_weight = 0.10
+    season_weight = 0.05
+    h2h_weight = 0.05
     
     # Net Rating Diff to Probability mapping
     net_rtg_diff = team.team_stats.net_rating - opp_team.team_stats.net_rating
     # A 1 net rating diff is roughly 3% win prob edge from 50%
     net_rtg_prob = 0.50 + (net_rtg_diff * 0.03)
     net_rtg_prob = max(0.05, min(0.95, net_rtg_prob))
+
+    recent_point_diff = team.team_stats.weighted_point_diff - opp_team.team_stats.weighted_point_diff
+    recent_point_prob = max(0.05, min(0.95, 0.50 + (recent_point_diff * 0.018)))
     
     home_court_prior = 0.015 if team.is_home else -0.015
 
     base_rate = (
-        (net_rtg_prob * net_rtg_weight) + 
-        (team.team_stats.last_10_win_pct * recent_weight) + 
+        (net_rtg_prob * net_rtg_weight) +
+        (team.team_stats.recent_5_win_pct * recent_5_weight) +
+        (team.team_stats.recent_10_win_pct * recent_10_weight) +
+        (team.team_stats.weighted_win_pct * weighted_form_weight) +
+        (recent_point_prob * recent_point_diff_weight) +
+        (team.team_stats.season_win_pct * season_weight) +
         (h2h_win_pct_2yr * h2h_weight) +
         home_court_prior
     )
@@ -61,6 +69,20 @@ def calculate_layer2_situational(team: Team, opp_team: Team, game_ctx: GameConte
     if team.team_stats.is_b2b_second_leg:
         adj -= 0.08
         reasons.append("Schedule Loss (B2B) -8.0%")
+
+    rest_edge = team.team_stats.rest_days - opp_team.team_stats.rest_days
+    if abs(rest_edge) >= 0.5:
+        rest_adj = max(-0.05, min(0.05, rest_edge * 0.015))
+        adj += rest_adj
+        reasons.append(f"Rest day edge {rest_adj*100:+.1f}%")
+
+    if team.team_stats.back_to_back_flag and not team.team_stats.is_b2b_second_leg:
+        adj -= 0.04
+        reasons.append("Back-to-back flag -4.0%")
+
+    if team.team_stats.is_3_in_4_nights:
+        adj -= 0.03
+        reasons.append("3 games in 4 nights -3.0%")
         
     # 2. Key Star Player Out
     if team.key_stars_out:
@@ -87,6 +109,11 @@ def calculate_layer2_situational(team: Team, opp_team: Team, game_ctx: GameConte
         adj += 0.03
         reasons.append("Motivation/Elimination Game +3.0%")
 
+    if team.injury_flag:
+        injury_adj = min(0.08, 0.015 + (team.injury_severity * 0.45))
+        adj -= injury_adj
+        reasons.append(f"Injury flag -{injury_adj*100:.1f}%")
+
     # 5. Home floor routine / road penalty
     if team.is_home:
         adj += 0.005
@@ -111,15 +138,24 @@ def calculate_layer3_matchup_modifier(team: Team, opp_team: Team) -> tuple[float
     adj = 0.0
     reasons = []
     
-    # Pace Edge: basic proxy is if pace > 100, offRtg > 115, and opponent defRtg > 115
+    pace_diff = team.team_stats.pace - opp_team.team_stats.pace
     if team.team_stats.pace > 100.0 and team.team_stats.off_rating_10 > 115.0 and opp_team.team_stats.def_rating_10 > 115.0:
         adj += 0.03
         reasons.append("Pace edge vs bottom-10 def +3.0%")
-        
+    elif pace_diff > 2.0:
+        adj += 0.02
+        reasons.append("Pace differential edge +2.0%")
+
     # Rebound Edge
     if (team.team_stats.reb_pct - opp_team.team_stats.reb_pct) > 0.03:
         adj += 0.02
         reasons.append("Rebound edge +2.0%")
+
+    recent_form_edge = team.team_stats.weighted_point_diff - opp_team.team_stats.weighted_point_diff
+    if abs(recent_form_edge) >= 2.0:
+        form_adj = max(-0.04, min(0.04, recent_form_edge * 0.004))
+        adj += form_adj
+        reasons.append(f"Recent point-diff edge {form_adj*100:+.1f}%")
 
     # Mild home-court shooting execution bump in favorable offensive matchups.
     if team.is_home and team.team_stats.off_rating_10 >= opp_team.team_stats.def_rating_10:
@@ -145,19 +181,27 @@ def combine_home_win_probability(
     as one feature among several instead of being the sole driver.
     """
     base_prob = _clamp_probability(layer_probability)
-    recent_form_edge = home_team.team_stats.last_10_win_pct - away_team.team_stats.last_10_win_pct
+    recent_form_edge = home_team.team_stats.weighted_win_pct - away_team.team_stats.weighted_win_pct
+    recent_point_diff_edge = home_team.team_stats.weighted_point_diff - away_team.team_stats.weighted_point_diff
+    rest_edge = home_team.team_stats.rest_days - away_team.team_stats.rest_days
+    b2b_edge = float(away_team.team_stats.back_to_back_flag) - float(home_team.team_stats.back_to_back_flag)
     efficiency_edge = (
         (home_team.team_stats.off_rating_10 - away_team.team_stats.off_rating_10)
         - (home_team.team_stats.def_rating_10 - away_team.team_stats.def_rating_10)
     )
     rebound_edge = home_team.team_stats.reb_pct - away_team.team_stats.reb_pct
+    injury_edge = away_team.injury_severity - home_team.injury_severity
 
     blended_logit = (
         _logit(base_prob)
         + (predicted_spread / 7.5) * 0.55
         + recent_form_edge * 1.15
+        + recent_point_diff_edge * 0.08
+        + rest_edge * 0.18
+        + b2b_edge * 0.28
         + efficiency_edge * 0.03
         + rebound_edge * 8.0
+        + injury_edge * 1.1
     )
     return _sigmoid(blended_logit)
 
@@ -185,19 +229,38 @@ def extremize_probability(raw_prob: float, factor: float = 1.3) -> float:
 
 def predict_total_points(game_ctx: GameContext) -> float:
     """
-    Total: Base 225 points + (Pace Adjust) + (Defensive Rating Adjust)
+    Total scoring model with pace, recent form, rest, B2B, and injury context.
     """
-    base_points = 225.0
+    base_points = (
+        game_ctx.home_team.team_stats.recent_10_total_points
+        + game_ctx.away_team.team_stats.recent_10_total_points
+    ) / 2.0
     
     h_pace = game_ctx.home_team.team_stats.pace
     a_pace = game_ctx.away_team.team_stats.pace
     pace_adj = ((h_pace - 99.0) + (a_pace - 99.0)) * 2.0
+    pace_diff_adj = abs(h_pace - a_pace) * 0.35
     
     h_def = game_ctx.home_team.team_stats.def_rating_10
     a_def = game_ctx.away_team.team_stats.def_rating_10
     def_adj = ((h_def - 114.0) + (a_def - 114.0)) * 0.8
-    
-    return base_points + pace_adj + def_adj
+
+    recent_total_adj = (
+        (game_ctx.home_team.team_stats.recent_5_total_points - game_ctx.home_team.team_stats.recent_10_total_points)
+        + (game_ctx.away_team.team_stats.recent_5_total_points - game_ctx.away_team.team_stats.recent_10_total_points)
+    ) * 0.35
+    rest_adj = (
+        (game_ctx.home_team.team_stats.rest_days - 1.0)
+        + (game_ctx.away_team.team_stats.rest_days - 1.0)
+    ) * 0.6
+    b2b_adj = (
+        (-1.8 if game_ctx.home_team.team_stats.back_to_back_flag else 0.0)
+        + (-1.8 if game_ctx.away_team.team_stats.back_to_back_flag else 0.0)
+    )
+    injury_adj = -2.0 * (game_ctx.home_team.injury_flag + game_ctx.away_team.injury_flag)
+    injury_adj -= (game_ctx.home_team.injury_severity + game_ctx.away_team.injury_severity) * 6.0
+
+    return base_points + pace_adj + pace_diff_adj + def_adj + recent_total_adj + rest_adj + b2b_adj + injury_adj
 
 
 def legacy_predict_spread(home_prob: float) -> float:
@@ -217,15 +280,33 @@ def predict_spread(home_team: Team, away_team: Team) -> float:
     inform the win model instead of being reverse-engineered from it.
     """
     net_rating_margin = (home_team.team_stats.net_rating - away_team.team_stats.net_rating) * 0.72
-    recent_form_margin = (home_team.team_stats.last_10_win_pct - away_team.team_stats.last_10_win_pct) * 8.0
+    recent_form_margin = (
+        (home_team.team_stats.recent_5_win_pct - away_team.team_stats.recent_5_win_pct) * 7.0
+        + (home_team.team_stats.weighted_point_diff - away_team.team_stats.weighted_point_diff) * 0.45
+    )
     efficiency_margin = (
         (home_team.team_stats.off_rating_10 - away_team.team_stats.off_rating_10) * 0.14
         - (home_team.team_stats.def_rating_10 - away_team.team_stats.def_rating_10) * 0.12
     )
     rebound_margin = (home_team.team_stats.reb_pct - away_team.team_stats.reb_pct) * 22.0
+    rest_margin = (home_team.team_stats.rest_days - away_team.team_stats.rest_days) * 0.9
+    b2b_margin = (
+        (-1.25 if home_team.team_stats.back_to_back_flag else 0.0)
+        + (1.25 if away_team.team_stats.back_to_back_flag else 0.0)
+    )
+    injury_margin = (away_team.injury_severity - home_team.injury_severity) * 10.0
 
     # Use a +3.5 point home-court prior until we have enough logged outcomes to
     # estimate the margin empirically from this model's own prediction history.
     home_court_margin = 3.5 if home_team.is_home else -3.5
 
-    return net_rating_margin + recent_form_margin + efficiency_margin + rebound_margin + home_court_margin
+    return (
+        net_rating_margin
+        + recent_form_margin
+        + efficiency_margin
+        + rebound_margin
+        + rest_margin
+        + b2b_margin
+        + injury_margin
+        + home_court_margin
+    )

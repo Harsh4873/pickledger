@@ -13,6 +13,7 @@ from probability_layers import (
 from main import format_output
 
 def create_team(id_num, name, is_home, net_rtg, off_rtg, def_rtg, ts_pct, reb_pct, pace, win_pct):
+    recent_total_proxy = 224.0 + ((pace - 99.0) * 1.4) + ((off_rtg - def_rtg) * 0.20)
     stats = TeamStats(
         net_rating=net_rtg,
         off_rating_10=off_rtg,
@@ -23,7 +24,17 @@ def create_team(id_num, name, is_home, net_rtg, off_rtg, def_rtg, ts_pct, reb_pc
         last_10_win_pct=win_pct, # using season win pct as proxy for recent form in this test
         is_b2b_second_leg=False,
         is_3_in_4_nights=False,
-        season_win_pct=win_pct
+        season_win_pct=win_pct,
+        recent_5_win_pct=min(1.0, max(0.0, win_pct + 0.03)),
+        recent_10_win_pct=win_pct,
+        weighted_win_pct=win_pct,
+        recent_5_point_diff=net_rtg * 1.05,
+        recent_10_point_diff=net_rtg,
+        weighted_point_diff=net_rtg * 1.02,
+        recent_5_total_points=recent_total_proxy + 1.0,
+        recent_10_total_points=recent_total_proxy,
+        rest_days=1.0,
+        back_to_back_flag=False,
     )
     # create default mock players for lineup
     p1 = Player(id_num*10+1, f"Star 1", name, "PG", "Active", 25.0)

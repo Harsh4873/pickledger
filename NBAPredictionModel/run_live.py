@@ -30,10 +30,20 @@ def create_team(id_num, name, is_home, stats_dict):
         ts_pct=stats_dict['ts_pct'], 
         reb_pct=stats_dict['reb_pct'], 
         pace=stats_dict['pace'],
-        last_10_win_pct=stats_dict['win_pct'], 
-        is_b2b_second_leg=False, # We can add schedule fetching later
-        is_3_in_4_nights=False, 
-        season_win_pct=stats_dict['win_pct']
+        last_10_win_pct=stats_dict.get('recent_10_win_pct', stats_dict['win_pct']),
+        is_b2b_second_leg=stats_dict.get('back_to_back_flag', False),
+        is_3_in_4_nights=stats_dict.get('is_3_in_4_nights', False),
+        season_win_pct=stats_dict['win_pct'],
+        recent_5_win_pct=stats_dict.get('recent_5_win_pct', stats_dict['win_pct']),
+        recent_10_win_pct=stats_dict.get('recent_10_win_pct', stats_dict['win_pct']),
+        weighted_win_pct=stats_dict.get('weighted_win_pct', stats_dict['win_pct']),
+        recent_5_point_diff=stats_dict.get('recent_5_point_diff', stats_dict['net_rating']),
+        recent_10_point_diff=stats_dict.get('recent_10_point_diff', stats_dict['last10_net_rating']),
+        weighted_point_diff=stats_dict.get('weighted_point_diff', stats_dict['net_rating']),
+        recent_5_total_points=stats_dict.get('recent_5_total_points', 225.0),
+        recent_10_total_points=stats_dict.get('recent_10_total_points', 225.0),
+        rest_days=stats_dict.get('rest_days', 1.0),
+        back_to_back_flag=stats_dict.get('back_to_back_flag', False),
     )
     # create placeholder active roster for verification display, since we handle injuries via on/off impact
     p1 = Player(id_num*10+1, "Player 1", name, "G", "Active", 25.0)
@@ -90,6 +100,12 @@ def run_game(game_info, all_team_stats, injuries, ou_line=225.0):
         time.sleep(1) # Rate limiting
     
     total_injury_adj = inj_adj_home - inj_adj_away
+    home_team.injury_flag = int(bool(injuries.get(home_name, [])))
+    away_team.injury_flag = int(bool(injuries.get(away_name, [])))
+    home_team.injury_severity = min(0.25, abs(inj_adj_home) + 0.01 * len(injuries.get(home_name, [])))
+    away_team.injury_severity = min(0.25, abs(inj_adj_away) + 0.01 * len(injuries.get(away_name, [])))
+    home_team.injury_summary = inj_reason_home
+    away_team.injury_summary = inj_reason_away
     
     l2_combined = f"Sit: {l2_reasons} | Inj [{home_name}: {inj_reason_home}] | [{away_name}: {inj_reason_away}]"
     total_l2_with_inj = max(-0.25, min(0.25, total_l2_adj + total_injury_adj))
@@ -156,7 +172,7 @@ def main():
         print("No market totals found. Falling back to baseline 225.0 where needed.")
     
     print("\n📡 Fetching team stats for all NBA teams...")
-    all_team_stats = fetch_all_team_stats()
+    all_team_stats = fetch_all_team_stats(as_of_date=target_date)
     
     print("\n📡 Fetching official NBA injury report...")
     injuries = fetch_injuries()

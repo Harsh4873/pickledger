@@ -22,6 +22,16 @@ class TeamStats:
     is_b2b_second_leg: bool
     is_3_in_4_nights: bool
     season_win_pct: float
+    recent_5_win_pct: float = 0.5
+    recent_10_win_pct: float = 0.5
+    weighted_win_pct: float = 0.5
+    recent_5_point_diff: float = 0.0
+    recent_10_point_diff: float = 0.0
+    weighted_point_diff: float = 0.0
+    recent_5_total_points: float = 225.0
+    recent_10_total_points: float = 225.0
+    rest_days: float = 1.0
+    back_to_back_flag: bool = False
 
 @dataclass
 class Venue:
@@ -38,6 +48,9 @@ class Team:
     starting_center_out: bool = False
     motivation_elimination_game: bool = False
     rotation_players_out: int = 0
+    injury_flag: int = 0
+    injury_severity: float = 0.0
+    injury_summary: str = ""
 
 @dataclass
 class GameContext:
@@ -46,3 +59,4 @@ class GameContext:
     home_team: Team
     away_team: Team
     h2h_home_win_pct_2yr: float  # H2H over last 2 years
+    game_id: str = ""

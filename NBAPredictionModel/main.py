@@ -100,7 +100,10 @@ def run_pipeline():
     den_stats = TeamStats(
         net_rating=6.5, off_rating_10=118.0, def_rating_10=112.5, 
         ts_pct=0.610, reb_pct=0.520, pace=97.5, last_10_win_pct=0.700, 
-        is_b2b_second_leg=False, is_3_in_4_nights=False, season_win_pct=0.680
+        is_b2b_second_leg=False, is_3_in_4_nights=False, season_win_pct=0.680,
+        recent_5_win_pct=0.800, recent_10_win_pct=0.700, weighted_win_pct=0.760,
+        recent_5_point_diff=7.2, recent_10_point_diff=6.5, weighted_point_diff=6.9,
+        recent_5_total_points=223.0, recent_10_total_points=220.5, rest_days=2.0, back_to_back_flag=False
     )
     den_team = Team(101, "Nuggets", True, den_stats, [den_p1, den_p2, den_p3])
     
@@ -112,7 +115,10 @@ def run_pipeline():
     bos_stats = TeamStats(
         net_rating=8.2, off_rating_10=121.0, def_rating_10=110.0, 
         ts_pct=0.620, reb_pct=0.510, pace=100.5, last_10_win_pct=0.800, 
-        is_b2b_second_leg=True, is_3_in_4_nights=False, season_win_pct=0.780
+        is_b2b_second_leg=True, is_3_in_4_nights=False, season_win_pct=0.780,
+        recent_5_win_pct=0.800, recent_10_win_pct=0.800, weighted_win_pct=0.790,
+        recent_5_point_diff=8.0, recent_10_point_diff=8.2, weighted_point_diff=8.1,
+        recent_5_total_points=227.5, recent_10_total_points=225.0, rest_days=0.0, back_to_back_flag=True
     )
     bos_team = Team(102, "Celtics", False, bos_stats, [bos_p1, bos_p2, bos_p3], starting_center_out=True)
     

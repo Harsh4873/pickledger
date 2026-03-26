@@ -5,9 +5,11 @@ Pulls real current rosters, today's games, and injury reports.
 from nba_api.stats.static import teams
 from nba_api.stats.endpoints import (
     commonteamroster, 
+    leaguegamefinder,
     leaguedashteamstats,
     scoreboardv2
 )
+import pandas as pd
 import requests
 from bs4 import BeautifulSoup
 import time
@@ -17,6 +19,86 @@ from urllib.request import Request, urlopen
 from urllib.error import URLError, HTTPError
 
 _nba_teams = teams.get_teams()
+
+
+def _team_key(full_name: str) -> str:
+    if full_name == 'Portland Trail Blazers':
+        return 'Trail Blazers'
+    return full_name.split()[-1]
+
+
+def _weighted_recent_metric(values: list[float], fallback: float = 0.0) -> float:
+    clean_values = [float(v) for v in values if v is not None]
+    if not clean_values:
+        return fallback
+    weights = list(range(len(clean_values), 0, -1))
+    denom = sum(weights)
+    if denom <= 0:
+        return fallback
+    return sum(value * weight for value, weight in zip(clean_values, weights)) / denom
+
+
+def fetch_team_schedule_context(season: str = '2025-26', as_of_date: str | None = None) -> dict:
+    """
+    Build per-team schedule and recent-form features from game logs.
+
+    Features include rest days, back-to-back flags, 3-in-4-nights stress, and
+    rolling 5/10 game win-rate and point-differential windows weighted toward
+    the most recent games.
+    """
+    time.sleep(0.6)
+    finder = leaguegamefinder.LeagueGameFinder(
+        season_nullable=season,
+        season_type_nullable='Regular Season',
+        league_id_nullable='00'
+    )
+    df = finder.get_data_frames()[0]
+    if df.empty:
+        return {}
+
+    df = df.copy()
+    df['GAME_DATE'] = pd.to_datetime(df['GAME_DATE'])
+    target_dt = datetime.strptime(as_of_date, '%Y-%m-%d') if as_of_date else datetime.now()
+    df = df[df['GAME_DATE'] < pd.Timestamp(target_dt)]
+
+    context = {}
+    for full_name, team_games in df.groupby('TEAM_NAME'):
+        ordered = team_games.sort_values('GAME_DATE', ascending=False).reset_index(drop=True)
+        if ordered.empty:
+            continue
+
+        recent_5 = ordered.head(5)
+        recent_10 = ordered.head(10)
+        last_game_date = ordered.iloc[0]['GAME_DATE']
+        rest_days = max(0.0, (target_dt.date() - last_game_date.date()).days - 1)
+        days_back = (pd.Timestamp(target_dt) - ordered['GAME_DATE']).dt.days
+
+        def _avg_total(frame: pd.DataFrame) -> float:
+            if frame.empty:
+                return 225.0
+            points_for = frame['PTS'].astype(float)
+            opp_points = points_for - frame['PLUS_MINUS'].astype(float)
+            return float((points_for + opp_points).mean())
+
+        record = {
+            'rest_days': rest_days,
+            'back_to_back_flag': rest_days == 0,
+            'is_3_in_4_nights': int((days_back <= 3).sum()) >= 3,
+            'recent_5_win_pct': float((recent_5['WL'] == 'W').mean()) if not recent_5.empty else 0.5,
+            'recent_10_win_pct': float((recent_10['WL'] == 'W').mean()) if not recent_10.empty else 0.5,
+            'weighted_win_pct': _weighted_recent_metric((recent_10['WL'] == 'W').astype(float).tolist(), 0.5),
+            'recent_5_point_diff': float(recent_5['PLUS_MINUS'].astype(float).mean()) if not recent_5.empty else 0.0,
+            'recent_10_point_diff': float(recent_10['PLUS_MINUS'].astype(float).mean()) if not recent_10.empty else 0.0,
+            'weighted_point_diff': _weighted_recent_metric(recent_10['PLUS_MINUS'].astype(float).tolist(), 0.0),
+            'recent_5_total_points': _avg_total(recent_5),
+            'recent_10_total_points': _avg_total(recent_10),
+        }
+
+        short_name = _team_key(full_name)
+        context[short_name] = record
+        context[full_name] = record
+
+    return context
 
 def get_team_id(team_name: str) -> int:
     """Find a team ID by partial name match."""
@@ -56,7 +138,7 @@ def fetch_roster(team_name: str, season: str = '2025-26') -> list:
         })
     return players
 
-def fetch_all_team_stats(season: str = '2025-26') -> dict:
+def fetch_all_team_stats(season: str = '2025-26', as_of_date: str | None = None) -> dict:
     """
     Fetch advanced stats for all teams.
     Returns dict keyed by team name.
@@ -88,13 +170,18 @@ def fetch_all_team_stats(season: str = '2025-26') -> dict:
         print(f"  ⚠️ Could not fetch last-10 stats: {e}. Using season-only.")
         last10_lookup = {}
     
+    schedule_context = {}
+    try:
+        schedule_context = fetch_team_schedule_context(season=season, as_of_date=as_of_date)
+        print("  ✅ Schedule context fetched (rest/B2B/recent form windows).")
+    except Exception as exc:
+        print(f"  ⚠️ Could not fetch schedule context: {exc}. Using defaults.")
+
     result = {}
     for _, row in df.iterrows():
         full_name = row['TEAM_NAME']
-        if full_name == 'Portland Trail Blazers':
-            short_name = 'Trail Blazers'
-        else:
-            short_name = full_name.split()[-1]  # Last word
+        short_name = _team_key(full_name)
+        context = schedule_context.get(full_name, schedule_context.get(short_name, {}))
         
         season_nrtg = row['NET_RATING']
         last10_nrtg = last10_lookup.get(full_name, season_nrtg)
@@ -112,7 +199,18 @@ def fetch_all_team_stats(season: str = '2025-26') -> dict:
             'ts_pct': row['TS_PCT'],
             'reb_pct': row['REB_PCT'],
             'pace': row['PACE'],
-            'win_pct': row['W_PCT']
+            'win_pct': row['W_PCT'],
+            'recent_5_win_pct': context.get('recent_5_win_pct', row['W_PCT']),
+            'recent_10_win_pct': context.get('recent_10_win_pct', row['W_PCT']),
+            'weighted_win_pct': context.get('weighted_win_pct', row['W_PCT']),
+            'recent_5_point_diff': context.get('recent_5_point_diff', blended_nrtg),
+            'recent_10_point_diff': context.get('recent_10_point_diff', last10_nrtg),
+            'weighted_point_diff': context.get('weighted_point_diff', blended_nrtg),
+            'recent_5_total_points': context.get('recent_5_total_points', 225.0),
+            'recent_10_total_points': context.get('recent_10_total_points', 225.0),
+            'rest_days': context.get('rest_days', 1.0),
+            'back_to_back_flag': context.get('back_to_back_flag', False),
+            'is_3_in_4_nights': context.get('is_3_in_4_nights', False),
         }
         # Also store by full name
         result[full_name] = result[short_name]
