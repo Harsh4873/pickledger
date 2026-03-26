@@ -49,7 +49,14 @@ def test_matchup(away_name, away_data, home_name, home_data, ou_line):
     home_team = create_team(2, home_name, True, *home_data)
     
     venue = Venue(f"{home_name} Arena")
-    ctx = GameContext(datetime.datetime.now().strftime("%Y-%m-%d"), venue, home_team, away_team, 0.50)
+    ctx = GameContext(
+        datetime.datetime.now().strftime("%Y-%m-%d"),
+        venue,
+        home_team,
+        away_team,
+        0.50,
+        game_id=f"{home_name.lower()}-vs-{away_name.lower()}-demo",
+    )
     
     VerificationGate.run_all_checks(ctx)
     

@@ -1,6 +1,7 @@
 import datetime
 from calibration import load_platt_scaler
 from data_models import Player, TeamStats, Team, Venue, GameContext
+from prediction_logging import append_prediction_log
 from verification import VerificationGate
 from probability_layers import (
     calculate_layer1_base_rate, 
@@ -86,6 +87,8 @@ def format_output(game_ctx: GameContext, home_model_prob: float, home_odds: int,
         print(f"**If BET:**")
         print(f"- Full Kelly: {full_k:.2f}% of bankroll")
         print(f"- ¼ Kelly stake: {q_k:.2f}% of bankroll")
+
+    append_prediction_log(game_ctx, predicted_spread, extremized_prob, home_model_prob)
         
     print("\n**Confidence band:** High")
     if calibration_note:
@@ -127,7 +130,14 @@ def run_pipeline():
     )
     bos_team = Team(102, "Celtics", False, bos_stats, [bos_p1, bos_p2, bos_p3], starting_center_out=True)
     
-    ctx = GameContext(datetime.datetime.now().strftime("%Y-%m-%d"), venue, den_team, bos_team, 0.50)
+    ctx = GameContext(
+        datetime.datetime.now().strftime("%Y-%m-%d"),
+        venue,
+        den_team,
+        bos_team,
+        0.50,
+        game_id="demo-nuggets-vs-celtics",
+    )
     
     # 2. Run Verification
     VerificationGate.run_all_checks(ctx)

@@ -60,7 +60,14 @@ def run_with_injuries(scenario_name, mavs_out=[], griz_out=[], ou_line=238.5):
     home_team = create_team(2, "Grizzlies", True, *griz_data)
     
     venue = Venue("FedExForum")
-    ctx = GameContext(datetime.datetime.now().strftime("%Y-%m-%d"), venue, home_team, away_team, 0.50)
+    ctx = GameContext(
+        datetime.datetime.now().strftime("%Y-%m-%d"),
+        venue,
+        home_team,
+        away_team,
+        0.50,
+        game_id=f"grizzlies-vs-mavericks-{scenario_name.lower().replace(' ', '-')}",
+    )
     
     # Layer 1: Base Rate
     l1_prob = calculate_layer1_base_rate(home_team, away_team, ctx.h2h_home_win_pct_2yr)

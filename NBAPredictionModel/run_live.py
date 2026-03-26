@@ -74,7 +74,14 @@ def run_game(game_info, all_team_stats, injuries, calibrator, calibration_note: 
     
     venue_name = game_info.get('arena', f"{home_name} Arena")
     venue = Venue(venue_name)
-    ctx = GameContext(datetime.datetime.now().strftime("%Y-%m-%d"), venue, home_team, away_team, 0.50)
+    ctx = GameContext(
+        datetime.datetime.now().strftime("%Y-%m-%d"),
+        venue,
+        home_team,
+        away_team,
+        0.50,
+        game_id=game_info.get('game_id', ''),
+    )
     
     # Layer 1: Base Rate
     l1_prob = calculate_layer1_base_rate(home_team, away_team, ctx.h2h_home_win_pct_2yr)
