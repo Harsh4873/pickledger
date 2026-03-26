@@ -952,9 +952,12 @@ function normalizeServerBase(value) {
 function inferDefaultModelServer() {
   const pageProtocol = /^https?:$/i.test(window.location.protocol) ? window.location.protocol : 'http:';
   const pageHost = String(window.location.hostname || '').trim();
+  const pageOrigin = normalizeServerBase(window.location.origin);
   if (!pageHost) return 'http://127.0.0.1:8765';
-  const serverHost = LOOPBACK_HOST_RE.test(pageHost) ? '127.0.0.1' : pageHost;
-  return `${pageProtocol}//${serverHost}:8765`;
+  if (LOOPBACK_HOST_RE.test(pageHost)) {
+    return `${pageProtocol}//127.0.0.1:8765`;
+  }
+  return pageOrigin || `${pageProtocol}//${pageHost}`;
 }
 
 const DEFAULT_MODEL_SERVER = inferDefaultModelServer();
@@ -2917,6 +2920,22 @@ function saveSportyTraderCachedFeed(payload) {
   localStorage.setItem(SPORTYTRADER_CACHE_KEY, JSON.stringify(payload));
 }
 
+function describeSportyTraderPickSummary(picks) {
+  const list = Array.isArray(picks) ? picks : [];
+  const counts = { NBA: 0, MLB: 0 };
+  list.forEach((pick) => {
+    const sport = String(pick && pick.sport || '').toUpperCase();
+    if (sport === 'NBA' || sport === 'MLB') {
+      counts[sport] += 1;
+    }
+  });
+  const parts = [];
+  if (counts.NBA) parts.push(`${counts.NBA} NBA`);
+  if (counts.MLB) parts.push(`${counts.MLB} MLB`);
+  if (!parts.length) return '0 pick(s)';
+  return `${list.length} pick(s) (${parts.join(', ')})`;
+}
+
 function formatScores24SyncMeta(meta) {
   if (!meta) return 'Last sync: never';
   const from = String(meta.from || '').trim();
@@ -3212,17 +3231,23 @@ async function runModel(model) {
     try {
       setModelStatus(model, 'Trying live SportyTrader backend sync...', 'running');
       const synced = await syncSportyTraderFromServer();
+      if (!Array.isArray(synced.picks) || !synced.picks.length) {
+        throw new Error('no NBA/MLB picks returned from backend');
+      }
       _clearNbaComparisonResults();
       pendingModelPicks = synced.picks;
       renderModelResults(synced.picks, { meta: '' });
       saveSportyTraderCachedFeed({ picks: synced.picks, meta: synced.meta });
       setSportyTraderSyncMeta(synced.meta);
-      setModelStatus(model, `Synced ${synced.picks.length} NBA pick(s) from backend`, 'ok');
+      setModelStatus(model, `Synced ${describeSportyTraderPickSummary(synced.picks)} from backend`, 'ok');
     } catch (e) {
       backendErr = String(e && e.message ? e.message : e);
       try {
         setModelStatus(model, 'Backend sync unavailable, loading feed file...', 'running');
         const loaded = await loadSportyTraderManualFeed();
+        if (!Array.isArray(loaded.picks) || !loaded.picks.length) {
+          throw new Error('no NBA/MLB picks in feed');
+        }
         _clearNbaComparisonResults();
         pendingModelPicks = loaded.picks;
         renderModelResults(loaded.picks, { meta: '' });
@@ -3233,7 +3258,7 @@ async function runModel(model) {
         };
         saveSportyTraderCachedFeed({ picks: loaded.picks, meta });
         setSportyTraderSyncMeta(meta);
-        setModelStatus(model, `Loaded ${loaded.picks.length} NBA pick(s) from feed file`, 'ok');
+        setModelStatus(model, `Loaded ${describeSportyTraderPickSummary(loaded.picks)} from feed file`, 'ok');
       } catch (feedErr) {
         const cached = getSportyTraderCachedFeed();
         if (cached && Array.isArray(cached.picks) && _isFreshFeedMeta(cached.meta)) {
@@ -3241,7 +3266,7 @@ async function runModel(model) {
           pendingModelPicks = cached.picks;
           renderModelResults(cached.picks, { meta: '' });
           setSportyTraderSyncMeta({ ...(cached.meta || {}), from: 'cache' });
-          setModelStatus(model, `Using cached SportyTrader feed (${cached.picks.length} pick(s))`, 'ok');
+          setModelStatus(model, `Using cached SportyTrader feed (${describeSportyTraderPickSummary(cached.picks)})`, 'ok');
         } else {
           const feedMsg = String(feedErr && feedErr.message ? feedErr.message : feedErr);
           setModelStatus(model, `Sync failed (${backendErr}); feed unavailable (${feedMsg})`, 'error');
