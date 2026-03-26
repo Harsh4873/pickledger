@@ -1,4 +1,25 @@
+import math
+
 from data_models import Team, GameContext
+
+_PROB_EPSILON = 1e-6
+
+
+def _clamp_probability(prob: float) -> float:
+    return max(_PROB_EPSILON, min(1.0 - _PROB_EPSILON, prob))
+
+
+def _sigmoid(value: float) -> float:
+    if value >= 0:
+        exp_term = math.exp(-value)
+        return 1.0 / (1.0 + exp_term)
+    exp_term = math.exp(value)
+    return exp_term / (1.0 + exp_term)
+
+
+def _logit(prob: float) -> float:
+    clean_prob = _clamp_probability(prob)
+    return math.log(clean_prob / (1.0 - clean_prob))
 
 def calculate_layer1_base_rate(team: Team, opp_team: Team, h2h_win_pct_2yr: float) -> float:
     """
@@ -93,13 +114,25 @@ def calculate_layer3_matchup_modifier(team: Team, opp_team: Team) -> tuple[float
     return adj, reason_str
 
 
-def extremize_probability(raw_prob: float, factor: float = 1.3) -> float:
+def legacy_extremize_probability(raw_prob: float, factor: float = 1.3) -> float:
     """
     Extremized prob = 50% + (Raw prob - 50%) * 1.3
     Cap at 95%, floor at 5%.
     """
     extremized = 0.50 + (raw_prob - 0.50) * factor
     return max(0.05, min(0.95, extremized))
+
+
+def extremize_probability(raw_prob: float, factor: float = 1.3) -> float:
+    """
+    Extremize in log-odds space instead of hard clipping at 95%.
+
+    The old linear `min(0.95, ...)` ceiling was wrong because very different
+    game states were flattened into the same 95.0% output, which hid uncertainty
+    instead of modeling it. Scaling the logit keeps the same "push away from
+    50/50" intent while only approaching 0/1 asymptotically.
+    """
+    return _sigmoid(_logit(raw_prob) * factor)
 
 
 def predict_total_points(game_ctx: GameContext) -> float:
