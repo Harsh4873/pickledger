@@ -2227,9 +2227,27 @@ def _normalize_french_text(text: str) -> str:
     return re.sub(r"\s+", " ", normalized).strip()
 
 
-def _clean_sportytrader_pick(tip: str, matchup: str) -> str:
-    """Convert French SportyTrader NBA tip into the same pick format used in UI."""
-    tip_clean = re.sub(r"\s+", " ", str(tip or "")).strip()
+_SPORTYTRADER_SPORT_ALIAS = {
+    "USA - NBA": "NBA",
+    "NBA": "NBA",
+    "BASKETBALL": "NBA",
+    "USA - MLB": "MLB",
+    "MLB": "MLB",
+    "BASEBALL": "MLB",
+}
+
+
+def _normalize_sportytrader_sport(raw_league: str, fallback: str | None = None) -> str:
+    raw = re.sub(r"\s+", " ", str(raw_league or "")).strip().upper()
+    mapped = _SPORTYTRADER_SPORT_ALIAS.get(raw)
+    if mapped:
+        return mapped
+    return fallback or (raw if raw else "Other")
+
+
+def _clean_sportytrader_pick(tip: str, matchup: str, sport: str = "NBA") -> str:
+    """Convert SportyTrader picks into the same pick format used in the UI."""
+    tip_clean = re.sub(r"\s+", " ", str(tip or "")).strip().rstrip(".")
     teams = matchup.split(" vs ")
     home = teams[0].strip() if len(teams) > 0 else ""
     away = teams[1].strip() if len(teams) > 1 else ""
@@ -2255,22 +2273,46 @@ def _clean_sportytrader_pick(tip: str, matchup: str) -> str:
     home_tokens = _team_tokens(home_norm, home_short_norm)
     away_tokens = _team_tokens(away_norm, away_short_norm)
 
-    def _resolve_team_name() -> str:
-        if home_norm and home_norm in tip_norm:
+    def _resolve_team_name(team_hint: str = "") -> str:
+        lookup_norm = _normalize_french_text(team_hint or tip_clean)
+        if home_norm and home_norm in lookup_norm:
             return home_short
-        if away_norm and away_norm in tip_norm:
+        if away_norm and away_norm in lookup_norm:
             return away_short
-        if home_short_norm and home_short_norm in tip_norm:
+        if home_short_norm and home_short_norm in lookup_norm:
             return home_short
-        if away_short_norm and away_short_norm in tip_norm:
+        if away_short_norm and away_short_norm in lookup_norm:
             return away_short
-        home_hits = sum(1 for token in home_tokens if re.search(rf"\b{re.escape(token)}\b", tip_norm))
-        away_hits = sum(1 for token in away_tokens if re.search(rf"\b{re.escape(token)}\b", tip_norm))
+        home_hits = sum(1 for token in home_tokens if re.search(rf"\b{re.escape(token)}\b", lookup_norm))
+        away_hits = sum(1 for token in away_tokens if re.search(rf"\b{re.escape(token)}\b", lookup_norm))
         if away_hits > home_hits:
             return away_short
         if home_hits > away_hits:
             return home_short
         return home_short
+
+    # English totals, e.g. "Over 229.5" or "Under 7 Runs".
+    m = re.match(r"^(?:The\s+)?(?:Total\s+)?(Over|Under)\s+(\d+\.?\d*)\s*(?:points?|runs?)?$", tip_clean, re.IGNORECASE)
+    if m:
+        return f"{m.group(1).title()} {m.group(2)} ({matchup_short})"
+
+    # English moneyline, e.g. "Milwaukee to win" or "The Reds will win".
+    m = re.match(r"^(?:The\s+)?(.+?)\s+(?:to|will)\s+win$", tip_clean, re.IGNORECASE)
+    if m:
+        team = _resolve_team_name(m.group(1))
+        return f"{team} ML ({matchup_short})"
+
+    # English spread/run line, e.g. "The Cubs -1.5 Runs".
+    m = re.match(r"^(?:The\s+)?(.+?)\s+([+-]\d+\.?\d*)\s*(?:points?|runs?)?$", tip_clean, re.IGNORECASE)
+    if m:
+        team = _resolve_team_name(m.group(1))
+        return f"{team} {m.group(2)} ({matchup_short})"
+
+    # English runline phrasing, e.g. "Seattle Mariners to cover the -1.5 runline."
+    m = re.match(r"^(?:The\s+)?(.+?)\s+to\s+cover\s+the\s+([+-]\d+\.?\d*)\s+runline$", tip_clean, re.IGNORECASE)
+    if m:
+        team = _resolve_team_name(m.group(1))
+        return f"{team} {m.group(2)} ({matchup_short})"
 
     # "<Team> gagne (prolongations incluses)" -> Moneyline
     if re.search(r"\bgagne\b", tip_norm) and not re.search(r"\bpoints?\b", tip_norm):
@@ -2303,6 +2345,12 @@ def _clean_sportytrader_pick(tip: str, matchup: str) -> str:
         team = _resolve_team_name()
         spread_text = f"{spread:.1f}".rstrip("0").rstrip(".")
         return f"{team} {spread_text} ({matchup_short})"
+
+    # Keep explicit totals readable for either sport when no team parsing matched.
+    if sport.upper() in {"NBA", "MLB"}:
+        m = re.match(r"^(Over|Under)\s+(\d+\.?\d*)$", tip_clean, re.IGNORECASE)
+        if m:
+            return f"{m.group(1).title()} {m.group(2)} ({matchup_short})"
 
     return f"{tip_clean} ({matchup_short})"
 
@@ -2811,8 +2859,11 @@ def run_scores24_scraper(sports: list[str], date_str: str | None = None) -> dict
     return {"ok": True, "picks": all_picks, "errors": errors}
 
 
-def run_sportytrader_scraper(date_str: str | None = None) -> dict[str, Any]:
-    """Execute the SportyTrader scraper (NBA only)."""
+def run_sportytrader_scraper(
+    date_str: str | None = None,
+    sports: list[str] | None = None,
+) -> dict[str, Any]:
+    """Execute the SportyTrader scraper for NBA and/or MLB."""
     python_bin = _resolve_python_bin(SPORTYTRADER_VENV)
     target_date = _resolve_scores24_date(date_str)
     scraper_path = os.path.join(BASE_DIR, "sportytrader_scraper.py")
@@ -2823,9 +2874,21 @@ def run_sportytrader_scraper(date_str: str | None = None) -> dict[str, Any]:
     env = os.environ.copy()
     env.setdefault("PLAYWRIGHT_BROWSERS_PATH", _default_playwright_browsers_path())
 
-    def _invoke() -> subprocess.CompletedProcess[str]:
+    sport_map = {
+        "nba": "nba",
+        "basketball": "nba",
+        "mlb": "mlb",
+        "baseball": "mlb",
+    }
+    default_sports = ["nba", "mlb"]
+    selected = [sport_map.get(str(s).strip().lower(), "") for s in (sports or default_sports)]
+    selected = [sport for sport in selected if sport]
+    if not selected:
+        selected = default_sports
+
+    def _invoke(sport_code: str) -> subprocess.CompletedProcess[str]:
         return _subprocess_run(
-            [python_bin, scraper_path, "--sport", "nba", "--date", target_date],
+            [python_bin, scraper_path, "--sport", sport_code, "--date", target_date],
             cwd=BASE_DIR,
             env=env,
             capture_output=True,
@@ -2834,49 +2897,72 @@ def run_sportytrader_scraper(date_str: str | None = None) -> dict[str, Any]:
         )
 
     try:
-        result = _invoke()
-        output = (result.stdout or "") + (result.stderr or "")
-        if result.returncode != 0 and _looks_like_playwright_browser_missing(output):
-            ok, install_msg = _ensure_playwright_browsers(python_bin, env)
-            if not ok:
-                return {"ok": False, "error": f"sportytrader: Playwright install failed ({install_msg})"}
-            result = _invoke()
+        all_picks: list[dict[str, Any]] = []
+        errors: list[str] = []
+
+        for sport_code in selected:
+            result = _invoke(sport_code)
             output = (result.stdout or "") + (result.stderr or "")
+            if result.returncode != 0 and _looks_like_playwright_browser_missing(output):
+                ok, install_msg = _ensure_playwright_browsers(python_bin, env)
+                if not ok:
+                    return {"ok": False, "error": f"sportytrader: Playwright install failed ({install_msg})"}
+                result = _invoke(sport_code)
+                output = (result.stdout or "") + (result.stderr or "")
 
-        picks: list[dict[str, Any]] = []
-        blocks = re.split(r"━{10,}", output)
-        for block in blocks:
-            match_m = re.search(r"Match:\s*(.+)", block)
-            tip_m = re.search(r"Tip:\s*(.+)", block)
-            league_m = re.search(r"League:\s*(.+)", block)
-            if not match_m or not tip_m:
+            picks: list[dict[str, Any]] = []
+            blocks = re.split(r"━{10,}", output)
+            expected_sport = sport_code.upper()
+            for block in blocks:
+                match_m = re.search(r"Match:\s*(.+)", block)
+                tip_m = re.search(r"Tip:\s*(.+)", block)
+                odds_m = re.search(r"Odds:\s*(.+)", block)
+                league_m = re.search(r"League:\s*(.+)", block)
+                if not match_m or not tip_m:
+                    continue
+
+                matchup = match_m.group(1).strip()
+                tip = tip_m.group(1).strip()
+                if not matchup or not tip:
+                    continue
+                league = league_m.group(1).strip() if league_m else ""
+                sport = _normalize_sportytrader_sport(league, expected_sport)
+                if sport != expected_sport:
+                    continue
+
+                odds_val = None
+                odds_str = odds_m.group(1).strip() if odds_m else ""
+                if odds_str and odds_str != "[not found on page]":
+                    try:
+                        odds_val = int(float(odds_str))
+                    except ValueError:
+                        odds_val = None
+
+                picks.append({
+                    "source": "SportyTrader",
+                    "pick": _clean_sportytrader_pick(tip, matchup, sport=sport),
+                    "sport": sport,
+                    "odds": odds_val,
+                    "units": 1,
+                    "probability": None,
+                    "edge": None,
+                    "decision": "BET",
+                })
+
+            if result.returncode != 0 and not picks:
+                errors.append(f"{sport_code}: scraper exited {result.returncode} ({_compact_error_text(output)})")
+                continue
+            if not picks:
+                errors.append(f"{sport_code}: no picks parsed ({_compact_error_text(output)})")
                 continue
 
-            matchup = match_m.group(1).strip()
-            tip = tip_m.group(1).strip()
-            if not matchup or not tip:
-                continue
-            league = (league_m.group(1).strip() if league_m else "").upper()
-            if "NBA" not in league:
-                continue
+            all_picks.extend(picks)
 
-            picks.append({
-                "source": "SportyTrader",
-                "pick": _clean_sportytrader_pick(tip, matchup),
-                "sport": "NBA",
-                "odds": None,
-                "units": 1,
-                "probability": None,
-                "edge": None,
-                "decision": "BET",
-            })
+        if not all_picks and errors:
+            return {"ok": False, "error": "; ".join(errors[:4])}
 
-        if result.returncode != 0 and not picks:
-            return {"ok": False, "error": f"sportytrader: scraper exited {result.returncode} ({_compact_error_text(output)})"}
-        if not picks:
-            return {"ok": False, "error": f"sportytrader: no picks parsed ({_compact_error_text(output)})"}
-        picks = _enrich_picks_with_market_odds(picks, date_str)
-        return {"ok": True, "picks": picks}
+        all_picks = _enrich_picks_with_market_odds(all_picks, date_str)
+        return {"ok": True, "picks": all_picks, "errors": errors}
     except subprocess.TimeoutExpired:
         return {"ok": False, "error": f"sportytrader: timed out after {timeout_s}s"}
     except Exception as exc:
@@ -3139,11 +3225,15 @@ class Handler(BaseHTTPRequestHandler):
                 return
 
             scrape_date = body.get("date")
+            league = str(body.get("league", "")).strip().lower()
+            sports = body.get("sports")
+            if not isinstance(sports, list):
+                sports = [league] if league else ["nba", "mlb"]
             if async_mode:
-                job_id = _launch_job(run_sportytrader_scraper, scrape_date)
+                job_id = _launch_job(run_sportytrader_scraper, scrape_date, sports)
                 self._send_json(200, {"ok": True, "job_id": job_id, "status": "running"})
             else:
-                result = run_sportytrader_scraper(scrape_date)
+                result = run_sportytrader_scraper(scrape_date, sports)
                 self._send_json(200, result)
 
         elif path == "/ask-opus":

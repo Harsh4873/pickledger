@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """
-SportyTrader NBA Scraper
-========================
-Scrapes NBA picks from SportyTrader and prints Scores24-style blocks so
-existing backend parsers can consume them.
+SportyTrader Scraper
+====================
+Scrapes NBA and MLB picks from SportyTrader and prints Scores24-style
+blocks so the existing backend parser can consume them.
 """
 
 from __future__ import annotations
@@ -13,6 +13,7 @@ import os
 import re
 import sys
 from datetime import datetime
+
 
 def _default_playwright_browsers_path() -> str:
     configured = os.environ.get("PLAYWRIGHT_BROWSERS_PATH", "").strip()
@@ -26,49 +27,86 @@ def _default_playwright_browsers_path() -> str:
 
 os.environ["PLAYWRIGHT_BROWSERS_PATH"] = _default_playwright_browsers_path()
 
-from playwright.sync_api import sync_playwright, TimeoutError as PwTimeout
+from playwright.sync_api import TimeoutError as PwTimeout
+from playwright.sync_api import sync_playwright
 
-SPORTYTRADER_URL = "https://www.sportytrader.com/us/picks/basketball/usa/nba-306/"
-
-FRENCH_MONTHS = {
-    "janvier": 1,
-    "fevrier": 2,
-    "février": 2,
-    "mars": 3,
-    "avril": 4,
-    "mai": 5,
-    "juin": 6,
-    "juillet": 7,
-    "aout": 8,
-    "août": 8,
-    "septembre": 9,
-    "octobre": 10,
-    "novembre": 11,
-    "decembre": 12,
-    "décembre": 12,
+SPORT_CONFIG = {
+    "nba": {
+        "aliases": {"nba", "basketball"},
+        "league": "USA - NBA",
+        "title": "NBA",
+        "url": "https://www.sportytrader.com/us/picks/basketball/usa/nba-306/",
+    },
+    "mlb": {
+        "aliases": {"mlb", "baseball"},
+        "league": "USA - MLB",
+        "title": "MLB",
+        "url": "https://www.sportytrader.com/us/picks/baseball/usa/mlb-597/",
+    },
 }
 
-NOISE_LINES = {
-    "en détails",
-    "pariez maintenant !",
-    "offre exclusive",
-    "pronostics",
-    "basket",
-    "live",
-    "pronostic basket",
-    "detail",
-    "bet now!",
+SPORT_ALIAS_MAP = {
+    alias: key
+    for key, cfg in SPORT_CONFIG.items()
+    for alias in cfg["aliases"]
 }
+
+CLOUDFLARE_SIGNALS = (
+    "just a moment",
+    "performing security verification",
+    "enable javascript and cookies to continue",
+    "privacy pass",
+    "cloudflare",
+)
+
+SPORTYTRADER_CARDS_JS = r"""
+() => {
+    const cards = Array.from(document.querySelectorAll('.pronostics-wrapper .card'));
+    return cards.map((card) => {
+        const text = (value) => (value || '').replace(/\s+/g, ' ').trim();
+        const hrefFromCard = card.getAttribute('data-navigation-url-value') || '';
+        const anchors = Array.from(card.querySelectorAll('a[href*="/us/picks/"]'));
+        const pickAnchor = anchors.find((anchor) => /picks$/i.test(text(anchor.textContent))) || anchors[0] || null;
+        const href = pickAnchor
+            ? pickAnchor.href
+            : (hrefFromCard ? new URL(hrefFromCard, window.location.origin).href : '');
+
+        const teams = Array.from(card.querySelectorAll('span.font-semibold'))
+            .map((node) => text(node.textContent))
+            .filter(Boolean);
+        const paragraphs = Array.from(card.querySelectorAll('p'))
+            .map((node) => text(node.textContent))
+            .filter(Boolean);
+        const dateText = paragraphs.find((line) => /\b[A-Z][a-z]{2,8}\s+\d{1,2},\s+\d{4},\s+\d{1,2}:\d{2}/.test(line)) || '';
+        const league = paragraphs.find((line) => /\b-\s*(NBA|MLB)\b/i.test(line)) || '';
+        const tipNode = card.querySelector('.bg-gray-100 p.font-semibold');
+        const tip = text(tipNode ? tipNode.textContent : '');
+
+        let odds = '';
+        for (const node of card.querySelectorAll('.bg-gray-100 span')) {
+            const value = text(node.textContent);
+            if (/^[+-]?\d+(?:\.\d+)?$/.test(value)) {
+                odds = value;
+                break;
+            }
+        }
+
+        return {
+            datetime: dateText,
+            league,
+            home: teams[0] || '',
+            away: teams[1] || '',
+            tip,
+            odds,
+            href,
+        };
+    }).filter((row) => row.home && row.away && row.tip && row.href);
+}
+"""
 
 
 def _normalize_line(line: str) -> str:
     return re.sub(r"\s+", " ", line or "").strip()
-
-
-def _normalize_for_cmp(text: str) -> str:
-    out = (text or "").lower().strip()
-    out = out.replace("’", "'")
-    return re.sub(r"\s+", " ", out)
 
 
 def _parse_target_date(raw: str | None) -> datetime | None:
@@ -80,26 +118,8 @@ def _parse_target_date(raw: str | None) -> datetime | None:
         return None
 
 
-def _parse_french_datetime(text: str) -> datetime | None:
-    m = re.match(r"^(\d{1,2})\s+([A-Za-zÀ-ÿ]+)\s+(\d{4}),\s*(\d{2}):(\d{2})$", text)
-    if not m:
-        return None
-    day = int(m.group(1))
-    month_name = m.group(2).lower()
-    year = int(m.group(3))
-    hour = int(m.group(4))
-    minute = int(m.group(5))
-    month = FRENCH_MONTHS.get(month_name)
-    if not month:
-        return None
-    try:
-        return datetime(year, month, day, hour, minute)
-    except ValueError:
-        return None
-
-
 def _parse_english_datetime(text: str) -> datetime | None:
-    compact = re.sub(r"\s+", " ", (text or "").strip())
+    compact = _normalize_line(text)
     for fmt in ("%b %d, %Y, %I:%M %p", "%B %d, %Y, %I:%M %p"):
         try:
             return datetime.strptime(compact, fmt)
@@ -108,190 +128,155 @@ def _parse_english_datetime(text: str) -> datetime | None:
     return None
 
 
-def _parse_sportytrader_datetime(text: str) -> datetime | None:
-    return _parse_french_datetime(text) or _parse_english_datetime(text)
+def _normalize_sport(raw: str) -> str:
+    key = _normalize_line(raw).lower()
+    if key in SPORT_ALIAS_MAP:
+        return SPORT_ALIAS_MAP[key]
+    return ""
 
 
-def _looks_like_team(line: str) -> bool:
-    if not line:
-        return False
-    low = _normalize_for_cmp(line)
-    if low in NOISE_LINES:
-        return False
-    if "pronostic " in low:
-        return False
-    if re.search(r"\d{1,2}:\d{2}", line):
-        return False
-    if re.search(r"\d{4}", line):
-        return False
-    if "nba" in low and ("etats-unis" in low or "usa" in low):
-        return False
-    return bool(re.search(r"[A-Za-zÀ-ÿ]", line))
+def _looks_like_cloudflare_block(title: str, body_text: str) -> bool:
+    blob = f"{title}\n{body_text}".lower()
+    return any(signal in blob for signal in CLOUDFLARE_SIGNALS)
 
 
-def _is_noise(line: str) -> bool:
-    low = _normalize_for_cmp(line)
-    if not low:
-        return True
-    if low in NOISE_LINES:
-        return True
-    if low.startswith("cotes décimales") or low.startswith("18+"):
-        return True
-    if low.startswith("offre exclusive"):
-        return True
-    if low.startswith("stake"):
-        return True
-    if low.startswith("bonus up to"):
-        return True
-    if low.startswith("new customers only"):
-        return True
-    if low.startswith("commercial content"):
-        return True
-    if low.startswith("odds"):
-        return True
-    return False
+def _launch_browser(pw):
+    launch_kwargs = {
+        "headless": True,
+        "args": [
+            "--no-sandbox",
+            "--disable-setuid-sandbox",
+            "--disable-dev-shm-usage",
+            "--disable-blink-features=AutomationControlled",
+        ],
+    }
+    preferred_channel = os.environ.get("SPORTYTRADER_BROWSER_CHANNEL", "chrome").strip()
+    if preferred_channel:
+        try:
+            return pw.chromium.launch(channel=preferred_channel, **launch_kwargs)
+        except Exception:
+            pass
+    return pw.chromium.launch(**launch_kwargs)
 
 
-def _extract_blocks(page_text: str, target_date: datetime | None) -> list[dict[str, str]]:
-    lines = [_normalize_line(ln) for ln in (page_text or "").splitlines()]
-    lines = [ln for ln in lines if ln]
+def _new_context(browser):
+    ctx = browser.new_context(
+        user_agent=(
+            "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
+            "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36"
+        ),
+        locale="en-US",
+        timezone_id="America/New_York",
+        viewport={"width": 1365, "height": 900},
+        extra_http_headers={"Accept-Language": "en-US,en;q=0.9"},
+    )
+    ctx.add_init_script(
+        """
+Object.defineProperty(navigator, 'webdriver', { get: () => undefined });
+Object.defineProperty(navigator, 'platform', { get: () => 'MacIntel' });
+Object.defineProperty(navigator, 'languages', { get: () => ['en-US', 'en'] });
+window.chrome = window.chrome || { runtime: {} };
+"""
+    )
+    return ctx
+
+
+def _load_cards(page, url: str) -> tuple[list[dict[str, str]], str]:
+    page.goto(url, timeout=45000, wait_until="domcontentloaded")
+    last_title = ""
+    last_text = ""
+    for attempt in range(4):
+        page.wait_for_timeout(3000 + (attempt * 700))
+        last_title = page.title()
+        last_text = page.evaluate("() => document.body?.innerText || ''")
+        if not _looks_like_cloudflare_block(last_title, last_text):
+            cards = page.evaluate(SPORTYTRADER_CARDS_JS)
+            if isinstance(cards, list):
+                return cards, last_text
+        if attempt < 3:
+            page.reload(timeout=45000, wait_until="domcontentloaded")
+    return [], last_text
+
+
+def _extract_rows(cards: list[dict[str, str]], target_date: datetime | None, sport_key: str) -> list[dict[str, str]]:
     out: list[dict[str, str]] = []
     seen: set[tuple[str, str, str, str]] = set()
+    sport_league = SPORT_CONFIG[sport_key]["league"]
 
-    for i, line in enumerate(lines):
-        dt = _parse_sportytrader_datetime(line)
-        if not dt:
+    for raw in cards:
+        row = {key: _normalize_line(str(raw.get(key, ""))) for key in ("datetime", "league", "home", "away", "tip", "odds", "href")}
+        if row["league"] and row["league"] != sport_league:
             continue
-        if target_date and dt.date() != target_date.date():
+        if not row["home"] or not row["away"] or not row["tip"]:
             continue
-
-        window = lines[i + 1 : i + 30]
-        if not window:
+        dt = _parse_english_datetime(row["datetime"])
+        if target_date and dt and dt.date() != target_date.date():
             continue
-        if not any("nba" in _normalize_for_cmp(w) for w in window[:10]):
-            continue
-
-        dash_idx = -1
-        for k, candidate in enumerate(window[:15]):
-            if candidate.strip() == "-":
-                dash_idx = k
-                break
-        if dash_idx <= 0 or dash_idx >= len(window) - 1:
-            continue
-
-        home = ""
-        away = ""
-        for back in range(dash_idx - 1, -1, -1):
-            if _looks_like_team(window[back]):
-                home = window[back]
-                break
-        for fwd in range(dash_idx + 1, min(len(window), dash_idx + 8)):
-            if _looks_like_team(window[fwd]):
-                away = window[fwd]
-                break
-        if not home or not away:
-            continue
-
-        tip = ""
-        marker_idx = -1
-        for k, candidate in enumerate(window):
-            cmp = _normalize_for_cmp(candidate)
-            if cmp.startswith("pronostic ") or cmp.endswith(" picks") or cmp == "picks":
-                marker_idx = k
-                break
-        if marker_idx >= 0:
-            for candidate in window[marker_idx + 1 : marker_idx + 8]:
-                if _is_noise(candidate):
-                    continue
-                tip = candidate
-                break
-        if not tip:
-            continue
-
-        row = {
-            "datetime": line,
-            "home": home,
-            "away": away,
-            "tip": tip,
-            "league": "USA - NBA",
-        }
         key = (row["datetime"], row["home"], row["away"], row["tip"])
         if key in seen:
             continue
         seen.add(key)
+        row["league"] = sport_league
         out.append(row)
 
     return out
 
 
-def _print_pick(row: dict[str, str], url: str) -> None:
+def _print_pick(row: dict[str, str]) -> None:
     print("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
     print(f"Match:          {row['home']} vs {row['away']}")
     print(f"Date/Time:      {row['datetime']}")
     print(f"League:         {row['league']}")
     print(f"Tip:            {row['tip']}")
-    print("Odds:           [not found on page]")
+    print(f"Odds:           {row['odds'] or '[not found on page]'}")
     print("Confidence:     [not found on page]")
     print("User vote:      [not found on page]")
-    print(f"Source URL:     {url}")
+    print(f"Source URL:     {row['href']}")
     print("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
 
 
 def main() -> None:
-    ap = argparse.ArgumentParser(description="SportyTrader NBA scraper")
-    ap.add_argument("--sport", "-s", default="basketball", help="Supported: basketball/nba only")
+    ap = argparse.ArgumentParser(description="SportyTrader scraper")
+    ap.add_argument("--sport", "-s", default="nba", help="Supported: nba/mlb")
     ap.add_argument("--date", "-d", help="Date in YYYY-MM-DD")
     args = ap.parse_args()
 
-    sport = (args.sport or "").strip().lower()
-    if sport not in {"basketball", "nba"}:
-        print("Error: SportyTrader scraper supports only NBA/basketball.")
+    sport_key = _normalize_sport(args.sport or "")
+    if not sport_key:
+        print("Error: SportyTrader scraper supports only NBA/basketball and MLB/baseball.")
         sys.exit(1)
 
     target_date = _parse_target_date(args.date)
+    target_url = SPORT_CONFIG[sport_key]["url"]
+    target_title = SPORT_CONFIG[sport_key]["title"]
 
     with sync_playwright() as pw:
-        browser = pw.chromium.launch(
-            headless=True,
-            args=[
-                "--no-sandbox",
-                "--disable-setuid-sandbox",
-                "--disable-dev-shm-usage",
-            ],
-        )
-        ctx = browser.new_context(
-            user_agent=(
-                "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
-                "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"
-            ),
-            locale="en-US",
-            timezone_id="America/New_York",
-            viewport={"width": 1365, "height": 900},
-        )
+        browser = _launch_browser(pw)
+        ctx = _new_context(browser)
         page = ctx.new_page()
         try:
-            page.goto(SPORTYTRADER_URL, timeout=30000, wait_until="domcontentloaded")
-            page.wait_for_timeout(4000)
-            text = page.evaluate("() => document.body?.innerText || ''")
+            cards, page_text = _load_cards(page, target_url)
         except PwTimeout:
-            print("Error: timed out loading SportyTrader page")
-            browser.close()
+            print(f"Error: timed out loading SportyTrader {target_title} page")
             sys.exit(1)
         except Exception as exc:
-            print(f"Error loading SportyTrader page: {exc}")
-            browser.close()
+            print(f"Error loading SportyTrader {target_title} page: {exc}")
             sys.exit(1)
         finally:
             page.close()
             browser.close()
 
-    rows = _extract_blocks(text, target_date)
+    if _looks_like_cloudflare_block("", page_text):
+        print(f"Error: SportyTrader {target_title} page hit Cloudflare verification")
+        sys.exit(1)
+
+    rows = _extract_rows(cards, target_date, sport_key)
     if not rows:
-        print("No SportyTrader NBA picks parsed.")
+        print(f"No SportyTrader {target_title} picks parsed.")
         return
 
     for row in rows:
-        _print_pick(row, SPORTYTRADER_URL)
+        _print_pick(row)
 
 
 if __name__ == "__main__":
