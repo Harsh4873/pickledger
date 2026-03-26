@@ -569,9 +569,19 @@
   .model-sport-select { display: flex; gap: 14px; margin-bottom: 12px; font-size: 12px; color: var(--muted); font-family: 'DM Mono', monospace; }
   .model-sport-select label { display: flex; align-items: center; gap: 4px; cursor: pointer; }
   .model-sport-select input[type="checkbox"] { accent-color: var(--accent); }
+  .model-controls-panel { margin-bottom: 18px; }
+  .model-controls-row { display: flex; justify-content: space-between; align-items: center; gap: 18px; flex-wrap: wrap; }
+  .model-controls-copy { max-width: 560px; }
+  .model-controls-title { font-family: 'Bebas Neue', sans-serif; font-size: 24px; letter-spacing: 1px; color: var(--text); }
+  .model-controls-desc { margin-top: 6px; font-size: 12px; line-height: 1.7; color: var(--muted); }
+  .model-controls-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
   .model-league-select { width: 100%; margin: 10px 0 8px; padding: 8px; background: var(--surface); border: 1px solid var(--border); border-radius: 6px; color: var(--text); font-family: 'DM Mono', monospace; font-size: 11px; }
+  .model-date-input { min-width: 160px; padding: 10px 12px; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; color: var(--text); font-family: 'DM Mono', monospace; font-size: 11px; }
+  .model-inline-btn { width: auto; padding: 10px 14px; font-size: 13px; letter-spacing: 1px; }
   .model-result-bet { color: var(--accent); font-weight: 500; }
   .model-result-pass { color: var(--muted); }
+  .model-result-group-row td { padding: 12px 14px 8px; border-bottom: 1px solid var(--border); font-family: 'DM Mono', monospace; font-size: 11px; letter-spacing: 1px; color: var(--accent3); background: rgba(77,166,255,0.06); }
+  body[data-theme="light"] .model-result-group-row td { background: rgba(37,99,235,0.05); }
 
   body[data-theme="light"] .panel,
   body[data-theme="light"] .stat-box,
@@ -651,6 +661,10 @@
     font-size: 13px;
     font-weight: 700;
     letter-spacing: 0.8px;
+  }
+  body[data-theme="light"] .model-date-input {
+    background: rgba(255,255,255,0.78);
+    backdrop-filter: blur(10px);
   }
   body[data-theme="light"] .models-grid {
     gap: 20px;
@@ -819,6 +833,21 @@
   <!-- MODELS TAB -->
   <div id="tab-models" class="tab-content">
     <div class="section-title clean-title">Run Prediction Models</div>
+    <div class="panel model-controls-panel">
+      <div class="model-controls-row">
+        <div class="model-controls-copy">
+          <div class="model-controls-title">NBA Model vs NBA New</div>
+          <div class="model-controls-desc">Choose the NBA slate date once, then run either model by itself or launch both together so the table keeps both result sets on screen for quick comparison.</div>
+        </div>
+        <div class="model-controls-actions">
+          <input type="date" id="nba-model-date" class="model-date-input">
+          <button class="model-run-btn model-inline-btn" type="button" onclick="setNbaModelDateOffset(0)">TODAY</button>
+          <button class="model-run-btn model-inline-btn" type="button" onclick="setNbaModelDateOffset(-1)">YESTERDAY</button>
+          <button class="model-run-btn model-inline-btn" id="btn-run-nba-compare" onclick="runNbaModelComparison()">RUN BOTH NBA MODELS</button>
+        </div>
+      </div>
+      <div class="model-status" id="status-nba-compare"></div>
+    </div>
     <div class="models-grid">
       <div class="model-card" id="model-card-mlb">
         <div class="model-card-icon">&#9918;</div>
@@ -827,12 +856,19 @@
         <button class="model-run-btn" id="btn-run-mlb" onclick="runModel('mlb')">RUN MLB MODEL</button>
         <div class="model-status" id="status-mlb"></div>
       </div>
-      <div class="model-card" id="model-card-nba">
+      <div class="model-card" id="model-card-nba-new">
         <div class="model-card-icon">&#127936;</div>
+        <div class="model-card-title">NBA New</div>
+        <div class="model-card-desc">Runs the refined NBA pipeline with the independent spread layer, extra form/rest/injury features, and calibration wrapper for the selected NBA date.</div>
+        <button class="model-run-btn" id="btn-run-nba-new" onclick="runModel('nba-new')">RUN NBA NEW</button>
+        <div class="model-status" id="status-nba-new"></div>
+      </div>
+      <div class="model-card" id="model-card-nba-old">
+        <div class="model-card-icon">&#128220;</div>
         <div class="model-card-title">NBA Model</div>
-        <div class="model-card-desc">Run NBA prediction pipeline for today's slate. Uses live NBA API stats, official injury reports, and on/off court impact data.</div>
-        <button class="model-run-btn" id="btn-run-nba" onclick="runModel('nba')">RUN NBA MODEL</button>
-        <div class="model-status" id="status-nba"></div>
+        <div class="model-card-desc">Runs the legacy confidence path on the same selected NBA slate so you can compare side-by-side against the refined model output.</div>
+        <button class="model-run-btn" id="btn-run-nba-old" onclick="runModel('nba-old')">RUN NBA MODEL</button>
+        <div class="model-status" id="status-nba-old"></div>
       </div>
       <div class="model-card" id="model-card-nba-props">
         <div class="model-card-icon">&#127919;</div>
@@ -870,6 +906,7 @@
     </div>
     <div id="model-results-section" style="display:none;">
       <div class="section-title clean-title" style="margin-top:24px">Model Results</div>
+      <div class="model-status" id="model-results-meta"></div>
       <div class="panel">
         <div class="table-wrap">
           <table>
@@ -2455,6 +2492,16 @@ function toggleTheme() {
 
 // ── Models Tab ──
 let pendingModelPicks = [];
+const NBA_COMPARISON_MODELS = new Set(['nba-old', 'nba-new']);
+const NBA_MODEL_SOURCE_LABELS = {
+  'nba-old': 'NBA Model',
+  'nba-new': 'NBA New',
+};
+let pendingNbaComparisonPicks = {
+  'nba-old': [],
+  'nba-new': [],
+};
+let pendingNbaComparisonDate = '';
 
 function setModelStatus(model, msg, state) {
   const el = document.getElementById('status-' + model);
@@ -2469,6 +2516,182 @@ function _getTodayDateStr() {
   const mm = String(d.getMonth() + 1).padStart(2, '0');
   const dd = String(d.getDate()).padStart(2, '0');
   return `${mm}/${dd}/${d.getFullYear()}`;
+}
+
+function _getTodayIsoDate() {
+  const d = new Date();
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  return `${d.getFullYear()}-${mm}-${dd}`;
+}
+
+function _shiftIsoDate(dateStr, offsetDays) {
+  const base = new Date(`${dateStr || _getTodayIsoDate()}T12:00:00`);
+  if (Number.isNaN(base.getTime())) return _getTodayIsoDate();
+  base.setDate(base.getDate() + Number(offsetDays || 0));
+  const mm = String(base.getMonth() + 1).padStart(2, '0');
+  const dd = String(base.getDate()).padStart(2, '0');
+  return `${base.getFullYear()}-${mm}-${dd}`;
+}
+
+function initializeNbaModelDate() {
+  const input = document.getElementById('nba-model-date');
+  if (input && !input.value) {
+    input.value = _getTodayIsoDate();
+  }
+}
+
+function getSelectedNbaModelDate() {
+  const input = document.getElementById('nba-model-date');
+  const raw = String(input && input.value ? input.value : '').trim();
+  if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) return raw;
+  const today = _getTodayIsoDate();
+  if (input) input.value = today;
+  return today;
+}
+
+function setNbaModelDateOffset(offsetDays) {
+  const input = document.getElementById('nba-model-date');
+  if (!input) return;
+  const nextDate = _shiftIsoDate(getSelectedNbaModelDate(), offsetDays);
+  input.value = nextDate;
+}
+
+function formatModelRunDate(dateStr) {
+  const raw = String(dateStr || '').trim();
+  if (!raw) return 'selected date';
+  const dt = new Date(`${raw}T12:00:00`);
+  return Number.isNaN(dt.getTime()) ? raw : dt.toLocaleDateString(undefined, {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+  });
+}
+
+function setModelResultsMeta(msg, state) {
+  const el = document.getElementById('model-results-meta');
+  if (!el) return;
+  el.textContent = msg || '';
+  el.className = 'model-status' + (state ? ' ' + state : '');
+}
+
+function _resetNbaComparisonState(dateStr = '') {
+  pendingNbaComparisonPicks = {
+    'nba-old': [],
+    'nba-new': [],
+  };
+  pendingNbaComparisonDate = dateStr;
+}
+
+function _storeNbaComparisonPicks(model, picks, dateStr) {
+  if (!NBA_COMPARISON_MODELS.has(model)) return;
+  if (pendingNbaComparisonDate && pendingNbaComparisonDate !== dateStr) {
+    _resetNbaComparisonState(dateStr);
+  } else if (!pendingNbaComparisonDate) {
+    pendingNbaComparisonDate = dateStr;
+  }
+  pendingNbaComparisonPicks[model] = Array.isArray(picks) ? picks : [];
+  const combined = ['nba-old', 'nba-new'].flatMap(key => pendingNbaComparisonPicks[key] || []);
+  const loaded = ['nba-old', 'nba-new'].filter(key => (pendingNbaComparisonPicks[key] || []).length > 0);
+  const label = formatModelRunDate(pendingNbaComparisonDate || dateStr);
+  const summary = loaded.length === 2
+    ? `Showing NBA Model + NBA New for ${label}`
+    : `Showing ${NBA_MODEL_SOURCE_LABELS[model]} for ${label}. Run the other model to compare.`;
+  pendingModelPicks = combined;
+  renderModelResults(combined, { meta: summary, metaState: 'ok' });
+}
+
+function _clearNbaComparisonResults() {
+  _resetNbaComparisonState('');
+  setModelStatus('nba-compare', '', '');
+}
+
+function _setModelButtonRunning(model, runningText = 'RUNNING...') {
+  const btn = document.getElementById('btn-run-' + model);
+  if (!btn) return;
+  btn.disabled = true;
+  btn.textContent = runningText;
+}
+
+function _resetModelButton(model) {
+  const btn = document.getElementById('btn-run-' + model);
+  if (!btn) return;
+  const labels = {
+    mlb: 'RUN MLB MODEL',
+    'nba-new': 'RUN NBA NEW',
+    'nba-old': 'RUN NBA MODEL',
+    'nba-props': 'RUN PROPS MODEL',
+    scores24: 'SYNC SCORES24 NOW',
+    sportytrader: 'SYNC SPORTYTRADER NOW',
+  };
+  btn.disabled = false;
+  btn.textContent = labels[model] || 'RUN';
+}
+
+async function _runAsyncModelRequest(model, endpoint, body) {
+  setModelStatus(model, 'Launching model (async)...', 'running');
+  const resp = await fetch(MODEL_SERVER + endpoint, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  const launch = await resp.json();
+  if (!launch.ok) {
+    throw new Error(launch.error || 'Unknown error');
+  }
+
+  if (!launch.job_id) {
+    return Array.isArray(launch.picks) ? launch.picks : [];
+  }
+
+  setModelStatus(model, 'Model is running in background — polling for results...', 'running');
+  const data = await _pollJob(launch.job_id, model);
+  if (!data || !data.ok) {
+    throw new Error((data && data.error) || 'Job failed');
+  }
+  return Array.isArray(data.picks) ? data.picks : [];
+}
+
+async function _runNbaVariantModel(model, dateStr) {
+  const endpoint = model === 'nba-old' ? '/run-nba-old-model' : '/run-nba-model';
+  const label = formatModelRunDate(dateStr);
+  setModelStatus(model, `Running ${NBA_MODEL_SOURCE_LABELS[model]} for ${label}...`, 'running');
+  const picks = await _runAsyncModelRequest(model, endpoint, { async: true, date: dateStr });
+  setModelStatus(model, `Done. ${picks.length} prediction(s) returned for ${label}.`, 'ok');
+  return picks;
+}
+
+async function runNbaModelComparison() {
+  const btn = document.getElementById('btn-run-nba-compare');
+  const dateStr = getSelectedNbaModelDate();
+  const label = formatModelRunDate(dateStr);
+  if (btn) {
+    btn.disabled = true;
+    btn.textContent = 'RUNNING BOTH...';
+  }
+  _setModelButtonRunning('nba-old');
+  _setModelButtonRunning('nba-new');
+  _resetNbaComparisonState(dateStr);
+  setModelStatus('nba-compare', `Running NBA Model + NBA New for ${label}...`, 'running');
+
+  try {
+    const [oldPicks, newPicks] = await Promise.all([
+      _runNbaVariantModel('nba-old', dateStr),
+      _runNbaVariantModel('nba-new', dateStr),
+    ]);
+    _storeNbaComparisonPicks('nba-old', oldPicks, dateStr);
+    _storeNbaComparisonPicks('nba-new', newPicks, dateStr);
+    setModelStatus('nba-compare', `Loaded ${oldPicks.length + newPicks.length} combined pick(s) for ${label}.`, 'ok');
+  } catch (e) {
+    setModelStatus('nba-compare', `Comparison failed: ${String(e && e.message ? e.message : e)}`, 'error');
+  } finally {
+    _resetModelButton('nba-old');
+    _resetModelButton('nba-new');
+    if (btn) {
+      btn.disabled = false;
+      btn.textContent = 'RUN BOTH NBA MODELS';
+    }
+  }
 }
 
 async function loadNbaPropsGames() {
@@ -2848,8 +3071,9 @@ async function runSelectedScores24League() {
       leagues: league,
       note: synced.meta && synced.meta.note ? synced.meta.note : 'Synced from localhost backend',
     };
+    _clearNbaComparisonResults();
     pendingModelPicks = filtered;
-    renderModelResults(filtered);
+    renderModelResults(filtered, { meta: '' });
     saveScores24CachedFeed({ picks: filtered, meta });
     setScores24SyncMeta(meta);
     setModelStatus('scores24', `Synced ${filtered.length} ${league.toUpperCase()} pick(s) from backend`, 'ok');
@@ -2871,8 +3095,9 @@ async function runSelectedScores24League() {
         from: 'feed-file',
         leagues: league,
       };
+      _clearNbaComparisonResults();
       pendingModelPicks = fallbackPicks;
-      renderModelResults(fallbackPicks);
+      renderModelResults(fallbackPicks, { meta: '' });
       saveScores24CachedFeed({ picks: fallbackPicks, meta });
       setScores24SyncMeta(meta);
       setModelStatus('scores24', `Loaded ${fallbackPicks.length} ${league.toUpperCase()} pick(s) from feed file`, 'ok');
@@ -2883,8 +3108,9 @@ async function runSelectedScores24League() {
         const targetSport = sportMap[league] || league.toUpperCase();
         const fallbackPicks = cached.picks.filter(p => String(p.sport || '').toUpperCase() === targetSport);
         if (fallbackPicks.length) {
+          _clearNbaComparisonResults();
           pendingModelPicks = fallbackPicks;
-          renderModelResults(fallbackPicks);
+          renderModelResults(fallbackPicks, { meta: '' });
           setScores24SyncMeta({ ...(cached.meta || {}), from: 'cache', leagues: league });
           setModelStatus('scores24', `Using cached ${fallbackPicks.length} ${league.toUpperCase()} pick(s)`, 'ok');
         } else {
@@ -2903,15 +3129,35 @@ async function runSelectedScores24League() {
 }
 
 async function runModel(model) {
-  const btn = document.getElementById('btn-run-' + model);
-  if (btn) { btn.disabled = true; btn.textContent = 'RUNNING...'; }
+  _setModelButtonRunning(model);
+
+  if (NBA_COMPARISON_MODELS.has(model)) {
+    const dateStr = getSelectedNbaModelDate();
+    const label = formatModelRunDate(dateStr);
+    try {
+      const picks = await _runNbaVariantModel(model, dateStr);
+      _storeNbaComparisonPicks(model, picks, dateStr);
+      const hasBoth = ['nba-old', 'nba-new'].every(key => (pendingNbaComparisonPicks[key] || []).length > 0);
+      setModelStatus(
+        'nba-compare',
+        hasBoth ? `Showing NBA Model + NBA New for ${label}.` : `Showing ${NBA_MODEL_SOURCE_LABELS[model]} for ${label}.`,
+        'ok'
+      );
+    } catch (e) {
+      setModelStatus(model, `Error: ${String(e && e.message ? e.message : e)}`, 'error');
+    } finally {
+      _resetModelButton(model);
+    }
+    return;
+  }
 
   if (model === 'scores24') {
     try {
       setModelStatus(model, 'Trying live Scores24 backend sync...', 'running');
       const synced = await syncScores24FromServer();
+      _clearNbaComparisonResults();
       pendingModelPicks = synced.picks;
-      renderModelResults(synced.picks);
+      renderModelResults(synced.picks, { meta: '' });
       saveScores24CachedFeed({ picks: synced.picks, meta: synced.meta });
       setScores24SyncMeta(synced.meta);
       setModelStatus(model, `Synced ${synced.picks.length} pick(s) from backend`, 'ok');
@@ -2920,8 +3166,9 @@ async function runModel(model) {
       try {
         setModelStatus(model, 'Backend sync unavailable, loading feed file...', 'running');
         const loaded = await loadScores24ManualFeed();
+        _clearNbaComparisonResults();
         pendingModelPicks = loaded.picks;
-        renderModelResults(loaded.picks);
+        renderModelResults(loaded.picks, { meta: '' });
         const meta = {
           ...loaded.meta,
           from: 'feed-file',
@@ -2933,8 +3180,9 @@ async function runModel(model) {
       } catch (feedErr) {
         const cached = getScores24CachedFeed();
         if (cached && Array.isArray(cached.picks) && _isFreshFeedMeta(cached.meta)) {
+          _clearNbaComparisonResults();
           pendingModelPicks = cached.picks;
-          renderModelResults(cached.picks);
+          renderModelResults(cached.picks, { meta: '' });
           setScores24SyncMeta({ ...(cached.meta || {}), from: 'cache' });
           setModelStatus(model, `Using cached Scores24 feed (${cached.picks.length} pick(s))`, 'ok');
         } else {
@@ -2942,10 +3190,7 @@ async function runModel(model) {
         }
       }
     } finally {
-      if (btn) {
-        btn.disabled = false;
-        btn.textContent = 'SYNC SCORES24 NOW';
-      }
+      _resetModelButton(model);
     }
     return;
   }
@@ -2957,8 +3202,9 @@ async function runModel(model) {
     try {
       setModelStatus(model, 'Trying live SportyTrader backend sync...', 'running');
       const synced = await syncSportyTraderFromServer();
+      _clearNbaComparisonResults();
       pendingModelPicks = synced.picks;
-      renderModelResults(synced.picks);
+      renderModelResults(synced.picks, { meta: '' });
       saveSportyTraderCachedFeed({ picks: synced.picks, meta: synced.meta });
       setSportyTraderSyncMeta(synced.meta);
       setModelStatus(model, `Synced ${synced.picks.length} NBA pick(s) from backend`, 'ok');
@@ -2967,8 +3213,9 @@ async function runModel(model) {
       try {
         setModelStatus(model, 'Backend sync unavailable, loading feed file...', 'running');
         const loaded = await loadSportyTraderManualFeed();
+        _clearNbaComparisonResults();
         pendingModelPicks = loaded.picks;
-        renderModelResults(loaded.picks);
+        renderModelResults(loaded.picks, { meta: '' });
         const meta = {
           ...loaded.meta,
           from: 'feed-file',
@@ -2980,8 +3227,9 @@ async function runModel(model) {
       } catch (feedErr) {
         const cached = getSportyTraderCachedFeed();
         if (cached && Array.isArray(cached.picks) && _isFreshFeedMeta(cached.meta)) {
+          _clearNbaComparisonResults();
           pendingModelPicks = cached.picks;
-          renderModelResults(cached.picks);
+          renderModelResults(cached.picks, { meta: '' });
           setSportyTraderSyncMeta({ ...(cached.meta || {}), from: 'cache' });
           setModelStatus(model, `Using cached SportyTrader feed (${cached.picks.length} pick(s))`, 'ok');
         } else {
@@ -2990,10 +3238,7 @@ async function runModel(model) {
         }
       }
     } finally {
-      if (btn) {
-        btn.disabled = false;
-        btn.textContent = 'SYNC SPORTYTRADER NOW';
-      }
+      _resetModelButton(model);
     }
     return;
   }
@@ -3001,7 +3246,6 @@ async function runModel(model) {
   let endpoint = '';
   let body = { async: true, date: _getTodayDateStr() };
   if (model === 'mlb') endpoint = '/run-mlb-model';
-  else if (model === 'nba') endpoint = '/run-nba-model';
   else if (model === 'nba-props') {
     endpoint = '/run-nba-props-model';
     const gameSelect = document.getElementById('nba-props-game-select');
@@ -3012,71 +3256,68 @@ async function runModel(model) {
   }
 
   try {
-    setModelStatus(model, 'Launching model (async)...', 'running');
-    const resp = await fetch(MODEL_SERVER + endpoint, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body)
-    });
-    const launch = await resp.json();
-    if (!launch.ok) {
-      setModelStatus(model, 'Error: ' + (launch.error || 'Unknown error'), 'error');
-      return;
-    }
-
-    if (launch.job_id) {
-      // Async mode — poll for results
-      setModelStatus(model, 'Model is running in background — polling for results...', 'running');
-      const data = await _pollJob(launch.job_id, model);
-      if (!data || !data.ok) {
-        setModelStatus(model, 'Error: ' + ((data && data.error) || 'Job failed'), 'error');
-        return;
-      }
-      const picks = data.picks || [];
-      setModelStatus(model, `Done. ${picks.length} prediction(s) returned.`, 'ok');
-      pendingModelPicks = picks;
-      renderModelResults(picks);
-    } else {
-      // Sync fallback (shouldn't happen but just in case)
-      const picks = launch.picks || [];
-      setModelStatus(model, `Done. ${picks.length} prediction(s) returned.`, 'ok');
-      pendingModelPicks = picks;
-      renderModelResults(picks);
-    }
+    const picks = await _runAsyncModelRequest(model, endpoint, body);
+    setModelStatus(model, `Done. ${picks.length} prediction(s) returned.`, 'ok');
+    _clearNbaComparisonResults();
+    pendingModelPicks = picks;
+    renderModelResults(picks, { meta: '' });
   } catch (e) {
-    setModelStatus(model, `Server not reachable at ${MODEL_SERVER}`, 'error');
+    setModelStatus(model, `Error: ${String(e && e.message ? e.message : e)}`, 'error');
   } finally {
-    if (btn) {
-      btn.disabled = false;
-      const labels = {
-        mlb: 'RUN MLB MODEL',
-        nba: 'RUN NBA MODEL',
-        'nba-props': 'RUN PROPS MODEL',
-        scores24: 'SYNC SCORES24 NOW',
-        sportytrader: 'SYNC SPORTYTRADER NOW'
-      };
-      btn.textContent = labels[model] || 'RUN';
-    }
+    _resetModelButton(model);
   }
 }
 
-function renderModelResults(picks) {
+function renderModelResults(picks, options = {}) {
   const section = document.getElementById('model-results-section');
   const tbody = document.getElementById('model-results-body');
   if (!picks.length) {
     section.style.display = 'none';
+    setModelResultsMeta('', '');
     return;
   }
   section.style.display = 'block';
-  tbody.innerHTML = picks.map((p, idx) => {
+  if (Object.prototype.hasOwnProperty.call(options, 'meta')) {
+    setModelResultsMeta(options.meta, options.metaState || '');
+  }
+  const sourceRank = {
+    NBAOLD: 0,
+    'NBA MODEL': 0,
+    NBANEW: 1,
+    'NBA NEW': 1,
+  };
+  const sourceDisplayLabels = {
+    NBAOLD: 'NBA Model',
+    'NBA MODEL': 'NBA Model',
+    NBANEW: 'NBA New',
+    'NBA NEW': 'NBA New',
+  };
+  const sorted = picks.map((pick, index) => ({ pick, index })).sort((a, b) => {
+    const aSource = String(a.pick.source || '').toUpperCase();
+    const bSource = String(b.pick.source || '').toUpperCase();
+    const rankDiff = (sourceRank[aSource] ?? 50) - (sourceRank[bSource] ?? 50);
+    if (rankDiff) return rankDiff;
+    const pickDiff = String(a.pick.pick || '').localeCompare(String(b.pick.pick || ''));
+    if (pickDiff) return pickDiff;
+    return a.index - b.index;
+  });
+  pendingModelPicks = sorted.map(({ pick }) => pick);
+  let lastSource = '';
+  tbody.innerHTML = sorted.map(({ pick: p }, idx) => {
     const isBet = p.decision === 'BET';
     const cls = isBet ? 'model-result-bet' : 'model-result-pass';
     const edgeStr = p.edge != null ? (p.edge > 0 ? '+' : '') + p.edge.toFixed(1) + '%' : '—';
     const probStr = p.probability != null ? (p.probability * 100).toFixed(1) + '%' : '—';
     const oddsStr = formatOddsDisplay(p.odds);
-    return `<tr class="${isBet ? '' : 'model-result-pass-row'}" style="${isBet ? '' : 'opacity:0.5'}">
+    const source = String(p.source || '').toUpperCase();
+    const sourceDisplay = sourceDisplayLabels[source] || p.source || 'MODEL';
+    const groupHeader = source !== lastSource
+      ? `<tr class="model-result-group-row"><td colspan="8">${sourceDisplay}</td></tr>`
+      : '';
+    lastSource = source;
+    return `${groupHeader}<tr class="${isBet ? '' : 'model-result-pass-row'}" style="${isBet ? '' : 'opacity:0.5'}">
       <td><input type="checkbox" class="model-pick-cb" data-idx="${idx}" ${isBet ? 'checked' : ''} onchange="updateModelSelectAll()"></td>
-      <td><span class="badge badge-source">${p.source}</span></td>
+      <td><span class="badge badge-source">${sourceDisplay}</span></td>
       <td><div class="log-pick-main">${p.pick}</div></td>
       <td><span class="log-sport-text">${p.sport}</span></td>
       <td><span class="log-odds-text">${oddsStr}</span></td>
@@ -3279,6 +3520,7 @@ function initSportyTraderSyncMeta() {
 }
 
 initTheme();
+initializeNbaModelDate();
 initScores24SyncMeta();
 initSportyTraderSyncMeta();
 syncWithServer().catch(() => setSyncStatus('offline'));

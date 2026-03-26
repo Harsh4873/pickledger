@@ -1584,7 +1584,7 @@ def _ensure_playwright_browsers(python_bin: str, env: dict[str, str]) -> tuple[b
         return False, msg
 
 
-def _parse_nba_output(output: str) -> list[dict[str, Any]]:
+def _parse_nba_output(output: str, source_label: str = "NBA Model") -> list[dict[str, Any]]:
     """Parse NBA model stdout into pick dicts."""
     picks: list[dict[str, Any]] = []
     seen_keys: set[tuple[str, str, str]] = set()
@@ -1650,7 +1650,7 @@ def _parse_nba_output(output: str) -> list[dict[str, Any]]:
                 display_edge = -display_edge
 
             _append_unique({
-                "source": "NBA Model",
+                "source": source_label,
                 "pick": pick_text,
                 "sport": "NBA",
                 "odds": None,
@@ -1681,7 +1681,7 @@ def _parse_nba_output(output: str) -> list[dict[str, Any]]:
             if ou_decision_raw.startswith("BET"):
                 ou_side = "Over" if "OVER" in ou_decision_raw else "Under"
                 _append_unique({
-                    "source": "NBA Model",
+                    "source": source_label,
                     "pick": f"{ou_side} {line_val:.1f} ({matchup})",
                     "sport": "NBA",
                     "odds": None,
@@ -1697,7 +1697,7 @@ def _parse_nba_output(output: str) -> list[dict[str, Any]]:
                 })
             else:
                 _append_unique({
-                    "source": "NBA Model",
+                    "source": source_label,
                     "pick": f"O/U {line_val:.1f} ({matchup})",
                     "sport": "NBA",
                     "odds": None,
@@ -2444,27 +2444,51 @@ def _parse_scores24_output(output: str) -> list[dict[str, Any]]:
     return picks
 
 
-def run_nba_model(date_str: str | None = None) -> dict[str, Any]:
-    """Execute the NBA model and return parsed picks."""
+def _nba_model_extra_args(date_str: str | None = None, variant: str = "new") -> list[str]:
+    target_iso, _ = _parse_model_date_arg(date_str)
+    args = ["--date", target_iso, "--variant", variant]
+    if variant != "new" or target_iso != datetime.now().strftime("%Y-%m-%d"):
+        args.append("--no-log")
+    return args
+
+
+def run_nba_model(date_str: str | None = None, variant: str = "new") -> dict[str, Any]:
+    """Execute an NBA model variant and return parsed picks."""
     python_bin = _resolve_python_bin(os.path.join(NBA_MODEL_DIR, "venv", "bin", "python"))
+    source_label = "NBA New" if variant == "new" else "NBA Model"
 
     try:
-        output = _run_script(python_bin, "run_live.py", NBA_MODEL_DIR, timeout=300)
+        output = _run_script(
+            python_bin,
+            "run_live.py",
+            NBA_MODEL_DIR,
+            timeout=300,
+            extra_args=_nba_model_extra_args(date_str, variant),
+        )
         if "Traceback (most recent call last)" in output or "ModuleNotFoundError" in output:
             tail = " | ".join((output.strip().splitlines() or ["no output"])[-12:])
-            return {"ok": False, "error": f"NBA model runtime failed ({tail})"}
+            return {"ok": False, "error": f"{source_label} runtime failed ({tail})"}
 
-        picks = _parse_nba_output(output)
+        picks = _parse_nba_output(output, source_label=source_label)
         if not picks:
             if "No games found for today." in output:
-                return {"ok": True, "picks": [], "raw_lines": len(output.split("\n")), "note": "No NBA games found today"}
+                return {
+                    "ok": True,
+                    "picks": [],
+                    "raw_lines": len(output.split("\n")),
+                    "note": f"No NBA games found for requested date ({source_label})",
+                }
             tail = " | ".join((output.strip().splitlines() or ["no output"])[-12:])
-            return {"ok": False, "error": f"NBA parser found no predictions ({tail})", "raw_lines": len(output.split("\n"))}
+            return {
+                "ok": False,
+                "error": f"{source_label} parser found no predictions ({tail})",
+                "raw_lines": len(output.split("\n")),
+            }
 
         picks = _enrich_picks_with_market_odds(picks, date_str)
         return {"ok": True, "picks": picks, "raw_lines": len(output.split("\n"))}
     except subprocess.TimeoutExpired:
-        return {"ok": False, "error": "NBA model timed out (5 min limit)"}
+        return {"ok": False, "error": f"{source_label} timed out (5 min limit)"}
     except Exception as e:
         return {"ok": False, "error": str(e)}
 
@@ -2913,6 +2937,7 @@ class Handler(BaseHTTPRequestHandler):
                 "/ledger-state",
                 "/grade",
                 "/run-nba-model",
+                "/run-nba-old-model",
                 "/run-nba-props-model",
                 "/run-mlb-model",
                 "/ask-opus",
@@ -3055,10 +3080,18 @@ class Handler(BaseHTTPRequestHandler):
 
         elif path == "/run-nba-model":
             if async_mode:
-                job_id = _launch_job(run_nba_model, date_str)
+                job_id = _launch_job(run_nba_model, date_str, "new")
                 self._send_json(200, {"ok": True, "job_id": job_id, "status": "running"})
             else:
-                result = run_nba_model(date_str)
+                result = run_nba_model(date_str, "new")
+                self._send_json(200, result)
+
+        elif path == "/run-nba-old-model":
+            if async_mode:
+                job_id = _launch_job(run_nba_model, date_str, "old")
+                self._send_json(200, {"ok": True, "job_id": job_id, "status": "running"})
+            else:
+                result = run_nba_model(date_str, "old")
                 self._send_json(200, result)
 
         elif path == "/run-nba-props-model":
