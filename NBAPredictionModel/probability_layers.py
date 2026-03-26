@@ -38,10 +38,13 @@ def calculate_layer1_base_rate(team: Team, opp_team: Team, h2h_win_pct_2yr: floa
     net_rtg_prob = 0.50 + (net_rtg_diff * 0.03)
     net_rtg_prob = max(0.05, min(0.95, net_rtg_prob))
     
+    home_court_prior = 0.015 if team.is_home else -0.015
+
     base_rate = (
         (net_rtg_prob * net_rtg_weight) + 
         (team.team_stats.last_10_win_pct * recent_weight) + 
-        (h2h_win_pct_2yr * h2h_weight)
+        (h2h_win_pct_2yr * h2h_weight) +
+        home_court_prior
     )
                 
     return base_rate
@@ -83,6 +86,14 @@ def calculate_layer2_situational(team: Team, opp_team: Team, game_ctx: GameConte
     if team.motivation_elimination_game:
         adj += 0.03
         reasons.append("Motivation/Elimination Game +3.0%")
+
+    # 5. Home floor routine / road penalty
+    if team.is_home:
+        adj += 0.005
+        reasons.append("Home floor routine +0.5%")
+    else:
+        adj -= 0.005
+        reasons.append("Road travel context -0.5%")
         
     # Cap total situational adjustment at ±15% (0.15)
     adj = max(-0.15, min(0.15, adj))
@@ -109,6 +120,11 @@ def calculate_layer3_matchup_modifier(team: Team, opp_team: Team) -> tuple[float
     if (team.team_stats.reb_pct - opp_team.team_stats.reb_pct) > 0.03:
         adj += 0.02
         reasons.append("Rebound edge +2.0%")
+
+    # Mild home-court shooting execution bump in favorable offensive matchups.
+    if team.is_home and team.team_stats.off_rating_10 >= opp_team.team_stats.def_rating_10:
+        adj += 0.005
+        reasons.append("Home-court shot-making +0.5%")
         
     reason_str = ", ".join(reasons) if reasons else "No matchup modifiers"
     return adj, reason_str
@@ -208,4 +224,8 @@ def predict_spread(home_team: Team, away_team: Team) -> float:
     )
     rebound_margin = (home_team.team_stats.reb_pct - away_team.team_stats.reb_pct) * 22.0
 
-    return net_rating_margin + recent_form_margin + efficiency_margin + rebound_margin
+    # Use a +3.5 point home-court prior until we have enough logged outcomes to
+    # estimate the margin empirically from this model's own prediction history.
+    home_court_margin = 3.5 if home_team.is_home else -3.5
+
+    return net_rating_margin + recent_form_margin + efficiency_margin + rebound_margin + home_court_margin

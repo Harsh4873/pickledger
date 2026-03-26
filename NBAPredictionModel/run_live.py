@@ -91,11 +91,8 @@ def run_game(game_info, all_team_stats, injuries, ou_line=225.0):
     
     total_injury_adj = inj_adj_home - inj_adj_away
     
-    # FIX D: Home court advantage — NBA home teams win ~58% historically (+3% edge)
-    home_court_adj = 0.03
-    
-    l2_combined = f"Sit: {l2_reasons} | HCA: +3.0% | Inj [{home_name}: {inj_reason_home}] | [{away_name}: {inj_reason_away}]"
-    total_l2_with_inj = max(-0.25, min(0.25, total_l2_adj + total_injury_adj + home_court_adj))
+    l2_combined = f"Sit: {l2_reasons} | Inj [{home_name}: {inj_reason_home}] | [{away_name}: {inj_reason_away}]"
+    total_l2_with_inj = max(-0.25, min(0.25, total_l2_adj + total_injury_adj))
     
     # Layer 3: Matchup
     l3_adj, l3_reasons = calculate_layer3_matchup_modifier(home_team, away_team)
