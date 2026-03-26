@@ -6,6 +6,7 @@ from datetime import datetime
 from live_data import build_live_dataframe
 from moneyline_model import predict_home_win_probability
 from probability_layers import predict_total_runs
+from totals_model import predict_totals
 
 
 def _parse_date(argv: list[str]) -> datetime.date:
@@ -43,6 +44,14 @@ def main(argv: list[str] | None = None) -> int:
             return 0
 
         predictions = predict_home_win_probability(live_frame)
+        try:
+            predictions = predict_totals(predictions)
+        except FileNotFoundError:
+            predictions = predictions.copy()
+            predictions["predicted_total_runs"] = predictions.apply(
+                lambda row: predict_total_runs(row.to_dict()),
+                axis=1,
+            )
     except FileNotFoundError as exc:
         print(str(exc), file=sys.stderr)
         return 1
@@ -66,7 +75,7 @@ def main(argv: list[str] | None = None) -> int:
             f"{away_odds}|{home_odds}|{away_prob:.4f}|{home_prob:.4f}"
         )
 
-        predicted_total = predict_total_runs(row)
+        predicted_total = float(row.get("predicted_total_runs", predict_total_runs(row)))
         ou_line = 8.5
         if predicted_total > ou_line + 0.5:
             selection = "OVER"
