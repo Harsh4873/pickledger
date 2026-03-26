@@ -24,12 +24,12 @@ def calculate_layer1_base_rate(row: Mapping[str, object]) -> float:
     The value is oriented from the home team's perspective so it can be used
     directly as a home-win probability feature in the hybrid model.
     """
-    home_season = _float(row, "home_season_win_pct", 0.5)
-    home_recent = _float(row, "home_form_30d_win_pct", 0.5)
+    home_season = _float(row, "home_team_win_pct_shrunk", _float(row, "home_season_win_pct", 0.5))
+    home_recent = _float(row, "home_form_30d_win_pct_shrunk", _float(row, "home_form_30d_win_pct", 0.5))
     home_prior = _float(row, "home_prior_season_win_pct", 0.5)
 
-    away_season = _float(row, "away_season_win_pct", 0.5)
-    away_recent = _float(row, "away_form_30d_win_pct", 0.5)
+    away_season = _float(row, "away_team_win_pct_shrunk", _float(row, "away_season_win_pct", 0.5))
+    away_recent = _float(row, "away_form_30d_win_pct_shrunk", _float(row, "away_form_30d_win_pct", 0.5))
     away_prior = _float(row, "away_prior_season_win_pct", 0.5)
 
     home_strength = 0.45 * home_season + 0.30 * home_recent + 0.25 * home_prior
@@ -94,8 +94,8 @@ def calculate_layer2_situational(row: Mapping[str, object]) -> tuple[float, str]
 
 
 def calculate_layer3_pitcher_modifier(row: Mapping[str, object]) -> tuple[float, str]:
-    home_fip = _float(row, "home_starter_fip", 4.2)
-    away_fip = _float(row, "away_starter_fip", 4.2)
+    home_fip = _float(row, "home_starter_fip_shrunk", _float(row, "home_starter_fip", 4.2))
+    away_fip = _float(row, "away_starter_fip_shrunk", _float(row, "away_starter_fip", 4.2))
     fip_edge = away_fip - home_fip
     fip_edge = max(-1.8, min(1.8, fip_edge))
     modifier = (fip_edge / 0.5) * 0.025
@@ -141,16 +141,16 @@ def predict_total_runs(row: Mapping[str, object]) -> float:
     """
     base_runs = 8.7
     starter_component = (
-        (_float(row, "home_starter_fip", 4.2) - 4.2)
-        + (_float(row, "away_starter_fip", 4.2) - 4.2)
+        (_float(row, "home_starter_fip_shrunk", _float(row, "home_starter_fip", 4.2)) - 4.2)
+        + (_float(row, "away_starter_fip_shrunk", _float(row, "away_starter_fip", 4.2)) - 4.2)
     )
     bullpen_component = (
         ((_float(row, "home_bullpen_era_30d", 4.2) - 4.2) * 0.35)
         + ((_float(row, "away_bullpen_era_30d", 4.2) - 4.2) * 0.35)
     )
     lineup_component = (
-        ((_float(row, "home_lineup_ops_proxy", 0.710) - 0.710) * 8.0)
-        + ((_float(row, "away_lineup_ops_proxy", 0.710) - 0.710) * 8.0)
+        ((_float(row, "home_lineup_ops_proxy_shrunk", _float(row, "home_lineup_ops_proxy", 0.710)) - 0.710) * 8.0)
+        + ((_float(row, "away_lineup_ops_proxy_shrunk", _float(row, "away_lineup_ops_proxy", 0.710)) - 0.710) * 8.0)
     )
     park_component = (_float(row, "park_factor_runs", 100.0) - 100.0) * 0.05
 

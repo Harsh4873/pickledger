@@ -7,6 +7,39 @@ import pandas as pd
 from probability_layers import heuristic_features, predict_total_runs
 
 
+# Early-season stabilization constants.
+# Team win %: 45 games is roughly a quarter season, enough for current results
+# to matter materially but not overwhelm prior-season strength in April/May.
+TEAM_WIN_PCT_PRIOR_GAMES = 45.0
+
+# Recent-form windows: these are intentionally conservative so a 3-2 week does
+# not look like a true signal yet.
+FORM_PRIOR_GAMES = {
+    7: 6.0,
+    14: 8.0,
+    30: 12.0,
+}
+
+# Pitcher reliability:
+# 45 IP or ~8 starts is the threshold where current-season run prevention starts
+# getting most of the weight. Below that, blend aggressively toward prior season
+# (or league-average fallback if no prior exists).
+PITCHER_RELIABILITY_IP = 45.0
+PITCHER_RELIABILITY_STARTS = 8.0
+
+# Lineup proxy stabilization: early lineup OPS from tiny batter samples is noisy,
+# so blend toward a league-average offense until the confirmed lineup has enough
+# cumulative games behind it.
+LINEUP_PRIOR_GAMES = 40.0
+
+LEAGUE_AVG_ERA = 4.20
+LEAGUE_AVG_FIP = 4.20
+LEAGUE_AVG_WHIP = 1.30
+LEAGUE_AVG_OPS = 0.710
+LEAGUE_AVG_OBP = 0.320
+LEAGUE_AVG_SLG = 0.390
+
+
 CATEGORICAL_FEATURES = [
     "home_starter_hand",
     "away_starter_hand",
@@ -38,6 +71,9 @@ NUMERIC_FEATURES = [
     "starter_whip_adv",
     "starter_ip_adv",
     "starter_starts_adv",
+    "starter_reliability_adv",
+    "home_starter_reliability",
+    "away_starter_reliability",
     "prior_starter_era_adv",
     "prior_starter_fip_adv",
     "prior_starter_ip_adv",
@@ -73,16 +109,93 @@ def add_heuristic_columns(frame: pd.DataFrame) -> pd.DataFrame:
     return frame
 
 
+def _blend(current: pd.Series, baseline: pd.Series | float, weight: pd.Series) -> pd.Series:
+    return weight * current + (1.0 - weight) * baseline
+
+
+def _reliability_weight(sample: pd.Series, prior_scale: float) -> pd.Series:
+    return (sample / (sample + prior_scale)).clip(lower=0.0, upper=1.0)
+
+
+def apply_sample_size_shrinkage(frame: pd.DataFrame) -> pd.DataFrame:
+    frame = frame.copy()
+
+    for side in ("home", "away"):
+        games_played = frame[f"{side}_games_played"].fillna(0.0)
+        team_weight = _reliability_weight(games_played, TEAM_WIN_PCT_PRIOR_GAMES)
+        frame[f"{side}_team_win_pct_shrunk"] = _blend(
+            frame[f"{side}_season_win_pct"].fillna(0.5),
+            frame[f"{side}_prior_season_win_pct"].fillna(0.5),
+            team_weight,
+        )
+
+        for window, prior_games in FORM_PRIOR_GAMES.items():
+            sample = frame[f"{side}_form_{window}d_games"].fillna(0.0)
+            form_weight = _reliability_weight(sample, prior_games)
+            frame[f"{side}_form_{window}d_win_pct_shrunk"] = _blend(
+                frame[f"{side}_form_{window}d_win_pct"].fillna(0.5),
+                frame[f"{side}_team_win_pct_shrunk"].fillna(0.5),
+                form_weight,
+            )
+
+        ip = frame[f"{side}_starter_ip"].fillna(0.0)
+        starts = frame[f"{side}_starter_starts"].fillna(0.0)
+        ip_weight = _reliability_weight(ip, PITCHER_RELIABILITY_IP)
+        starts_weight = _reliability_weight(starts, PITCHER_RELIABILITY_STARTS)
+        reliability = ((ip_weight + starts_weight) / 2.0).clip(lower=0.0, upper=1.0)
+        frame[f"{side}_starter_reliability"] = reliability
+
+        prior_era = frame[f"{side}_prior_starter_era"].fillna(LEAGUE_AVG_ERA)
+        prior_fip = frame[f"{side}_prior_starter_fip"].fillna(LEAGUE_AVG_FIP)
+        prior_whip = LEAGUE_AVG_WHIP
+        frame[f"{side}_starter_era_shrunk"] = _blend(
+            frame[f"{side}_starter_era"].fillna(LEAGUE_AVG_ERA),
+            prior_era,
+            reliability,
+        )
+        frame[f"{side}_starter_fip_shrunk"] = _blend(
+            frame[f"{side}_starter_fip"].fillna(LEAGUE_AVG_FIP),
+            prior_fip,
+            reliability,
+        )
+        frame[f"{side}_starter_whip_shrunk"] = _blend(
+            frame[f"{side}_starter_whip"].fillna(LEAGUE_AVG_WHIP),
+            prior_whip,
+            reliability,
+        )
+
+        lineup_sample = frame[f"{side}_lineup_sample_games"].fillna(0.0)
+        lineup_weight = _reliability_weight(lineup_sample, LINEUP_PRIOR_GAMES)
+        frame[f"{side}_lineup_ops_proxy_shrunk"] = _blend(
+            frame[f"{side}_lineup_ops_proxy"].fillna(LEAGUE_AVG_OPS),
+            LEAGUE_AVG_OPS,
+            lineup_weight,
+        )
+        frame[f"{side}_lineup_obp_proxy_shrunk"] = _blend(
+            frame[f"{side}_lineup_obp_proxy"].fillna(LEAGUE_AVG_OBP),
+            LEAGUE_AVG_OBP,
+            lineup_weight,
+        )
+        frame[f"{side}_lineup_slg_proxy_shrunk"] = _blend(
+            frame[f"{side}_lineup_slg_proxy"].fillna(LEAGUE_AVG_SLG),
+            LEAGUE_AVG_SLG,
+            lineup_weight,
+        )
+
+    return frame
+
+
 def add_model_features(frame: pd.DataFrame) -> pd.DataFrame:
+    frame = apply_sample_size_shrinkage(frame)
     frame = add_heuristic_columns(frame)
     frame = frame.copy()
 
-    frame["team_win_pct_adv"] = frame["home_season_win_pct"] - frame["away_season_win_pct"]
+    frame["team_win_pct_adv"] = frame["home_team_win_pct_shrunk"] - frame["away_team_win_pct_shrunk"]
     frame["prior_team_win_pct_adv"] = frame["home_prior_season_win_pct"] - frame["away_prior_season_win_pct"]
 
-    frame["form_7d_adv"] = frame["home_form_7d_win_pct"] - frame["away_form_7d_win_pct"]
-    frame["form_14d_adv"] = frame["home_form_14d_win_pct"] - frame["away_form_14d_win_pct"]
-    frame["form_30d_adv"] = frame["home_form_30d_win_pct"] - frame["away_form_30d_win_pct"]
+    frame["form_7d_adv"] = frame["home_form_7d_win_pct_shrunk"] - frame["away_form_7d_win_pct_shrunk"]
+    frame["form_14d_adv"] = frame["home_form_14d_win_pct_shrunk"] - frame["away_form_14d_win_pct_shrunk"]
+    frame["form_30d_adv"] = frame["home_form_30d_win_pct_shrunk"] - frame["away_form_30d_win_pct_shrunk"]
     frame["form_7d_game_count_adv"] = frame["home_form_7d_games"] - frame["away_form_7d_games"]
     frame["form_14d_game_count_adv"] = frame["home_form_14d_games"] - frame["away_form_14d_games"]
     frame["form_30d_game_count_adv"] = frame["home_form_30d_games"] - frame["away_form_30d_games"]
@@ -94,19 +207,20 @@ def add_model_features(frame: pd.DataFrame) -> pd.DataFrame:
     frame["travel_distance_adv"] = frame["away_travel_distance_miles"] - frame["home_travel_distance_miles"]
     frame["travel_flag_adv"] = frame["away_travel_flag"] - frame["home_travel_flag"]
 
-    frame["starter_era_adv"] = frame["away_starter_era"] - frame["home_starter_era"]
-    frame["starter_fip_adv"] = frame["away_starter_fip"] - frame["home_starter_fip"]
-    frame["starter_whip_adv"] = frame["away_starter_whip"] - frame["home_starter_whip"]
+    frame["starter_era_adv"] = frame["away_starter_era_shrunk"] - frame["home_starter_era_shrunk"]
+    frame["starter_fip_adv"] = frame["away_starter_fip_shrunk"] - frame["home_starter_fip_shrunk"]
+    frame["starter_whip_adv"] = frame["away_starter_whip_shrunk"] - frame["home_starter_whip_shrunk"]
     frame["starter_ip_adv"] = frame["home_starter_ip"] - frame["away_starter_ip"]
     frame["starter_starts_adv"] = frame["home_starter_starts"] - frame["away_starter_starts"]
+    frame["starter_reliability_adv"] = frame["home_starter_reliability"] - frame["away_starter_reliability"]
 
     frame["prior_starter_era_adv"] = frame["away_prior_starter_era"] - frame["home_prior_starter_era"]
     frame["prior_starter_fip_adv"] = frame["away_prior_starter_fip"] - frame["home_prior_starter_fip"]
     frame["prior_starter_ip_adv"] = frame["home_prior_starter_ip"] - frame["away_prior_starter_ip"]
 
-    frame["lineup_ops_adv"] = frame["home_lineup_ops_proxy"] - frame["away_lineup_ops_proxy"]
-    frame["lineup_obp_adv"] = frame["home_lineup_obp_proxy"] - frame["away_lineup_obp_proxy"]
-    frame["lineup_slg_adv"] = frame["home_lineup_slg_proxy"] - frame["away_lineup_slg_proxy"]
+    frame["lineup_ops_adv"] = frame["home_lineup_ops_proxy_shrunk"] - frame["away_lineup_ops_proxy_shrunk"]
+    frame["lineup_obp_adv"] = frame["home_lineup_obp_proxy_shrunk"] - frame["away_lineup_obp_proxy_shrunk"]
+    frame["lineup_slg_adv"] = frame["home_lineup_slg_proxy_shrunk"] - frame["away_lineup_slg_proxy_shrunk"]
     frame["lineup_sample_adv"] = frame["home_lineup_sample_games"] - frame["away_lineup_sample_games"]
     return frame
 
