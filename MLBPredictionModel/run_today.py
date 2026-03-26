@@ -3,6 +3,7 @@ from __future__ import annotations
 import sys
 from datetime import datetime
 
+from calibration import apply_moneyline_calibration
 from live_data import build_live_dataframe
 from moneyline_model import predict_home_win_probability
 from probability_layers import predict_total_runs
@@ -44,6 +45,7 @@ def main(argv: list[str] | None = None) -> int:
             return 0
 
         predictions = predict_home_win_probability(live_frame)
+        predictions = apply_moneyline_calibration(predictions)
         try:
             predictions = predict_totals(predictions)
         except FileNotFoundError:
@@ -64,7 +66,7 @@ def main(argv: list[str] | None = None) -> int:
     print(f"Found {len(predictions)} games.\n")
 
     for row in predictions.to_dict("records"):
-        home_prob = float(row["raw_home_win_probability"])
+        home_prob = float(row.get("calibrated_home_win_probability", row["raw_home_win_probability"]))
         away_prob = 1.0 - home_prob
         home_odds = _prob_to_american(home_prob)
         away_odds = _prob_to_american(away_prob)
