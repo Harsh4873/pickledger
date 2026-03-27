@@ -8,6 +8,7 @@ scans sub-league directories and follows more listing pages to hunt it down.
 """
 
 import argparse
+from concurrent.futures import ThreadPoolExecutor, as_completed
 import json
 import os
 import re
@@ -16,7 +17,7 @@ import unicodedata
 from datetime import datetime, timedelta
 from html import unescape
 from urllib.error import HTTPError
-from urllib.parse import urljoin
+from urllib.parse import urljoin, urlsplit, urlunsplit
 from urllib.request import Request, urlopen
 from zoneinfo import ZoneInfo
 
@@ -115,8 +116,14 @@ TEAM_ABBREVIATION_ALIASES = {
     "BRK": {"BKN"},
 }
 LEAGUE_LISTING_HINTS = {
-    "nba": [f"{BASE}/en/basketball/l-usa-nba"],
-    "nhl": [f"{BASE}/en/ice-hockey/l-usa-nhl"],
+    "nba": [
+        f"{BASE}/en/basketball",
+        f"{BASE}/en/basketball/l-usa-nba",
+    ],
+    "mlb": [
+        f"{BASE}/en/baseball",
+        f"{BASE}/en/baseball/l-usa-mlb",
+    ],
 }
 MAX_LISTING_PAGES = 24
 SCORES24_BACKEND = os.environ.get("SCORES24_BACKEND", "auto").strip().lower() or "auto"
@@ -323,6 +330,30 @@ def guess_urls(sport_slug: str, date_str: str, matchup_str: str) -> list[str]:
     ]
 
 
+def _probe_date_candidates(date_str: str | None) -> list[str]:
+    if not date_str:
+        return []
+    try:
+        base = datetime.strptime(date_str, "%Y-%m-%d")
+    except ValueError:
+        return [date_str]
+    return [
+        base.strftime("%Y-%m-%d"),
+        (base + timedelta(days=1)).strftime("%Y-%m-%d"),
+        (base - timedelta(days=1)).strftime("%Y-%m-%d"),
+    ]
+
+
+def _guess_matchup_prediction_urls(sport_slug: str, matchup: dict[str, str], date_str: str | None) -> list[str]:
+    matchup_str = f"{matchup.get('home', '')} vs {matchup.get('away', '')}".strip()
+    if " vs " not in matchup_str:
+        return []
+    guessed: list[str] = []
+    for probe_date in _probe_date_candidates(date_str):
+        guessed.extend(guess_urls(sport_slug, probe_date, matchup_str))
+    return _dedupe_prediction_links(guessed)
+
+
 def listing_url_candidates(sport_slug: str, requested_sport: str | None = None) -> list[str]:
     """Try multiple known Scores24 listing URL patterns."""
     requested_key = (requested_sport or "").strip().lower().replace(" ", "-")
@@ -353,6 +384,19 @@ def _looks_like_cloudflare_block(text: str) -> bool:
     return any(sig in blob for sig in signals)
 
 
+def _olostep_markdown_content(scrape_obj: dict) -> str:
+    result = scrape_obj.get("result") if isinstance(scrape_obj, dict) else {}
+    markdown = result.get("markdown_content") if isinstance(result, dict) else ""
+    return markdown if isinstance(markdown, str) else ""
+
+
+def _log_cloudflare_block_once(url: str, warned_urls: set[str], label: str) -> None:
+    if url in warned_urls:
+        return
+    warned_urls.add(url)
+    print(f"{label}: ❌ Cloudflare block detected for {url}")
+
+
 def scan_suggestive(text: str) -> list[str]:
     lower = text.lower()
     hits = []
@@ -365,6 +409,12 @@ def scan_suggestive(text: str) -> list[str]:
 
 
 def should_use_olostep() -> bool:
+    if SCORES24_BACKEND == "olostep":
+        return True
+    if SCORES24_BACKEND in {"playwright", "browser", "camoufox"}:
+        return False
+    if ALLOW_OLOSTEP_AUTO and OLOSTEP_API_KEY:
+        return True
     return Camoufox is None
 
 
@@ -422,9 +472,11 @@ def _normalize_prediction_page_url(url: str) -> str:
     full_url = _normalize_prediction_url(url)
     if not full_url:
         return ""
-    if re.search(r"/m-\d{2}-\d{2}-\d{4}-", full_url) and not full_url.endswith("-prediction"):
-        return f"{full_url}-prediction"
-    return full_url
+    parts = urlsplit(full_url)
+    path = parts.path.rstrip("/")
+    if re.search(r"/m-\d{2}-\d{2}-\d{4}-", path) and not path.endswith("-prediction"):
+        path = f"{path}-prediction"
+    return urlunsplit((parts.scheme, parts.netloc, path, "", ""))
 
 
 def _is_prediction_page_url(url: str) -> bool:
@@ -474,6 +526,13 @@ def _target_date_slugs(date_str: str | None) -> list[str]:
     ]
 
 
+def _href_matches_requested_date(url: str, date_str: str | None, variants: list[str]) -> bool:
+    blob = str(url or "").lower()
+    if any(v.lower().replace(" ", "-") in blob for v in variants):
+        return True
+    return any(slug and slug in blob for slug in _target_date_slugs(date_str))
+
+
 def _extract_prediction_urls(scrape_obj: dict, date_str: str | None, strict_date: bool = True) -> list[str]:
     result = scrape_obj.get("result") if isinstance(scrape_obj, dict) else {}
     links_on_page = result.get("links_on_page") if isinstance(result, dict) else []
@@ -513,7 +572,7 @@ def _extract_prediction_urls(scrape_obj: dict, date_str: str | None, strict_date
     return filtered
 
 
-def _extract_subleague_urls(scrape_obj: dict) -> list[str]:
+def _extract_subleague_urls(scrape_obj: dict, requested_key: str | None = None) -> list[str]:
     result = scrape_obj.get("result") if isinstance(scrape_obj, dict) else {}
     links_on_page = result.get("links_on_page") if isinstance(result, dict) else []
     markdown = result.get("markdown_content") if isinstance(result, dict) else ""
@@ -541,6 +600,11 @@ def _extract_subleague_urls(scrape_obj: dict) -> list[str]:
             continue
         seen.add(full_url)
         out.append(full_url)
+    requested = _requested_league_key(requested_key)
+    if requested == "nba":
+        out = [url for url in out if "nba" in url.lower() or "usa-nba" in url.lower()]
+    elif requested == "mlb":
+        out = [url for url in out if "mlb" in url.lower() or "usa-mlb" in url.lower()]
     return out
 
 
@@ -626,6 +690,21 @@ def _extract_matchup_from_url(url: str, markdown: str) -> tuple[str, str]:
             best_score = score
             best_pair = (home, away)
     return best_pair
+
+
+def _requested_league_key(value: str | None) -> str:
+    return re.sub(r"[\s_]+", "-", str(value or "").strip().lower())
+
+
+def _url_matches_expected_matchup(url: str, matchup: dict[str, str]) -> bool:
+    url_home, url_away = _extract_matchup_from_url(url, "")
+    if url_home and url_away:
+        direct = _team_matches_text(matchup.get("home", ""), url_home) and _team_matches_text(matchup.get("away", ""), url_away)
+        reverse = _team_matches_text(matchup.get("home", ""), url_away) and _team_matches_text(matchup.get("away", ""), url_home)
+        if direct or reverse:
+            return True
+    blob = (url or "").replace("-", " ")
+    return _team_matches_text(matchup.get("home", ""), blob) and _team_matches_text(matchup.get("away", ""), blob)
 
 
 def _extract_date_text(markdown: str) -> str:
@@ -769,11 +848,12 @@ def run_with_olostep(args) -> int:
 
     sport_slug = resolve_sport(args.sport) if args.sport else "Unknown"
     sport_label = (args.sport or sport_slug).upper()
-    listing_urls = [args.url] if args.url else listing_url_candidates(sport_slug, args.sport)
+    requested_league = _requested_league_key(args.sport or sport_slug)
+    listing_urls = [args.url] if args.url else listing_url_candidates(sport_slug, requested_league)
     listing_url = listing_urls[0]
     matchup_parts = [p.strip().lower() for p in args.matchup.split("vs") if p.strip()] if args.matchup else []
-    expected_matchups = fetch_daily_matchups(sport_slug, args.date) if sport_slug in SPORT_TO_ESPNSLUG else []
-    strict_date = sport_slug not in SPORT_TO_ESPNSLUG
+    expected_matchups = fetch_daily_matchups(requested_league, args.date) if requested_league in SPORT_TO_ESPNSLUG else []
+    strict_date = requested_league not in SPORT_TO_ESPNSLUG
     print(f"Sport:          {sport_slug if args.sport else 'Unknown'}")
     if args.date:
         print(f"Date requested: {args.date}")
@@ -784,30 +864,30 @@ def run_with_olostep(args) -> int:
 
     filtered: list[dict] = []
     aggregate_links: list[dict] = []
+    queued_subleague_urls: list[str] = []
+    warned_cloudflare_urls: set[str] = set()
     used_listing_url = ""
     for cand in listing_urls:
-        scrape = _olostep_scrape(cand, ["markdown"])
+        try:
+            scrape = _olostep_scrape(cand, ["markdown"])
+        except Exception:
+            continue
+        markdown = _olostep_markdown_content(scrape)
+        if _looks_like_cloudflare_block(markdown):
+            _log_cloudflare_block_once(cand, warned_cloudflare_urls, "Listing page status")
+            continue
         normalized_links = _dedupe_prediction_links(_extract_prediction_urls(scrape, args.date, strict_date=strict_date))
         if matchup_parts and normalized_links:
             normalized_links = [href for href in normalized_links if _url_matches_matchup(href, matchup_parts)]
+        elif expected_matchups and normalized_links:
+            normalized_links = [
+                href for href in normalized_links
+                if any(_url_matches_expected_matchup(href, matchup) for matchup in expected_matchups)
+            ]
 
-        # Only fan out into sub-leagues when the main listing did not already
-        # expose the direct prediction links we need.
-        if not normalized_links:
-            aggregated: list[str] = []
-            subleague_urls = _extract_subleague_urls(scrape)[:20]
-            for subleague_url in subleague_urls:
-                try:
-                    sub_scrape = _olostep_scrape(subleague_url, ["markdown"])
-                    sub_links = _dedupe_prediction_links(_extract_prediction_urls(sub_scrape, args.date, strict_date=strict_date))
-                    if matchup_parts:
-                        sub_links = [href for href in sub_links if _url_matches_matchup(href, matchup_parts)]
-                    aggregated.extend(sub_links)
-                    if matchup_parts and sub_links:
-                        break
-                except Exception:
-                    continue
-            normalized_links = _dedupe_prediction_links(aggregated)
+        subleague_urls = _extract_subleague_urls(scrape, requested_league)
+        if isinstance(subleague_urls, list):
+            queued_subleague_urls.extend(str(url).strip() for url in subleague_urls if str(url).strip())
         if not normalized_links:
             continue
         used_listing_url = cand
@@ -822,11 +902,44 @@ def run_with_olostep(args) -> int:
                 "league": sport_label,
                 "confidence": "",
             })
+
+    if queued_subleague_urls and (matchup_parts or expected_matchups):
+        ordered_subleague_urls = list(dict.fromkeys(queued_subleague_urls))
+        if requested_league:
+            ordered_subleague_urls.sort(key=lambda url: (0 if requested_league in url.lower() else 1, url))
+        for subleague_url in ordered_subleague_urls[:20]:
+            try:
+                sub_scrape = _olostep_scrape(subleague_url, ["markdown"])
+            except Exception:
+                continue
+            sub_markdown = _olostep_markdown_content(sub_scrape)
+            if _looks_like_cloudflare_block(sub_markdown):
+                _log_cloudflare_block_once(subleague_url, warned_cloudflare_urls, "Subleague page status")
+                continue
+            sub_links = _dedupe_prediction_links(_extract_prediction_urls(sub_scrape, args.date, strict_date=strict_date))
+            if matchup_parts:
+                sub_links = [href for href in sub_links if _url_matches_matchup(href, matchup_parts)]
+            elif expected_matchups:
+                sub_links = [
+                    href for href in sub_links
+                    if any(_url_matches_expected_matchup(href, matchup) for matchup in expected_matchups)
+                ]
+            for href in sub_links:
+                aggregate_links.append({
+                    "href": href,
+                    "home": "",
+                    "away": "",
+                    "isoDate": "",
+                    "visDate": "",
+                    "visTime": "",
+                    "league": sport_label,
+                    "confidence": "",
+                })
     filtered = _dedupe_cards(aggregate_links)
 
     if used_listing_url and used_listing_url != listing_url:
         print(f"Listing URL fallback: {used_listing_url}")
-    if not filtered:
+    if not filtered and not expected_matchups:
         print("Listing page status: ❌ No prediction links found via Olostep")
         return 1
     print("Listing page status: ✅ Page loaded")
@@ -838,8 +951,77 @@ def run_with_olostep(args) -> int:
         ]
         print(f"Matches found for request on listing: {len(filtered)}")
 
-    if not filtered:
+    if not filtered and not expected_matchups:
         return 0
+
+    if expected_matchups and not args.matchup:
+        stats = {"loaded": 0, "404": 0, "no_data": 0}
+        discovered_urls = [str(card.get("href", "")).strip() for card in filtered if str(card.get("href", "")).strip()]
+
+        def _resolve_matchup(matchup: dict[str, str]) -> tuple[dict[str, str], str, dict]:
+            candidate_urls = [
+                href for href in discovered_urls
+                if _url_matches_expected_matchup(href, matchup)
+            ]
+            guessed_urls = _guess_matchup_prediction_urls(sport_slug, matchup, args.date)
+            candidate_urls = _dedupe_prediction_links(candidate_urls + guessed_urls)
+
+            for attempts in (1, 2):
+                for full_url in candidate_urls:
+                    try:
+                        pred = _scrape_prediction_with_retry(full_url, sport_label, attempts=attempts)
+                    except Exception:
+                        continue
+                    if not pred.get("tip"):
+                        continue
+                    if not (_prediction_matches_matchup(pred, matchup) or _url_matches_expected_matchup(full_url, matchup)):
+                        continue
+                    return matchup, full_url, pred
+            return matchup, "", {}
+
+        resolved: list[tuple[dict[str, str], str, dict]] = [({}, "", {}) for _ in expected_matchups]
+        max_workers = max(1, min(len(expected_matchups), 4 if requested_league == "nba" else 1))
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            future_map = {
+                executor.submit(_resolve_matchup, matchup): idx
+                for idx, matchup in enumerate(expected_matchups)
+            }
+            for future in as_completed(future_map):
+                idx = future_map[future]
+                try:
+                    resolved[idx] = future.result()
+                except Exception:
+                    resolved[idx] = (expected_matchups[idx], "", {})
+
+        for matchup, chosen_url, pred in resolved:
+            if not chosen_url:
+                stats["no_data"] += 1
+                continue
+
+            stats["loaded"] += 1
+            print_prediction(
+                pred,
+                {
+                    "league": pred.get("league", sport_label),
+                    "home": matchup.get("home", ""),
+                    "away": matchup.get("away", ""),
+                    "isoDate": "",
+                    "visDate": "",
+                    "visTime": "",
+                    "confidence": "",
+                },
+                sport_label,
+                chosen_url,
+            )
+
+        print("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+        print("SUMMARY")
+        print(f"Expected slate games:          {len(expected_matchups)}")
+        print(f"Individual pages loaded:        {stats['loaded']}")
+        print(f"Individual pages 404'd:         {stats['404']}")
+        print(f"Matchups with no data:          {stats['no_data']}")
+        print("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+        return 0 if stats["loaded"] else 1
 
     stats = {"loaded": 0, "404": 0, "no_data": 0}
     for card in filtered:
@@ -1258,6 +1440,29 @@ def extract_prediction(page):
         return {"error": str(e)}
 
 
+def _prediction_matches_requested_sport(pred: dict, card: dict, requested_sport: str | None) -> bool:
+    requested = _requested_league_key(requested_sport)
+    if requested not in {"nba", "mlb"}:
+        return True
+
+    league_text = " ".join(
+        str(value or "").strip().lower()
+        for value in (
+            pred.get("league"),
+            card.get("league"),
+        )
+        if str(value or "").strip()
+    )
+    if not league_text:
+        return True
+
+    tokens = {
+        "nba": ("nba", "basketball"),
+        "mlb": ("mlb", "baseball"),
+    }[requested]
+    return any(token in league_text for token in tokens)
+
+
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 # OUTPUT FORMATTING
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -1387,6 +1592,8 @@ def main():
 
             listing_urls = [args.url] if args.url else listing_url_candidates(sport_slug, args.sport)
             listing_url = listing_urls[0]
+            requested_league = _requested_league_key(args.sport or sport_slug)
+            expected_matchups = fetch_daily_matchups(requested_league, args.date) if requested_league in SPORT_TO_ESPNSLUG else []
             print(f"Sport:          {sport_slug if args.sport else 'Unknown'}")
             if args.date:    print(f"Date requested: {args.date}")
             if args.matchup: print(f"Matchup:        {args.matchup}")
@@ -1429,6 +1636,8 @@ def main():
                 if matchup_parts:
                     c_data = f"{c.get('home','')} {c.get('away','')} {c.get('href','')}".lower()
                     if not all(p in c_data for p in matchup_parts): continue
+                elif expected_matchups and not any(_card_matches_matchup(c, matchup) for matchup in expected_matchups):
+                    continue
                 filtered.append(c)
 
             # If card extraction is blocked/empty, fall back to direct prediction links.
@@ -1437,13 +1646,14 @@ def main():
                 for href in direct_links:
                     c = {"href": href, "home": "", "away": "", "isoDate": "", "visDate": "", "visTime": "", "league": sport_label, "confidence": ""}
                     if variants:
-                        blob = href.lower()
-                        if not any(v.lower().replace(" ", "-") in blob for v in variants):
+                        if not _href_matches_requested_date(href, args.date, variants):
                             continue
                     if matchup_parts:
                         blob = href.lower()
                         if not all(re.sub(r'[^a-z0-9]+', '-', p) in blob for p in matchup_parts):
                             continue
+                    elif expected_matchups and not any(_url_matches_expected_matchup(href, matchup) for matchup in expected_matchups):
+                        continue
                     filtered.append(c)
 
             # ── DEEP SEARCH LOGIC ──
@@ -1528,6 +1738,15 @@ def main():
                 if not pred.get("tip") and not pred.get("primaryOdds") and not pred.get("oddsTable"):
                     print(f"\n⚠️  Loaded but no prediction data found on page: {full_url}")
                     stats["no_data"] += 1; continue
+
+                if expected_matchups and not any(
+                    _prediction_matches_matchup(pred, matchup) or _url_matches_expected_matchup(full_url, matchup)
+                    for matchup in expected_matchups
+                ):
+                    continue
+
+                if not _prediction_matches_requested_sport(pred, card, args.sport):
+                    continue
 
                 stats["loaded"] += 1
                 print_prediction(pred, card, sport_label, full_url)
