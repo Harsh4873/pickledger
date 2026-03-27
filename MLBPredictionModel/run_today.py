@@ -5,6 +5,7 @@ from datetime import datetime
 
 from calibration import apply_moneyline_calibration
 from live_data import build_live_dataframe
+from mlb_api import StatsAPIClient
 from moneyline_model import predict_home_win_probability
 from prediction_logging import append_prediction_rows, build_prediction_log_rows
 from probability_layers import predict_total_runs
@@ -68,6 +69,7 @@ def main(argv: list[str] | None = None) -> int:
 
     prediction_rows = predictions.to_dict("records")
     append_prediction_rows(build_prediction_log_rows(prediction_rows))
+    client = StatsAPIClient()
 
     for row in prediction_rows:
         home_prob = float(row.get("calibrated_home_win_probability", row["raw_home_win_probability"]))
@@ -82,14 +84,20 @@ def main(argv: list[str] | None = None) -> int:
         )
 
         predicted_total = float(row.get("predicted_total_runs", predict_total_runs(row)))
-        ou_line = 8.5
-        if predicted_total > ou_line + 0.5:
+        ou_line = client.get_game_total_line(int(row["game_pk"]))
+        if ou_line is None:
+            selection = "PASS"
+            line_display = "N/A"
+        elif predicted_total > ou_line + 0.5:
             selection = "OVER"
+            line_display = f"{ou_line:.1f}"
         elif predicted_total < ou_line - 0.5:
             selection = "UNDER"
+            line_display = f"{ou_line:.1f}"
         else:
             selection = "PASS"
-        print(f"OU|{selection}|{ou_line}|{predicted_total:.2f}")
+            line_display = f"{ou_line:.1f}"
+        print(f"OU|{selection}|{line_display}|{predicted_total:.2f}")
         print("---")
 
     return 0

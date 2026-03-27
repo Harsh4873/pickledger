@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 import time
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
@@ -62,6 +63,83 @@ def _median_int(values: list[int]) -> int | None:
     return round((clean[mid - 1] + clean[mid]) / 2)
 
 
+def _parse_total_line_value(value: Any) -> float | None:
+    if isinstance(value, (int, float)):
+        return float(value)
+
+    if isinstance(value, str):
+        match = re.search(r"\d+(?:\.\d+)?", value)
+        if match:
+            return float(match.group(0))
+        return None
+
+    if isinstance(value, dict):
+        for key in ("line", "value", "displayValue", "overUnder", "total", "totalRuns"):
+            parsed = _parse_total_line_value(value.get(key))
+            if parsed is not None:
+                return parsed
+    return None
+
+
+def _walk_total_line_candidates(node: Any) -> float | None:
+    if isinstance(node, dict):
+        for key, value in node.items():
+            normalized_key = key.lower()
+            if normalized_key in {
+                "overunder",
+                "over_under",
+                "overunderline",
+                "over_under_line",
+                "totalline",
+                "total_line",
+                "bettingtotal",
+                "sportsbooktotal",
+                "totalrunsline",
+            }:
+                parsed = _parse_total_line_value(value)
+                if parsed is not None:
+                    return parsed
+
+            if normalized_key in {"odds", "betting", "sportsbook", "lines"}:
+                parsed = _walk_total_line_candidates(value)
+                if parsed is not None:
+                    return parsed
+
+            if isinstance(value, (dict, list)):
+                parsed = _walk_total_line_candidates(value)
+                if parsed is not None:
+                    return parsed
+
+    if isinstance(node, list):
+        for item in node:
+            parsed = _walk_total_line_candidates(item)
+            if parsed is not None:
+                return parsed
+    return None
+
+
+def extract_total_line_from_game_feed(payload: dict[str, Any]) -> float | None:
+    for path in (
+        ("gameData", "odds", "overUnder"),
+        ("gameData", "odds", "total"),
+        ("gameData", "betting", "overUnder"),
+        ("gameData", "betting", "total"),
+        ("liveData", "odds", "overUnder"),
+        ("liveData", "odds", "total"),
+    ):
+        node: Any = payload
+        for part in path:
+            if not isinstance(node, dict):
+                node = None
+                break
+            node = node.get(part)
+        parsed = _parse_total_line_value(node)
+        if parsed is not None:
+            return parsed
+
+    return _walk_total_line_candidates(payload)
+
+
 class StatsAPIClient:
     """Small cached wrapper around MLB StatsAPI."""
 
@@ -100,6 +178,9 @@ class StatsAPIClient:
             return cached
 
         return self._download_game_feed(game_pk)
+
+    def get_game_total_line(self, game_pk: int) -> float | None:
+        return extract_total_line_from_game_feed(self.get_game_feed(game_pk))
 
     def _download_game_feed(self, game_pk: int) -> dict[str, Any]:
         cache_file = GAME_CACHE_DIR / f"{game_pk}.json"
