@@ -162,7 +162,10 @@ def predict_total_runs(row: Mapping[str, object]) -> float:
     The dedicated totals model added later uses this as one input, not as the
     final answer.
     """
-    base_runs = 8.7 + _season_phase_total_adjustment(row)
+    base_runs = 8.7
+    if base_runs < 9.0:
+        base_runs = 9.0
+    base_runs += _season_phase_total_adjustment(row)
     starter_component = (
         (_float(row, "home_starter_fip_shrunk", _float(row, "home_starter_fip", 4.2)) - 4.2)
         + (_float(row, "away_starter_fip_shrunk", _float(row, "away_starter_fip", 4.2)) - 4.2)
