@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import csv
+import math
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Iterable
@@ -12,6 +13,7 @@ PREDICTION_LOG_PATH = LOG_DIR / "mlb_predictions.csv"
 
 LOG_FIELDS = [
     "game_id",
+    "run_date",
     "game_date",
     "away_team",
     "home_team",
@@ -22,6 +24,8 @@ LOG_FIELDS = [
     "raw_home_win_probability",
     "calibrated_home_win_probability",
     "predicted_total",
+    "totals_line",
+    "totals_confidence",
     "away_starter_name",
     "home_starter_name",
     "away_starter_era_input",
@@ -45,29 +49,79 @@ def ensure_log_dir() -> None:
     LOG_DIR.mkdir(parents=True, exist_ok=True)
 
 
+def compute_totals_confidence(predicted_total: object, totals_line: object) -> float | None:
+    try:
+        predicted = float(predicted_total)
+        line = float(totals_line)
+    except (TypeError, ValueError):
+        return None
+
+    edge = abs(predicted - line)
+    return round(1.0 / (1.0 + math.exp(-1.25 * edge)), 4)
+
+
+def _read_existing_log_rows() -> list[dict[str, str]]:
+    if not PREDICTION_LOG_PATH.exists():
+        return []
+    with PREDICTION_LOG_PATH.open("r", newline="", encoding="utf-8") as handle:
+        reader = csv.DictReader(handle)
+        return list(reader)
+
+
+def _normalize_log_row(row: dict[str, object]) -> dict[str, object]:
+    payload = {field: row.get(field, "") for field in LOG_FIELDS}
+    if not payload["run_date"]:
+        timestamp_utc = str(row.get("timestamp_utc", "")).strip()
+        payload["run_date"] = timestamp_utc[:10] if timestamp_utc else ""
+    return payload
+
+
+def _ensure_log_schema() -> None:
+    if not PREDICTION_LOG_PATH.exists():
+        return
+
+    with PREDICTION_LOG_PATH.open("r", newline="", encoding="utf-8") as handle:
+        reader = csv.reader(handle)
+        header = next(reader, [])
+
+    if header == LOG_FIELDS:
+        return
+
+    existing_rows = [_normalize_log_row(row) for row in _read_existing_log_rows()]
+    with PREDICTION_LOG_PATH.open("w", newline="", encoding="utf-8") as handle:
+        writer = csv.DictWriter(handle, fieldnames=LOG_FIELDS)
+        writer.writeheader()
+        for row in existing_rows:
+            writer.writerow(row)
+
+
 def append_prediction_rows(rows: Iterable[dict[str, object]]) -> Path:
     ensure_log_dir()
+    _ensure_log_schema()
     file_exists = PREDICTION_LOG_PATH.exists()
     with PREDICTION_LOG_PATH.open("a", newline="", encoding="utf-8") as handle:
         writer = csv.DictWriter(handle, fieldnames=LOG_FIELDS)
         if not file_exists:
             writer.writeheader()
         for row in rows:
-            payload = {field: row.get(field, "") for field in LOG_FIELDS}
+            payload = _normalize_log_row(row)
             writer.writerow(payload)
     return PREDICTION_LOG_PATH
 
 
 def build_prediction_log_rows(predictions: list[dict[str, object]]) -> list[dict[str, object]]:
     timestamp = datetime.now(timezone.utc).isoformat()
+    run_date = timestamp[:10]
     rows: list[dict[str, object]] = []
     for prediction in predictions:
         calibrated_home = float(prediction.get("calibrated_home_win_probability", prediction["raw_home_win_probability"]))
         raw_home = float(prediction["raw_home_win_probability"])
         predicted_is_home = calibrated_home >= 0.5
+        totals_line = prediction.get("totals_line", "")
         rows.append(
             {
                 "game_id": prediction.get("game_pk", ""),
+                "run_date": run_date,
                 "game_date": prediction.get("game_date", ""),
                 "away_team": prediction.get("away_team", ""),
                 "home_team": prediction.get("home_team", ""),
@@ -78,6 +132,11 @@ def build_prediction_log_rows(predictions: list[dict[str, object]]) -> list[dict
                 "raw_home_win_probability": raw_home,
                 "calibrated_home_win_probability": calibrated_home,
                 "predicted_total": prediction.get("predicted_total_runs", ""),
+                "totals_line": totals_line,
+                "totals_confidence": prediction.get(
+                    "totals_confidence",
+                    compute_totals_confidence(prediction.get("predicted_total_runs", ""), totals_line),
+                ),
                 "away_starter_name": prediction.get("away_starter_name", ""),
                 "home_starter_name": prediction.get("home_starter_name", ""),
                 "away_starter_era_input": prediction.get("away_starter_era_shrunk", prediction.get("away_starter_era", "")),

@@ -7,7 +7,7 @@ from calibration import apply_moneyline_calibration
 from live_data import build_live_dataframe
 from mlb_api import StatsAPIClient
 from moneyline_model import predict_home_win_probability
-from prediction_logging import append_prediction_rows, build_prediction_log_rows
+from prediction_logging import append_prediction_rows, build_prediction_log_rows, compute_totals_confidence
 from probability_layers import predict_total_runs
 from totals_model import predict_totals
 
@@ -67,9 +67,16 @@ def main(argv: list[str] | None = None) -> int:
     print("=" * 60)
     print(f"Found {len(predictions)} games.\n")
 
-    prediction_rows = predictions.to_dict("records")
-    append_prediction_rows(build_prediction_log_rows(prediction_rows))
     client = StatsAPIClient()
+    prediction_rows = predictions.to_dict("records")
+    for row in prediction_rows:
+        predicted_total = float(row.get("predicted_total_runs", predict_total_runs(row)))
+        totals_line = client.get_game_total_line(int(row["game_pk"]))
+        row["predicted_total_runs"] = predicted_total
+        row["totals_line"] = totals_line
+        row["totals_confidence"] = compute_totals_confidence(predicted_total, totals_line)
+
+    append_prediction_rows(build_prediction_log_rows(prediction_rows))
 
     for row in prediction_rows:
         home_prob = float(row.get("calibrated_home_win_probability", row["raw_home_win_probability"]))
@@ -83,8 +90,9 @@ def main(argv: list[str] | None = None) -> int:
             f"{away_odds}|{home_odds}|{away_prob:.4f}|{home_prob:.4f}"
         )
 
-        predicted_total = float(row.get("predicted_total_runs", predict_total_runs(row)))
-        ou_line = client.get_game_total_line(int(row["game_pk"]))
+        predicted_total = float(row["predicted_total_runs"])
+        ou_line = row.get("totals_line")
+        totals_confidence = row.get("totals_confidence")
         if ou_line is None:
             selection = "PASS"
             line_display = "N/A"
@@ -97,7 +105,8 @@ def main(argv: list[str] | None = None) -> int:
         else:
             selection = "PASS"
             line_display = f"{ou_line:.1f}"
-        print(f"OU|{selection}|{line_display}|{predicted_total:.2f}")
+        confidence_display = "" if totals_confidence is None else f"{float(totals_confidence):.4f}"
+        print(f"OU|{selection}|{line_display}|{predicted_total:.2f}|{confidence_display}")
         print("---")
 
     return 0
