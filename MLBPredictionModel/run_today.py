@@ -5,7 +5,6 @@ from datetime import datetime
 
 from calibration import apply_moneyline_calibration
 from live_data import build_live_dataframe
-from mlb_api import StatsAPIClient
 from moneyline_model import predict_home_win_probability
 from prediction_logging import (
     append_prediction_rows,
@@ -15,6 +14,9 @@ from prediction_logging import (
 )
 from probability_layers import predict_total_runs
 from totals_model import predict_totals
+
+
+TOTALS_BASELINE = 8.5
 
 
 def _parse_date(argv: list[str]) -> datetime.date:
@@ -72,14 +74,12 @@ def main(argv: list[str] | None = None) -> int:
     print("=" * 60)
     print(f"Found {len(predictions)} games.\n")
 
-    client = StatsAPIClient()
     prediction_rows = predictions.to_dict("records")
     for row in prediction_rows:
         predicted_total = float(row.get("predicted_total_runs", predict_total_runs(row)))
-        totals_line = client.get_game_total_line(int(row["game_pk"]))
         row["predicted_total_runs"] = predicted_total
-        row["totals_line"] = totals_line
-        row["totals_confidence"] = compute_totals_confidence(predicted_total, totals_line)
+        row["totals_line"] = predicted_total
+        row["totals_confidence"] = compute_totals_confidence(predicted_total, predicted_total)
 
     log_rows = build_prediction_log_rows(prediction_rows)
     existing_keys = existing_prediction_keys()
@@ -107,22 +107,15 @@ def main(argv: list[str] | None = None) -> int:
         )
 
         predicted_total = float(row["predicted_total_runs"])
-        ou_line = row.get("totals_line")
+        ou_line = float(row.get("totals_line", predicted_total))
         totals_confidence = row.get("totals_confidence")
-        if ou_line is None:
-            selection = "PASS"
-            line_display = "N/A"
-        elif predicted_total > ou_line + 0.5:
+        if predicted_total > TOTALS_BASELINE:
             selection = "OVER"
-            line_display = f"{ou_line:.1f}"
-        elif predicted_total < ou_line - 0.5:
-            selection = "UNDER"
-            line_display = f"{ou_line:.1f}"
         else:
-            selection = "PASS"
-            line_display = f"{ou_line:.1f}"
+            selection = "UNDER"
+        line_display = f"{ou_line:.1f}"
         confidence_display = "" if totals_confidence is None else f"{float(totals_confidence):.4f}"
-        print(f"OU|{selection}|{line_display}|{predicted_total:.2f}|{confidence_display}")
+        print(f"OU|{selection}|{line_display}|{ou_line:.1f}|{confidence_display}")
         print("---")
 
     return 0
