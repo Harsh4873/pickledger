@@ -95,6 +95,19 @@ def _ensure_log_schema() -> None:
             writer.writerow(row)
 
 
+def existing_prediction_keys() -> set[tuple[str, str]]:
+    ensure_log_dir()
+    _ensure_log_schema()
+    keys: set[tuple[str, str]] = set()
+    for row in _read_existing_log_rows():
+        normalized = _normalize_log_row(row)
+        game_id = str(normalized.get("game_id", "")).strip()
+        run_date = str(normalized.get("run_date", "")).strip()
+        if game_id and run_date:
+            keys.add((game_id, run_date))
+    return keys
+
+
 def append_prediction_rows(rows: Iterable[dict[str, object]]) -> Path:
     ensure_log_dir()
     _ensure_log_schema()

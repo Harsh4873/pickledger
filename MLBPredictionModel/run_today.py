@@ -7,7 +7,12 @@ from calibration import apply_moneyline_calibration
 from live_data import build_live_dataframe
 from mlb_api import StatsAPIClient
 from moneyline_model import predict_home_win_probability
-from prediction_logging import append_prediction_rows, build_prediction_log_rows, compute_totals_confidence
+from prediction_logging import (
+    append_prediction_rows,
+    build_prediction_log_rows,
+    compute_totals_confidence,
+    existing_prediction_keys,
+)
 from probability_layers import predict_total_runs
 from totals_model import predict_totals
 
@@ -76,7 +81,18 @@ def main(argv: list[str] | None = None) -> int:
         row["totals_line"] = totals_line
         row["totals_confidence"] = compute_totals_confidence(predicted_total, totals_line)
 
-    append_prediction_rows(build_prediction_log_rows(prediction_rows))
+    log_rows = build_prediction_log_rows(prediction_rows)
+    existing_keys = existing_prediction_keys()
+    rows_to_append: list[dict[str, object]] = []
+    pending_keys: set[tuple[str, str]] = set()
+    for log_row in log_rows:
+        key = (str(log_row.get("game_id", "")).strip(), str(log_row.get("run_date", "")).strip())
+        if not key[0] or not key[1] or key in existing_keys or key in pending_keys:
+            continue
+        pending_keys.add(key)
+        rows_to_append.append(log_row)
+
+    append_prediction_rows(rows_to_append)
 
     for row in prediction_rows:
         home_prob = float(row.get("calibrated_home_win_probability", row["raw_home_win_probability"]))
