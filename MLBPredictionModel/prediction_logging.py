@@ -10,6 +10,10 @@ from typing import Iterable
 BASE_DIR = Path(__file__).resolve().parent
 LOG_DIR = BASE_DIR / "logs"
 PREDICTION_LOG_PATH = LOG_DIR / "mlb_predictions.csv"
+TOTALS_BASELINE = 8.5
+MIN_TOTALS_CALIBRATION_OUTCOMES = 50
+UNCALIBRATED_TOTALS_CONFIDENCE_CAP = 0.80
+TOTALS_CONFIDENCE_SIGMOID_SCALE = 1.25
 
 LOG_FIELDS = [
     "game_id",
@@ -49,15 +53,25 @@ def ensure_log_dir() -> None:
     LOG_DIR.mkdir(parents=True, exist_ok=True)
 
 
+def realized_totals_outcome_count() -> int:
+    return sum(
+        1
+        for row in _read_existing_log_rows()
+        if str(row.get("realized_total_runs", "")).strip()
+    )
+
+
 def compute_totals_confidence(predicted_total: object, totals_line: object) -> float | None:
     try:
         predicted = float(predicted_total)
-        line = float(totals_line)
     except (TypeError, ValueError):
         return None
 
-    edge = abs(predicted - line)
-    return round(1.0 / (1.0 + math.exp(-1.25 * edge)), 4)
+    distance_from_baseline = abs(predicted - TOTALS_BASELINE)
+    confidence = 1.0 / (1.0 + math.exp(-TOTALS_CONFIDENCE_SIGMOID_SCALE * distance_from_baseline))
+    if realized_totals_outcome_count() < MIN_TOTALS_CALIBRATION_OUTCOMES:
+        confidence = min(confidence, UNCALIBRATED_TOTALS_CONFIDENCE_CAP)
+    return round(confidence, 4)
 
 
 def _read_existing_log_rows() -> list[dict[str, str]]:
