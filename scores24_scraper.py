@@ -57,9 +57,10 @@ def _default_playwright_browsers_path() -> str:
 os.environ["PLAYWRIGHT_BROWSERS_PATH"] = _default_playwright_browsers_path()
 
 try:
-    from playwright.sync_api import sync_playwright, TimeoutError as PwTimeout
+    from camoufox.sync_api import Camoufox
+    from playwright.sync_api import TimeoutError as PwTimeout
 except Exception:
-    sync_playwright = None
+    Camoufox = None
 
     class PwTimeout(Exception):
         pass
@@ -364,7 +365,7 @@ def scan_suggestive(text: str) -> list[str]:
 
 
 def should_use_olostep() -> bool:
-    return True
+    return Camoufox is None
 
 
 def _olostep_headers() -> dict[str, str]:
@@ -424,6 +425,13 @@ def _normalize_prediction_page_url(url: str) -> str:
     if re.search(r"/m-\d{2}-\d{2}-\d{4}-", full_url) and not full_url.endswith("-prediction"):
         return f"{full_url}-prediction"
     return full_url
+
+
+def _is_prediction_page_url(url: str) -> bool:
+    normalized = _normalize_prediction_page_url(url)
+    if not normalized:
+        return False
+    return bool(re.search(r"/m-\d{2}-\d{2}-\d{4}-", normalized))
 
 
 def _dedupe_prediction_links(raw_links: list[str]) -> list[str]:
@@ -750,7 +758,7 @@ def _scrape_prediction_with_retry(url: str, sport_label: str, attempts: int = 2)
 
 
 def run_with_olostep(args) -> int:
-    if args.url and not args.url.endswith("/predictions") and not args.url.endswith("/predictions/"):
+    if args.url and _is_prediction_page_url(args.url):
         direct_url = _normalize_prediction_page_url(args.url)
         pred = _scrape_prediction_with_retry(direct_url, "Unknown")
         if not pred.get("tip"):
@@ -859,15 +867,11 @@ def run_with_olostep(args) -> int:
 # BROWSER HELPERS
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-def make_context(pw):
+def make_browser():
     proxy_conf = None
     launch_args = {
-        "headless": True,
-        "args": [
-            "--no-sandbox",
-            "--disable-setuid-sandbox",
-            "--disable-dev-shm-usage",
-        ],
+        "headless": False,
+        "humanize": True,
     }
 
     proxy_server = os.environ.get("PLAYWRIGHT_PROXY_SERVER", "").strip()
@@ -881,7 +885,10 @@ def make_context(pw):
             proxy_conf["password"] = proxy_pass
         launch_args["proxy"] = proxy_conf
 
-    browser = pw.chromium.launch(**launch_args)
+    return Camoufox(**launch_args)
+
+
+def make_context(browser):
     ctx = browser.new_context(
         user_agent="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
         viewport={"width": 1280, "height": 900},
@@ -893,7 +900,7 @@ def make_context(pw):
     return ctx
 
 
-def load_page(ctx, url: str, wait_ms: int = 3000):
+def load_page(ctx, url: str, wait_ms: int = 6000):
     page = ctx.new_page()
     try:
         resp = page.goto(url, timeout=25000, wait_until="domcontentloaded")
@@ -1353,180 +1360,186 @@ def main():
             print(f"Olostep scrape failed: {exc}")
             sys.exit(1)
 
-    with sync_playwright() as pw:
-        ctx = make_context(pw)
+    if Camoufox is None:
+        print("Camoufox is not installed. Add it to the environment before running the browser scraper.")
+        sys.exit(1)
 
-        # ── DIRECT URL OVERRIDE ──
-        if args.url and not args.url.endswith("/predictions") and not args.url.endswith("/predictions/"):
-            print(f"Direct Prediction URL provided: {args.url}")
-            page, status = load_page(ctx, args.url, wait_ms=4000)
-            if not page:
-                print(f"❌ 404 — page does not exist: {args.url}")
-                return
-            
-            pred = extract_prediction(page)
-            page.close()
-            
-            if "error" in pred:
-                print(f"⚠️  Loaded but extraction failed: {args.url}")
-                return
+    with make_browser() as browser:
+        ctx = make_context(browser)
+        try:
+            # ── DIRECT URL OVERRIDE ──
+            if args.url and _is_prediction_page_url(args.url):
+                print(f"Direct Prediction URL provided: {args.url}")
+                page, status = load_page(ctx, args.url, wait_ms=4000)
+                if not page:
+                    print(f"❌ 404 — page does not exist: {args.url}")
+                    return
                 
-            print_prediction(pred, {}, "Unknown", args.url)
-            return
+                pred = extract_prediction(page)
+                page.close()
+                
+                if "error" in pred:
+                    print(f"⚠️  Loaded but extraction failed: {args.url}")
+                    return
+                    
+                print_prediction(pred, {}, "Unknown", args.url)
+                return
 
-        listing_urls = [args.url] if args.url else listing_url_candidates(sport_slug, args.sport)
-        listing_url = listing_urls[0]
-        print(f"Sport:          {sport_slug if args.sport else 'Unknown'}")
-        if args.date:    print(f"Date requested: {args.date}")
-        if args.matchup: print(f"Matchup:        {args.matchup}")
-        print(f"Listing URL:    {listing_url}")
+            listing_urls = [args.url] if args.url else listing_url_candidates(sport_slug, args.sport)
+            listing_url = listing_urls[0]
+            print(f"Sport:          {sport_slug if args.sport else 'Unknown'}")
+            if args.date:    print(f"Date requested: {args.date}")
+            if args.matchup: print(f"Matchup:        {args.matchup}")
+            print(f"Listing URL:    {listing_url}")
 
-        listing_page = None
-        status = 0
-        used_listing_url = ""
-        for cand in listing_urls:
-            lp, st = load_page(ctx, cand)
-            if lp:
-                listing_page = lp
+            listing_page = None
+            status = 0
+            used_listing_url = ""
+            for cand in listing_urls:
+                lp, st = load_page(ctx, cand)
+                if lp:
+                    listing_page = lp
+                    status = st
+                    used_listing_url = cand
+                    break
                 status = st
-                used_listing_url = cand
-                break
-            status = st
 
-        if not listing_page:
-            if status == 403:
-                print("Listing page status: ❌ Cloudflare blocked this runtime (status 403)")
-                print("Hint: Configure PLAYWRIGHT_PROXY_SERVER (and optional PLAYWRIGHT_PROXY_USERNAME/PLAYWRIGHT_PROXY_PASSWORD) for Render.")
-                pause_for_manual_cloudflare(ctx, used_listing_url or listing_url)
-            else:
-                print(f"Listing page status: ❌ Page failed (status {status})")
-            return
-        if used_listing_url and used_listing_url != listing_url:
-            print(f"Listing URL fallback: {used_listing_url}")
-        print("Listing page status: ✅ Page loaded")
-        hydrate_listing_page(listing_page)
+            if not listing_page:
+                if status == 403:
+                    print("Listing page status: ❌ Cloudflare blocked this runtime (status 403)")
+                    print("Hint: Configure PLAYWRIGHT_PROXY_SERVER (and optional PLAYWRIGHT_PROXY_USERNAME/PLAYWRIGHT_PROXY_PASSWORD) for Render.")
+                    pause_for_manual_cloudflare(ctx, used_listing_url or listing_url)
+                else:
+                    print(f"Listing page status: ❌ Page failed (status {status})")
+                return
+            if used_listing_url and used_listing_url != listing_url:
+                print(f"Listing URL fallback: {used_listing_url}")
+            print("Listing page status: ✅ Page loaded")
+            hydrate_listing_page(listing_page)
 
-        cards = extract_listing_cards(listing_page)
+            cards = extract_listing_cards(listing_page)
 
-        filtered = []
-        variants = date_variants(args.date) if args.date else []
-        matchup_parts = [p.strip().lower() for p in args.matchup.split("vs")] if args.matchup else []
+            filtered = []
+            variants = date_variants(args.date) if args.date else []
+            matchup_parts = [p.strip().lower() for p in args.matchup.split("vs")] if args.matchup else []
 
-        for c in cards:
-            if variants:
-                if not _matches_requested_date(args.date, c, variants): continue
-            if matchup_parts:
-                c_data = f"{c.get('home','')} {c.get('away','')} {c.get('href','')}".lower()
-                if not all(p in c_data for p in matchup_parts): continue
-            filtered.append(c)
-
-        # If card extraction is blocked/empty, fall back to direct prediction links.
-        if not filtered:
-            direct_links = extract_prediction_links(listing_page)
-            for href in direct_links:
-                c = {"href": href, "home": "", "away": "", "isoDate": "", "visDate": "", "visTime": "", "league": sport_label, "confidence": ""}
+            for c in cards:
                 if variants:
-                    blob = href.lower()
-                    if not any(v.lower().replace(" ", "-") in blob for v in variants):
-                        continue
+                    if not _matches_requested_date(args.date, c, variants): continue
                 if matchup_parts:
-                    blob = href.lower()
-                    if not all(re.sub(r'[^a-z0-9]+', '-', p) in blob for p in matchup_parts):
-                        continue
+                    c_data = f"{c.get('home','')} {c.get('away','')} {c.get('href','')}".lower()
+                    if not all(p in c_data for p in matchup_parts): continue
                 filtered.append(c)
 
-        # ── DEEP SEARCH LOGIC ──
-        if not filtered and args.matchup:
-            print(f"\n🔍 '{args.matchup}' not found on main listing.")
-            print("Initiating Deep Search across sub-leagues. This may take a minute...")
-            
-            sub_links = extract_subleague_links(listing_page)
-            sub_links = list(set(sub_links))[:30] # Limit to 30 leagues to prevent hanging
-            
-            print(f"Found {len(sub_links)} sub-leagues to check.")
+            # If card extraction is blocked/empty, fall back to direct prediction links.
+            if not filtered:
+                direct_links = extract_prediction_links(listing_page)
+                for href in direct_links:
+                    c = {"href": href, "home": "", "away": "", "isoDate": "", "visDate": "", "visTime": "", "league": sport_label, "confidence": ""}
+                    if variants:
+                        blob = href.lower()
+                        if not any(v.lower().replace(" ", "-") in blob for v in variants):
+                            continue
+                    if matchup_parts:
+                        blob = href.lower()
+                        if not all(re.sub(r'[^a-z0-9]+', '-', p) in blob for p in matchup_parts):
+                            continue
+                    filtered.append(c)
 
-            found_in_deepSearch = False
-            for idx, sl_url in enumerate(sub_links, 1):
-                sys.stdout.write(f"\\rScanning sub-league {idx}/{len(sub_links)}...")
-                sys.stdout.flush()
+            # ── DEEP SEARCH LOGIC ──
+            if not filtered and args.matchup:
+                print(f"\n🔍 '{args.matchup}' not found on main listing.")
+                print("Initiating Deep Search across sub-leagues. This may take a minute...")
                 
-                sl_page, sl_status = load_page(ctx, sl_url, wait_ms=1000)
-                if not sl_page: continue
+                sub_links = extract_subleague_links(listing_page)
+                sub_links = list(set(sub_links))[:30] # Limit to 30 leagues to prevent hanging
                 
-                sl_cards = extract_listing_cards(sl_page)
-                
-                for c in sl_cards:
-                    c_data = f"{c.get('home','')} {c.get('away','')} {c.get('href','')}".lower()
-                    if all(p in c_data for p in matchup_parts):
-                        filtered.append(c)
-                        found_in_deepSearch = True
-                
-                sl_page.close()
-                if found_in_deepSearch:
-                    print(f"\\n✅ Matchup found in sub-league routing!")
-                    break
+                print(f"Found {len(sub_links)} sub-leagues to check.")
 
-            if not found_in_deepSearch:
-                print("\\n❌ Deep search scanning complete. Matchup not found on listing pages.")
-                if args.date and "vs" in args.matchup.lower():
-                    print("🔮 Engaging URL Prediction Engine for hidden match...")
-                    guessed = guess_urls(sport_slug, args.date, args.matchup)
-                    found_guess = False
-                    for gurl in guessed:
-                        gpage, gstatus = load_page(ctx, gurl, wait_ms=2000)
-                        if gpage and gstatus == 200:
-                            gpred = extract_prediction(gpage)
-                            if gpred and not "error" in gpred and (gpred.get("tip") or gpred.get("confidence")):
-                                print(f"\\n✅ Prediction Engine Success! Extracted hidden page: {gurl}")
-                                print_prediction(gpred, {}, "Unknown", gurl)
-                                found_guess = True
-                                gpage.close()
-                                return
-                        if gpage: gpage.close()
-                    if not found_guess:
-                        print("❌ Prediction Engine failed. Check your team names/date spelling.")
-                
-        else:
-            print(f"Matches found for request on listing: {len(filtered)}")
+                found_in_deepSearch = False
+                for idx, sl_url in enumerate(sub_links, 1):
+                    sys.stdout.write(f"\\rScanning sub-league {idx}/{len(sub_links)}...")
+                    sys.stdout.flush()
+                    
+                    sl_page, sl_status = load_page(ctx, sl_url, wait_ms=1000)
+                    if not sl_page: continue
+                    
+                    sl_cards = extract_listing_cards(sl_page)
+                    
+                    for c in sl_cards:
+                        c_data = f"{c.get('home','')} {c.get('away','')} {c.get('href','')}".lower()
+                        if all(p in c_data for p in matchup_parts):
+                            filtered.append(c)
+                            found_in_deepSearch = True
+                    
+                    sl_page.close()
+                    if found_in_deepSearch:
+                        print(f"\\n✅ Matchup found in sub-league routing!")
+                        break
 
-        listing_page.close()
+                if not found_in_deepSearch:
+                    print("\\n❌ Deep search scanning complete. Matchup not found on listing pages.")
+                    if args.date and "vs" in args.matchup.lower():
+                        print("🔮 Engaging URL Prediction Engine for hidden match...")
+                        guessed = guess_urls(sport_slug, args.date, args.matchup)
+                        found_guess = False
+                        for gurl in guessed:
+                            gpage, gstatus = load_page(ctx, gurl, wait_ms=2000)
+                            if gpage and gstatus == 200:
+                                gpred = extract_prediction(gpage)
+                                if gpred and not "error" in gpred and (gpred.get("tip") or gpred.get("confidence")):
+                                    print(f"\\n✅ Prediction Engine Success! Extracted hidden page: {gurl}")
+                                    print_prediction(gpred, {}, "Unknown", gurl)
+                                    found_guess = True
+                                    gpage.close()
+                                    return
+                            if gpage: gpage.close()
+                        if not found_guess:
+                            print("❌ Prediction Engine failed. Check your team names/date spelling.")
+                    
+            else:
+                print(f"Matches found for request on listing: {len(filtered)}")
 
-        if not filtered:
-            return
+            listing_page.close()
 
-        # ── EXTRACT DATA ──
-        stats = {"loaded": 0, "404": 0, "no_data": 0}
+            if not filtered:
+                return
 
-        for card in filtered:
-            href = card.get("href", "")
-            if not href: continue
-            full_url = href if href.startswith("http") else f"{BASE}{href}"
+            # ── EXTRACT DATA ──
+            stats = {"loaded": 0, "404": 0, "no_data": 0}
 
-            pred_page, pred_status = load_page(ctx, full_url, wait_ms=4000)
-            if not pred_page:
-                print(f"\n❌ 404 — page does not exist: {full_url}")
-                stats["404"] += 1; continue
+            for card in filtered:
+                href = card.get("href", "")
+                if not href: continue
+                full_url = href if href.startswith("http") else f"{BASE}{href}"
 
-            pred = extract_prediction(pred_page)
-            pred_page.close()
+                pred_page, pred_status = load_page(ctx, full_url, wait_ms=4000)
+                if not pred_page:
+                    print(f"\n❌ 404 — page does not exist: {full_url}")
+                    stats["404"] += 1; continue
 
-            if "error" in pred:
-                print(f"\n⚠️  Loaded but extraction failed on: {full_url}")
-                stats["no_data"] += 1; continue
+                pred = extract_prediction(pred_page)
+                pred_page.close()
 
-            if not pred.get("tip") and not pred.get("primaryOdds") and not pred.get("oddsTable"):
-                print(f"\n⚠️  Loaded but no prediction data found on page: {full_url}")
-                stats["no_data"] += 1; continue
+                if "error" in pred:
+                    print(f"\n⚠️  Loaded but extraction failed on: {full_url}")
+                    stats["no_data"] += 1; continue
 
-            stats["loaded"] += 1
-            print_prediction(pred, card, sport_label, full_url)
+                if not pred.get("tip") and not pred.get("primaryOdds") and not pred.get("oddsTable"):
+                    print(f"\n⚠️  Loaded but no prediction data found on page: {full_url}")
+                    stats["no_data"] += 1; continue
 
-        print("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
-        print("SUMMARY")
-        print(f"Total matches extracted:        {len(filtered)}")
-        print(f"Individual pages loaded:        {stats['loaded']}")
-        print(f"Individual pages 404'd:         {stats['404']}")
-        print("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+                stats["loaded"] += 1
+                print_prediction(pred, card, sport_label, full_url)
+
+            print("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+            print("SUMMARY")
+            print(f"Total matches extracted:        {len(filtered)}")
+            print(f"Individual pages loaded:        {stats['loaded']}")
+            print(f"Individual pages 404'd:         {stats['404']}")
+            print("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+        finally:
+            ctx.close()
 
 if __name__ == "__main__":
     main()
