@@ -208,6 +208,7 @@ def _pitcher_stat_bundle(
     prior_pitching_stats: dict[int, dict[str, Any]],
     current_fip_constant: float,
     prior_fip_constant: float,
+    season: int,
     client: StatsAPIClient,
 ) -> dict[str, Any]:
     current_split = season_pitching_stats.get(player_id, {})
@@ -215,6 +216,7 @@ def _pitcher_stat_bundle(
     prior_split = prior_pitching_stats.get(player_id, {})
     prior_stat = prior_split.get("stat") or {}
     person = client.get_person(player_id) if player_id else {}
+    recent_form = _pitcher_recent_form(player_id, season, client)
     return {
         "hand": ((person.get("pitchHand") or {}).get("code")) or "U",
         "era": _float_or_default(current_stat.get("era"), 4.2),
@@ -225,6 +227,47 @@ def _pitcher_stat_bundle(
         "prior_era": _float_or_default(prior_stat.get("era"), 4.2),
         "prior_fip": compute_estimated_fip(prior_stat, prior_fip_constant),
         "prior_ip": innings_to_float(prior_stat.get("inningsPitched")),
+        "last_5_starts_era": recent_form["last_5_starts_era"],
+        "last_5_starts_whip": recent_form["last_5_starts_whip"],
+        "last_5_starts_count": recent_form["last_5_starts_count"],
+    }
+
+
+def _pitcher_recent_form(player_id: int, season: int, client: StatsAPIClient) -> dict[str, Any]:
+    if not player_id:
+        # Keep the placeholder explicit when there is no pitcher id to resolve.
+        return {"last_5_starts_era": None, "last_5_starts_whip": None, "last_5_starts_count": 0}
+
+    game_log = client.get_player_game_log(player_id, season, group="pitching")
+    starts = [
+        split
+        for split in game_log
+        if safe_int((split.get("stat") or {}).get("gamesStarted")) > 0
+    ]
+    starts.sort(key=lambda split: str(split.get("date") or ""), reverse=True)
+    recent_starts = starts[:5]
+    if not recent_starts:
+        # StatsAPI can return no game log for new call-ups or pitchers without starts yet.
+        return {"last_5_starts_era": None, "last_5_starts_whip": None, "last_5_starts_count": 0}
+
+    total_ip = 0.0
+    total_hits = 0
+    total_walks = 0
+    total_earned_runs = 0
+    for start in recent_starts:
+        stat = start.get("stat") or {}
+        total_ip += innings_to_float(stat.get("inningsPitched"))
+        total_hits += safe_int(stat.get("hits"))
+        total_walks += safe_int(stat.get("baseOnBalls"))
+        total_earned_runs += safe_int(stat.get("earnedRuns"))
+
+    if total_ip <= 0:
+        return {"last_5_starts_era": None, "last_5_starts_whip": None, "last_5_starts_count": len(recent_starts)}
+
+    return {
+        "last_5_starts_era": round((total_earned_runs * 9.0) / total_ip, 3),
+        "last_5_starts_whip": round((total_hits + total_walks) / total_ip, 3),
+        "last_5_starts_count": len(recent_starts),
     }
 
 
@@ -281,6 +324,7 @@ def build_live_dataframe(target_date: date | None = None) -> pd.DataFrame:
             prior_pitching,
             current_fip_constant,
             prior_fip_constant,
+            season,
             client,
         )
         home_pitcher = _pitcher_stat_bundle(
@@ -289,6 +333,7 @@ def build_live_dataframe(target_date: date | None = None) -> pd.DataFrame:
             prior_pitching,
             current_fip_constant,
             prior_fip_constant,
+            season,
             client,
         )
 
@@ -359,6 +404,12 @@ def build_live_dataframe(target_date: date | None = None) -> pd.DataFrame:
                 "home_starter_ip": home_pitcher["ip"],
                 "away_starter_starts": away_pitcher["starts"],
                 "home_starter_starts": home_pitcher["starts"],
+                "away_starter_last_5_starts_era": away_pitcher["last_5_starts_era"],
+                "home_starter_last_5_starts_era": home_pitcher["last_5_starts_era"],
+                "away_starter_last_5_starts_whip": away_pitcher["last_5_starts_whip"],
+                "home_starter_last_5_starts_whip": home_pitcher["last_5_starts_whip"],
+                "away_starter_last_5_starts_count": away_pitcher["last_5_starts_count"],
+                "home_starter_last_5_starts_count": home_pitcher["last_5_starts_count"],
                 "away_prior_starter_era": away_pitcher["prior_era"],
                 "home_prior_starter_era": home_pitcher["prior_era"],
                 "away_prior_starter_fip": away_pitcher["prior_fip"],

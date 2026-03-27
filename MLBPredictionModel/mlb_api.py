@@ -19,6 +19,7 @@ CACHE_DIR = DATA_DIR / "cache"
 SCHEDULE_CACHE_DIR = CACHE_DIR / "schedules"
 GAME_CACHE_DIR = CACHE_DIR / "games"
 PLAYER_CACHE_DIR = CACHE_DIR / "players"
+PLAYER_GAME_LOG_CACHE_DIR = CACHE_DIR / "player_game_logs"
 SEASON_STATS_CACHE_DIR = CACHE_DIR / "season_stats"
 ODDS_CACHE_FILE = CACHE_DIR / "historical_odds.json"
 
@@ -35,6 +36,7 @@ def ensure_data_dirs() -> None:
         SCHEDULE_CACHE_DIR,
         GAME_CACHE_DIR,
         PLAYER_CACHE_DIR,
+        PLAYER_GAME_LOG_CACHE_DIR,
         SEASON_STATS_CACHE_DIR,
     ):
         path.mkdir(parents=True, exist_ok=True)
@@ -216,6 +218,31 @@ class StatsAPIClient:
         person = people[0] if people else {}
         _write_json(cache_file, person)
         return person
+
+    def get_player_game_log(
+        self,
+        player_id: int,
+        season: int,
+        group: str = "pitching",
+    ) -> list[dict[str, Any]]:
+        cache_file = PLAYER_GAME_LOG_CACHE_DIR / f"{season}_{group}_{player_id}.json"
+        cached = _read_json(cache_file)
+        if cached is not None:
+            return list(cached)
+
+        self._sleep()
+        payload = statsapi.get(
+            "person",
+            {
+                "personId": player_id,
+                "hydrate": f"stats(group=[{group}],type=[gameLog],season={season})",
+            },
+        )
+        people = payload.get("people", [])
+        stats = (people[0].get("stats") or []) if people else []
+        splits = stats[0].get("splits", []) if stats else []
+        _write_json(cache_file, splits)
+        return splits
 
     def get_season_player_stats(
         self,
