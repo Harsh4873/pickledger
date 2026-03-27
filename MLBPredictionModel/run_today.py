@@ -114,9 +114,9 @@ def main(argv: list[str] | None = None) -> int:
         ou_line = float(row.get("totals_line", predicted_total))
         totals_confidence = row.get("totals_confidence")
         selection = _totals_selection(predicted_total)
-        line_display = f"{ou_line:.1f}"
+        line_display = f"{ou_line:.2f}"
         confidence_display = "" if totals_confidence is None else f"{float(totals_confidence):.4f}"
-        print(f"OU|{selection}|{line_display}|{ou_line:.1f}|{confidence_display}")
+        print(f"OU|{selection}|{line_display}|{ou_line:.2f}|{confidence_display}")
         print("---")
 
     return 0
