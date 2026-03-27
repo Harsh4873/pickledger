@@ -39,6 +39,10 @@ def _prob_to_american(probability: float) -> int:
     return int(round(100.0 * (1.0 - probability) / probability))
 
 
+def _totals_selection(predicted_total: float) -> str:
+    return "OVER" if predicted_total >= TOTALS_BASELINE else "UNDER"
+
+
 def main(argv: list[str] | None = None) -> int:
     argv = argv or sys.argv
     try:
@@ -109,10 +113,7 @@ def main(argv: list[str] | None = None) -> int:
         predicted_total = float(row["predicted_total_runs"])
         ou_line = float(row.get("totals_line", predicted_total))
         totals_confidence = row.get("totals_confidence")
-        if predicted_total > TOTALS_BASELINE:
-            selection = "OVER"
-        else:
-            selection = "UNDER"
+        selection = _totals_selection(predicted_total)
         line_display = f"{ou_line:.1f}"
         confidence_display = "" if totals_confidence is None else f"{float(totals_confidence):.4f}"
         print(f"OU|{selection}|{line_display}|{ou_line:.1f}|{confidence_display}")
