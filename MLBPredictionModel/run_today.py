@@ -16,7 +16,7 @@ from probability_layers import predict_total_runs
 from totals_model import predict_totals
 
 
-TOTALS_BASELINE = 8.5
+TOTALS_BASELINE = 9.2
 
 
 def _parse_date(argv: list[str]) -> datetime.date:
