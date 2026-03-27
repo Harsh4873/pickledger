@@ -80,6 +80,14 @@ def add_totals_features(frame: pd.DataFrame) -> pd.DataFrame:
     return frame
 
 
+def build_recency_sample_weights(frame: pd.DataFrame) -> np.ndarray:
+    years = frame["game_date"].dt.year
+    weights = np.ones(len(frame), dtype=float)
+    weights[years == 2024] = 2.0
+    weights[years == 2023] = 1.0
+    return weights
+
+
 def select_totals_feature_frame(frame: pd.DataFrame) -> pd.DataFrame:
     frame = add_totals_features(frame).copy()
     for column in TOTALS_NUMERIC_FEATURES + TOTALS_CATEGORICAL_FEATURES:
@@ -174,8 +182,10 @@ def train_totals_model(dataset_path: Path = DATASET_PATH) -> dict[str, Any]:
     train_y = train_frame["total_runs"].astype(float)
     validation_y = validation_frame["total_runs"].astype(float)
 
+    train_sample_weights = build_recency_sample_weights(train_frame)
+
     pipeline = build_pipeline()
-    pipeline.fit(train_x, train_y)
+    pipeline.fit(train_x, train_y, model__sample_weight=train_sample_weights)
 
     validation_predictions = pipeline.predict(validation_x)
     heuristic_predictions = validation_frame["heuristic_total_runs"].to_numpy()
@@ -193,6 +203,12 @@ def train_totals_model(dataset_path: Path = DATASET_PATH) -> dict[str, Any]:
         "validation_rows": int(len(validation_frame)),
         "training_end_date": str(train_frame["game_date"].max().date()),
         "validation_start_date": str(validation_frame["game_date"].min().date()),
+        "training_years": sorted(train_frame["game_date"].dt.year.unique().astype(int).tolist()),
+        "validation_years": sorted(validation_frame["game_date"].dt.year.unique().astype(int).tolist()),
+        "sample_weighting": {
+            "2024": 2.0,
+            "2023": 1.0,
+        },
         "feature_columns": TOTALS_NUMERIC_FEATURES + TOTALS_CATEGORICAL_FEATURES,
         "raw_model_metrics": raw_model_metrics,
         "model_metrics": blended_metrics,
