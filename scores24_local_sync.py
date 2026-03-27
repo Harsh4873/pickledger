@@ -39,7 +39,7 @@ if not _env_flag("ENABLE_SCORES24_LOCALSYNC"):
 import pickgrader_server as p
 
 date_str = datetime.now().strftime("%Y-%m-%d")
-result = p.run_scores24_scraper(["nba", "nhl", "mlb"], date_str)
+result = p.run_scores24_scraper(["nba", "mlb"], date_str)
 if not result.get("ok"):
     raise SystemExit(result.get("error") or "Scores24 sync failed")
 
