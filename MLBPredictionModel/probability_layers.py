@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import date, datetime
 from typing import Mapping
 
 
@@ -15,6 +16,28 @@ def _float(row: Mapping[str, object], key: str, default: float = 0.0) -> float:
 
 def _wind_direction(row: Mapping[str, object]) -> str:
     return str(row.get("wind_direction") or "unknown").lower()
+
+
+def _game_month(row: Mapping[str, object]) -> int | None:
+    game_date = row.get("game_date")
+    if isinstance(game_date, datetime):
+        return game_date.month
+    if isinstance(game_date, date):
+        return game_date.month
+    if isinstance(game_date, str):
+        for fmt in ("%Y-%m-%d", "%Y-%m-%d %H:%M:%S", "%m/%d/%Y"):
+            try:
+                return datetime.strptime(game_date, fmt).month
+            except ValueError:
+                continue
+    return None
+
+
+def _season_phase_total_adjustment(row: Mapping[str, object]) -> float:
+    month = _game_month(row)
+    if month in {3, 4}:
+        return 0.8
+    return 0.0
 
 
 def calculate_layer1_base_rate(row: Mapping[str, object]) -> float:
@@ -139,7 +162,7 @@ def predict_total_runs(row: Mapping[str, object]) -> float:
     The dedicated totals model added later uses this as one input, not as the
     final answer.
     """
-    base_runs = 8.7
+    base_runs = 8.7 + _season_phase_total_adjustment(row)
     starter_component = (
         (_float(row, "home_starter_fip_shrunk", _float(row, "home_starter_fip", 4.2)) - 4.2)
         + (_float(row, "away_starter_fip_shrunk", _float(row, "away_starter_fip", 4.2)) - 4.2)

@@ -23,6 +23,7 @@ BASE_DIR = Path(__file__).resolve().parent
 ARTIFACT_DIR = BASE_DIR / "artifacts"
 MODEL_PATH = ARTIFACT_DIR / "mlb_totals_model.joblib"
 METADATA_PATH = ARTIFACT_DIR / "mlb_totals_model_metadata.json"
+INFERENCE_BLEND_WEIGHT_MODEL = 0.65
 
 TOTALS_NUMERIC_FEATURES = [
     "park_factor_runs",
@@ -223,7 +224,10 @@ def predict_totals(frame: pd.DataFrame) -> pd.DataFrame:
     out = prepared.copy()
     raw_model = pipeline.predict(features)
     heuristic = prepared["heuristic_total_runs"].to_numpy()
-    blend_weight_model = float(metadata.get("blend_weight_model", 1.0))
+    blend_weight_model = max(
+        INFERENCE_BLEND_WEIGHT_MODEL,
+        float(metadata.get("blend_weight_model", INFERENCE_BLEND_WEIGHT_MODEL)),
+    )
     out["raw_model_total_runs"] = raw_model
     out["predicted_total_runs"] = blend_totals(raw_model, heuristic, blend_weight_model)
     return out
