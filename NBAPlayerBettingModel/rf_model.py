@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import math
+
 import numpy as np
 import pandas as pd
 from scipy.stats import norm
@@ -117,6 +119,14 @@ def _prediction_std(model: RandomForestRegressor, features: pd.DataFrame) -> flo
     return float(tree_predictions.std())
 
 
+def _prediction_iqr(model: RandomForestRegressor, features: pd.DataFrame) -> float:
+    """Inter-quartile range of tree predictions - more robust than std for confidence."""
+    tree_preds = np.array([tree.predict(features)[0] for tree in model.estimators_], dtype=float)
+    if tree_preds.size == 0:
+        return 0.0
+    return float(np.percentile(tree_preds, 75) - np.percentile(tree_preds, 25))
+
+
 def _matchup_multiplier(
     prop_key: str,
     player: PlayerSeasonStats,
@@ -224,15 +234,21 @@ def build_prop_predictions(
             line_denominator = max(line, 0.5)
             edge_pct = abs(adjusted_prediction - line) / line_denominator * 100.0
 
-            prediction_std = _prediction_std(model, features)
-            sigma = max(prediction_std + 1.5, 1.0)
+            tree_iqr = _prediction_iqr(model, features)
+            sigma = max(tree_iqr / 1.35 + 1.5, 1.0)
             if direction == "OVER":
                 true_prob = 1 - norm.cdf(line, loc=adjusted_prediction, scale=sigma)
             else:
                 true_prob = norm.cdf(line, loc=adjusted_prediction, scale=sigma)
             true_prob = float(np.clip(true_prob, 0.51, 0.74))
-            confidence = _clip(100.0 - (prediction_std * 15.0), 0.0, 100.0)
-            confidence = _clip(confidence + PROP_CONFIDENCE_PENALTY[prop_key], 0.0, 100.0)
+            iqr_confidence = 50.0 + 50.0 * math.exp(-tree_iqr / 3.0)
+            edge_boost = _clip(edge_pct * 0.5, 0.0, 8.0)
+            raw_confidence = _clip(
+                iqr_confidence + edge_boost + PROP_CONFIDENCE_PENALTY[prop_key],
+                0.0,
+                100.0,
+            )
+            confidence = raw_confidence
             full_kelly, quarter_kelly = get_recommended_stake(odds=-110, model_prob=true_prob)
 
             decision = "BET" if edge_pct >= 8.0 and quarter_kelly > 0 and confidence >= 65.0 else "PASS"
