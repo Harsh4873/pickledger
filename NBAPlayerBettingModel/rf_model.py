@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import math
+import os
 
 import numpy as np
 import pandas as pd
@@ -248,10 +249,31 @@ def build_prop_predictions(
                 0.0,
                 100.0,
             )
-            confidence = raw_confidence
+            # Cap confidence until calibration data is sufficient.
+            # PropPrediction.decision uses confidence >= 65.0 as a gate - the cap must sit above that
+            # threshold so BET picks can still fire, but below the overconfident 78%+ range.
+            _CALIBRATED_SAMPLE_THRESHOLD = 50
+            _props_log_path = os.path.join(os.path.dirname(__file__), "logs", "props_predictions.csv")
+            try:
+                import pandas as _pd
+
+                _log_size = len(_pd.read_csv(_props_log_path)) if os.path.exists(_props_log_path) else 0
+            except Exception:
+                _log_size = 0
+
+            is_calibrated = _log_size >= _CALIBRATED_SAMPLE_THRESHOLD
+            if not is_calibrated:
+                confidence = _clip(raw_confidence, 0.0, 75.0)
+                calibration_flag = "[UNCALIBRATED]"
+            else:
+                confidence = raw_confidence
+                calibration_flag = ""
             full_kelly, quarter_kelly = get_recommended_stake(odds=-110, model_prob=true_prob)
 
             decision = "BET" if edge_pct >= 8.0 and quarter_kelly > 0 and confidence >= 65.0 else "PASS"
+            reason = _build_reason(player, prop_key, direction, matchup_multiplier, line, adjusted_prediction)
+            if calibration_flag:
+                reason = f"{calibration_flag} {reason}"
 
             predictions.append(
                 PropPrediction(
@@ -275,7 +297,7 @@ def build_prop_predictions(
                     full_kelly=full_kelly,
                     quarter_kelly=quarter_kelly,
                     decision=decision,
-                    reason=_build_reason(player, prop_key, direction, matchup_multiplier, line, adjusted_prediction),
+                    reason=reason,
                 )
             )
 
