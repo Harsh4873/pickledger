@@ -256,6 +256,11 @@ def _get_team_efficiency_pct(team_stats) -> float:
     return getattr(team_stats, "ts_pct", 0.5)
 
 
+def _is_altitude_home_team(team: Team) -> bool:
+    normalized_name = str(team.name).upper()
+    return any(marker in normalized_name for marker in ("DENVER", "NUGGETS", "DEN", "UTAH", "JAZZ", "UTA"))
+
+
 def predict_spread(home_team: Team, away_team: Team) -> float:
     """
     Predict the expected home scoring margin directly from core per-game stats.
@@ -273,7 +278,8 @@ def predict_spread(home_team: Team, away_team: Team) -> float:
     base_spread = (home_points_per_game - home_opp_points_per_game) - (
         away_points_per_game - away_opp_points_per_game
     )
-    base_spread += 3.5
+    altitude_home = _is_altitude_home_team(home_team)
+    base_spread += 5.0 if altitude_home else 3.5
 
     home_efg = _get_team_efficiency_pct(home)
     away_efg = _get_team_efficiency_pct(away)
@@ -298,6 +304,8 @@ def predict_spread(home_team: Team, away_team: Team) -> float:
     rest_adj = 0.0
     if getattr(away, "is_b2b", getattr(away, "back_to_back_flag", False)):
         rest_adj += 3.5
+        if altitude_home:
+            rest_adj += 2.0
     if getattr(home, "is_b2b", getattr(home, "back_to_back_flag", False)):
         rest_adj -= 2.0
 
