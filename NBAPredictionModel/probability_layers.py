@@ -317,7 +317,7 @@ def predict_spread(home_team: Team, away_team: Team) -> float:
     # estimate the margin empirically from this model's own prediction history.
     home_court_margin = 3.5 if home_team.is_home else -3.5
 
-    return (
+    projected_margin = (
         net_rating_margin
         + recent_form_margin
         + efficiency_margin
@@ -327,3 +327,6 @@ def predict_spread(home_team: Team, away_team: Team) -> float:
         + injury_margin
         + home_court_margin
     )
+    # NBA market spreads never exceed ~18 pts; cap the published projection.
+    projected_margin = max(-18.0, min(18.0, projected_margin))
+    return projected_margin
