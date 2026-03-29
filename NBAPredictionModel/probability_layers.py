@@ -271,6 +271,10 @@ def predict_spread(home_team: Team, away_team: Team) -> float:
     away_form = away.last_10_win_pct - 0.5
     home_form = home.last_10_win_pct - 0.5
     form_adj = (home_form - away_form) * 5.0
+    if home_form > 0 and (home_points_per_game - home_opp_points_per_game) < 0:
+        form_adj -= home_form * 2.5
+    if away_form > 0 and (away_points_per_game - away_opp_points_per_game) < 0:
+        form_adj += away_form * 2.5
 
     rest_adj = 0.0
     if getattr(away, "is_b2b", getattr(away, "back_to_back_flag", False)):
