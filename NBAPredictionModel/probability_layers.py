@@ -1,8 +1,14 @@
 import math
+import re
+from functools import lru_cache
 
 from data_models import Team, GameContext
 
 _PROB_EPSILON = 1e-6
+_MIN_ON_OFF_SAMPLE_GAMES = 10
+_DEFAULT_UNMATCHED_PLAYER_PENALTY = 0.05
+_ROTATION_BROKEN_MULTIPLIER = 1.5
+_MAX_TOTAL_INJURY_ADJ = 0.25
 
 
 def _clamp_probability(prob: float) -> float:
@@ -20,6 +26,293 @@ def _sigmoid(value: float) -> float:
 def _logit(prob: float) -> float:
     clean_prob = _clamp_probability(prob)
     return math.log(clean_prob / (1.0 - clean_prob))
+
+
+def _normalize_player_key(name: str) -> str:
+    return "".join(ch for ch in str(name or "").lower() if ch.isalnum())
+
+
+def _match_player_name(player_name: str, candidate_names: list[str]) -> str | None:
+    target = _normalize_player_key(player_name)
+    if not target:
+        return None
+
+    normalized_candidates = []
+    for candidate in candidate_names:
+        normalized = _normalize_player_key(candidate)
+        if normalized:
+            normalized_candidates.append((normalized, candidate))
+
+    for normalized, candidate in normalized_candidates:
+        if normalized == target:
+            return candidate
+
+    for normalized, candidate in normalized_candidates:
+        if target in normalized or normalized in target:
+            return candidate
+
+    return None
+
+
+def _position_group(position: str) -> str:
+    cleaned = re.sub(r"[^A-Z]", " ", str(position or "").upper())
+    tokens = {token for token in cleaned.split() if token}
+
+    if tokens & {"C", "PF", "FC", "CF"} or "CENTER" in cleaned:
+        return "Bigs"
+    if tokens & {"SF", "F"}:
+        return "Wings"
+    if tokens & {"PG", "SG", "G"}:
+        return "Guards"
+    if "G" in cleaned:
+        return "Guards"
+    if "F" in cleaned:
+        return "Wings"
+    return "Unknown"
+
+
+@lru_cache(maxsize=64)
+def _fetch_team_on_off_data(team_name: str, season: str) -> dict:
+    try:
+        from injury_impact import fetch_player_on_off
+    except Exception as exc:
+        print(f"  WARNING: Could not import injury on/off module for {team_name}: {exc}")
+        return {}
+
+    try:
+        return fetch_player_on_off(team_name, season) or {}
+    except Exception as exc:
+        print(f"  WARNING: Could not fetch on/off data for {team_name}: {exc}")
+        return {}
+
+
+@lru_cache(maxsize=64)
+def _fetch_team_roster(team_name: str, season: str) -> list:
+    try:
+        from live_data import fetch_roster
+    except Exception as exc:
+        print(f"  WARNING: Could not import roster lookup for {team_name}: {exc}")
+        return []
+
+    try:
+        return fetch_roster(team_name, season) or []
+    except Exception as exc:
+        print(f"  WARNING: Could not fetch roster for {team_name}: {exc}")
+        return []
+
+
+def _build_roster_context(team_name: str, season: str, player_data: dict) -> tuple[dict, dict]:
+    roster = _fetch_team_roster(team_name, season)
+    position_lookup = {}
+    depth_chart = {"Guards": [], "Wings": [], "Bigs": []}
+    on_off_names = list(player_data.keys())
+
+    for player in roster:
+        roster_name = str(player.get("name", "")).strip()
+        if not roster_name:
+            continue
+
+        normalized_name = _normalize_player_key(roster_name)
+        group = _position_group(player.get("position", ""))
+        matched_on_off = _match_player_name(roster_name, on_off_names)
+        mpg = 0.0
+        if matched_on_off:
+            mpg = float(player_data.get(matched_on_off, {}).get("mpg", 0.0) or 0.0)
+
+        position_lookup[normalized_name] = {
+            "name": roster_name,
+            "position": str(player.get("position", "")).strip(),
+            "position_group": group,
+            "matched_on_off": matched_on_off,
+            "mpg": mpg,
+        }
+
+        if group in depth_chart:
+            depth_chart[group].append({
+                "name": roster_name,
+                "normalized_name": normalized_name,
+                "mpg": mpg,
+            })
+
+    for players in depth_chart.values():
+        players.sort(key=lambda item: item["mpg"], reverse=True)
+
+    return position_lookup, depth_chart
+
+
+def _calculate_expected_player_penalty(player_name: str, status: str, absence_probability: float, player_data: dict) -> tuple[float, str, dict]:
+    matched = _match_player_name(player_name, list(player_data.keys()))
+    if not matched:
+        expected_penalty = _DEFAULT_UNMATCHED_PLAYER_PENALTY * absence_probability
+        return (
+            -expected_penalty,
+            f"{player_name} {status} ({absence_probability:.0%} miss, default EV {-expected_penalty*100:+.1f}%)",
+            {
+                "matched_name": player_name,
+                "base_penalty": _DEFAULT_UNMATCHED_PLAYER_PENALTY,
+                "expected_penalty": expected_penalty,
+                "mpg": 0.0,
+                "gp": 0,
+                "impact": 0.0,
+            },
+        )
+
+    data = player_data.get(matched, {})
+    gp = int(data.get("gp", 0) or 0)
+    mpg = float(data.get("mpg", 0.0) or 0.0)
+    raw_impact = float(data.get("impact", 0.0) or 0.0)
+
+    if gp < _MIN_ON_OFF_SAMPLE_GAMES:
+        return (
+            0.0,
+            f"{matched} {status} ({absence_probability:.0%} miss, only {gp} GP so skipped)",
+            {
+                "matched_name": matched,
+                "base_penalty": 0.0,
+                "expected_penalty": 0.0,
+                "mpg": mpg,
+                "gp": gp,
+                "impact": raw_impact,
+            },
+        )
+
+    minute_weight = min(1.0, mpg / 30.0) if mpg > 0 else 0.0
+    if raw_impact <= 0:
+        if mpg >= 25.0:
+            base_penalty = 0.03
+            expected_penalty = base_penalty * absence_probability
+            return (
+                -expected_penalty,
+                (
+                    f"{matched} {status} ({absence_probability:.0%} miss, {mpg:.0f} MPG starter floor "
+                    f"EV {-expected_penalty*100:+.1f}%)"
+                ),
+                {
+                    "matched_name": matched,
+                    "base_penalty": base_penalty,
+                    "expected_penalty": expected_penalty,
+                    "mpg": mpg,
+                    "gp": gp,
+                    "impact": raw_impact,
+                },
+            )
+        return (
+            0.0,
+            f"{matched} {status} ({absence_probability:.0%} miss, negative on/off impact so neutral)",
+            {
+                "matched_name": matched,
+                "base_penalty": 0.0,
+                "expected_penalty": 0.0,
+                "mpg": mpg,
+                "gp": gp,
+                "impact": raw_impact,
+            },
+        )
+
+    base_penalty = min(0.12, raw_impact * 0.03 * minute_weight)
+    expected_penalty = base_penalty * absence_probability
+    return (
+        -expected_penalty,
+        (
+            f"{matched} {status} ({absence_probability:.0%} miss, Impact {raw_impact:+.1f}, "
+            f"{mpg:.0f} MPG EV {-expected_penalty*100:+.1f}%)"
+        ),
+        {
+            "matched_name": matched,
+            "base_penalty": base_penalty,
+            "expected_penalty": expected_penalty,
+            "mpg": mpg,
+            "gp": gp,
+            "impact": raw_impact,
+        },
+    )
+
+
+def calculate_injury_adjustment(team_name: str, injury_entries: list[dict], season: str = "2025-26") -> tuple[float, str]:
+    """
+    NBANEW injury adjustment based on expected absence value and positional depth.
+
+    Each player's standard on/off penalty is scaled by the probability they sit.
+    When the top two players in a position group both carry >50% absence risk,
+    the group's combined expected penalty is multiplied by 1.5 to reflect a
+    broken rotation.
+    """
+    if not injury_entries:
+        return 0.0, "No expected injury absences"
+
+    player_data = _fetch_team_on_off_data(team_name, season)
+    position_lookup, depth_chart = _build_roster_context(team_name, season, player_data)
+
+    total_adj = 0.0
+    reasons = []
+    modeled_players = []
+
+    for entry in injury_entries:
+        player_name = str(entry.get("name", "")).strip()
+        status = str(entry.get("status", "")).strip() or "Unknown"
+        absence_probability = float(entry.get("absence_probability", 0.0) or 0.0)
+        if not player_name or absence_probability <= 0.0:
+            continue
+
+        player_adj, reason, details = _calculate_expected_player_penalty(
+            player_name,
+            status,
+            absence_probability,
+            player_data,
+        )
+        total_adj += player_adj
+        reasons.append(reason)
+
+        roster_match = position_lookup.get(_normalize_player_key(player_name), {})
+        position_group = roster_match.get("position_group", "Unknown")
+        matched_name = details.get("matched_name", player_name)
+
+        if position_group == "Unknown" and matched_name:
+            roster_match = position_lookup.get(_normalize_player_key(matched_name), {})
+            position_group = roster_match.get("position_group", "Unknown")
+
+        modeled_players.append({
+            "name": player_name,
+            "matched_name": matched_name,
+            "absence_probability": absence_probability,
+            "expected_penalty": abs(player_adj),
+            "position_group": position_group,
+        })
+
+    injury_probability_lookup = {}
+    for player in modeled_players:
+        injury_probability_lookup[_normalize_player_key(player["name"])] = player["absence_probability"]
+        injury_probability_lookup[_normalize_player_key(player["matched_name"])] = player["absence_probability"]
+
+    for group_name, players in depth_chart.items():
+        if len(players) < 2:
+            continue
+
+        top_two = players[:2]
+        if top_two[0]["mpg"] <= 0.0 and top_two[1]["mpg"] <= 0.0:
+            continue
+        if not all(injury_probability_lookup.get(player["normalized_name"], 0.0) > 0.5 for player in top_two):
+            continue
+
+        group_penalty = sum(
+            player["expected_penalty"]
+            for player in modeled_players
+            if player["position_group"] == group_name
+        )
+        if group_penalty <= 0.0:
+            continue
+
+        extra_penalty = group_penalty * (_ROTATION_BROKEN_MULTIPLIER - 1.0)
+        total_adj -= extra_penalty
+        top_two_names = ", ".join(player["name"] for player in top_two)
+        reasons.append(
+            f"Rotation Broken {group_name} ({top_two_names}) x{_ROTATION_BROKEN_MULTIPLIER:.1f} EV {-extra_penalty*100:+.1f}%"
+        )
+
+    total_adj = max(-_MAX_TOTAL_INJURY_ADJ, total_adj)
+    reason_str = ", ".join(reasons) if reasons else "No injury adjustments"
+    return total_adj, reason_str
+
 
 def calculate_layer1_base_rate(team: Team, opp_team: Team, h2h_win_pct_2yr: float) -> float:
     """

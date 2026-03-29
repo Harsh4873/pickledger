@@ -12,6 +12,7 @@ from calibration import load_platt_scaler
 from data_models import Player, TeamStats, Team, Venue, GameContext
 from probability_layers import (
     calculate_layer1_base_rate,
+    calculate_injury_adjustment as calculate_probabilistic_injury_adjustment,
     calculate_layer2_situational,
     calculate_layer3_matchup_modifier,
     combine_home_win_probability,
@@ -22,8 +23,8 @@ from probability_layers import (
     predict_total_points,
     predict_spread,
 )
-from injury_impact import calculate_injury_adjustment
-from injury_report import fetch_injuries, get_team_out_players
+from injury_impact import calculate_injury_adjustment as calculate_legacy_injury_adjustment
+from injury_report import fetch_injuries, get_expected_injury_impact, get_team_out_players
 from main import format_output, format_output_new
 from live_data import fetch_all_team_stats, fetch_todays_games, fetch_espn_total_lines
 
@@ -152,26 +153,48 @@ def run_game(
     l2_away_adj, l2_away_reasons = calculate_layer2_situational(away_team, home_team, ctx)
     total_l2_adj = l2_adj - l2_away_adj
 
-    away_out = get_team_out_players(injuries, away_name)
-    home_out = get_team_out_players(injuries, home_name)
+    if variant == "new":
+        away_expected_injuries = get_expected_injury_impact(injuries, away_name)
+        home_expected_injuries = get_expected_injury_impact(injuries, home_name)
 
-    inj_adj_home, inj_reason_home = (0.0, "No OUT players")
-    inj_adj_away, inj_reason_away = (0.0, "No OUT players")
+        inj_adj_home, inj_reason_home = (0.0, "No expected injury absences")
+        inj_adj_away, inj_reason_away = (0.0, "No expected injury absences")
 
-    if home_out:
-        print(f"  Fetching on/off court data for {home_name} ({len(home_out)} OUT)...")
-        inj_adj_home, inj_reason_home = calculate_injury_adjustment(home_name, home_out)
-        time.sleep(1)
-    if away_out:
-        print(f"  Fetching on/off court data for {away_name} ({len(away_out)} OUT)...")
-        inj_adj_away, inj_reason_away = calculate_injury_adjustment(away_name, away_out)
-        time.sleep(1)
+        if home_expected_injuries:
+            print(f"  Fetching probabilistic on/off data for {home_name} ({len(home_expected_injuries)} injury statuses)...")
+            inj_adj_home, inj_reason_home = calculate_probabilistic_injury_adjustment(home_name, home_expected_injuries)
+            time.sleep(1)
+        if away_expected_injuries:
+            print(f"  Fetching probabilistic on/off data for {away_name} ({len(away_expected_injuries)} injury statuses)...")
+            inj_adj_away, inj_reason_away = calculate_probabilistic_injury_adjustment(away_name, away_expected_injuries)
+            time.sleep(1)
+
+        home_team.injury_flag = int(bool(home_expected_injuries))
+        away_team.injury_flag = int(bool(away_expected_injuries))
+        home_team.injury_severity = min(0.25, abs(inj_adj_home))
+        away_team.injury_severity = min(0.25, abs(inj_adj_away))
+    else:
+        away_out = get_team_out_players(injuries, away_name)
+        home_out = get_team_out_players(injuries, home_name)
+
+        inj_adj_home, inj_reason_home = (0.0, "No OUT players")
+        inj_adj_away, inj_reason_away = (0.0, "No OUT players")
+
+        if home_out:
+            print(f"  Fetching on/off court data for {home_name} ({len(home_out)} OUT)...")
+            inj_adj_home, inj_reason_home = calculate_legacy_injury_adjustment(home_name, home_out)
+            time.sleep(1)
+        if away_out:
+            print(f"  Fetching on/off court data for {away_name} ({len(away_out)} OUT)...")
+            inj_adj_away, inj_reason_away = calculate_legacy_injury_adjustment(away_name, away_out)
+            time.sleep(1)
+
+        home_team.injury_flag = int(bool(injuries.get(home_name, [])))
+        away_team.injury_flag = int(bool(injuries.get(away_name, [])))
+        home_team.injury_severity = min(0.25, abs(inj_adj_home) + 0.01 * len(injuries.get(home_name, [])))
+        away_team.injury_severity = min(0.25, abs(inj_adj_away) + 0.01 * len(injuries.get(away_name, [])))
 
     total_injury_adj = inj_adj_home - inj_adj_away
-    home_team.injury_flag = int(bool(injuries.get(home_name, [])))
-    away_team.injury_flag = int(bool(injuries.get(away_name, [])))
-    home_team.injury_severity = min(0.25, abs(inj_adj_home) + 0.01 * len(injuries.get(home_name, [])))
-    away_team.injury_severity = min(0.25, abs(inj_adj_away) + 0.01 * len(injuries.get(away_name, [])))
     home_team.injury_summary = inj_reason_home
     away_team.injury_summary = inj_reason_away
 

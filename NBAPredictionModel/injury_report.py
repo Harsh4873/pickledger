@@ -29,6 +29,13 @@ TEAM_ALIASES = {full.lower(): short for full, short in TEAM_SHORT.items()}
 for short in TEAM_SHORT.values():
     TEAM_ALIASES[short.lower()] = short
 
+EXPECTED_ABSENCE_PROBABILITIES = {
+    "Out": 1.0,
+    "Doubtful": 0.75,
+    "Questionable": 0.50,
+    "Probable": 0.25,
+}
+
 
 def _normalize_team_name(team_name: str) -> str:
     if not team_name:
@@ -49,11 +56,17 @@ def _normalize_status(status: str) -> str:
         return "Out"
     if "doubt" in s:
         return "Doubtful"
-    if "question" in s or "gtd" in s or "game-time" in s:
+    if "question" in s or "gtd" in s or "game-time" in s or "game time" in s or "day-to-day" in s:
         return "Questionable"
     if "probable" in s:
         return "Probable"
     return str(status or "").strip().title() or "Unknown"
+
+
+def get_expected_absence_probability(status: str) -> float:
+    """Map a raw injury status to the expected probability the player sits."""
+    normalized_status = _normalize_status(status)
+    return EXPECTED_ABSENCE_PROBABILITIES.get(normalized_status, 0.0)
 
 
 def _fetch_scraped_injuries() -> dict:
@@ -271,10 +284,34 @@ def fetch_injuries(dt: datetime = None) -> dict:
 
 def get_team_out_players(injuries: dict, team_name: str) -> list:
     """Get list of player names with status 'Out' for a team."""
+    team_key = _normalize_team_name(team_name)
     return [
-        p["name"] for p in injuries.get(team_name, [])
+        p["name"] for p in injuries.get(team_key, [])
         if p["status"] == "Out"
     ]
+
+
+def get_expected_injury_impact(injuries: dict, team_name: str) -> list[dict]:
+    """
+    Return all injured players for a team with an expected absence probability.
+
+    Players with statuses outside the modeled probabilities are ignored so the
+    NBANEW injury layer only consumes statuses with a defined expected value.
+    """
+    team_key = _normalize_team_name(team_name)
+    expected_players = []
+    for player in injuries.get(team_key, []):
+        status = _normalize_status(player.get("status", ""))
+        absence_probability = get_expected_absence_probability(status)
+        if absence_probability <= 0.0:
+            continue
+        expected_players.append({
+            "name": str(player.get("name", "")).strip(),
+            "status": status,
+            "reason": str(player.get("reason", "")).strip() or str(player.get("injury", "")).strip(),
+            "absence_probability": absence_probability,
+        })
+    return expected_players
 
 
 def print_injury_report(injuries: dict, teams: list = None):
