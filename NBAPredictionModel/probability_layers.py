@@ -175,34 +175,14 @@ def combine_home_win_probability(
     """
     Blend the probability layers with the independent spread estimate.
 
-    The old model derived spread from win probability in a single linear pass.
-    That meant the spread carried no information of its own and probability was
-    effectively double-counting the same number. Spread now feeds the win model
-    as one feature among several instead of being the sole driver.
+    The spread input is kept intentionally light here. Probability layers own
+    the team-strength, home-court, and recent-form signal; spread is a
+    cross-check from the separate matchup margin path, not a second full pass
+    over the same inputs.
     """
     base_prob = _clamp_probability(layer_probability)
-    recent_form_edge = home_team.team_stats.weighted_win_pct - away_team.team_stats.weighted_win_pct
-    recent_point_diff_edge = home_team.team_stats.weighted_point_diff - away_team.team_stats.weighted_point_diff
-    rest_edge = home_team.team_stats.rest_days - away_team.team_stats.rest_days
-    b2b_edge = float(away_team.team_stats.back_to_back_flag) - float(home_team.team_stats.back_to_back_flag)
-    efficiency_edge = (
-        (home_team.team_stats.off_rating_10 - away_team.team_stats.off_rating_10)
-        - (home_team.team_stats.def_rating_10 - away_team.team_stats.def_rating_10)
-    )
-    rebound_edge = home_team.team_stats.reb_pct - away_team.team_stats.reb_pct
-    injury_edge = away_team.injury_severity - home_team.injury_severity
 
-    blended_logit = (
-        _logit(base_prob)
-        + (predicted_spread / 7.5) * 0.55
-        + recent_form_edge * 1.15
-        + recent_point_diff_edge * 0.08
-        + rest_edge * 0.18
-        + b2b_edge * 0.28
-        + efficiency_edge * 0.03
-        + rebound_edge * 8.0
-        + injury_edge * 1.1
-    )
+    blended_logit = _logit(base_prob) + (predicted_spread / 10.0) * 0.30
     return _sigmoid(blended_logit)
 
 
@@ -296,37 +276,38 @@ def predict_spread(home_team: Team, away_team: Team) -> float:
     This is intentionally independent from the probability output so spread can
     inform the win model instead of being reverse-engineered from it.
     """
-    net_rating_margin = (home_team.team_stats.net_rating - away_team.team_stats.net_rating) * 0.72
-    recent_form_margin = (
-        (home_team.team_stats.recent_5_win_pct - away_team.team_stats.recent_5_win_pct) * 7.0
-        + (home_team.team_stats.weighted_point_diff - away_team.team_stats.weighted_point_diff) * 0.45
+    # Spread feature ownership before -> after:
+    # - Home court: additive spread prior -> probability layers only.
+    # - Recent form: additive spread stack -> probability layers only.
+    # - Point differential: additive spread stack -> probability layers only.
+    # - Pace: additive spread term -> multiplicative spread-only adjustment.
+    # - Rest/B2B: additive spread term -> multiplicative spread-only adjustment.
+    # - Injuries: additive spread term -> multiplicative spread-only adjustment.
+    matchup_margin = (
+        (
+            (home_team.team_stats.off_rating_10 - away_team.team_stats.def_rating_10)
+            - (away_team.team_stats.off_rating_10 - home_team.team_stats.def_rating_10)
+        ) * 0.24
+        + (home_team.team_stats.ts_pct - away_team.team_stats.ts_pct) * 38.0
+        + (home_team.team_stats.reb_pct - away_team.team_stats.reb_pct) * 16.0
     )
-    efficiency_margin = (
-        (home_team.team_stats.off_rating_10 - away_team.team_stats.off_rating_10) * 0.14
-        - (home_team.team_stats.def_rating_10 - away_team.team_stats.def_rating_10) * 0.12
-    )
-    rebound_margin = (home_team.team_stats.reb_pct - away_team.team_stats.reb_pct) * 22.0
-    rest_margin = (home_team.team_stats.rest_days - away_team.team_stats.rest_days) * 0.9
-    b2b_margin = (
-        (-1.25 if home_team.team_stats.back_to_back_flag else 0.0)
-        + (1.25 if away_team.team_stats.back_to_back_flag else 0.0)
-    )
-    injury_margin = (away_team.injury_severity - home_team.injury_severity) * 10.0
+    # Map the orthogonal matchup score back into sportsbook-like point-spread units.
+    base_margin = matchup_margin * 3.5
 
-    # Use a +3.5 point home-court prior until we have enough logged outcomes to
-    # estimate the margin empirically from this model's own prediction history.
-    home_court_margin = 3.5 if home_team.is_home else -3.5
+    average_pace = (home_team.team_stats.pace + away_team.team_stats.pace) / 2.0
+    pace_multiplier = 1.0 + max(-0.06, min(0.06, (average_pace - 99.0) * 0.010))
 
-    projected_margin = (
-        net_rating_margin
-        + recent_form_margin
-        + efficiency_margin
-        + rebound_margin
-        + rest_margin
-        + b2b_margin
-        + injury_margin
-        + home_court_margin
+    rest_load_edge = (
+        (home_team.team_stats.rest_days - away_team.team_stats.rest_days)
+        + (0.75 if away_team.team_stats.back_to_back_flag else 0.0)
+        - (0.75 if home_team.team_stats.back_to_back_flag else 0.0)
     )
+    rest_multiplier = 1.0 + max(-0.10, min(0.10, rest_load_edge * 0.035))
+
+    injury_edge = away_team.injury_severity - home_team.injury_severity
+    injury_multiplier = 1.0 + max(-0.15, min(0.15, injury_edge * 0.80))
+
+    projected_margin = base_margin * pace_multiplier * rest_multiplier * injury_multiplier
     # NBA market spreads never exceed ~18 pts; cap the published projection.
     projected_margin = max(-18.0, min(18.0, projected_margin))
     return projected_margin
