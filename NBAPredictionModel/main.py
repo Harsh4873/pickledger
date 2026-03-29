@@ -134,6 +134,11 @@ def format_output_new(game_ctx: GameContext, home_model_prob: float, home_odds: 
     if form_capping:
         away_form = form_capping["away"]
         home_form = form_capping["home"]
+        margin_cap = max(
+            float(away_form.get("garbage_time_margin_cap", 15.0)),
+            float(home_form.get("garbage_time_margin_cap", 15.0)),
+        )
+        print(f"- Garbage-Time Cap: ±{margin_cap:.0f} margin per game before recent-form averaging")
         print(
             f"- Capped Form: [{game_ctx.away_team.name}] W {away_form['raw_weighted']:+.1f}->{away_form['capped_weighted']:+.1f}, "
             f"10G {away_form['raw_recent_10']:+.1f}->{away_form['capped_recent_10']:+.1f}, "

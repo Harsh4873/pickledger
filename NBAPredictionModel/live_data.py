@@ -2,6 +2,16 @@
 Live NBA Data Module
 Pulls real current rosters, today's games, and injury reports.
 """
+import math
+import json
+import time
+from datetime import datetime
+from urllib.error import URLError, HTTPError
+from urllib.request import Request, urlopen
+
+import pandas as pd
+import requests
+from bs4 import BeautifulSoup
 from nba_api.stats.static import teams
 from nba_api.stats.endpoints import (
     commonteamroster, 
@@ -9,14 +19,6 @@ from nba_api.stats.endpoints import (
     leaguedashteamstats,
     scoreboardv2
 )
-import pandas as pd
-import requests
-from bs4 import BeautifulSoup
-import time
-from datetime import datetime
-import json
-from urllib.request import Request, urlopen
-from urllib.error import URLError, HTTPError
 
 _nba_teams = teams.get_teams()
 _GARBAGE_TIME_MARGIN_CAP = 15.0
@@ -29,7 +31,7 @@ def _team_key(full_name: str) -> str:
 
 
 def _weighted_recent_metric(values: list[float], fallback: float = 0.0) -> float:
-    clean_values = [float(v) for v in values if v is not None]
+    clean_values = _clean_metric_values(values)
     if not clean_values:
         return fallback
     weights = list(range(len(clean_values), 0, -1))
@@ -39,19 +41,40 @@ def _weighted_recent_metric(values: list[float], fallback: float = 0.0) -> float
     return sum(value * weight for value, weight in zip(clean_values, weights)) / denom
 
 
+def _clean_metric_values(values: list[float]) -> list[float]:
+    clean_values: list[float] = []
+    for value in values:
+        if value is None:
+            continue
+        try:
+            number = float(value)
+        except (TypeError, ValueError):
+            continue
+        if math.isfinite(number):
+            clean_values.append(number)
+    return clean_values
+
+
 def cap_game_margin(raw_margin: float, cap: float = _GARBAGE_TIME_MARGIN_CAP) -> float:
     try:
         margin = float(raw_margin)
-        margin_cap = abs(float(cap))
     except (TypeError, ValueError):
         return 0.0
+    if not math.isfinite(margin):
+        return 0.0
+    try:
+        margin_cap = abs(float(cap))
+    except (TypeError, ValueError):
+        margin_cap = _GARBAGE_TIME_MARGIN_CAP
+    if not math.isfinite(margin_cap):
+        margin_cap = _GARBAGE_TIME_MARGIN_CAP
     if margin_cap <= 0:
         return margin
     return max(-margin_cap, min(margin_cap, margin))
 
 
 def _average_metric(values: list[float], fallback: float = 0.0) -> float:
-    clean_values = [float(v) for v in values if v is not None]
+    clean_values = _clean_metric_values(values)
     if not clean_values:
         return fallback
     return float(sum(clean_values) / len(clean_values))
@@ -178,6 +201,9 @@ def fetch_team_schedule_context(
             'capped_recent_5_point_diff': capped_recent_5_point_diff,
             'capped_recent_10_point_diff': capped_recent_10_point_diff,
             'capped_weighted_point_diff': capped_weighted_point_diff,
+            'garbage_time_margin_cap': _GARBAGE_TIME_MARGIN_CAP,
+            # Preserve the legacy defaults as raw values. NBANEW opts into the
+            # capped fields explicitly so NBAOLD remains isolated.
             'recent_5_point_diff': raw_recent_5_point_diff,
             'recent_10_point_diff': raw_recent_10_point_diff,
             'weighted_point_diff': raw_weighted_point_diff,
@@ -335,6 +361,7 @@ def fetch_all_team_stats(
             'capped_recent_5_point_diff': context.get('capped_recent_5_point_diff', context.get('raw_recent_5_point_diff', blended_nrtg)),
             'capped_recent_10_point_diff': context.get('capped_recent_10_point_diff', context.get('raw_recent_10_point_diff', last10_nrtg)),
             'capped_weighted_point_diff': context.get('capped_weighted_point_diff', context.get('raw_weighted_point_diff', blended_nrtg)),
+            'garbage_time_margin_cap': context.get('garbage_time_margin_cap', _GARBAGE_TIME_MARGIN_CAP),
             'recent_5_point_diff': context.get('recent_5_point_diff', blended_nrtg),
             'recent_10_point_diff': context.get('recent_10_point_diff', last10_nrtg),
             'weighted_point_diff': context.get('weighted_point_diff', blended_nrtg),

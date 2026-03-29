@@ -12,6 +12,11 @@ _MAX_TOTAL_INJURY_ADJ = 0.25
 _LEAGUE_AVG_PACE = 99.0
 _DEFAULT_OPP_TOV_PCT = 0.135
 _DEFAULT_DREB_PCT = 0.720
+_RECENT_FORM_METRIC_FIELDS = {
+    "recent_5_point_diff": ("raw_recent_5_point_diff", "capped_recent_5_point_diff"),
+    "recent_10_point_diff": ("raw_recent_10_point_diff", "capped_recent_10_point_diff"),
+    "weighted_point_diff": ("raw_weighted_point_diff", "capped_weighted_point_diff"),
+}
 
 
 def _clamp_probability(prob: float) -> float:
@@ -30,6 +35,17 @@ def _coerce_float(value, default: float) -> float:
     if not math.isfinite(number):
         return default
     return number
+
+
+def _get_recent_form_metric(team_stats, metric_name: str, use_capped_form: bool = False) -> float:
+    raw_attr, capped_attr = _RECENT_FORM_METRIC_FIELDS.get(metric_name, (metric_name, metric_name))
+    raw_default = _coerce_float(
+        getattr(team_stats, raw_attr, getattr(team_stats, metric_name, getattr(team_stats, "net_rating", 0.0))),
+        _coerce_float(getattr(team_stats, "net_rating", 0.0), 0.0),
+    )
+    if not use_capped_form:
+        return raw_default
+    return _coerce_float(getattr(team_stats, capped_attr, raw_default), raw_default)
 
 
 def _sigmoid(value: float) -> float:
@@ -331,7 +347,12 @@ def calculate_injury_adjustment(team_name: str, injury_entries: list[dict], seas
     return total_adj, reason_str
 
 
-def calculate_layer1_base_rate(team: Team, opp_team: Team, h2h_win_pct_2yr: float) -> float:
+def calculate_layer1_base_rate(
+    team: Team,
+    opp_team: Team,
+    h2h_win_pct_2yr: float,
+    use_capped_form: bool = False,
+) -> float:
     """
     Base rate blends season quality with recency-sensitive 5/10 game form.
     """
@@ -349,7 +370,15 @@ def calculate_layer1_base_rate(team: Team, opp_team: Team, h2h_win_pct_2yr: floa
     net_rtg_prob = 0.50 + (net_rtg_diff * 0.03)
     net_rtg_prob = max(0.05, min(0.95, net_rtg_prob))
 
-    recent_point_diff = team.team_stats.weighted_point_diff - opp_team.team_stats.weighted_point_diff
+    recent_point_diff = _get_recent_form_metric(
+        team.team_stats,
+        "weighted_point_diff",
+        use_capped_form=use_capped_form,
+    ) - _get_recent_form_metric(
+        opp_team.team_stats,
+        "weighted_point_diff",
+        use_capped_form=use_capped_form,
+    )
     recent_point_prob = max(0.05, min(0.95, 0.50 + (recent_point_diff * 0.018)))
     
     home_court_prior = 0.015 if team.is_home else -0.015
@@ -472,6 +501,7 @@ def calculate_layer3_matchup_modifier(
     team: Team,
     opp_team: Team,
     tempo_context: dict | None = None,
+    use_capped_form: bool = False,
 ) -> tuple[float, str]:
     """
     Matchup Modifier (Pace & Efficiency)
@@ -512,15 +542,21 @@ def calculate_layer3_matchup_modifier(
         adj += 0.02
         reasons.append("Rebound edge +2.0%")
 
-    recent_form_edge = team.team_stats.weighted_point_diff - opp_team.team_stats.weighted_point_diff
+    recent_form_edge = _get_recent_form_metric(
+        team.team_stats,
+        "weighted_point_diff",
+        use_capped_form=use_capped_form,
+    ) - _get_recent_form_metric(
+        opp_team.team_stats,
+        "weighted_point_diff",
+        use_capped_form=use_capped_form,
+    )
     if abs(recent_form_edge) >= 2.0:
         form_adj = max(-0.04, min(0.04, recent_form_edge * 0.004))
         adj += form_adj
-        using_capped_form = (
-            getattr(team.team_stats, "raw_weighted_point_diff", team.team_stats.weighted_point_diff)
-            != team.team_stats.weighted_point_diff
-            or getattr(opp_team.team_stats, "raw_weighted_point_diff", opp_team.team_stats.weighted_point_diff)
-            != opp_team.team_stats.weighted_point_diff
+        using_capped_form = use_capped_form and (
+            hasattr(team.team_stats, "capped_weighted_point_diff")
+            or hasattr(opp_team.team_stats, "capped_weighted_point_diff")
         )
         reason_label = "Recent point-diff edge (capped form)" if using_capped_form else "Recent point-diff edge"
         reasons.append(f"{reason_label} {form_adj*100:+.1f}%")
@@ -606,7 +642,7 @@ def _project_matchup_points(home_stats, away_stats, projected_pace: float) -> tu
     return home_expected_points, away_expected_points, home_expected_rating, away_expected_rating
 
 
-def _calculate_team_pace_control(team_stats, opp_stats) -> dict:
+def _calculate_team_pace_control(team_stats, opp_stats, use_capped_form: bool = False) -> dict:
     opponent_turnover_pressure = getattr(team_stats, "opp_tov_pct", None)
     if opponent_turnover_pressure is None:
         opponent_turnover_pressure = _coerce_float(
@@ -631,17 +667,10 @@ def _calculate_team_pace_control(team_stats, opp_stats) -> dict:
     else:
         dreb_pct = _coerce_float(dreb_pct, _DEFAULT_DREB_PCT)
 
-    recent_form = _coerce_float(
-        getattr(
-            team_stats,
-            "weighted_point_diff",
-            getattr(
-                team_stats,
-                "recent_10_point_diff",
-                getattr(team_stats, "net_rating", 0.0),
-            ),
-        ),
-        0.0,
+    recent_form = _get_recent_form_metric(
+        team_stats,
+        "weighted_point_diff",
+        use_capped_form=use_capped_form,
     )
 
     turnover_component = (opponent_turnover_pressure - _DEFAULT_OPP_TOV_PCT) * 125.0
@@ -662,12 +691,12 @@ def _calculate_team_pace_control(team_stats, opp_stats) -> dict:
     }
 
 
-def calculate_dictated_pace(away_stats, home_stats) -> tuple[float, dict]:
+def calculate_dictated_pace(away_stats, home_stats, use_capped_form: bool = False) -> tuple[float, dict]:
     """
     Skew the matchup pace toward the team most likely to impose its style.
     """
-    away_profile = _calculate_team_pace_control(away_stats, home_stats)
-    home_profile = _calculate_team_pace_control(home_stats, away_stats)
+    away_profile = _calculate_team_pace_control(away_stats, home_stats, use_capped_form=use_capped_form)
+    home_profile = _calculate_team_pace_control(home_stats, away_stats, use_capped_form=use_capped_form)
 
     home_pace = _coerce_float(getattr(home_stats, "pace", _LEAGUE_AVG_PACE), _LEAGUE_AVG_PACE)
     away_pace = _coerce_float(getattr(away_stats, "pace", _LEAGUE_AVG_PACE), _LEAGUE_AVG_PACE)
@@ -705,6 +734,7 @@ def calculate_dictated_pace(away_stats, home_stats) -> tuple[float, dict]:
         "away_recent_form": away_profile["recent_form"],
         "home_reason": home_profile["reason"],
         "away_reason": away_profile["reason"],
+        "recent_form_mode": "capped" if use_capped_form else "raw",
     }
     return dictated_pace, context
 
