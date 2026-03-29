@@ -11,6 +11,7 @@ import time
 from calibration import load_platt_scaler
 from data_models import Player, TeamStats, Team, Venue, GameContext
 from probability_layers import (
+    calculate_dictated_pace,
     calculate_layer1_base_rate,
     calculate_injury_adjustment as calculate_probabilistic_injury_adjustment,
     calculate_layer2_situational,
@@ -86,7 +87,7 @@ def create_team(id_num, name, is_home, stats_dict):
         rest_days=stats_dict.get("rest_days", 1.0),
         back_to_back_flag=stats_dict.get("back_to_back_flag", False),
         efg_pct=stats_dict.get("efg_pct", stats_dict.get("ts_pct", 0.5)),
-        tov_pct=stats_dict.get("tov_pct", 0.13),
+        tov_pct=stats_dict.get("tov_pct", stats_dict.get("tm_tov_pct", 0.13)),
     )
     # Feed the NBANEW spread model per-game scoring context directly in point units.
     pace = float(stats_dict["pace"])
@@ -100,6 +101,13 @@ def create_team(id_num, name, is_home, stats_dict):
         "opp_points_per_game",
         float(stats_dict.get("opp_points_per_game", stats_dict["def_rating"] * pace / 100.0)),
     )
+    setattr(
+        stats,
+        "dreb_pct",
+        float(stats_dict.get("dreb_pct", max(0.68, min(0.79, stats_dict.get("reb_pct", 0.50) + 0.22)))),
+    )
+    setattr(stats, "opp_tov_pct", float(stats_dict.get("opp_tov_pct", stats_dict.get("tov_pct", 0.135))))
+    setattr(stats, "opp_oreb_pct", float(stats_dict.get("opp_oreb_pct", max(0.21, min(0.32, 1.0 - stats.dreb_pct)))))
     setattr(stats, "is_b2b", bool(stats_dict.get("back_to_back_flag", False)))
     setattr(stats, "is_4_in_5_nights", bool(stats_dict.get("is_4_in_5_nights", False)))
     setattr(stats, "is_5_in_7_nights", bool(stats_dict.get("is_5_in_7_nights", False)))
@@ -149,6 +157,11 @@ def run_game(
         0.50,
         game_id=game_info.get("game_id", ""),
     )
+    tempo_context = None
+    if variant == "new":
+        _, tempo_context = calculate_dictated_pace(away_team.team_stats, home_team.team_stats)
+        setattr(ctx, "tempo_control", tempo_context)
+        setattr(ctx, "dictated_pace", tempo_context["dictated_pace"])
 
     l1_prob = calculate_layer1_base_rate(home_team, away_team, ctx.h2h_home_win_pct_2yr)
 
@@ -220,8 +233,16 @@ def run_game(
     )
     total_l2_with_inj = max(-0.25, min(0.25, total_l2_adj + total_injury_adj))
 
-    l3_adj, l3_reasons = calculate_layer3_matchup_modifier(home_team, away_team)
-    l3_away_adj, l3_away_reasons = calculate_layer3_matchup_modifier(away_team, home_team)
+    l3_adj, l3_reasons = calculate_layer3_matchup_modifier(
+        home_team,
+        away_team,
+        tempo_context=tempo_context if variant == "new" else None,
+    )
+    l3_away_adj, l3_away_reasons = calculate_layer3_matchup_modifier(
+        away_team,
+        home_team,
+        tempo_context=tempo_context if variant == "new" else None,
+    )
     total_l3_adj = l3_adj - l3_away_adj
     l3_combined = f"{home_name}: {l3_reasons} | {away_name}: {l3_away_reasons}"
 
@@ -237,11 +258,11 @@ def run_game(
         decision_override = None
         decision_note = ""
     else:
-        predicted_spread = predict_spread(home_team, away_team)
+        predicted_spread = predict_spread(home_team, away_team, pace_context=tempo_context)
         raw_prob = combine_home_win_probability(layer_prob, predicted_spread, home_team, away_team)
         ext_prob = extremize_probability(raw_prob)
         calibrated_prob = calibrator.calibrate(ext_prob) if calibrator else ext_prob
-        predicted_total = predict_total_points(ctx)
+        predicted_total = predict_total_points(ctx, pace_context=tempo_context)
         variant_note = calibration_note
         decision_override = None
         decision_note = ""
@@ -296,6 +317,24 @@ def run_game(
     print(f"**Over/Under:** Model Total {predicted_total:.1f} vs Line {line_display}")
 
     if variant == "new":
+        if tempo_context:
+            print(
+                f"**Tempo Basis:** {away_name} pace share {tempo_context['away_weight']*100:.0f}% | "
+                f"{home_name} pace share {tempo_context['home_weight']*100:.0f}% | "
+                f"Dictated Pace {tempo_context['dictated_pace']:.1f}"
+            )
+            print(
+                f"**Tempo Drivers:** {away_name} score {tempo_context['away_control_score']:+.2f} "
+                f"[{tempo_context['away_reason']}] | "
+                f"{home_name} score {tempo_context['home_control_score']:+.2f} "
+                f"[{tempo_context['home_reason']}]"
+            )
+            if "away_expected_points" in tempo_context and "home_expected_points" in tempo_context:
+                print(
+                    f"**Pace-Weighted Projection:** {away_name} {tempo_context['away_expected_points']:.1f} | "
+                    f"{home_name} {tempo_context['home_expected_points']:.1f} | "
+                    f"Spread basis {tempo_context.get('pace_based_spread', 0.0):+.2f}"
+                )
         totals_decision = "PASS"
         if market_total_line not in (None, 225.0):
             if predicted_total > market_total_line + 3.5:

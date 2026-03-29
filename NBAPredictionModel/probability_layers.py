@@ -9,10 +9,27 @@ _MIN_ON_OFF_SAMPLE_GAMES = 10
 _DEFAULT_UNMATCHED_PLAYER_PENALTY = 0.05
 _ROTATION_BROKEN_MULTIPLIER = 1.5
 _MAX_TOTAL_INJURY_ADJ = 0.25
+_LEAGUE_AVG_PACE = 99.0
+_DEFAULT_OPP_TOV_PCT = 0.135
+_DEFAULT_DREB_PCT = 0.720
 
 
 def _clamp_probability(prob: float) -> float:
     return max(_PROB_EPSILON, min(1.0 - _PROB_EPSILON, prob))
+
+
+def _clamp(value: float, lower: float, upper: float) -> float:
+    return max(lower, min(upper, value))
+
+
+def _coerce_float(value, default: float) -> float:
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        return default
+    if not math.isfinite(number):
+        return default
+    return number
 
 
 def _sigmoid(value: float) -> float:
@@ -451,7 +468,11 @@ def calculate_layer2_situational(
     return adj, reason_str
 
 
-def calculate_layer3_matchup_modifier(team: Team, opp_team: Team) -> tuple[float, str]:
+def calculate_layer3_matchup_modifier(
+    team: Team,
+    opp_team: Team,
+    tempo_context: dict | None = None,
+) -> tuple[float, str]:
     """
     Matchup Modifier (Pace & Efficiency)
     - Pace edge = High pace vs bottom-10 defense -> +3%
@@ -459,14 +480,32 @@ def calculate_layer3_matchup_modifier(team: Team, opp_team: Team) -> tuple[float
     """
     adj = 0.0
     reasons = []
-    
-    pace_diff = team.team_stats.pace - opp_team.team_stats.pace
-    if team.team_stats.pace > 100.0 and team.team_stats.off_rating_10 > 115.0 and opp_team.team_stats.def_rating_10 > 115.0:
-        adj += 0.03
-        reasons.append("Pace edge vs bottom-10 def +3.0%")
-    elif pace_diff > 2.0:
-        adj += 0.02
-        reasons.append("Pace differential edge +2.0%")
+    if tempo_context:
+        team_side = "home" if team.is_home else "away"
+        team_weight = _coerce_float(tempo_context.get(f"{team_side}_weight", 0.50), 0.50)
+        opp_weight = _coerce_float(
+            tempo_context.get("away_weight" if team_side == "home" else "home_weight", 0.50),
+            0.50,
+        )
+        preferred_pace = _coerce_float(getattr(team.team_stats, "pace", _LEAGUE_AVG_PACE), _LEAGUE_AVG_PACE)
+        if preferred_pace >= (_LEAGUE_AVG_PACE + 1.0) and team_weight > (opp_weight + 0.05):
+            tempo_bonus = 0.006
+            tempo_bonus += max(0.0, preferred_pace - 100.0) * 0.001
+            tempo_bonus += max(0.0, team_weight - 0.58) * 0.02
+            tempo_bonus = min(0.02, tempo_bonus)
+            adj += tempo_bonus
+            reasons.append(
+                f"Tempo dictation fast-style edge +{tempo_bonus*100:.1f}% "
+                f"({team_weight*100:.0f}/{opp_weight*100:.0f} control)"
+            )
+    else:
+        pace_diff = team.team_stats.pace - opp_team.team_stats.pace
+        if team.team_stats.pace > 100.0 and team.team_stats.off_rating_10 > 115.0 and opp_team.team_stats.def_rating_10 > 115.0:
+            adj += 0.03
+            reasons.append("Pace edge vs bottom-10 def +3.0%")
+        elif pace_diff > 2.0:
+            adj += 0.02
+            reasons.append("Pace differential edge +2.0%")
 
     # Rebound Edge
     if (team.team_stats.reb_pct - opp_team.team_stats.reb_pct) > 0.03:
@@ -528,12 +567,161 @@ def extremize_probability(raw_prob: float, factor: float = 1.3) -> float:
     return _sigmoid(_logit(raw_prob) * factor)
 
 
-def predict_total_points(game_ctx: GameContext) -> float:
+def _team_offense_per_100(team_stats) -> float:
+    pace = max(_coerce_float(getattr(team_stats, "pace", _LEAGUE_AVG_PACE), _LEAGUE_AVG_PACE), 1e-6)
+    points_per_game = _coerce_float(
+        getattr(team_stats, "points_per_game", getattr(team_stats, "off_rating_10", 112.0) * pace / 100.0),
+        getattr(team_stats, "off_rating_10", 112.0) * pace / 100.0,
+    )
+    return (points_per_game / pace) * 100.0
+
+
+def _team_defense_per_100(team_stats) -> float:
+    pace = max(_coerce_float(getattr(team_stats, "pace", _LEAGUE_AVG_PACE), _LEAGUE_AVG_PACE), 1e-6)
+    opp_points_per_game = _coerce_float(
+        getattr(team_stats, "opp_points_per_game", getattr(team_stats, "def_rating_10", 112.0) * pace / 100.0),
+        getattr(team_stats, "def_rating_10", 112.0) * pace / 100.0,
+    )
+    return (opp_points_per_game / pace) * 100.0
+
+
+def _project_matchup_points(home_stats, away_stats, projected_pace: float) -> tuple[float, float, float, float]:
+    home_offense_per_100 = _team_offense_per_100(home_stats)
+    away_offense_per_100 = _team_offense_per_100(away_stats)
+    home_defense_per_100 = _team_defense_per_100(home_stats)
+    away_defense_per_100 = _team_defense_per_100(away_stats)
+
+    home_expected_rating = (home_offense_per_100 + away_defense_per_100) / 2.0
+    away_expected_rating = (away_offense_per_100 + home_defense_per_100) / 2.0
+
+    home_expected_points = home_expected_rating * projected_pace / 100.0
+    away_expected_points = away_expected_rating * projected_pace / 100.0
+    return home_expected_points, away_expected_points, home_expected_rating, away_expected_rating
+
+
+def _calculate_team_pace_control(team_stats, opp_stats) -> dict:
+    opponent_turnover_pressure = getattr(team_stats, "opp_tov_pct", None)
+    if opponent_turnover_pressure is None:
+        opponent_turnover_pressure = _coerce_float(
+            getattr(opp_stats, "tov_pct", _DEFAULT_OPP_TOV_PCT),
+            _DEFAULT_OPP_TOV_PCT,
+        )
+    else:
+        opponent_turnover_pressure = _coerce_float(opponent_turnover_pressure, _DEFAULT_OPP_TOV_PCT)
+        opponent_ball_security = _coerce_float(
+            getattr(opp_stats, "tov_pct", opponent_turnover_pressure),
+            opponent_turnover_pressure,
+        )
+        opponent_turnover_pressure = (opponent_turnover_pressure * 0.75) + (opponent_ball_security * 0.25)
+
+    dreb_pct = getattr(team_stats, "dreb_pct", None)
+    if dreb_pct is None:
+        dreb_pct = _clamp(
+            _coerce_float(getattr(team_stats, "reb_pct", 0.50), 0.50) + 0.22,
+            0.68,
+            0.79,
+        )
+    else:
+        dreb_pct = _coerce_float(dreb_pct, _DEFAULT_DREB_PCT)
+
+    recent_form = _coerce_float(
+        getattr(
+            team_stats,
+            "weighted_point_diff",
+            getattr(
+                team_stats,
+                "recent_10_point_diff",
+                getattr(team_stats, "net_rating", 0.0),
+            ),
+        ),
+        0.0,
+    )
+
+    turnover_component = (opponent_turnover_pressure - _DEFAULT_OPP_TOV_PCT) * 125.0
+    rebound_component = (dreb_pct - _DEFAULT_DREB_PCT) * 85.0
+    recent_form_component = recent_form * 0.16
+    control_score = turnover_component + rebound_component + recent_form_component
+
+    return {
+        "score": control_score,
+        "turnover_pressure": opponent_turnover_pressure,
+        "dreb_pct": dreb_pct,
+        "recent_form": recent_form,
+        "reason": (
+            f"Force TOV {opponent_turnover_pressure*100:.1f}% | "
+            f"DREB {dreb_pct*100:.1f}% | "
+            f"Form {recent_form:+.1f}"
+        ),
+    }
+
+
+def calculate_dictated_pace(away_stats, home_stats) -> tuple[float, dict]:
+    """
+    Skew the matchup pace toward the team most likely to impose its style.
+    """
+    away_profile = _calculate_team_pace_control(away_stats, home_stats)
+    home_profile = _calculate_team_pace_control(home_stats, away_stats)
+
+    home_pace = _coerce_float(getattr(home_stats, "pace", _LEAGUE_AVG_PACE), _LEAGUE_AVG_PACE)
+    away_pace = _coerce_float(getattr(away_stats, "pace", _LEAGUE_AVG_PACE), _LEAGUE_AVG_PACE)
+    neutral_pace = (home_pace + away_pace) / 2.0
+
+    control_gap = home_profile["score"] - away_profile["score"]
+    if abs(control_gap) < 0.15:
+        home_weight = 0.50
+    else:
+        home_weight = _clamp(0.50 + (control_gap * 0.10), 0.20, 0.80)
+    away_weight = 1.0 - home_weight
+    dictated_pace = (away_pace * away_weight) + (home_pace * home_weight)
+
+    if home_weight > away_weight + 0.02:
+        dictating_side = "home"
+    elif away_weight > home_weight + 0.02:
+        dictating_side = "away"
+    else:
+        dictating_side = "neutral"
+
+    context = {
+        "dictated_pace": dictated_pace,
+        "neutral_pace": neutral_pace,
+        "home_weight": home_weight,
+        "away_weight": away_weight,
+        "control_gap": control_gap,
+        "dictating_side": dictating_side,
+        "home_control_score": home_profile["score"],
+        "away_control_score": away_profile["score"],
+        "home_turnover_pressure": home_profile["turnover_pressure"],
+        "away_turnover_pressure": away_profile["turnover_pressure"],
+        "home_dreb_pct": home_profile["dreb_pct"],
+        "away_dreb_pct": away_profile["dreb_pct"],
+        "home_recent_form": home_profile["recent_form"],
+        "away_recent_form": away_profile["recent_form"],
+        "home_reason": home_profile["reason"],
+        "away_reason": away_profile["reason"],
+    }
+    return dictated_pace, context
+
+
+def predict_total_points(game_ctx: GameContext, pace_context: dict | None = None) -> float:
     """
     Project the total by blending each team's scoring with the opponent's defense.
     """
     home = game_ctx.home_team.team_stats
     away = game_ctx.away_team.team_stats
+
+    if pace_context:
+        projected_pace = _coerce_float(pace_context.get("dictated_pace", _LEAGUE_AVG_PACE), _LEAGUE_AVG_PACE)
+        home_expected_pts, away_expected_pts, home_expected_rating, away_expected_rating = _project_matchup_points(
+            home,
+            away,
+            projected_pace,
+        )
+        pace_context["home_expected_points"] = home_expected_pts
+        pace_context["away_expected_points"] = away_expected_pts
+        pace_context["home_expected_rating"] = home_expected_rating
+        pace_context["away_expected_rating"] = away_expected_rating
+        pace_context["projected_total"] = away_expected_pts + home_expected_pts
+        return pace_context["projected_total"]
 
     away_points_per_game = getattr(away, "points_per_game", away.off_rating_10 * away.pace / 100.0)
     home_points_per_game = getattr(home, "points_per_game", home.off_rating_10 * home.pace / 100.0)
@@ -583,7 +771,7 @@ def _is_altitude_home_team(team: Team) -> bool:
     return any(marker in normalized_name for marker in ("DENVER", "NUGGETS", "DEN", "UTAH", "JAZZ", "UTA"))
 
 
-def predict_spread(home_team: Team, away_team: Team) -> float:
+def predict_spread(home_team: Team, away_team: Team, pace_context: dict | None = None) -> float:
     """
     Predict the expected home scoring margin directly from core per-game stats.
     """
@@ -595,11 +783,25 @@ def predict_spread(home_team: Team, away_team: Team) -> float:
     away_points_per_game = getattr(away, "points_per_game", away.off_rating_10 * away.pace / 100.0)
     away_opp_points_per_game = getattr(away, "opp_points_per_game", away.def_rating_10 * away.pace / 100.0)
 
-    # Keep the published spread aligned with the rest of NBANEW: positive means
-    # the home team is favored by that many points.
-    base_spread = (home_points_per_game - home_opp_points_per_game) - (
-        away_points_per_game - away_opp_points_per_game
-    )
+    if pace_context:
+        projected_pace = _coerce_float(pace_context.get("dictated_pace", _LEAGUE_AVG_PACE), _LEAGUE_AVG_PACE)
+        home_expected_pts, away_expected_pts, home_expected_rating, away_expected_rating = _project_matchup_points(
+            home,
+            away,
+            projected_pace,
+        )
+        pace_context["home_expected_points"] = home_expected_pts
+        pace_context["away_expected_points"] = away_expected_pts
+        pace_context["home_expected_rating"] = home_expected_rating
+        pace_context["away_expected_rating"] = away_expected_rating
+        pace_context["pace_based_spread"] = home_expected_pts - away_expected_pts
+        base_spread = pace_context["pace_based_spread"]
+    else:
+        # Keep the published spread aligned with the rest of NBANEW: positive means
+        # the home team is favored by that many points.
+        base_spread = (home_points_per_game - home_opp_points_per_game) - (
+            away_points_per_game - away_opp_points_per_game
+        )
     altitude_home = _is_altitude_home_team(home_team)
     base_spread += 5.0 if altitude_home else 3.5
 

@@ -123,6 +123,13 @@ def format_output_new(game_ctx: GameContext, home_model_prob: float, home_odds: 
     print("**Key conditions:**")
     print(f"- Net Rtg: [{game_ctx.away_team.name}] {game_ctx.away_team.team_stats.net_rating:+.1f} vs [{game_ctx.home_team.name}] {game_ctx.home_team.team_stats.net_rating:+.1f}")
     print(f"- Pace: [{game_ctx.away_team.name}] {game_ctx.away_team.team_stats.pace:.1f} vs [{game_ctx.home_team.name}] {game_ctx.home_team.team_stats.pace:.1f}")
+    tempo_context = getattr(game_ctx, "tempo_control", None)
+    if tempo_context:
+        print(
+            f"- Tempo Control: [{game_ctx.away_team.name}] {tempo_context['away_weight']*100:.0f}% "
+            f"vs [{game_ctx.home_team.name}] {tempo_context['home_weight']*100:.0f}% "
+            f"-> Dictated Pace {tempo_context['dictated_pace']:.1f}"
+        )
 
     h_rest = "B2B" if game_ctx.home_team.team_stats.is_b2b_second_leg else "3-in-4-nights" if game_ctx.home_team.team_stats.is_3_in_4_nights else "Rested"
     a_rest = "B2B" if game_ctx.away_team.team_stats.is_b2b_second_leg else "3-in-4-nights" if game_ctx.away_team.team_stats.is_3_in_4_nights else "Rested"

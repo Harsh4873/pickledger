@@ -226,6 +226,28 @@ def fetch_all_team_stats(
     except Exception as e:
         print(f"  ⚠️ Could not fetch last-10 stats: {e}. Using season-only.")
         last10_lookup = {}
+
+    four_factor_lookup = {}
+    try:
+        time.sleep(0.6)
+        four_factor_stats = leaguedashteamstats.LeagueDashTeamStats(
+            measure_type_detailed_defense='Four Factors',
+            season=season,
+            per_mode_detailed='PerGame'
+        )
+        four_factor_df = four_factor_stats.get_data_frames()[0]
+        for _, ff_row in four_factor_df.iterrows():
+            full_name = ff_row['TEAM_NAME']
+            short_name = _team_key(full_name)
+            payload = {
+                'opp_tov_pct': ff_row.get('OPP_TOV_PCT', 0.135),
+                'opp_oreb_pct': ff_row.get('OPP_OREB_PCT', 0.28),
+            }
+            four_factor_lookup[short_name] = payload
+            four_factor_lookup[full_name] = payload
+        print("  ✅ Four Factors fetched for tempo-control turnover/rebound context.")
+    except Exception as exc:
+        print(f"  ⚠️ Could not fetch Four Factors stats: {exc}. Using defaults.")
     
     schedule_context = {}
     try:
@@ -243,6 +265,7 @@ def fetch_all_team_stats(
         full_name = row['TEAM_NAME']
         short_name = _team_key(full_name)
         context = schedule_context.get(full_name, schedule_context.get(short_name, {}))
+        four_factor = four_factor_lookup.get(full_name, four_factor_lookup.get(short_name, {}))
         
         season_nrtg = row['NET_RATING']
         last10_nrtg = last10_lookup.get(full_name, season_nrtg)
@@ -259,8 +282,11 @@ def fetch_all_team_stats(
             'def_rating': row['DEF_RATING'],
             'efg_pct': row.get('EFG_PCT', row['TS_PCT']),
             'ts_pct': row['TS_PCT'],
-            'tov_pct': row.get('TOV_PCT', 0.13),
+            'tov_pct': row.get('TM_TOV_PCT', row.get('TOV_PCT', 0.13)),
             'reb_pct': row['REB_PCT'],
+            'dreb_pct': row.get('DREB_PCT', 1.0 - float(four_factor.get('opp_oreb_pct', 0.28))),
+            'opp_tov_pct': float(four_factor.get('opp_tov_pct', 0.135)),
+            'opp_oreb_pct': float(four_factor.get('opp_oreb_pct', 0.28)),
             'pace': row['PACE'],
             'win_pct': row['W_PCT'],
             'recent_5_win_pct': context.get('recent_5_win_pct', row['W_PCT']),
