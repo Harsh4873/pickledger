@@ -274,9 +274,16 @@ def predict_spread(home_team: Team, away_team: Team) -> float:
 
     rest_adj = 0.0
     if getattr(away, "is_b2b", getattr(away, "back_to_back_flag", False)):
-        rest_adj += 2.5
+        rest_adj += 3.5
     if getattr(home, "is_b2b", getattr(home, "back_to_back_flag", False)):
-        rest_adj -= 2.5
+        rest_adj -= 2.0
+
+    home_rest_days = getattr(home, "rest_days", 0)
+    away_rest_days = getattr(away, "rest_days", 0)
+    if home_rest_days >= 2 and away_rest_days == 0:
+        rest_adj += 1.5
+    elif away_rest_days >= 2 and home_rest_days == 0:
+        rest_adj -= 1.5
 
     projected_margin = base_spread + form_adj + rest_adj
     projected_margin = max(-22.0, min(22.0, projected_margin))
