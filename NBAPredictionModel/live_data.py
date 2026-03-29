@@ -38,13 +38,58 @@ def _weighted_recent_metric(values: list[float], fallback: float = 0.0) -> float
     return sum(value * weight for value, weight in zip(clean_values, weights)) / denom
 
 
-def fetch_team_schedule_context(season: str = '2025-26', as_of_date: str | None = None) -> dict:
+def _build_upcoming_venue_lookup(upcoming_games: list[dict] | None) -> dict[str, str]:
+    lookup: dict[str, str] = {}
+    if not upcoming_games:
+        return lookup
+
+    for game in upcoming_games:
+        home_team = str(game.get('home_team', '')).strip()
+        away_team = str(game.get('away_team', '')).strip()
+        if home_team:
+            lookup[home_team] = 'home'
+        if away_team:
+            lookup[away_team] = 'away'
+    return lookup
+
+
+def _matchup_site(matchup: object) -> str | None:
+    if not isinstance(matchup, str):
+        return None
+    matchup = matchup.upper()
+    if '@' in matchup:
+        return 'away'
+    if 'VS.' in matchup or 'VS ' in matchup:
+        return 'home'
+    return None
+
+
+def _calculate_current_road_trip_length(team_games: pd.DataFrame, today_site: str | None) -> int:
+    if today_site != 'away':
+        return 0
+
+    streak = 1  # Include tonight's away game.
+    if 'MATCHUP' not in team_games.columns:
+        return streak
+
+    for matchup in team_games['MATCHUP'].tolist():
+        if _matchup_site(matchup) != 'away':
+            break
+        streak += 1
+    return streak
+
+
+def fetch_team_schedule_context(
+    season: str = '2025-26',
+    as_of_date: str | None = None,
+    upcoming_games: list[dict] | None = None,
+) -> dict:
     """
     Build per-team schedule and recent-form features from game logs.
 
-    Features include rest days, back-to-back flags, 3-in-4-nights stress, and
-    rolling 5/10 game win-rate and point-differential windows weighted toward
-    the most recent games.
+    Features include rest days, B2B stress, advanced schedule density, road-trip
+    drag, and rolling 5/10-game form windows weighted toward the most recent
+    games.
     """
     time.sleep(0.6)
     finder = leaguegamefinder.LeagueGameFinder(
@@ -60,6 +105,7 @@ def fetch_team_schedule_context(season: str = '2025-26', as_of_date: str | None 
     df['GAME_DATE'] = pd.to_datetime(df['GAME_DATE'])
     target_dt = datetime.strptime(as_of_date, '%Y-%m-%d') if as_of_date else datetime.now()
     df = df[df['GAME_DATE'] < pd.Timestamp(target_dt)]
+    upcoming_venue_lookup = _build_upcoming_venue_lookup(upcoming_games)
 
     context = {}
     for full_name, team_games in df.groupby('TEAM_NAME'):
@@ -72,6 +118,11 @@ def fetch_team_schedule_context(season: str = '2025-26', as_of_date: str | None 
         last_game_date = ordered.iloc[0]['GAME_DATE']
         rest_days = max(0.0, (target_dt.date() - last_game_date.date()).days - 1)
         days_back = (pd.Timestamp(target_dt) - ordered['GAME_DATE']).dt.days
+        short_name = _team_key(full_name)
+        today_site = upcoming_venue_lookup.get(short_name)
+        has_game_today = today_site in {'home', 'away'}
+        games_in_last_5_days = int((days_back <= 4).sum())
+        games_in_last_7_days = int((days_back <= 6).sum())
 
         def _avg_total(frame: pd.DataFrame) -> float:
             if frame.empty:
@@ -84,6 +135,9 @@ def fetch_team_schedule_context(season: str = '2025-26', as_of_date: str | None 
             'rest_days': rest_days,
             'back_to_back_flag': rest_days == 0,
             'is_3_in_4_nights': int((days_back <= 3).sum()) >= 3,
+            'is_4_in_5_nights': has_game_today and games_in_last_5_days >= 3,
+            'is_5_in_7_nights': has_game_today and games_in_last_7_days >= 4,
+            'current_road_trip_length': _calculate_current_road_trip_length(ordered, today_site),
             'recent_5_win_pct': float((recent_5['WL'] == 'W').mean()) if not recent_5.empty else 0.5,
             'recent_10_win_pct': float((recent_10['WL'] == 'W').mean()) if not recent_10.empty else 0.5,
             'weighted_win_pct': _weighted_recent_metric((recent_10['WL'] == 'W').astype(float).tolist(), 0.5),
@@ -94,7 +148,6 @@ def fetch_team_schedule_context(season: str = '2025-26', as_of_date: str | None 
             'recent_10_total_points': _avg_total(recent_10),
         }
 
-        short_name = _team_key(full_name)
         context[short_name] = record
         context[full_name] = record
 
@@ -138,7 +191,11 @@ def fetch_roster(team_name: str, season: str = '2025-26') -> list:
         })
     return players
 
-def fetch_all_team_stats(season: str = '2025-26', as_of_date: str | None = None) -> dict:
+def fetch_all_team_stats(
+    season: str = '2025-26',
+    as_of_date: str | None = None,
+    upcoming_games: list[dict] | None = None,
+) -> dict:
     """
     Fetch advanced stats for all teams.
     Returns dict keyed by team name.
@@ -172,8 +229,12 @@ def fetch_all_team_stats(season: str = '2025-26', as_of_date: str | None = None)
     
     schedule_context = {}
     try:
-        schedule_context = fetch_team_schedule_context(season=season, as_of_date=as_of_date)
-        print("  ✅ Schedule context fetched (rest/B2B/recent form windows).")
+        schedule_context = fetch_team_schedule_context(
+            season=season,
+            as_of_date=as_of_date,
+            upcoming_games=upcoming_games,
+        )
+        print("  ✅ Schedule context fetched (rest/B2B/recent form + advanced fatigue windows).")
     except Exception as exc:
         print(f"  ⚠️ Could not fetch schedule context: {exc}. Using defaults.")
 
@@ -213,6 +274,9 @@ def fetch_all_team_stats(season: str = '2025-26', as_of_date: str | None = None)
             'rest_days': context.get('rest_days', 1.0),
             'back_to_back_flag': context.get('back_to_back_flag', False),
             'is_3_in_4_nights': context.get('is_3_in_4_nights', False),
+            'is_4_in_5_nights': context.get('is_4_in_5_nights', False),
+            'is_5_in_7_nights': context.get('is_5_in_7_nights', False),
+            'current_road_trip_length': context.get('current_road_trip_length', 0),
         }
         # Also store by full name
         result[full_name] = result[short_name]

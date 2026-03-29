@@ -350,10 +350,18 @@ def calculate_layer1_base_rate(team: Team, opp_team: Team, h2h_win_pct_2yr: floa
                 
     return base_rate
 
-def calculate_layer2_situational(team: Team, opp_team: Team, game_ctx: GameContext) -> tuple[float, str]:
+def calculate_layer2_situational(
+    team: Team,
+    opp_team: Team,
+    game_ctx: GameContext,
+    use_advanced_fatigue: bool = False,
+) -> tuple[float, str]:
     """
     Apply adjustments to the base rate based on tonight's specific context.
     Cap total situational adjustment at ±15%.
+
+    The advanced schedule-density penalties are reserved for NBANEW via the
+    `use_advanced_fatigue` gate so the legacy pipeline keeps its current math.
     """
     adj = 0.0
     reasons = []
@@ -376,6 +384,27 @@ def calculate_layer2_situational(team: Team, opp_team: Team, game_ctx: GameConte
     if team.team_stats.is_3_in_4_nights:
         adj -= 0.03
         reasons.append("3 games in 4 nights -3.0%")
+
+    if use_advanced_fatigue:
+        if bool(getattr(team.team_stats, "is_4_in_5_nights", False)):
+            adj -= 0.025
+            reasons.append("4 games in 5 nights -2.5%")
+
+        if bool(getattr(team.team_stats, "is_5_in_7_nights", False)):
+            adj -= 0.015
+            reasons.append("5 games in 7 nights -1.5%")
+
+        try:
+            current_road_trip_length = max(
+                0,
+                int(getattr(team.team_stats, "current_road_trip_length", 0) or 0),
+            )
+        except (TypeError, ValueError):
+            current_road_trip_length = 0
+
+        if current_road_trip_length >= 4:
+            adj -= 0.015
+            reasons.append(f"Road Weary ({current_road_trip_length} straight road games) -1.5%")
         
     # 2. Key Star Player Out
     if team.key_stars_out:

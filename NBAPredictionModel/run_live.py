@@ -101,6 +101,9 @@ def create_team(id_num, name, is_home, stats_dict):
         float(stats_dict.get("opp_points_per_game", stats_dict["def_rating"] * pace / 100.0)),
     )
     setattr(stats, "is_b2b", bool(stats_dict.get("back_to_back_flag", False)))
+    setattr(stats, "is_4_in_5_nights", bool(stats_dict.get("is_4_in_5_nights", False)))
+    setattr(stats, "is_5_in_7_nights", bool(stats_dict.get("is_5_in_7_nights", False)))
+    setattr(stats, "current_road_trip_length", max(0, int(stats_dict.get("current_road_trip_length", 0) or 0)))
     p1 = Player(id_num * 10 + 1, "Player 1", name, "G", "Active", 25.0)
     p2 = Player(id_num * 10 + 2, "Player 2", name, "F", "Active", 25.0)
     p3 = Player(id_num * 10 + 3, "Player 3", name, "C", "Active", 20.0)
@@ -149,8 +152,19 @@ def run_game(
 
     l1_prob = calculate_layer1_base_rate(home_team, away_team, ctx.h2h_home_win_pct_2yr)
 
-    l2_adj, l2_reasons = calculate_layer2_situational(home_team, away_team, ctx)
-    l2_away_adj, l2_away_reasons = calculate_layer2_situational(away_team, home_team, ctx)
+    use_advanced_fatigue = variant == "new"
+    l2_adj, l2_reasons = calculate_layer2_situational(
+        home_team,
+        away_team,
+        ctx,
+        use_advanced_fatigue=use_advanced_fatigue,
+    )
+    l2_away_adj, l2_away_reasons = calculate_layer2_situational(
+        away_team,
+        home_team,
+        ctx,
+        use_advanced_fatigue=use_advanced_fatigue,
+    )
     total_l2_adj = l2_adj - l2_away_adj
 
     if variant == "new":
@@ -198,7 +212,12 @@ def run_game(
     home_team.injury_summary = inj_reason_home
     away_team.injury_summary = inj_reason_away
 
-    l2_combined = f"Sit: {l2_reasons} | Inj [{home_name}: {inj_reason_home}] | [{away_name}: {inj_reason_away}]"
+    l2_combined = (
+        f"Sit [{home_name}: {l2_reasons}] | "
+        f"[{away_name}: {l2_away_reasons}] | "
+        f"Inj [{home_name}: {inj_reason_home}] | "
+        f"[{away_name}: {inj_reason_away}]"
+    )
     total_l2_with_inj = max(-0.25, min(0.25, total_l2_adj + total_injury_adj))
 
     l3_adj, l3_reasons = calculate_layer3_matchup_modifier(home_team, away_team)
@@ -336,7 +355,7 @@ def main():
             print("No market totals found. Falling back to baseline 225.0 where needed.")
 
     print("\nFetching team stats for all NBA teams...")
-    all_team_stats = fetch_all_team_stats(as_of_date=target_date)
+    all_team_stats = fetch_all_team_stats(as_of_date=target_date, upcoming_games=games)
 
     print("\nFetching official NBA injury report...")
     injuries = fetch_injuries()
