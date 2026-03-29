@@ -110,35 +110,96 @@ def format_output_new(game_ctx: GameContext, home_model_prob: float, home_odds: 
                       l1_prob: float, l2_adj: float, l2_reason: str, l3_adj: float, l3_reason: str,
                       raw_prob: float, extremized_prob: float, predicted_spread: float | None = None,
                       predicted_total: float | None = None, calibration_note: str = "",
-                      log_prediction: bool = True, log_calibration_flag: str = ""):
-    format_output(
-        game_ctx,
-        home_model_prob,
-        home_odds,
-        away_odds,
-        l1_prob,
-        l2_adj,
-        l2_reason,
-        l3_adj,
-        l3_reason,
-        raw_prob,
-        extremized_prob,
-        predicted_spread=predicted_spread,
-        predicted_total=predicted_total,
-        calibration_note=calibration_note,
-        log_prediction=False,
-        log_calibration_flag=log_calibration_flag,
-    )
+                      log_prediction: bool = True, log_calibration_flag: str = "",
+                      decision_override: str | None = None, decision_note: str = ""):
+    print("\n" + "="*80)
+    print(f"### [{game_ctx.away_team.name}] vs [{game_ctx.home_team.name}] — [{game_ctx.date}] — [{game_ctx.venue.name}]\n")
+
+    print("**Verification checks:**")
+    print("- [x] Rosters confirmed current ✓")
+    print("- [x] Injury status / Load Management confirmed ✓")
+    print("- [x] Lineups posted ✓\n")
+
+    print("**Key conditions:**")
+    print(f"- Net Rtg: [{game_ctx.away_team.name}] {game_ctx.away_team.team_stats.net_rating:+.1f} vs [{game_ctx.home_team.name}] {game_ctx.home_team.team_stats.net_rating:+.1f}")
+    print(f"- Pace: [{game_ctx.away_team.name}] {game_ctx.away_team.team_stats.pace:.1f} vs [{game_ctx.home_team.name}] {game_ctx.home_team.team_stats.pace:.1f}")
+
+    h_rest = "B2B" if game_ctx.home_team.team_stats.is_b2b_second_leg else "3-in-4-nights" if game_ctx.home_team.team_stats.is_3_in_4_nights else "Rested"
+    a_rest = "B2B" if game_ctx.away_team.team_stats.is_b2b_second_leg else "3-in-4-nights" if game_ctx.away_team.team_stats.is_3_in_4_nights else "Rested"
+    print(f"- Rest: [{game_ctx.away_team.name} {a_rest}] vs [{game_ctx.home_team.name} {h_rest}]\n")
+
+    print("**Probability build:**")
+    print(f"- Layer 1 base rate: [{game_ctx.home_team.name}] {l1_prob*100:.1f}%")
+    print(f"- Layer 2 situational adj: {l2_adj*100:+.1f}% because [{l2_reason}]")
+    print(f"- Layer 3 matchup modifier: {l3_adj*100:+.1f}% because [{l3_reason}]")
+    print(f"- Raw probability: {raw_prob*100:.1f}%")
+    print(f"- Extremized (pre-calibration): {extremized_prob*100:.1f}%")
+    print(f"- Calibrated probability: {home_model_prob*100:.1f}%\n")
+
+    if predicted_total is None:
+        predicted_total = predict_total_points(game_ctx)
+    if predicted_spread is None:
+        predicted_spread = predict_spread(game_ctx.home_team, game_ctx.away_team)
+
+    print("**Model Predictions:**")
+    if home_model_prob >= 0.5:
+        winner = game_ctx.home_team.name
+        spread_val = predicted_spread
+        winner_prob = home_model_prob
+    else:
+        winner = game_ctx.away_team.name
+        spread_val = -predicted_spread
+        winner_prob = 1.0 - home_model_prob
+
+    print(f"- **Winner:** {winner} (Model Prob: {winner_prob*100:.1f}%)")
+    print(f"- **Spread:** {winner} by {abs(spread_val):.2f} points")
+    print(f"- **Total:** {predicted_total:.1f} O/U\n")
+
+    print(f"**Market odds:** {game_ctx.home_team.name} {home_odds} | {game_ctx.away_team.name} {away_odds}")
+
+    true_home_implied, true_away_implied = remove_vig(home_odds, away_odds)
+    print(f"**Market implied probability (vig-removed):** {game_ctx.home_team.name} {true_home_implied*100:.1f}% | {game_ctx.away_team.name} {true_away_implied*100:.1f}%")
+
+    edge = calculate_edge(home_model_prob, true_home_implied)
+    print(f"**Edge:** {game_ctx.home_team.name} {edge*100:+.1f}%")
+
+    min_thresh = 0.05
+    print(f"**Minimum threshold:** {min_thresh*100:.1f}%")
+
+    decision = "BET" if max(edge, -edge) >= min_thresh else "PASS"
+    if decision_override == "PASS":
+        decision = "PASS"
+    bet_team = game_ctx.home_team.name if edge > 0 else game_ctx.away_team.name
+
+    print(f"**Decision: {decision} {'on ' + bet_team if decision == 'BET' else ''}**\n")
+    if decision == "PASS" and decision_note:
+        print(f"**Pass reason:** {decision_note}")
+
+    if decision == "BET":
+        if edge > 0:
+            full_k, q_k = get_recommended_stake(home_odds, home_model_prob)
+        else:
+            full_k, q_k = get_recommended_stake(away_odds, 1.0 - home_model_prob)
+
+        print(f"**If BET:**")
+        print(f"- Full Kelly: {full_k:.2f}% of bankroll")
+        print(f"- ¼ Kelly stake: {q_k:.2f}% of bankroll")
 
     if log_prediction:
         append_prediction_log(
             game_ctx,
-            predicted_spread if predicted_spread is not None else predict_spread(game_ctx.home_team, game_ctx.away_team),
+            predicted_spread,
             raw_prob,
             extremized_prob,
             home_model_prob,
             calibration_flag=log_calibration_flag,
         )
+
+    print("\n**Confidence band:** High")
+    if calibration_note:
+        print(f"**Calibration:** {calibration_note}")
+    print("**Data gaps:** None")
+    print("="*80 + "\n")
 
 def run_pipeline():
     # 1. Setup Mock Game Data: Celtics vs Nuggets

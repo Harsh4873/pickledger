@@ -165,6 +165,8 @@ def run_game(
         predicted_spread = legacy_predict_spread(calibrated_prob)
         predicted_total = legacy_predict_total_points(ctx)
         variant_note = "Legacy confidence output. No spread-blend layer or Platt scaling is applied."
+        decision_override = None
+        decision_note = ""
     else:
         predicted_spread = predict_spread(home_team, away_team)
         raw_prob = combine_home_win_probability(layer_prob, predicted_spread, home_team, away_team)
@@ -172,26 +174,54 @@ def run_game(
         calibrated_prob = calibrator.calibrate(ext_prob) if calibrator else ext_prob
         predicted_total = predict_total_points(ctx)
         variant_note = calibration_note
+        decision_override = None
+        decision_note = ""
+        # Only emit a side pick if the projected margin is meaningful.
+        # Sub-4 point projected margins are noise, not signal.
+        MIN_MARGIN_TO_BET = 4.0
+        if abs(predicted_spread) < MIN_MARGIN_TO_BET:
+            decision_override = "PASS"
+            decision_note = f"Projected spread {predicted_spread:+.2f} is below the {MIN_MARGIN_TO_BET:.1f}-point minimum."
 
-    formatter = format_output_new if variant == "new" else format_output
-    formatter(
-        ctx,
-        calibrated_prob,
-        -110,
-        -110,
-        l1_prob,
-        total_l2_with_inj,
-        l2_combined,
-        total_l3_adj,
-        l3_combined,
-        raw_prob,
-        ext_prob,
-        predicted_spread=predicted_spread,
-        predicted_total=predicted_total,
-        calibration_note=variant_note,
-        log_prediction=should_log and variant == "new",
-        log_calibration_flag=calibration_flag if variant == "new" else "",
-    )
+    formatter_kwargs = {
+        "predicted_spread": predicted_spread,
+        "predicted_total": predicted_total,
+        "calibration_note": variant_note,
+        "log_prediction": should_log and variant == "new",
+        "log_calibration_flag": calibration_flag if variant == "new" else "",
+    }
+    if variant == "new":
+        format_output_new(
+            ctx,
+            calibrated_prob,
+            -110,
+            -110,
+            l1_prob,
+            total_l2_with_inj,
+            l2_combined,
+            total_l3_adj,
+            l3_combined,
+            raw_prob,
+            ext_prob,
+            decision_override=decision_override,
+            decision_note=decision_note,
+            **formatter_kwargs,
+        )
+    else:
+        format_output(
+            ctx,
+            calibrated_prob,
+            -110,
+            -110,
+            l1_prob,
+            total_l2_with_inj,
+            l2_combined,
+            total_l3_adj,
+            l3_combined,
+            raw_prob,
+            ext_prob,
+            **formatter_kwargs,
+        )
 
     print(f"**Over/Under:** Model Total {predicted_total:.1f} vs Line {ou_line}")
     if predicted_total > ou_line + 3:
