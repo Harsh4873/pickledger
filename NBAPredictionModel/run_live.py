@@ -73,6 +73,19 @@ def create_team(id_num, name, is_home, stats_dict):
         rest_days=stats_dict.get("rest_days", 1.0),
         back_to_back_flag=stats_dict.get("back_to_back_flag", False),
     )
+    # Feed the NBANEW spread model per-game scoring context directly in point units.
+    pace = float(stats_dict["pace"])
+    setattr(
+        stats,
+        "points_per_game",
+        float(stats_dict.get("points_per_game", stats_dict["off_rating"] * pace / 100.0)),
+    )
+    setattr(
+        stats,
+        "opp_points_per_game",
+        float(stats_dict.get("opp_points_per_game", stats_dict["def_rating"] * pace / 100.0)),
+    )
+    setattr(stats, "is_b2b", bool(stats_dict.get("back_to_back_flag", False)))
     p1 = Player(id_num * 10 + 1, "Player 1", name, "G", "Active", 25.0)
     p2 = Player(id_num * 10 + 2, "Player 2", name, "F", "Active", 25.0)
     p3 = Player(id_num * 10 + 3, "Player 3", name, "C", "Active", 20.0)

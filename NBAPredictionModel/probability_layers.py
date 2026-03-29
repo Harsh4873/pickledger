@@ -274,43 +274,33 @@ def legacy_predict_spread(home_prob: float) -> float:
 
 def predict_spread(home_team: Team, away_team: Team) -> float:
     """
-    Predict the expected home scoring margin directly from team features.
-
-    This is intentionally independent from the probability output so spread can
-    inform the win model instead of being reverse-engineered from it.
+    Predict the expected home scoring margin directly from core per-game stats.
     """
-    # Spread feature ownership before -> after:
-    # - Home court: additive spread prior -> probability layers only.
-    # - Recent form: additive spread stack -> probability layers only.
-    # - Point differential: additive spread stack -> probability layers only.
-    # - Pace: additive spread term -> multiplicative spread-only adjustment.
-    # - Rest/B2B: additive spread term -> multiplicative spread-only adjustment.
-    # - Injuries: additive spread term -> multiplicative spread-only adjustment.
-    matchup_margin = (
-        (
-            (home_team.team_stats.off_rating_10 - away_team.team_stats.def_rating_10)
-            - (away_team.team_stats.off_rating_10 - home_team.team_stats.def_rating_10)
-        ) * 0.24
-        + (home_team.team_stats.ts_pct - away_team.team_stats.ts_pct) * 38.0
-        + (home_team.team_stats.reb_pct - away_team.team_stats.reb_pct) * 16.0
+    home = home_team.team_stats
+    away = away_team.team_stats
+
+    home_points_per_game = getattr(home, "points_per_game", home.off_rating_10 * home.pace / 100.0)
+    home_opp_points_per_game = getattr(home, "opp_points_per_game", home.def_rating_10 * home.pace / 100.0)
+    away_points_per_game = getattr(away, "points_per_game", away.off_rating_10 * away.pace / 100.0)
+    away_opp_points_per_game = getattr(away, "opp_points_per_game", away.def_rating_10 * away.pace / 100.0)
+
+    # Keep the published spread aligned with the rest of NBANEW: positive means
+    # the home team is favored by that many points.
+    base_spread = (home_points_per_game - home_opp_points_per_game) - (
+        away_points_per_game - away_opp_points_per_game
     )
-    # Map the orthogonal matchup score back into sportsbook-like point-spread units.
-    base_margin = matchup_margin * 3.5
+    base_spread += 3.5
 
-    average_pace = (home_team.team_stats.pace + away_team.team_stats.pace) / 2.0
-    pace_multiplier = 1.0 + max(-0.06, min(0.06, (average_pace - 99.0) * 0.010))
+    away_form = away.last_10_win_pct - 0.5
+    home_form = home.last_10_win_pct - 0.5
+    form_adj = (home_form - away_form) * 5.0
 
-    rest_load_edge = (
-        (home_team.team_stats.rest_days - away_team.team_stats.rest_days)
-        + (0.75 if away_team.team_stats.back_to_back_flag else 0.0)
-        - (0.75 if home_team.team_stats.back_to_back_flag else 0.0)
-    )
-    rest_multiplier = 1.0 + max(-0.10, min(0.10, rest_load_edge * 0.035))
+    rest_adj = 0.0
+    if getattr(away, "is_b2b", getattr(away, "back_to_back_flag", False)):
+        rest_adj += 2.5
+    if getattr(home, "is_b2b", getattr(home, "back_to_back_flag", False)):
+        rest_adj -= 2.5
 
-    injury_edge = away_team.injury_severity - home_team.injury_severity
-    injury_multiplier = 1.0 + max(-0.15, min(0.15, injury_edge * 0.80))
-
-    projected_margin = base_margin * pace_multiplier * rest_multiplier * injury_multiplier
-    # NBA market spreads never exceed ~18 pts; cap the published projection.
-    projected_margin = max(-18.0, min(18.0, projected_margin))
+    projected_margin = base_spread + form_adj + rest_adj
+    projected_margin = max(-22.0, min(22.0, projected_margin))
     return projected_margin
