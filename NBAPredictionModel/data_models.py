@@ -32,6 +32,8 @@ class TeamStats:
     recent_10_total_points: float = 225.0
     rest_days: float = 1.0
     back_to_back_flag: bool = False
+    efg_pct: float = 0.5
+    tov_pct: float = 0.13
 
 @dataclass
 class Venue:

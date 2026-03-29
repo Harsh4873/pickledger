@@ -249,6 +249,13 @@ def legacy_predict_spread(home_prob: float) -> float:
     return prob_diff * 30.0
 
 
+def _get_team_efficiency_pct(team_stats) -> float:
+    efg_pct = getattr(team_stats, "efg_pct", None)
+    if efg_pct is not None:
+        return efg_pct
+    return getattr(team_stats, "ts_pct", 0.5)
+
+
 def predict_spread(home_team: Team, away_team: Team) -> float:
     """
     Predict the expected home scoring margin directly from core per-game stats.
@@ -267,6 +274,18 @@ def predict_spread(home_team: Team, away_team: Team) -> float:
         away_points_per_game - away_opp_points_per_game
     )
     base_spread += 3.5
+
+    home_efg = _get_team_efficiency_pct(home)
+    away_efg = _get_team_efficiency_pct(away)
+    home_reb = getattr(home, "reb_pct", 0.5)
+    away_reb = getattr(away, "reb_pct", 0.5)
+    home_tov = getattr(home, "tov_pct", 0.13)
+    away_tov = getattr(away, "tov_pct", 0.13)
+
+    efficiency_diff = (home_efg - away_efg) * 20.0
+    reb_diff = (home_reb - away_reb) * 10.0
+    turnover_diff = (away_tov - home_tov) * 12.0
+    four_factors_adj = efficiency_diff + reb_diff + turnover_diff
 
     away_form = away.last_10_win_pct - 0.5
     home_form = home.last_10_win_pct - 0.5
@@ -289,6 +308,6 @@ def predict_spread(home_team: Team, away_team: Team) -> float:
     elif away_rest_days >= 2 and home_rest_days == 0:
         rest_adj -= 1.5
 
-    projected_margin = base_spread + form_adj + rest_adj
+    projected_margin = base_spread + four_factors_adj + form_adj + rest_adj
     projected_margin = max(-22.0, min(22.0, projected_margin))
     return projected_margin

@@ -84,6 +84,8 @@ def create_team(id_num, name, is_home, stats_dict):
         recent_10_total_points=stats_dict.get("recent_10_total_points", 225.0),
         rest_days=stats_dict.get("rest_days", 1.0),
         back_to_back_flag=stats_dict.get("back_to_back_flag", False),
+        efg_pct=stats_dict.get("efg_pct", stats_dict.get("ts_pct", 0.5)),
+        tov_pct=stats_dict.get("tov_pct", 0.13),
     )
     # Feed the NBANEW spread model per-game scoring context directly in point units.
     pace = float(stats_dict["pace"])
