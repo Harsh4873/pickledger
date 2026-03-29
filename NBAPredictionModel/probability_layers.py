@@ -181,8 +181,11 @@ def combine_home_win_probability(
     over the same inputs.
     """
     base_prob = _clamp_probability(layer_probability)
+    # Keep the layer-probability baseline from dominating the independent spread
+    # cross-check; the raw layer stack is already opinionated before re-blending.
+    compressed_base_prob = 0.50 + ((base_prob - 0.50) * 0.45)
 
-    blended_logit = _logit(base_prob) + (predicted_spread / 10.0) * 0.30
+    blended_logit = _logit(compressed_base_prob) + (predicted_spread / 10.0) * 0.30
     return _sigmoid(blended_logit)
 
 
