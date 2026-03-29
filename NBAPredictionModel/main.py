@@ -130,6 +130,18 @@ def format_output_new(game_ctx: GameContext, home_model_prob: float, home_odds: 
             f"vs [{game_ctx.home_team.name}] {tempo_context['home_weight']*100:.0f}% "
             f"-> Dictated Pace {tempo_context['dictated_pace']:.1f}"
         )
+    form_capping = getattr(game_ctx, "form_capping", None)
+    if form_capping:
+        away_form = form_capping["away"]
+        home_form = form_capping["home"]
+        print(
+            f"- Capped Form: [{game_ctx.away_team.name}] W {away_form['raw_weighted']:+.1f}->{away_form['capped_weighted']:+.1f}, "
+            f"10G {away_form['raw_recent_10']:+.1f}->{away_form['capped_recent_10']:+.1f}, "
+            f"5G {away_form['raw_recent_5']:+.1f}->{away_form['capped_recent_5']:+.1f} | "
+            f"[{game_ctx.home_team.name}] W {home_form['raw_weighted']:+.1f}->{home_form['capped_weighted']:+.1f}, "
+            f"10G {home_form['raw_recent_10']:+.1f}->{home_form['capped_recent_10']:+.1f}, "
+            f"5G {home_form['raw_recent_5']:+.1f}->{home_form['capped_recent_5']:+.1f}"
+        )
 
     h_rest = "B2B" if game_ctx.home_team.team_stats.is_b2b_second_leg else "3-in-4-nights" if game_ctx.home_team.team_stats.is_3_in_4_nights else "Rested"
     a_rest = "B2B" if game_ctx.away_team.team_stats.is_b2b_second_leg else "3-in-4-nights" if game_ctx.away_team.team_stats.is_3_in_4_nights else "Rested"

@@ -19,6 +19,7 @@ from urllib.request import Request, urlopen
 from urllib.error import URLError, HTTPError
 
 _nba_teams = teams.get_teams()
+_GARBAGE_TIME_MARGIN_CAP = 15.0
 
 
 def _team_key(full_name: str) -> str:
@@ -36,6 +37,24 @@ def _weighted_recent_metric(values: list[float], fallback: float = 0.0) -> float
     if denom <= 0:
         return fallback
     return sum(value * weight for value, weight in zip(clean_values, weights)) / denom
+
+
+def cap_game_margin(raw_margin: float, cap: float = _GARBAGE_TIME_MARGIN_CAP) -> float:
+    try:
+        margin = float(raw_margin)
+        margin_cap = abs(float(cap))
+    except (TypeError, ValueError):
+        return 0.0
+    if margin_cap <= 0:
+        return margin
+    return max(-margin_cap, min(margin_cap, margin))
+
+
+def _average_metric(values: list[float], fallback: float = 0.0) -> float:
+    clean_values = [float(v) for v in values if v is not None]
+    if not clean_values:
+        return fallback
+    return float(sum(clean_values) / len(clean_values))
 
 
 def _build_upcoming_venue_lookup(upcoming_games: list[dict] | None) -> dict[str, str]:
@@ -131,6 +150,18 @@ def fetch_team_schedule_context(
             opp_points = points_for - frame['PLUS_MINUS'].astype(float)
             return float((points_for + opp_points).mean())
 
+        recent_5_raw_margins = recent_5['PLUS_MINUS'].astype(float).tolist() if not recent_5.empty else []
+        recent_10_raw_margins = recent_10['PLUS_MINUS'].astype(float).tolist() if not recent_10.empty else []
+        recent_5_capped_margins = [cap_game_margin(margin) for margin in recent_5_raw_margins]
+        recent_10_capped_margins = [cap_game_margin(margin) for margin in recent_10_raw_margins]
+
+        raw_recent_5_point_diff = _average_metric(recent_5_raw_margins, 0.0)
+        raw_recent_10_point_diff = _average_metric(recent_10_raw_margins, 0.0)
+        raw_weighted_point_diff = _weighted_recent_metric(recent_10_raw_margins, 0.0)
+        capped_recent_5_point_diff = _average_metric(recent_5_capped_margins, 0.0)
+        capped_recent_10_point_diff = _average_metric(recent_10_capped_margins, 0.0)
+        capped_weighted_point_diff = _weighted_recent_metric(recent_10_capped_margins, 0.0)
+
         record = {
             'rest_days': rest_days,
             'back_to_back_flag': rest_days == 0,
@@ -141,9 +172,15 @@ def fetch_team_schedule_context(
             'recent_5_win_pct': float((recent_5['WL'] == 'W').mean()) if not recent_5.empty else 0.5,
             'recent_10_win_pct': float((recent_10['WL'] == 'W').mean()) if not recent_10.empty else 0.5,
             'weighted_win_pct': _weighted_recent_metric((recent_10['WL'] == 'W').astype(float).tolist(), 0.5),
-            'recent_5_point_diff': float(recent_5['PLUS_MINUS'].astype(float).mean()) if not recent_5.empty else 0.0,
-            'recent_10_point_diff': float(recent_10['PLUS_MINUS'].astype(float).mean()) if not recent_10.empty else 0.0,
-            'weighted_point_diff': _weighted_recent_metric(recent_10['PLUS_MINUS'].astype(float).tolist(), 0.0),
+            'raw_recent_5_point_diff': raw_recent_5_point_diff,
+            'raw_recent_10_point_diff': raw_recent_10_point_diff,
+            'raw_weighted_point_diff': raw_weighted_point_diff,
+            'capped_recent_5_point_diff': capped_recent_5_point_diff,
+            'capped_recent_10_point_diff': capped_recent_10_point_diff,
+            'capped_weighted_point_diff': capped_weighted_point_diff,
+            'recent_5_point_diff': raw_recent_5_point_diff,
+            'recent_10_point_diff': raw_recent_10_point_diff,
+            'weighted_point_diff': raw_weighted_point_diff,
             'recent_5_total_points': _avg_total(recent_5),
             'recent_10_total_points': _avg_total(recent_10),
         }
@@ -292,6 +329,12 @@ def fetch_all_team_stats(
             'recent_5_win_pct': context.get('recent_5_win_pct', row['W_PCT']),
             'recent_10_win_pct': context.get('recent_10_win_pct', row['W_PCT']),
             'weighted_win_pct': context.get('weighted_win_pct', row['W_PCT']),
+            'raw_recent_5_point_diff': context.get('raw_recent_5_point_diff', blended_nrtg),
+            'raw_recent_10_point_diff': context.get('raw_recent_10_point_diff', last10_nrtg),
+            'raw_weighted_point_diff': context.get('raw_weighted_point_diff', blended_nrtg),
+            'capped_recent_5_point_diff': context.get('capped_recent_5_point_diff', context.get('raw_recent_5_point_diff', blended_nrtg)),
+            'capped_recent_10_point_diff': context.get('capped_recent_10_point_diff', context.get('raw_recent_10_point_diff', last10_nrtg)),
+            'capped_weighted_point_diff': context.get('capped_weighted_point_diff', context.get('raw_weighted_point_diff', blended_nrtg)),
             'recent_5_point_diff': context.get('recent_5_point_diff', blended_nrtg),
             'recent_10_point_diff': context.get('recent_10_point_diff', last10_nrtg),
             'weighted_point_diff': context.get('weighted_point_diff', blended_nrtg),

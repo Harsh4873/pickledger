@@ -516,7 +516,14 @@ def calculate_layer3_matchup_modifier(
     if abs(recent_form_edge) >= 2.0:
         form_adj = max(-0.04, min(0.04, recent_form_edge * 0.004))
         adj += form_adj
-        reasons.append(f"Recent point-diff edge {form_adj*100:+.1f}%")
+        using_capped_form = (
+            getattr(team.team_stats, "raw_weighted_point_diff", team.team_stats.weighted_point_diff)
+            != team.team_stats.weighted_point_diff
+            or getattr(opp_team.team_stats, "raw_weighted_point_diff", opp_team.team_stats.weighted_point_diff)
+            != opp_team.team_stats.weighted_point_diff
+        )
+        reason_label = "Recent point-diff edge (capped form)" if using_capped_form else "Recent point-diff edge"
+        reasons.append(f"{reason_label} {form_adj*100:+.1f}%")
 
     # Mild home-court shooting execution bump in favorable offensive matchups.
     if team.is_home and team.team_stats.off_rating_10 >= opp_team.team_stats.def_rating_10:

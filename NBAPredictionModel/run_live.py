@@ -112,10 +112,32 @@ def create_team(id_num, name, is_home, stats_dict):
     setattr(stats, "is_4_in_5_nights", bool(stats_dict.get("is_4_in_5_nights", False)))
     setattr(stats, "is_5_in_7_nights", bool(stats_dict.get("is_5_in_7_nights", False)))
     setattr(stats, "current_road_trip_length", max(0, int(stats_dict.get("current_road_trip_length", 0) or 0)))
+    setattr(stats, "raw_recent_5_point_diff", float(stats_dict.get("raw_recent_5_point_diff", stats.recent_5_point_diff)))
+    setattr(stats, "raw_recent_10_point_diff", float(stats_dict.get("raw_recent_10_point_diff", stats.recent_10_point_diff)))
+    setattr(stats, "raw_weighted_point_diff", float(stats_dict.get("raw_weighted_point_diff", stats.weighted_point_diff)))
+    setattr(stats, "capped_recent_5_point_diff", float(stats_dict.get("capped_recent_5_point_diff", stats.recent_5_point_diff)))
+    setattr(stats, "capped_recent_10_point_diff", float(stats_dict.get("capped_recent_10_point_diff", stats.recent_10_point_diff)))
+    setattr(stats, "capped_weighted_point_diff", float(stats_dict.get("capped_weighted_point_diff", stats.weighted_point_diff)))
     p1 = Player(id_num * 10 + 1, "Player 1", name, "G", "Active", 25.0)
     p2 = Player(id_num * 10 + 2, "Player 2", name, "F", "Active", 25.0)
     p3 = Player(id_num * 10 + 3, "Player 3", name, "C", "Active", 20.0)
     return Team(id_num, name, is_home, stats, [p1, p2, p3])
+
+
+def _apply_capped_recent_form(team: Team) -> dict:
+    stats = team.team_stats
+    raw_snapshot = {
+        "raw_recent_5": float(getattr(stats, "raw_recent_5_point_diff", stats.recent_5_point_diff)),
+        "raw_recent_10": float(getattr(stats, "raw_recent_10_point_diff", stats.recent_10_point_diff)),
+        "raw_weighted": float(getattr(stats, "raw_weighted_point_diff", stats.weighted_point_diff)),
+        "capped_recent_5": float(getattr(stats, "capped_recent_5_point_diff", stats.recent_5_point_diff)),
+        "capped_recent_10": float(getattr(stats, "capped_recent_10_point_diff", stats.recent_10_point_diff)),
+        "capped_weighted": float(getattr(stats, "capped_weighted_point_diff", stats.weighted_point_diff)),
+    }
+    stats.recent_5_point_diff = raw_snapshot["capped_recent_5"]
+    stats.recent_10_point_diff = raw_snapshot["capped_recent_10"]
+    stats.weighted_point_diff = raw_snapshot["capped_weighted"]
+    return raw_snapshot
 
 
 def run_game(
@@ -159,6 +181,9 @@ def run_game(
     )
     tempo_context = None
     if variant == "new":
+        away_form_cap = _apply_capped_recent_form(away_team)
+        home_form_cap = _apply_capped_recent_form(home_team)
+        setattr(ctx, "form_capping", {"away": away_form_cap, "home": home_form_cap})
         _, tempo_context = calculate_dictated_pace(away_team.team_stats, home_team.team_stats)
         setattr(ctx, "tempo_control", tempo_context)
         setattr(ctx, "dictated_pace", tempo_context["dictated_pace"])
