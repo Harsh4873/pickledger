@@ -41,6 +41,18 @@ def _normalize_target_date(raw_value: str | None) -> str:
     return datetime.date.today().isoformat()
 
 
+def _normalize_market_total_line(raw_value) -> float | None:
+    if raw_value is None:
+        return None
+    try:
+        line = float(raw_value)
+    except (TypeError, ValueError):
+        return None
+    if line <= 0:
+        return None
+    return line
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Run the NBA model for a selected date and variant.")
     parser.add_argument("legacy_date", nargs="?", default="", help="Optional legacy date arg in MM/DD/YYYY or YYYY-MM-DD format.")
@@ -100,7 +112,7 @@ def run_game(
     calibrator=None,
     calibration_note="",
     calibration_flag="",
-    ou_line=225.0,
+    ou_line=None,
     game_date="",
     should_log=False,
 ):
@@ -235,13 +247,29 @@ def run_game(
             **formatter_kwargs,
         )
 
-    print(f"**Over/Under:** Model Total {predicted_total:.1f} vs Line {ou_line}")
-    if predicted_total > ou_line + 3:
-        print("**O/U Decision: BET OVER**")
-    elif predicted_total < ou_line - 3:
-        print("**O/U Decision: BET UNDER**")
+    market_total_line = _normalize_market_total_line(ou_line)
+    line_display = f"{market_total_line:.1f}" if market_total_line is not None else "N/A"
+    print(f"**Over/Under:** Model Total {predicted_total:.1f} vs Line {line_display}")
+
+    if variant == "new":
+        totals_decision = "PASS"
+        if market_total_line not in (None, 225.0):
+            if predicted_total > market_total_line + 3.5:
+                totals_decision = "BET OVER"
+            elif predicted_total < market_total_line - 3.5:
+                totals_decision = "BET UNDER"
+        print(f"**O/U Decision: {totals_decision}**")
     else:
-        print("**O/U Decision: PASS**")
+        if market_total_line is None:
+            market_total_line = 225.0
+            line_display = f"{market_total_line:.1f}"
+            print(f"**Over/Under (legacy fallback):** Model Total {predicted_total:.1f} vs Line {line_display}")
+        if predicted_total > market_total_line + 3:
+            print("**O/U Decision: BET OVER**")
+        elif predicted_total < market_total_line - 3:
+            print("**O/U Decision: BET UNDER**")
+        else:
+            print("**O/U Decision: PASS**")
     print()
 
 
@@ -277,7 +305,10 @@ def main():
     if total_lines:
         print(f"Found totals for {len(total_lines)} game(s).")
     else:
-        print("No market totals found. Falling back to baseline 225.0 where needed.")
+        if args.variant == "new":
+            print("No market totals found. NBANEW totals will PASS without a market line.")
+        else:
+            print("No market totals found. Falling back to baseline 225.0 where needed.")
 
     print("\nFetching team stats for all NBA teams...")
     all_team_stats = fetch_all_team_stats(as_of_date=target_date)
@@ -300,7 +331,10 @@ def main():
 
     for game in games:
         key = (game["away_team"], game["home_team"])
-        ou_line = total_lines.get(key, 225.0)
+        if args.variant == "new":
+            ou_line = total_lines.get(key)
+        else:
+            ou_line = total_lines.get(key, 225.0)
         run_game(
             game,
             all_team_stats,

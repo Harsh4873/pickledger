@@ -208,38 +208,19 @@ def extremize_probability(raw_prob: float, factor: float = 1.3) -> float:
 
 def predict_total_points(game_ctx: GameContext) -> float:
     """
-    Total scoring model with pace, recent form, rest, B2B, and injury context.
+    Project the total by blending each team's scoring with the opponent's defense.
     """
-    base_points = (
-        game_ctx.home_team.team_stats.recent_10_total_points
-        + game_ctx.away_team.team_stats.recent_10_total_points
-    ) / 2.0
-    
-    h_pace = game_ctx.home_team.team_stats.pace
-    a_pace = game_ctx.away_team.team_stats.pace
-    pace_adj = ((h_pace - 99.0) + (a_pace - 99.0)) * 2.0
-    pace_diff_adj = abs(h_pace - a_pace) * 0.35
-    
-    h_def = game_ctx.home_team.team_stats.def_rating_10
-    a_def = game_ctx.away_team.team_stats.def_rating_10
-    def_adj = ((h_def - 114.0) + (a_def - 114.0)) * 0.8
+    home = game_ctx.home_team.team_stats
+    away = game_ctx.away_team.team_stats
 
-    recent_total_adj = (
-        (game_ctx.home_team.team_stats.recent_5_total_points - game_ctx.home_team.team_stats.recent_10_total_points)
-        + (game_ctx.away_team.team_stats.recent_5_total_points - game_ctx.away_team.team_stats.recent_10_total_points)
-    ) * 0.35
-    rest_adj = (
-        (game_ctx.home_team.team_stats.rest_days - 1.0)
-        + (game_ctx.away_team.team_stats.rest_days - 1.0)
-    ) * 0.6
-    b2b_adj = (
-        (-1.8 if game_ctx.home_team.team_stats.back_to_back_flag else 0.0)
-        + (-1.8 if game_ctx.away_team.team_stats.back_to_back_flag else 0.0)
-    )
-    injury_adj = -2.0 * (game_ctx.home_team.injury_flag + game_ctx.away_team.injury_flag)
-    injury_adj -= (game_ctx.home_team.injury_severity + game_ctx.away_team.injury_severity) * 6.0
+    away_points_per_game = getattr(away, "points_per_game", away.off_rating_10 * away.pace / 100.0)
+    home_points_per_game = getattr(home, "points_per_game", home.off_rating_10 * home.pace / 100.0)
+    home_opp_points_per_game = getattr(home, "opp_points_per_game", home.def_rating_10 * home.pace / 100.0)
+    away_opp_points_per_game = getattr(away, "opp_points_per_game", away.def_rating_10 * away.pace / 100.0)
 
-    return base_points + pace_adj + pace_diff_adj + def_adj + recent_total_adj + rest_adj + b2b_adj + injury_adj
+    away_expected_pts = (away_points_per_game + home_opp_points_per_game) / 2.0
+    home_expected_pts = (home_points_per_game + away_opp_points_per_game) / 2.0
+    return away_expected_pts + home_expected_pts
 
 
 def legacy_predict_total_points(game_ctx: GameContext) -> float:
