@@ -24,7 +24,7 @@ from probability_layers import (
 )
 from injury_impact import calculate_injury_adjustment
 from injury_report import fetch_injuries, get_team_out_players
-from main import format_output
+from main import format_output, format_output_new
 from live_data import fetch_all_team_stats, fetch_todays_games, fetch_espn_total_lines
 
 
@@ -173,7 +173,8 @@ def run_game(
         predicted_total = predict_total_points(ctx)
         variant_note = calibration_note
 
-    format_output(
+    formatter = format_output_new if variant == "new" else format_output
+    formatter(
         ctx,
         calibrated_prob,
         -110,

@@ -105,6 +105,41 @@ def format_output(game_ctx: GameContext, home_model_prob: float, home_odds: int,
     print("**Data gaps:** None")
     print("="*80 + "\n")
 
+
+def format_output_new(game_ctx: GameContext, home_model_prob: float, home_odds: int, away_odds: int,
+                      l1_prob: float, l2_adj: float, l2_reason: str, l3_adj: float, l3_reason: str,
+                      raw_prob: float, extremized_prob: float, predicted_spread: float | None = None,
+                      predicted_total: float | None = None, calibration_note: str = "",
+                      log_prediction: bool = True, log_calibration_flag: str = ""):
+    format_output(
+        game_ctx,
+        home_model_prob,
+        home_odds,
+        away_odds,
+        l1_prob,
+        l2_adj,
+        l2_reason,
+        l3_adj,
+        l3_reason,
+        raw_prob,
+        extremized_prob,
+        predicted_spread=predicted_spread,
+        predicted_total=predicted_total,
+        calibration_note=calibration_note,
+        log_prediction=False,
+        log_calibration_flag=log_calibration_flag,
+    )
+
+    if log_prediction:
+        append_prediction_log(
+            game_ctx,
+            predicted_spread if predicted_spread is not None else predict_spread(game_ctx.home_team, game_ctx.away_team),
+            raw_prob,
+            extremized_prob,
+            home_model_prob,
+            calibration_flag=log_calibration_flag,
+        )
+
 def run_pipeline():
     # 1. Setup Mock Game Data: Celtics vs Nuggets
     venue = Venue("Ball Arena")
@@ -179,7 +214,7 @@ def run_pipeline():
     
     # 8. Output
     # market odds for Nuggets -120, Celtics +100
-    format_output(
+    format_output_new(
         ctx,
         calibrated_prob,
         -120,

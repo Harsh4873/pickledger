@@ -128,18 +128,29 @@ def _class_balance_summary(outcomes: list[int]) -> tuple[str, str, list[float], 
     return before, after, sample_weights, is_imbalanced
 
 
+def _extract_logged_raw_probability(row: dict[str, str]) -> float | None:
+    # Fit Platt scaling from the pre-extremization signal only.
+    raw_value = str(row.get("raw_probability", "")).strip()
+    if not raw_value:
+        return None
+    try:
+        return float(raw_value)
+    except ValueError:
+        return None
+
+
 def _load_logged_outcomes(prediction_log: Path) -> tuple[list[float], list[int]]:
     raw_probabilities: list[float] = []
     outcomes: list[int] = []
     with prediction_log.open("r", encoding="utf-8", newline="") as handle:
         reader = csv.DictReader(handle)
         for row in reader:
-            raw_value = str(row.get("raw_probability", "")).strip()
             outcome_value = str(row.get("actual_home_win", "")).strip()
-            if not raw_value or outcome_value == "":
+            raw_value = _extract_logged_raw_probability(row)
+            if raw_value is None or outcome_value == "":
                 continue
             try:
-                raw_probabilities.append(float(raw_value))
+                raw_probabilities.append(raw_value)
                 outcomes.append(int(float(outcome_value)))
             except ValueError:
                 continue
