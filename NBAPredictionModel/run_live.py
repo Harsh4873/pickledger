@@ -189,9 +189,8 @@ def run_game(
         variant_note = calibration_note
         decision_override = None
         decision_note = ""
-        # Only emit a side pick if the projected margin is meaningful.
-        # Sub-4 point projected margins are noise, not signal.
-        MIN_MARGIN_TO_BET = 4.0
+        # Only pass on true toss-ups.
+        MIN_MARGIN_TO_BET = 1.5
         if abs(predicted_spread) < MIN_MARGIN_TO_BET:
             decision_override = "PASS"
             decision_note = f"Projected spread {predicted_spread:+.2f} is below the {MIN_MARGIN_TO_BET:.1f}-point minimum."
