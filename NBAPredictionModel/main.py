@@ -151,39 +151,13 @@ def format_output_new(game_ctx: GameContext, home_model_prob: float, home_odds: 
         spread_val = -predicted_spread
         winner_prob = 1.0 - home_model_prob
 
-    print(f"- **Winner:** {winner} (Model Prob: {winner_prob*100:.1f}%)")
-    print(f"- **Spread:** {winner} by {abs(spread_val):.2f} points")
+    print(f"- **Pick:** {winner}")
+    print(f"- **Projected Margin:** {winner} by {abs(spread_val):.2f} points")
+    print(f"- **Model Confidence:** {winner_prob*100:.1f}%")
     print(f"- **Total:** {predicted_total:.1f} O/U\n")
 
-    print(f"**Market odds:** {game_ctx.home_team.name} {home_odds} | {game_ctx.away_team.name} {away_odds}")
-
-    true_home_implied, true_away_implied = remove_vig(home_odds, away_odds)
-    print(f"**Market implied probability (vig-removed):** {game_ctx.home_team.name} {true_home_implied*100:.1f}% | {game_ctx.away_team.name} {true_away_implied*100:.1f}%")
-
-    edge = calculate_edge(home_model_prob, true_home_implied)
-    print(f"**Edge:** {game_ctx.home_team.name} {edge*100:+.1f}%")
-
-    min_thresh = 0.05
-    print(f"**Minimum threshold:** {min_thresh*100:.1f}%")
-
-    decision = "BET" if max(edge, -edge) >= min_thresh else "PASS"
-    if decision_override == "PASS":
-        decision = "PASS"
-    bet_team = game_ctx.home_team.name if edge > 0 else game_ctx.away_team.name
-
-    print(f"**Decision: {decision} {'on ' + bet_team if decision == 'BET' else ''}**\n")
-    if decision == "PASS" and decision_note:
-        print(f"**Pass reason:** {decision_note}")
-
-    if decision == "BET":
-        if edge > 0:
-            full_k, q_k = get_recommended_stake(home_odds, home_model_prob)
-        else:
-            full_k, q_k = get_recommended_stake(away_odds, 1.0 - home_model_prob)
-
-        print(f"**If BET:**")
-        print(f"- Full Kelly: {full_k:.2f}% of bankroll")
-        print(f"- ¼ Kelly stake: {q_k:.2f}% of bankroll")
+    if decision_override == "PASS" and decision_note:
+        print(f"**Projection note:** {decision_note}\n")
 
     if log_prediction:
         append_prediction_log(
