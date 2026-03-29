@@ -1639,6 +1639,10 @@ def _parse_nba_output(output: str, source_label: str = "NBA Model") -> list[dict
                     break
 
             matchup = f"{current_away} @ {current_home}"
+            parsed_margin = spread_val
+            # Sanity gate: never publish a NBA spread > 16 pts from the new model.
+            if source_label == "NBA New" and abs(parsed_margin) > 16.0:
+                decision = "PASS"
             if spread_val > 0 and decision == "BET":
                 pick_text = f"{winner} -{spread_val:.1f} ({matchup})"
             else:
