@@ -1617,19 +1617,33 @@ def _parse_nba_output(output: str, source_label: str = "NBA Model") -> list[dict
         if not current_away or not current_home:
             continue
 
-        # Extract winner
+        # Extract winner from either the legacy block or the new projection-only block.
+        winner = ""
+        prob = None
+        parsed_new_format = False
+
         winner_m = re.search(r"\*\*Winner:\*\*\s*(.+?)\s*\(Model Prob:\s*([\d.]+)%\)", line)
         if winner_m:
             winner = winner_m.group(1).strip()
             prob = float(winner_m.group(2)) / 100
-            # Look ahead for spread, edge, and decision
+        else:
+            pick_m = re.search(r"\*\*Pick:\*\*\s*(.+)", line)
+            if pick_m:
+                winner = pick_m.group(1).strip()
+                parsed_new_format = True
+
+        if winner:
+            # Look ahead for spread, confidence, optional edge, and decision/projection note.
             spread_val = 0.0
-            edge_val = None
-            decision = "PASS"
+            edge_val: float | str | None = "-" if parsed_new_format else None
+            decision = "BET" if parsed_new_format else "PASS"
             for j in range(i + 1, min(i + 20, len(lines))):
-                sp_m = re.search(r"\*\*Spread:\*\*\s*\S+\s*by\s*([\d.]+)\s*points", lines[j])
+                sp_m = re.search(r"\*\*(?:Spread|Projected Margin):\*\*\s*.+?\s*by\s*([\d.]+)\s*points", lines[j])
                 if sp_m:
                     spread_val = float(sp_m.group(1))
+                conf_m = re.search(r"\*\*Model Confidence:\*\*\s*([\d.]+)%", lines[j])
+                if conf_m:
+                    prob = float(conf_m.group(1)) / 100
                 edge_m = re.search(r"\*\*Edge:\*\*\s*\S+\s*([+-]?[\d.]+)%", lines[j])
                 if edge_m:
                     edge_val = float(edge_m.group(1))
@@ -1637,20 +1651,24 @@ def _parse_nba_output(output: str, source_label: str = "NBA Model") -> list[dict
                 if dec_m:
                     decision = dec_m.group(1)
                     break
+                proj_note_m = re.search(r"\*\*Projection note:\*\*", lines[j])
+                if proj_note_m:
+                    decision = "PASS"
+                    break
 
             matchup = f"{current_away} @ {current_home}"
             parsed_margin = spread_val
             # Sanity gate: never publish a NBA spread > 16 pts from the new model.
             if source_label == "NBA New" and abs(parsed_margin) > 16.0:
                 decision = "PASS"
-            if spread_val > 0 and decision == "BET":
+            if spread_val > 0 and (decision == "BET" or parsed_new_format):
                 pick_text = f"{winner} -{spread_val:.1f} ({matchup})"
             else:
                 pick_text = f"{winner} ML ({matchup})"
 
             # Edge is from the home team perspective; flip sign if bet is on away team
             display_edge = edge_val
-            if display_edge is not None and winner != current_home:
+            if isinstance(display_edge, float) and winner != current_home:
                 display_edge = -display_edge
 
             _append_unique({
