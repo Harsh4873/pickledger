@@ -1671,7 +1671,7 @@ def _parse_nba_output(output: str, source_label: str = "NBA Model") -> list[dict
             if isinstance(display_edge, float) and winner != current_home:
                 display_edge = -display_edge
 
-            _append_unique({
+            pick = {
                 "source": source_label,
                 "pick": pick_text,
                 "sport": "NBA",
@@ -1684,7 +1684,15 @@ def _parse_nba_output(output: str, source_label: str = "NBA Model") -> list[dict
                 "away_team": current_away,
                 "home_team": current_home,
                 "predicted_spread": spread_val,
-            })
+            }
+            if source_label == "NBA New":
+                # Kelly edge layer — appends bet recommendation, never modifies prediction
+                try:
+                    from NBAPredictionModel.kelly_edge import enrich_pick_with_edge
+                    pick = enrich_pick_with_edge(pick, league='NBA')
+                except Exception as _ke_err:
+                    pick['kelly_edge'] = {'verdict': 'ERROR', 'reason': str(_ke_err)}
+            _append_unique(pick)
 
         # Over/Under decision: "**O/U Decision: BET OVER**"
         ou_m = re.search(r"\*\*O/U Decision:\s*(BET OVER|BET UNDER|PASS)\*\*", line)
