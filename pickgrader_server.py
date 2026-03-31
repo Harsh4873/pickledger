@@ -17,6 +17,7 @@ import json
 import os
 import re
 import sqlite3
+import sqlite3 as _sqlite3, os as _os
 import subprocess
 import sys
 import threading
@@ -30,6 +31,56 @@ from typing import Any
 from urllib.error import URLError, HTTPError
 from urllib.parse import urlencode, urlparse
 from urllib.request import Request, urlopen
+
+
+def _sl_get_total(home, away, league='MLB'):
+    """Get real Vegas total line and odds from cbs_odds (SportsLine data)."""
+    candidates = ['pickledger.db', '../pickledger.db']
+    db = next((p for p in candidates if _os.path.exists(p)), None)
+    if not db:
+        return None, None
+    try:
+        conn = _sqlite3.connect(db)
+        cur = conn.cursor()
+        cur.execute(
+            """
+            SELECT total_line, total_odds FROM cbs_odds
+            WHERE league=? AND total_line IS NOT NULL
+            AND (home_team LIKE ? OR away_team LIKE ?)
+            ORDER BY fetched_at DESC LIMIT 1
+            """,
+            (league, f'%{home.split()[-1]}%', f'%{away.split()[-1]}%'),
+        )
+        row = cur.fetchone()
+        conn.close()
+        return (float(row[0]), int(row[1])) if row else (None, None)
+    except Exception:
+        return None, None
+
+
+def _sl_get_ml(home, away, league='MLB'):
+    """Get real Vegas moneyline from cbs_odds (SportsLine data)."""
+    candidates = ['pickledger.db', '../pickledger.db']
+    db = next((p for p in candidates if _os.path.exists(p)), None)
+    if not db:
+        return None, None
+    try:
+        conn = _sqlite3.connect(db)
+        cur = conn.cursor()
+        cur.execute(
+            """
+            SELECT ml_home, ml_away FROM cbs_odds
+            WHERE league=? AND ml_home IS NOT NULL
+            AND (home_team LIKE ? OR away_team LIKE ?)
+            ORDER BY fetched_at DESC LIMIT 1
+            """,
+            (league, f'%{home.split()[-1]}%', f'%{away.split()[-1]}%'),
+        )
+        row = cur.fetchone()
+        conn.close()
+        return (int(row[0]), int(row[1])) if row else (None, None)
+    except Exception:
+        return None, None
 
 def _load_local_env() -> None:
     base_dir = os.path.dirname(os.path.abspath(__file__))
@@ -1002,6 +1053,39 @@ def _enrich_picks_with_market_odds(picks: list[dict[str, Any]], date_str: str | 
     return picks
 
 
+def _apply_default_market_assumptions(picks: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    for pick in picks:
+        sport = str(pick.get("sport", "")).upper()
+        decision = str(pick.get("decision", "")).upper()
+        descriptor = _pick_market_descriptor(pick)
+        if sport != "NBA" or not descriptor:
+            continue
+        if str(descriptor.get("market_type", "")) not in {"spreads", "h2h"}:
+            continue
+        if _int_or_none(pick.get("odds")) is not None:
+            continue
+
+        model_prob = _float_or_none(pick.get("probability"))
+        if model_prob is None:
+            continue
+
+        assumed_odds = -110
+        implied_prob = _american_implied_prob(assumed_odds)
+        if implied_prob is None:
+            continue
+
+        pick["assumed_odds"] = assumed_odds
+        pick["assumed_odds_label"] = "Baseline -110"
+        pick["market_implied_probability"] = round(implied_prob, 4)
+        pick["market_edge"] = round((model_prob - implied_prob) * 100.0, 2)
+        if decision == "BET":
+            quarter_kelly = _quarter_kelly_pct(assumed_odds, model_prob)
+            if quarter_kelly is not None:
+                pick["units"] = round(quarter_kelly, 2)
+
+    return picks
+
+
 def parse_pick_date(date_text: str, year: int) -> str | None:
     try:
         dt = datetime.strptime(f"{date_text} {year}", "%b %d %Y")
@@ -1589,6 +1673,12 @@ def _parse_nba_output(output: str, source_label: str = "NBA Model") -> list[dict
     picks: list[dict[str, Any]] = []
     seen_keys: set[tuple[str, str, str]] = set()
 
+    def _format_line_value(line_value: float | None) -> str:
+        return f"{line_value:.1f}" if isinstance(line_value, (int, float)) else "N/A"
+
+    def _format_model_total_value(total_value: float | None) -> str:
+        return f"{total_value:.1f}" if isinstance(total_value, (int, float)) else "N/A"
+
     def _append_unique(pick: dict[str, Any]) -> None:
         key = (
             str(pick.get("source", "")),
@@ -1635,7 +1725,7 @@ def _parse_nba_output(output: str, source_label: str = "NBA Model") -> list[dict
         if winner:
             # Look ahead for spread, confidence, optional edge, and decision/projection note.
             spread_val = 0.0
-            edge_val: float | str | None = "-" if parsed_new_format else None
+            edge_val: float | None = None
             decision = "BET" if parsed_new_format else "PASS"
             for j in range(i + 1, min(i + 20, len(lines))):
                 sp_m = re.search(r"\*\*(?:Spread|Projected Margin):\*\*\s*.+?\s*by\s*([\d.]+)\s*points", lines[j])
@@ -1697,49 +1787,53 @@ def _parse_nba_output(output: str, source_label: str = "NBA Model") -> list[dict
         # Over/Under decision: "**O/U Decision: BET OVER**"
         ou_m = re.search(r"\*\*O/U Decision:\s*(BET OVER|BET UNDER|PASS)\*\*", line)
         if ou_m:
-            ou_decision_raw = ou_m.group(1)
-            # Look back for total line
             model_total = None
-            line_val = 225.0
-            for j in range(max(0, i - 5), i):
-                total_m = re.search(r"\*\*Over/Under:\*\*\s*Model Total\s*([\d.]+)\s*vs\s*Line\s*([\d.]+)", lines[j])
+            for j in range(max(0, i - 12), i):
+                projected_total_m = re.search(r"-\s*\*\*Total:\*\*\s*([\d.]+)\s*O/U", lines[j])
+                if projected_total_m:
+                    model_total = float(projected_total_m.group(1))
+                total_m = re.search(
+                    r"\*\*Over/Under:\*\*\s*Model Total\s*([\d.]+)\s*vs\s*Line\s*(N/A|[\d.]+)",
+                    lines[j],
+                    flags=re.IGNORECASE,
+                )
                 if total_m:
                     model_total = float(total_m.group(1))
-                    line_val = float(total_m.group(2))
+            if model_total is None:
+                continue
 
-            matchup = f"{current_away} @ {current_home}"
-            if ou_decision_raw.startswith("BET"):
-                ou_side = "Over" if "OVER" in ou_decision_raw else "Under"
-                _append_unique({
-                    "source": source_label,
-                    "pick": f"{ou_side} {line_val:.1f} ({matchup})",
-                    "sport": "NBA",
-                    "odds": None,
-                    "units": 1,
-                    "probability": None,
-                    "edge": abs(model_total - line_val) if model_total else None,
-                    "decision": "BET",
-                    "market_type": "totals",
-                    "selection": ou_side,
-                    "line": line_val,
-                    "away_team": current_away,
-                    "home_team": current_home,
-                })
+            # ── O/U pick assembly ──────────────────────────────────────────
+            league = "NBA"
+            home_team = current_home
+            away_team = current_away
+            vegas_total, total_odds = _sl_get_total(home_team, away_team, league)
+            if vegas_total is None:
+                pass
             else:
-                _append_unique({
+                direction = 'Under' if model_total < vegas_total else 'Over'
+                pick_label = f"{direction} {vegas_total} ({away_team} vs {home_team})"
+                gap_pct = abs(model_total - vegas_total) / vegas_total * 100
+                ou_pick = {
                     "source": source_label,
-                    "pick": f"O/U {line_val:.1f} ({matchup})",
-                    "sport": "NBA",
-                    "odds": None,
+                    "pick": pick_label,
+                    "sport": league,
+                    "odds": total_odds if total_odds else -110,
                     "units": 1,
                     "probability": None,
-                    "edge": None,
-                    "decision": "PASS",
+                    "edge": round(gap_pct, 1),
+                    "vegas": vegas_total,
+                    "model_prediction": round(float(model_total), 1),
+                    "direction": direction,
+                    "kelly": None,
+                    "decision": 'BET' if gap_pct >= 5 else ('LEAN' if gap_pct >= 2 else 'PASS'),
                     "market_type": "totals",
-                    "line": line_val,
-                    "away_team": current_away,
-                    "home_team": current_home,
-                })
+                    "selection": direction,
+                    "line": vegas_total,
+                    "market_line": vegas_total,
+                    "away_team": away_team,
+                    "home_team": home_team,
+                }
+                _append_unique(ou_pick)
 
     return picks
 
@@ -1936,9 +2030,7 @@ def _parse_mlb_output(output: str) -> list[dict[str, Any]]:
 
             # O/U line: OU|OVER/UNDER/PASS|line|predicted_total
             if len(parts) >= 4 and parts[0] == "OU":
-                ou_side = parts[1]  # OVER, UNDER, or PASS
                 try:
-                    ou_line = float(parts[2])
                     predicted_total = float(parts[3])
                 except (ValueError, IndexError):
                     continue
@@ -1946,38 +2038,38 @@ def _parse_mlb_output(output: str) -> list[dict[str, Any]]:
                 if not current_team_a or not current_team_b:
                     continue
 
-                matchup = f"{_shorten_mlb_name(current_team_a)} vs {_shorten_mlb_name(current_team_b)}"
-                if ou_side in ("OVER", "UNDER"):
-                    picks.append({
-                        "source": "MLB Model",
-                        "pick": f"{'Over' if ou_side == 'OVER' else 'Under'} {ou_line:.1f} ({matchup})",
-                        "sport": "MLB",
-                        "odds": None,
-                        "units": 1,
-                        "probability": None,
-                        "edge": abs(predicted_total - ou_line),
-                        "decision": "BET",
-                        "market_type": "totals",
-                        "selection": "Over" if ou_side == "OVER" else "Under",
-                        "line": ou_line,
-                        "away_team": current_team_a,
-                        "home_team": current_team_b,
-                    })
+                # ── O/U pick assembly ──────────────────────────────────────────
+                league = "MLB"
+                home_team = current_team_b
+                away_team = current_team_a
+                vegas_total, total_odds = _sl_get_total(home_team, away_team, league)
+                if vegas_total is None:
+                    pass
                 else:
-                    picks.append({
+                    direction = 'Under' if predicted_total < vegas_total else 'Over'
+                    pick_label = f"{direction} {vegas_total} ({away_team} vs {home_team})"
+                    gap_pct = abs(predicted_total - vegas_total) / vegas_total * 100
+                    ou_pick = {
                         "source": "MLB Model",
-                        "pick": f"O/U {ou_line:.1f} ({matchup})",
-                        "sport": "MLB",
-                        "odds": None,
+                        "pick": pick_label,
+                        "sport": league,
+                        "odds": total_odds if total_odds else -110,
                         "units": 1,
                         "probability": None,
-                        "edge": None,
-                        "decision": "PASS",
+                        "edge": round(gap_pct, 1),
+                        "vegas": vegas_total,
+                        "model_prediction": round(float(predicted_total), 1),
+                        "direction": direction,
+                        "kelly": None,
+                        "decision": 'BET' if gap_pct >= 5 else ('LEAN' if gap_pct >= 2 else 'PASS'),
                         "market_type": "totals",
-                        "line": ou_line,
-                        "away_team": current_team_a,
-                        "home_team": current_team_b,
-                    })
+                        "selection": direction,
+                        "line": vegas_total,
+                        "market_line": vegas_total,
+                        "away_team": away_team,
+                        "home_team": home_team,
+                    }
+                    picks.append(ou_pick)
                 continue
 
             # Moneyline line: TeamA|TeamB|OddsA|OddsB|ProbA|ProbB
@@ -1996,6 +2088,7 @@ def _parse_mlb_output(output: str) -> list[dict[str, Any]]:
             # Shorten names to match ledger style
             short_a = _shorten_mlb_name(team_a)
             short_b = _shorten_mlb_name(team_b)
+            ml_home, ml_away = _sl_get_ml(team_b, team_a, "MLB")
 
             # Pipe format odds are model-derived (not market), so edge vs those
             # odds is always ~0.  Instead, compare model prob vs a generic 50%
@@ -2018,7 +2111,7 @@ def _parse_mlb_output(output: str) -> list[dict[str, Any]]:
                 "source": "MLB Model",
                 "pick": f"{bet_team} ML ({matchup})",
                 "sport": "MLB",
-                "odds": None,
+                "odds": ml_away if bet_team == short_a else ml_home,
                 "units": 1,
                 "probability": bet_prob,
                 "edge": edge,
@@ -2056,12 +2149,13 @@ def _parse_mlb_output(output: str) -> list[dict[str, Any]]:
             decision = decision_m.group(1)
             edge_val = float(edge_m.group(1)) if edge_m else None
             matchup = f"{_shorten_mlb_name(current_away)} vs {_shorten_mlb_name(current_home)}"
+            ml_home, ml_away = _sl_get_ml(current_home, current_away, "MLB")
 
             picks.append({
                 "source": "MLB Model",
                 "pick": f"{winner} ML ({matchup})",
                 "sport": "MLB",
-                "odds": None,
+                "odds": ml_home if winner == _shorten_mlb_name(current_home) else ml_away,
                 "units": 1,
                 "probability": prob,
                 "edge": edge_val,
@@ -2075,40 +2169,38 @@ def _parse_mlb_output(output: str) -> list[dict[str, Any]]:
             # Also emit total runs pick if available
             if total_m:
                 total_val = float(total_m.group(1))
-                # Default line of 8.5 for MLB
-                line = 8.5
-                if total_val > line + 0.5:
-                    picks.append({
+                # ── O/U pick assembly ──────────────────────────────────────────
+                league = "MLB"
+                home_team = current_home
+                away_team = current_away
+                vegas_total, total_odds = _sl_get_total(home_team, away_team, league)
+                if vegas_total is None:
+                    pass
+                else:
+                    direction = 'Under' if total_val < vegas_total else 'Over'
+                    pick_label = f"{direction} {vegas_total} ({away_team} vs {home_team})"
+                    gap_pct = abs(total_val - vegas_total) / vegas_total * 100
+                    ou_pick = {
                         "source": "MLB Model",
-                        "pick": f"Over {line} ({matchup})",
-                        "sport": "MLB",
-                        "odds": None,
+                        "pick": pick_label,
+                        "sport": league,
+                        "odds": total_odds if total_odds else -110,
                         "units": 1,
                         "probability": None,
-                        "edge": total_val - line,
-                        "decision": "BET",
+                        "edge": round(gap_pct, 1),
+                        "vegas": vegas_total,
+                        "model_prediction": round(float(total_val), 1),
+                        "direction": direction,
+                        "kelly": None,
+                        "decision": 'BET' if gap_pct >= 5 else ('LEAN' if gap_pct >= 2 else 'PASS'),
                         "market_type": "totals",
-                        "selection": "Over",
-                        "line": line,
-                        "away_team": current_away,
-                        "home_team": current_home,
-                    })
-                elif total_val < line - 0.5:
-                    picks.append({
-                        "source": "MLB Model",
-                        "pick": f"Under {line} ({matchup})",
-                        "sport": "MLB",
-                        "odds": None,
-                        "units": 1,
-                        "probability": None,
-                        "edge": line - total_val,
-                        "decision": "BET",
-                        "market_type": "totals",
-                        "selection": "Under",
-                        "line": line,
-                        "away_team": current_away,
-                        "home_team": current_home,
-                    })
+                        "selection": direction,
+                        "line": vegas_total,
+                        "market_line": vegas_total,
+                        "away_team": away_team,
+                        "home_team": home_team,
+                    }
+                    picks.append(ou_pick)
 
         if game_m:
             current_away = ""
@@ -2564,6 +2656,7 @@ def run_nba_model(date_str: str | None = None, variant: str = "new") -> dict[str
             }
 
         picks = _enrich_picks_with_market_odds(picks, date_str)
+        picks = _apply_default_market_assumptions(picks)
         return {"ok": True, "picks": picks, "raw_lines": len(output.split("\n"))}
     except subprocess.TimeoutExpired:
         return {"ok": False, "error": f"{source_label} timed out (5 min limit)"}
