@@ -12,6 +12,7 @@ from bs4 import BeautifulSoup, Tag
 
 CBS_NBA_URL = "https://www.cbssports.com/nba/odds/"
 CBS_MLB_URL = "https://www.cbssports.com/mlb/odds/"
+SL_MLB_URL = "https://www.sportsline.com/mlb/odds/"
 
 HEADERS = {
     "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
@@ -79,29 +80,8 @@ def _extract_html_preview(html: str) -> str:
 
 
 def _find_game_tables(soup: BeautifulSoup) -> list[Tag]:
-    tables: list[Tag] = []
-    seen_ids: set[int] = set()
-
-    for table in soup.find_all("table"):
-        try:
-            rows = table.find_all("tr")
-            for row in rows:
-                combined = _normalize_text(row.get_text(" ", strip=True))
-                if (
-                    "open" in combined
-                    and "spread" in combined
-                    and "total" in combined
-                    and ("moneyline" in combined or re.search(r"\bml\b", combined))
-                ):
-                    table_id = id(table)
-                    if table_id not in seen_ids:
-                        tables.append(table)
-                        seen_ids.add(table_id)
-                    break
-        except Exception:
-            continue
-
-    return tables
+    tables = soup.find_all('table', class_=lambda c: c and 'OddsBlock-game' in c)
+    return list(tables)
 
 
 def _find_header_row(rows: list[Tag]) -> tuple[int | None, int]:
@@ -127,6 +107,16 @@ def _find_header_row(rows: list[Tag]) -> tuple[int | None, int]:
 
 
 def _extract_game_time(table: Tag, rows: list[Tag], header_index: int | None) -> str | None:
+    try:
+        time_th = table.find('th', class_='OddsBlock-time')
+        spans = time_th.find_all('span') if time_th else []
+        game_time = ' '.join(s.get_text(strip=True) for s in spans) or None
+    except Exception:
+        game_time = None
+
+    if game_time:
+        return game_time
+
     if header_index is not None:
         for row in reversed(rows[:header_index]):
             text = _clean_text(row.get_text(" ", strip=True))
@@ -346,6 +336,111 @@ def fetch_cbs_odds(url: str, league: str) -> list[dict[str, Any]]:
     return odds_list
 
 
+def fetch_sl_mlb_odds() -> list[dict[str, Any]]:
+    response = None
+    odds_list: list[dict[str, Any]] = []
+
+    try:
+        headers = dict(HEADERS)
+        headers["Referer"] = "https://www.sportsline.com/"
+
+        response = requests.get(SL_MLB_URL, headers=headers, timeout=15)
+        response.raise_for_status()
+        LAST_HTML_PREVIEW["MLB"] = response.text
+
+        soup = BeautifulSoup(response.text, "html.parser")
+        parsed_rows: list[list[Tag]] = []
+
+        for row in soup.find_all("tr"):
+            try:
+                cells = row.find_all(["th", "td"])
+                if not cells:
+                    continue
+
+                first_cell_text = _clean_text(cells[0].get_text(" ", strip=True))
+                if not first_cell_text:
+                    continue
+                if first_cell_text == "Matchup":
+                    continue
+                if first_cell_text == "Advanced Insights loading...":
+                    continue
+
+                if len(cells) >= 3:
+                    parsed_rows.append(cells)
+                    continue
+
+                if len(cells) == 1 and re.search(
+                    r"(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+\d{1,2},",
+                    first_cell_text,
+                ):
+                    parsed_rows.append(cells)
+            except Exception:
+                continue
+
+        for index in range(0, len(parsed_rows) - 2, 3):
+            try:
+                away_cells = parsed_rows[index]
+                home_cells = parsed_rows[index + 1]
+                time_cells = parsed_rows[index + 2]
+
+                if len(away_cells) <= 2 or len(home_cells) <= 2 or not time_cells:
+                    continue
+
+                away_team_text = _clean_text(away_cells[0].get_text(" ", strip=True))
+                home_team_text = _clean_text(home_cells[0].get_text(" ", strip=True))
+                game_time = _clean_text(time_cells[0].get_text(" ", strip=True))
+
+                away_team = re.sub(r"\s+\d+-\d+$", "", away_team_text).strip()
+                home_team = re.sub(r"\s+\d+-\d+$", "", home_team_text).strip()
+
+                away_consensus = _clean_text(away_cells[2].get_text(" ", strip=True)).replace("−", "-")
+                home_consensus = _clean_text(home_cells[2].get_text(" ", strip=True)).replace("−", "-")
+
+                spread_match = re.match(r"^([+-]?\d+\.?\d*)", away_consensus)
+                spread_away = float(spread_match.group(1)) if spread_match else None
+
+                away_odds_match = re.search(r"([+-]\d+)\s*(?:Open|$)", away_consensus)
+                spread_away_odds = int(away_odds_match.group(1)) if away_odds_match else None
+
+                home_odds_match = re.search(r"([+-]\d+)\s*(?:Open|$)", home_consensus)
+                spread_home_odds = int(home_odds_match.group(1)) if home_odds_match else None
+
+                spread_home = spread_away * -1 if spread_away is not None else None
+
+                odds_list.append(
+                    {
+                        "away_team": away_team,
+                        "home_team": home_team,
+                        "game_time": game_time,
+                        "spread_away": spread_away,
+                        "spread_away_odds": spread_away_odds,
+                        "spread_home": spread_home,
+                        "spread_home_odds": spread_home_odds,
+                        "spread_odds": spread_home_odds,
+                        "total_line": None,
+                        "total_odds": None,
+                        "ml_home": None,
+                        "ml_away": None,
+                    }
+                )
+            except Exception:
+                continue
+    except requests.RequestException as exc:
+        print(f"MLB: request failed for {SL_MLB_URL}: {exc}")
+        if response is not None:
+            LAST_HTML_PREVIEW["MLB"] = response.text
+            print(f"MLB: status={response.status_code}, response preview={response.text[:500]}")
+    except Exception as exc:
+        print(f"MLB: unexpected parsing error: {exc}")
+        if response is not None:
+            LAST_HTML_PREVIEW["MLB"] = response.text
+            print(f"MLB: status={response.status_code}, response preview={response.text[:500]}")
+    finally:
+        time.sleep(random.uniform(2, 4))
+
+    return odds_list
+
+
 def save_odds_to_db(odds_list: list[dict[str, Any]], league: str) -> None:
     db_path = Path(__file__).resolve().parent.parent / "pickledger.db"
     fetched_at = datetime.now(timezone.utc).isoformat()
@@ -448,8 +543,11 @@ if __name__ == "__main__":
 
     time.sleep(3)
 
-    mlb_odds = fetch_cbs_odds(CBS_MLB_URL, "MLB")
+    # MLB - SportsLine
+    print("Fetching MLB odds from SportsLine...")
+    mlb_odds = fetch_sl_mlb_odds()
     save_odds_to_db(mlb_odds, "MLB")
+    import time as _t; _t.sleep(3)
     print(f"Saved {len(mlb_odds)} MLB rows")
     if not mlb_odds:
         print("MLB raw HTML preview:")
