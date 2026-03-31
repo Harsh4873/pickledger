@@ -1609,7 +1609,7 @@ function formatStartLabel(iso) {
 }
 
 function getGameKeyForPick(p) {
-  const label = extractGameKey(p.pick) || inferNbaPropsMatchupLabel(p, getPicks());
+  const label = extractGameKey(p.pick, p.sport) || inferNbaPropsMatchupLabel(p, getPicks());
   return label || `${p.sport}::${p.date}::${p.id}`;
 }
 
@@ -1986,14 +1986,53 @@ function switchTab(name) {
 }
 
 // ── Search ──
-function extractGameKey(pickText) {
+function normalizeMLBTeam(name) {
+  if (!name) return name;
+  const trimmed = String(name).trim();
+  const n = trimmed.toLowerCase();
+  const map = {
+    'anaheim': 'Los Angeles Angels',
+    'la angels': 'Los Angeles Angels',
+    'angels': 'Los Angeles Angels',
+    'gardians': 'Cleveland Guardians',
+    'guardians': 'Cleveland Guardians',
+    'cleveland': 'Cleveland Guardians',
+    'athletics': 'Oakland Athletics',
+    'oakland': 'Oakland Athletics',
+    'sox': null,
+    'white sox': 'Chicago White Sox',
+    'red sox': 'Boston Red Sox',
+    'chicago white': 'Chicago White Sox',
+    'boston': 'Boston Red Sox',
+    'ny mets': 'New York Mets',
+    'ny yankees': 'New York Yankees',
+    'la dodgers': 'Los Angeles Dodgers',
+    'la clippers': null,
+    'sf giants': 'San Francisco Giants',
+    'sd padres': 'San Diego Padres',
+    'tb rays': 'Tampa Bay Rays',
+  };
+  for (const [k, v] of Object.entries(map)) {
+    if (n === k || n.startsWith(`${k} `) || n.endsWith(` ${k}`)) {
+      return v || trimmed;
+    }
+  }
+  return trimmed;
+}
+
+function extractGameKey(pickText, sport) {
   const parens = Array.from(String(pickText || '').matchAll(/\(([^)]+)\)/g), m => m[1].trim());
   const inside = parens.find(s => /\s+(vs|@)\s+/i.test(s) && !/inc\.?\s*ot/i.test(s))
     || parens.find(s => /\s+(vs|@)\s+/i.test(s))
     || parens[0];
   if (!inside) return null;
   if (/\s+(vs|@)\s+/i.test(inside)) {
-    return inside.split(/\s+(?:vs|@)\s+/i).map(t => t.trim()).sort((a,b) => a.localeCompare(b)).join(' vs ');
+    const parts = inside.split(/\s+(?:vs|@)\s+/i).map(t => t.trim()).filter(Boolean);
+    if (parts.length !== 2) return inside;
+    if (String(sport || '').toUpperCase() === 'MLB') {
+      return parts.map(t => normalizeMLBTeam(t)).sort((a, b) => a.localeCompare(b)).join(' vs ');
+    }
+    return parts.sort((a,b) => a.localeCompare(b)).join(' vs ');
   }
   return inside;
 }
@@ -2010,7 +2049,7 @@ const NBA_OPP_ABBR_TO_TEAM_NAMES = {
 
 function inferNbaPropsMatchupLabel(p, allPicks) {
   if (!p || String(p.sport || '').toUpperCase() !== 'NBA') return null;
-  if (extractGameKey(p.pick)) return null;
+  if (extractGameKey(p.pick, p.sport)) return null;
   const m = String(p.pick || '').match(/\bvs\s+([A-Z]{2,3})\b/i);
   if (!m) return null;
   const names = NBA_OPP_ABBR_TO_TEAM_NAMES[String(m[1] || '').toUpperCase()];
@@ -2018,7 +2057,7 @@ function inferNbaPropsMatchupLabel(p, allPicks) {
   const sameDay = (allPicks || []).filter(x => x && x.id !== p.id && x.sport === p.sport && x.date === p.date);
   const matchupCounts = new Map();
   sameDay.forEach(x => {
-    const label = extractGameKey(x.pick);
+    const label = extractGameKey(x.pick, x.sport);
     if (!label) return;
     const lowered = label.toLowerCase();
     if (!names.some(n => lowered.includes(String(n).toLowerCase()))) return;
@@ -2069,8 +2108,8 @@ function renderSearch() {
   }
 
   container.innerHTML = matches.map(p => {
-    const gameKey = extractGameKey(p.pick);
-    const related = gameKey ? picks.filter(rp => rp.id !== p.id && extractGameKey(rp.pick) === gameKey) : [];
+    const gameKey = extractGameKey(p.pick, p.sport);
+    const related = gameKey ? picks.filter(rp => rp.id !== p.id && extractGameKey(rp.pick, rp.sport) === gameKey) : [];
     const resultBadge = p.result === 'win' ? 'badge-win' : p.result === 'loss' ? 'badge-loss' : p.result === 'push' ? 'badge-push' : 'badge-pending';
     const resultLabel = p.result.toUpperCase();
     const plStr = p.result === 'pending' ? '—' : (p.pl >= 0 ? '+' : '') + p.pl + 'u';
@@ -2458,7 +2497,7 @@ function _getParlaySuggestions() {
           probPct: probabilityInfo ? probabilityInfo.pct : null,
           probDisplay: probabilityInfo ? probabilityInfo.display : '—',
           gameKey: _canonicalParlayGameLabel(p.pick) || `pick-${p.id}`,
-          gameLabel: extractGameKey(p.pick) || _canonicalParlayGameLabel(p.pick) || `Game ${p.id}`,
+          gameLabel: extractGameKey(p.pick, p.sport) || _canonicalParlayGameLabel(p.pick) || `Game ${p.id}`,
         };
       })
       .filter(p => p.parts && p.prob != null);
@@ -2594,7 +2633,7 @@ function renderTrends() {
 
   const gameMap = {};
   trendPicks.forEach(p => {
-    const gameLabel = extractGameKey(p.pick);
+    const gameLabel = extractGameKey(p.pick, p.sport);
     if (!gameLabel) return;
     const gameKey = `${p.sport}::${canonicalGameKeyFromMatchup(gameLabel)}`;
     if (!gameMap[gameKey]) {
@@ -2868,7 +2907,7 @@ function render() {
   const allGameStartIso = {};
   picks.forEach(p => {
     const inferredLabel = inferNbaPropsMatchupLabel(p, picks);
-    const gameLabel = extractGameKey(p.pick) || inferredLabel || p.pick;
+    const gameLabel = extractGameKey(p.pick, p.sport) || inferredLabel || p.pick;
     const key = `${p.sport}::${p.date}::${gameLabel || p.id}`;
     const iso = gameTimes[String(p.id)] || '';
     if (!iso) return;
@@ -2883,7 +2922,7 @@ function render() {
 
   const detailedSeed = filtered.map(p => {
     const inferredLabel = inferNbaPropsMatchupLabel(p, picks);
-    const gameLabel = extractGameKey(p.pick) || inferredLabel || p.pick;
+    const gameLabel = extractGameKey(p.pick, p.sport) || inferredLabel || p.pick;
     const key = `${p.sport}::${p.date}::${gameLabel || p.id}`;
     const ownIso = gameTimes[String(p.id)] || '';
     const resolvedIso = allGameStartIso[key] || ownIso;
