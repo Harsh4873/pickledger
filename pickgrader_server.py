@@ -14,6 +14,7 @@ Then click REFRESH in pickledger.html.
 from __future__ import annotations
 
 import json
+import math as _math
 import os
 import re
 import sqlite3
@@ -81,6 +82,37 @@ def _sl_get_ml(home, away, league='MLB'):
         return (int(row[0]), int(row[1])) if row else (None, None)
     except Exception:
         return None, None
+
+
+def _ou_probability(model_total: float, vegas_line: float, rmse: float) -> float:
+    """
+    Derive P(under) or P(over) from model point estimate using normal CDF.
+    Uses the model's historical RMSE as the prediction std dev.
+
+    P(actual < vegas_line | model_total, rmse) = Φ((vegas_line - model_total) / rmse)
+
+    Returns probability for the DIRECTION the model is betting:
+      - If model_total < vegas_line → returns P(under)  = Φ((line - model) / rmse)
+      - If model_total > vegas_line → returns P(over)   = 1 - Φ((line - model) / rmse)
+    """
+
+    def _norm_cdf(x: float) -> float:
+        return 0.5 * (1.0 + _math.erf(x / _math.sqrt(2.0)))
+
+    if rmse <= 0:
+        return 0.5
+
+    z = (vegas_line - model_total) / rmse
+    p_under = _norm_cdf(z)
+
+    if model_total < vegas_line:
+        return round(p_under, 4)
+    return round(1.0 - p_under, 4)
+
+
+# Model-specific RMSE constants (from backtest metadata)
+_MLB_TOTALS_RMSE = 4.329383382244959
+_NBA_TOTALS_RMSE = 12.5
 
 def _load_local_env() -> None:
     base_dir = os.path.dirname(os.path.abspath(__file__))
@@ -1812,20 +1844,28 @@ def _parse_nba_output(output: str, source_label: str = "NBA Model") -> list[dict
             else:
                 direction = 'Under' if model_total < vegas_total else 'Over'
                 pick_label = f"{direction} {vegas_total} ({away_team} vs {home_team})"
-                gap_pct = abs(model_total - vegas_total) / vegas_total * 100
+                _odds_price = total_odds if total_odds else -110
+                _prob = _ou_probability(float(model_total), float(vegas_total), _NBA_TOTALS_RMSE)
+                _b = abs(_odds_price) / 100 if _odds_price > 0 else 100 / abs(_odds_price or 110)
+                _implied_prob = 1 / (1 + _b)
+                _edge_prob = _prob - _implied_prob
+                _q = 1 - _prob
+                _k = max((_b * _prob - _q) / _b, 0.0)
+                _kf = round(_k * 0.25 * 100, 2)
                 ou_pick = {
                     "source": source_label,
                     "pick": pick_label,
                     "sport": league,
-                    "odds": total_odds if total_odds else -110,
+                    "odds": _odds_price,
                     "units": 1,
-                    "probability": None,
-                    "edge": round(gap_pct, 1),
+                    "probability": _prob,
+                    "prob": _prob,
+                    "edge": round(_edge_prob * 100, 2),
                     "vegas": vegas_total,
                     "model_prediction": round(float(model_total), 1),
                     "direction": direction,
-                    "kelly": None,
-                    "decision": 'BET' if gap_pct >= 5 else ('LEAN' if gap_pct >= 2 else 'PASS'),
+                    "kelly": _kf,
+                    "decision": 'BET' if _edge_prob >= 0.05 else ('LEAN' if _edge_prob >= 0.03 else 'PASS'),
                     "market_type": "totals",
                     "selection": direction,
                     "line": vegas_total,
@@ -2048,20 +2088,28 @@ def _parse_mlb_output(output: str) -> list[dict[str, Any]]:
                 else:
                     direction = 'Under' if predicted_total < vegas_total else 'Over'
                     pick_label = f"{direction} {vegas_total} ({away_team} vs {home_team})"
-                    gap_pct = abs(predicted_total - vegas_total) / vegas_total * 100
+                    _odds_price = total_odds if total_odds else -110
+                    _prob = _ou_probability(float(predicted_total), float(vegas_total), _MLB_TOTALS_RMSE)
+                    _b = abs(_odds_price) / 100 if _odds_price > 0 else 100 / abs(_odds_price or 110)
+                    _implied_prob = 1 / (1 + _b)
+                    _edge_prob = _prob - _implied_prob
+                    _q = 1 - _prob
+                    _k = max((_b * _prob - _q) / _b, 0.0)
+                    _kf = round(_k * 0.25 * 100, 2)
                     ou_pick = {
                         "source": "MLB Model",
                         "pick": pick_label,
                         "sport": league,
-                        "odds": total_odds if total_odds else -110,
+                        "odds": _odds_price,
                         "units": 1,
-                        "probability": None,
-                        "edge": round(gap_pct, 1),
+                        "probability": _prob,
+                        "prob": _prob,
+                        "edge": round(_edge_prob * 100, 2),
                         "vegas": vegas_total,
                         "model_prediction": round(float(predicted_total), 1),
                         "direction": direction,
-                        "kelly": None,
-                        "decision": 'BET' if gap_pct >= 5 else ('LEAN' if gap_pct >= 2 else 'PASS'),
+                        "kelly": _kf,
+                        "decision": 'BET' if _edge_prob >= 0.05 else ('LEAN' if _edge_prob >= 0.03 else 'PASS'),
                         "market_type": "totals",
                         "selection": direction,
                         "line": vegas_total,
@@ -2179,20 +2227,28 @@ def _parse_mlb_output(output: str) -> list[dict[str, Any]]:
                 else:
                     direction = 'Under' if total_val < vegas_total else 'Over'
                     pick_label = f"{direction} {vegas_total} ({away_team} vs {home_team})"
-                    gap_pct = abs(total_val - vegas_total) / vegas_total * 100
+                    _odds_price = total_odds if total_odds else -110
+                    _prob = _ou_probability(float(total_val), float(vegas_total), _MLB_TOTALS_RMSE)
+                    _b = abs(_odds_price) / 100 if _odds_price > 0 else 100 / abs(_odds_price or 110)
+                    _implied_prob = 1 / (1 + _b)
+                    _edge_prob = _prob - _implied_prob
+                    _q = 1 - _prob
+                    _k = max((_b * _prob - _q) / _b, 0.0)
+                    _kf = round(_k * 0.25 * 100, 2)
                     ou_pick = {
                         "source": "MLB Model",
                         "pick": pick_label,
                         "sport": league,
-                        "odds": total_odds if total_odds else -110,
+                        "odds": _odds_price,
                         "units": 1,
-                        "probability": None,
-                        "edge": round(gap_pct, 1),
+                        "probability": _prob,
+                        "prob": _prob,
+                        "edge": round(_edge_prob * 100, 2),
                         "vegas": vegas_total,
                         "model_prediction": round(float(total_val), 1),
                         "direction": direction,
-                        "kelly": None,
-                        "decision": 'BET' if gap_pct >= 5 else ('LEAN' if gap_pct >= 2 else 'PASS'),
+                        "kelly": _kf,
+                        "decision": 'BET' if _edge_prob >= 0.05 else ('LEAN' if _edge_prob >= 0.03 else 'PASS'),
                         "market_type": "totals",
                         "selection": direction,
                         "line": vegas_total,
