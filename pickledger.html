@@ -1444,7 +1444,7 @@ function modelResultsEdgeValue(pick) {
 const MODEL_RESULTS_BET_EDGE_PCT = 5;
 const MODEL_RESULTS_LEAN_EDGE_PCT = 3;
 function modelResultsDerivedProbability(pick) {
-  const explicit = normalizeProbabilityValue(pick && pick.probability);
+  const explicit = normalizeProbabilityValue(pick && (pick.prob ?? pick.probability));
   if (explicit != null) return explicit;
   if (pick && pick.model_prediction != null) return null;
   const edge = modelResultsEdgeValue(pick);
@@ -1492,7 +1492,7 @@ function modelResultsPickMatchesKellySide(pick) {
 function modelResultsKellyValue(pick) {
   const verdict = modelResultsVerdict(pick);
   if (!['BET', 'LEAN'].includes(verdict)) return null;
-  const explicitKelly = normalizeNumericValue(pick && pick.kelly_edge && pick.kelly_edge.kelly_frac_pct);
+  const explicitKelly = normalizeNumericValue(pick && (pick.kelly ?? pick.kelly_pct ?? (pick.kelly_edge && pick.kelly_edge.kelly_frac_pct)));
   if (explicitKelly != null && explicitKelly > 0 && modelResultsPickMatchesKellySide(pick)) {
     return explicitKelly;
   }
