@@ -230,6 +230,61 @@ def normalize(text: str) -> str:
     return re.sub(r"\s+", " ", text).strip()
 
 
+_MLB_ALIASES = {
+    'anaheim': 'Los Angeles Angels', 'angels': 'Los Angeles Angels',
+    'la angels': 'Los Angeles Angels',
+    'astros': 'Houston Astros', 'houston': 'Houston Astros',
+    'athletics': 'Oakland Athletics', 'oakland': 'Oakland Athletics',
+    "a's": 'Oakland Athletics',
+    'blue jays': 'Toronto Blue Jays', 'toronto': 'Toronto Blue Jays',
+    'braves': 'Atlanta Braves', 'atlanta': 'Atlanta Braves',
+    'brewers': 'Milwaukee Brewers', 'milwaukee': 'Milwaukee Brewers',
+    'cardinals': 'St. Louis Cardinals', 'st. louis': 'St. Louis Cardinals',
+    'st louis': 'St. Louis Cardinals', 'stl': 'St. Louis Cardinals',
+    'cubs': 'Chicago Cubs', 'chicago cubs': 'Chicago Cubs',
+    'dodgers': 'Los Angeles Dodgers', 'la dodgers': 'Los Angeles Dodgers',
+    'giants': 'San Francisco Giants', 'san francisco': 'San Francisco Giants',
+    'sf giants': 'San Francisco Giants',
+    'guardians': 'Cleveland Guardians', 'gardians': 'Cleveland Guardians',
+    'cleveland': 'Cleveland Guardians',
+    'mariners': 'Seattle Mariners', 'seattle': 'Seattle Mariners',
+    'marlins': 'Miami Marlins', 'miami': 'Miami Marlins',
+    'mets': 'New York Mets', 'ny mets': 'New York Mets',
+    'nationals': 'Washington Nationals', 'washington': 'Washington Nationals',
+    'orioles': 'Baltimore Orioles', 'baltimore': 'Baltimore Orioles',
+    'padres': 'San Diego Padres', 'san diego': 'San Diego Padres',
+    'sd padres': 'San Diego Padres',
+    'phillies': 'Philadelphia Phillies', 'philadelphia': 'Philadelphia Phillies',
+    'pirates': 'Pittsburgh Pirates', 'pittsburgh': 'Pittsburgh Pirates',
+    'rangers': 'Texas Rangers', 'texas': 'Texas Rangers',
+    'rays': 'Tampa Bay Rays', 'tampa bay': 'Tampa Bay Rays',
+    'tb rays': 'Tampa Bay Rays',
+    'red sox': 'Boston Red Sox', 'boston': 'Boston Red Sox',
+    'reds': 'Cincinnati Reds', 'cincinnati': 'Cincinnati Reds',
+    'rockies': 'Colorado Rockies', 'colorado': 'Colorado Rockies',
+    'royals': 'Kansas City Royals', 'kansas city': 'Kansas City Royals',
+    'tigers': 'Detroit Tigers', 'detroit': 'Detroit Tigers',
+    'twins': 'Minnesota Twins', 'minnesota': 'Minnesota Twins',
+    'white sox': 'Chicago White Sox', 'chicago white sox': 'Chicago White Sox',
+    'yankees': 'New York Yankees', 'ny yankees': 'New York Yankees',
+    'diamondbacks': 'Arizona Diamondbacks', 'arizona': 'Arizona Diamondbacks',
+    'd-backs': 'Arizona Diamondbacks',
+}
+
+
+def _norm_mlb(name: str) -> str:
+    """Normalize any MLB team name/alias to canonical full name."""
+    if not name:
+        return ''
+    key = name.strip().lower()
+    if key in _MLB_ALIASES:
+        return _MLB_ALIASES[key]
+    for alias, canonical in _MLB_ALIASES.items():
+        if key.endswith(alias) or key.startswith(alias):
+            return canonical
+    return name.strip()
+
+
 def _default_ledger_state() -> dict[str, Any]:
     return {
         "version": 1,
@@ -1203,6 +1258,25 @@ def team_matches_competitor(team_text: str, comp: dict[str, Any]) -> bool:
     return False
 
 
+def _is_scores24_mlb_pick(pick: dict[str, Any] | None) -> bool:
+    if not isinstance(pick, dict):
+        return False
+    return str(pick.get("source", "")).strip() == "Scores24" and str(pick.get("sport", "")).upper() == "MLB"
+
+
+def _scores24_mlb_team_matches_competitor(team_text: str, comp: dict[str, Any]) -> bool:
+    team_name = _norm_mlb(team_text).lower()
+    if not team_name:
+        return False
+    return any(_norm_mlb(field).lower() == team_name for field in competitor_fields(comp))
+
+
+def _match_pick_team_to_competitor(team_text: str, comp: dict[str, Any], pick: dict[str, Any] | None = None) -> bool:
+    if _is_scores24_mlb_pick(pick):
+        return _scores24_mlb_team_matches_competitor(team_text, comp)
+    return team_matches_competitor(team_text, comp)
+
+
 def get_games(scoreboard: dict[str, Any], completed_only: bool) -> list[dict[str, Any]]:
     games: list[dict[str, Any]] = []
     for event in scoreboard.get("events", []):
@@ -1270,16 +1344,27 @@ def parse_nba_player_prop_pick(pick_text: str) -> dict[str, Any] | None:
     }
 
 
-def find_game_for_pick(games: list[dict[str, Any]], pick_text: str) -> dict[str, Any] | None:
-    matchup = parse_matchup(pick_text)
+def find_game_for_pick(
+    games: list[dict[str, Any]],
+    pick_text: str,
+    pick: dict[str, Any] | None = None,
+) -> dict[str, Any] | None:
+    matchup = None
+    if _is_scores24_mlb_pick(pick):
+        away_team = str((pick or {}).get("away_team") or "").strip()
+        home_team = str((pick or {}).get("home_team") or "").strip()
+        if away_team and home_team:
+            matchup = (_norm_mlb(away_team), _norm_mlb(home_team))
+    if matchup is None:
+        matchup = parse_matchup(pick_text)
     if matchup:
         team_a, team_b = matchup
         for game in games:
             c1 = game["competitors"][0]["raw"]
             c2 = game["competitors"][1]["raw"]
 
-            direct = team_matches_competitor(team_a, c1) and team_matches_competitor(team_b, c2)
-            reverse = team_matches_competitor(team_a, c2) and team_matches_competitor(team_b, c1)
+            direct = _match_pick_team_to_competitor(team_a, c1, pick) and _match_pick_team_to_competitor(team_b, c2, pick)
+            reverse = _match_pick_team_to_competitor(team_a, c2, pick) and _match_pick_team_to_competitor(team_b, c1, pick)
             if direct or reverse:
                 return game
 
@@ -1301,10 +1386,14 @@ def find_game_for_pick(games: list[dict[str, Any]], pick_text: str) -> dict[str,
     return None
 
 
-def resolve_team_score(game: dict[str, Any], team_text: str) -> tuple[int, int] | None:
+def resolve_team_score(
+    game: dict[str, Any],
+    team_text: str,
+    pick: dict[str, Any] | None = None,
+) -> tuple[int, int] | None:
     comps = game["competitors"]
     for idx, c in enumerate(comps):
-        if team_matches_competitor(team_text, c["raw"]):
+        if _match_pick_team_to_competitor(team_text, c["raw"], pick):
             opp = comps[1 - idx]
             return c["score"], opp["score"]
     return None
@@ -1414,7 +1503,7 @@ def grade_pick(pick: dict[str, Any], game: dict[str, Any]) -> str:
         team_label = m_team_total.group(1).strip()
         side = m_team_total.group(2)
         line = float(m_team_total.group(3))
-        resolved = resolve_team_score(game, team_label)
+        resolved = resolve_team_score(game, team_label, pick)
         if resolved is None:
             return "pending"
         team_score = resolved[0]
@@ -1430,7 +1519,7 @@ def grade_pick(pick: dict[str, Any], game: dict[str, Any]) -> str:
         team_label = m_tg.group(1).strip()
         side = m_tg.group(2)
         line = float(m_tg.group(3))
-        resolved = resolve_team_score(game, team_label)
+        resolved = resolve_team_score(game, team_label, pick)
         if resolved is None:
             return "pending"
         team_score = resolved[0]
@@ -1469,7 +1558,7 @@ def grade_pick(pick: dict[str, Any], game: dict[str, Any]) -> str:
             spread = float(m_spread.group(2))
         except ValueError:
             return "pending"
-        resolved = resolve_team_score(game, team_label)
+        resolved = resolve_team_score(game, team_label, pick)
         if resolved is None:
             return "pending"
         team_score, opp_score = resolved
@@ -1482,7 +1571,7 @@ def grade_pick(pick: dict[str, Any], game: dict[str, Any]) -> str:
     m_ml = re.search(r"^(.*?)\s+ml\b", lower)
     if m_ml:
         team_label = m_ml.group(1).strip()
-        resolved = resolve_team_score(game, team_label)
+        resolved = resolve_team_score(game, team_label, pick)
         if resolved is None:
             return "pending"
         team_score, opp_score = resolved
@@ -1493,7 +1582,7 @@ def grade_pick(pick: dict[str, Any], game: dict[str, Any]) -> str:
     # Fallback: treat leading team label as winner pick.
     fallback_team = re.sub(r"\s*[+-]\d+(?:\.\d+)?\s*$", "", head, flags=re.IGNORECASE).strip()
     if fallback_team:
-        resolved = resolve_team_score(game, fallback_team)
+        resolved = resolve_team_score(game, fallback_team, pick)
         if resolved is None:
             return "pending"
         team_score, opp_score = resolved
@@ -1544,7 +1633,7 @@ def auto_grade(picks: list[dict[str, Any]], existing: dict[str, str], year: int)
         all_games = get_games(board, completed_only=False)
 
         for pick in batch:
-            game = find_game_for_pick(all_games, str(pick.get("pick", "")))
+            game = find_game_for_pick(all_games, str(pick.get("pick", "")), pick)
             if game and game.get("startTime"):
                 start_times[str(pick["id"])] = str(game["startTime"])
 
@@ -1560,7 +1649,7 @@ def auto_grade(picks: list[dict[str, Any]], existing: dict[str, str], year: int)
 
         for pick in batch:
             attempted += 1
-            game = find_game_for_pick(games, str(pick.get("pick", "")))
+            game = find_game_for_pick(games, str(pick.get("pick", "")), pick)
             if not game:
                 continue
             if sport_key == "NBA" and parse_nba_player_prop_pick(str(pick.get("pick", ""))):
@@ -2398,6 +2487,18 @@ def _clean_scores24_pick(tip: str, matchup: str, sport: str) -> str:
     return f"{tip_clean} ({matchup_short})"
 
 
+def _parse_scores24_matchup_teams(matchup: str, sport: str) -> tuple[str | None, str | None]:
+    teams = re.split(r"\s+vs\s+", str(matchup or ""), maxsplit=1, flags=re.IGNORECASE)
+    if len(teams) != 2:
+        return None, None
+    away_team = teams[0].strip()
+    home_team = teams[1].strip()
+    if str(sport or "").upper() == "MLB":
+        away_team = _norm_mlb(away_team)
+        home_team = _norm_mlb(home_team)
+    return away_team or None, home_team or None
+
+
 def _normalize_french_text(text: str) -> str:
     normalized = unicodedata.normalize("NFKD", str(text or ""))
     normalized = "".join(ch for ch in normalized if not unicodedata.combining(ch))
@@ -2586,6 +2687,7 @@ def _parse_scores24_output(output: str) -> list[dict[str, Any]]:
 
         # Clean the tip and build proper pick text
         pick_text = _strip_scores24_ot_qualifier(_clean_scores24_pick(tip, matchup, sport))
+        away_team, home_team = _parse_scores24_matchup_teams(matchup, sport)
 
         picks.append({
             "source": "Scores24",
@@ -2596,6 +2698,8 @@ def _parse_scores24_output(output: str) -> list[dict[str, Any]]:
             "probability": conf_val / 100 if conf_val else None,
             "edge": None,
             "decision": "BET",  # All Scores24 tips are presented as BET
+            "away_team": away_team,
+            "home_team": home_team,
         })
 
     if picks:
@@ -2655,6 +2759,7 @@ def _parse_scores24_output(output: str) -> list[dict[str, Any]]:
             conf_num = re.search(r"(\d+)", confidence)
             if conf_num:
                 conf_val = int(conf_num.group(1))
+        away_team, home_team = _parse_scores24_matchup_teams(matchup, sport)
 
         picks.append({
             "source": "Scores24",
@@ -2665,6 +2770,8 @@ def _parse_scores24_output(output: str) -> list[dict[str, Any]]:
             "probability": conf_val / 100 if conf_val else None,
             "edge": None,
             "decision": "BET",
+            "away_team": away_team,
+            "home_team": home_team,
         })
 
     return picks
