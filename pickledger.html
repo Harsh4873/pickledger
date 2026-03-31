@@ -743,6 +743,11 @@
   .dow-day-record { font-family: 'DM Mono', monospace; font-size: 11px; color: var(--muted); letter-spacing: 0.4px; }
   .dow-heat-bar-track { width: 100%; background: rgba(255,255,255,0.08); height: 6px; border-radius: 3px; margin-top: 8px; overflow: hidden; }
   .dow-heat-bar-fill { height: 100%; border-radius: 3px; transition: width 0.6s ease; }
+  .dow-day-card.is-today { border-color: #00c2a8; box-shadow: 0 0 0 1px #00c2a8, 0 0 20px rgba(0,194,168,0.2); }
+  .dow-day-name { font-weight: 800; font-size: 15px; letter-spacing: 1.5px; text-transform: uppercase; color: #e8e8ea; margin-bottom: 8px; }
+  .dow-rate { font-size: 28px; font-weight: 800; letter-spacing: -1px; margin-bottom: 4px; line-height: 1; }
+  .dow-record { font-size: 11px; color: #7a7a82; margin-bottom: 10px; }
+  .dow-verdict { font-size: 10px; font-weight: 700; letter-spacing: 0.8px; text-transform: uppercase; }
   .dow-table { width: 100%; border-collapse: collapse; margin-top: 24px; }
   .dow-table th { background: rgba(0,229,160,0.06); color: var(--accent); padding: 10px; text-align: center; font-size: 13px; border: 1px solid rgba(255,255,255,0.08); }
   .dow-table td { padding: 10px; text-align: center; font-size: 13px; border: 1px solid rgba(255,255,255,0.08); }
@@ -1517,16 +1522,15 @@ function normalizeDayOfWeekDateString(dateStr) {
 }
 
 function safeDayOfWeek(dateStr) {
-  if (!dateStr) return null;
-  const parts = dateStr.split(/[-\\/]/);
-  if (parts.length < 3) return null;
-  const year = parseInt(parts[0], 10);
+  if (!dateStr) return -1;
+  const parts = String(dateStr).split(/[-\/]/);
+  if (parts.length < 3) return -1;
+  const year  = parseInt(parts[0], 10);
   const month = parseInt(parts[1], 10) - 1;
-  const day = parseInt(parts[2], 10);
-  if ([year, month, day].some((value) => Number.isNaN(value))) return null;
-  // Parse date parts directly to avoid UTC midnight timezone rollback
-  const localDate = new Date(year, month, day, 12, 0, 0);
-  return localDate.getDay(); // 0=Sun, 1=Mon, ..., 6=Sat
+  const day   = parseInt(parts[2], 10);
+  const d = new Date(year, month, day, 12, 0, 0);
+  return isNaN(d.getTime()) ? -1 : d.getDay();
+  // Returns: 0=Sun, 1=Mon, 2=Tue, 3=Wed, 4=Thu, 5=Fri, 6=Sat
 }
 
 function createDayOfWeekStatsBucket() {
@@ -1534,11 +1538,13 @@ function createDayOfWeekStatsBucket() {
 }
 
 function addPickToDayOfWeekStats(bucket, pick) {
-  if (!bucket || !pick || pick.result === 'pending') return;
+  if (!bucket || !pick) return;
+  const result = String(pick.result || pick.Result || '').trim().toUpperCase();
+  if (result === 'PENDING' || !result) return;
   bucket.totalPicks += 1;
-  if (pick.result === 'win') bucket.wins += 1;
-  else if (pick.result === 'loss') bucket.losses += 1;
-  else if (pick.result === 'push') bucket.pushes += 1;
+  if (result === 'W' || result === 'WIN') bucket.wins += 1;
+  else if (result === 'L' || result === 'LOSS') bucket.losses += 1;
+  else if (result === 'PUSH') bucket.pushes += 1;
 }
 
 function getDayOfWeekWinRate(stats) {
@@ -1580,8 +1586,8 @@ function buildDayOfWeekChart() {
   const breakdown = document.getElementById('dow-model-breakdown');
   if (!heatmap || !breakdown) return;
 
-  const decidedPicks = getPicks().filter((pick) => pick.result !== 'pending');
-  if (!decidedPicks.length) {
+  const allPicks = getPicks();
+  if (!allPicks.length) {
     heatmap.innerHTML = '<div class="empty-state">No decided picks yet</div>';
     breakdown.innerHTML = '';
     return;
@@ -1590,10 +1596,13 @@ function buildDayOfWeekChart() {
   const overallByDay = DAY_LABELS.map(() => createDayOfWeekStatsBucket());
   const sourceByDay = new Map();
 
-  decidedPicks.forEach((pick) => {
-    const normalizedDate = normalizeDayOfWeekDateString(pick.date);
+  allPicks.forEach((pick) => {
+    const normalizedDate = normalizeDayOfWeekDateString(pick.date || pick.game_date || pick.Date);
     const dayIndex = safeDayOfWeek(normalizedDate);
-    if (dayIndex == null || !overallByDay[dayIndex]) return;
+    if (dayIndex === -1 || !overallByDay[dayIndex]) return;
+
+    const result = String(pick.result || pick.Result || '').trim().toUpperCase();
+    if (result !== 'W' && result !== 'WIN' && result !== 'L' && result !== 'LOSS') return;
 
     addPickToDayOfWeekStats(overallByDay[dayIndex], pick);
 
@@ -1604,16 +1613,40 @@ function buildDayOfWeekChart() {
     addPickToDayOfWeekStats(sourceByDay.get(sourceKey)[dayIndex], pick);
   });
 
-  heatmap.innerHTML = DAY_DISPLAY_ORDER.map((dayIndex) => {
+  const DOW_ORDER = [1, 2, 3, 4, 5, 6, 0];
+  const DOW_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+
+  const getDowDisplay = (wins, losses) => {
+    const totalPicks = wins + losses;
+    if (totalPicks < 5) return { color: '#555', verdictLabel: '— No Data', rateText: '—', barWidth: 0 };
+
+    const winRate = totalPicks > 0 ? (wins / totalPicks) * 100 : 0;
+    if (winRate >= 62) return { color: '#00e676', verdictLabel: '🔥 Bet Heavy', rateText: `${winRate.toFixed(1)}%`, barWidth: winRate };
+    if (winRate >= 55) return { color: '#00c2a8', verdictLabel: '✓ Good', rateText: `${winRate.toFixed(1)}%`, barWidth: winRate };
+    if (winRate >= 50) return { color: '#ffc107', verdictLabel: '~ Caution', rateText: `${winRate.toFixed(1)}%`, barWidth: winRate };
+    if (winRate >= 1) return { color: '#ff5252', verdictLabel: '✗ Skip', rateText: `${winRate.toFixed(1)}%`, barWidth: winRate };
+    return { color: '#ff5252', verdictLabel: '✗ Skip', rateText: `${winRate.toFixed(1)}%`, barWidth: winRate };
+  };
+
+  const decidedCount = overallByDay.reduce((sum, stats) => sum + stats.wins + stats.losses, 0);
+  if (!decidedCount) {
+    heatmap.innerHTML = '<div class="empty-state">No decided picks yet</div>';
+    breakdown.innerHTML = '';
+    return;
+  }
+
+  heatmap.innerHTML = DOW_ORDER.map((dayIndex, displayIndex) => {
     const stats = overallByDay[dayIndex];
-    const rate = getDayOfWeekWinRate(stats);
-    const palette = getDayOfWeekPalette(rate);
-    const barWidth = rate == null ? 0 : Math.max(0, Math.min(rate, 100));
-    return `<div class="dow-day-card" title="${DAY_LABELS[dayIndex]} • ${stats.totalPicks} decided picks">
-      <div class="dow-day-label">${DAY_LABELS[dayIndex]}</div>
-      <div class="dow-day-rate" style="color:${palette.text}">${formatDayOfWeekRate(rate, 1)}</div>
-      <div class="dow-day-record">${stats.wins}W - ${stats.losses}L</div>
-      <div class="dow-heat-bar-track"><div class="dow-heat-bar-fill" style="width:${barWidth}%;background:${palette.fill}"></div></div>
+    const wins = stats.wins;
+    const losses = stats.losses;
+    const totalPicks = wins + losses;
+    const display = getDowDisplay(wins, losses);
+    return `<div class="dow-day-card" data-dow="${dayIndex}" title="${DOW_LABELS[displayIndex]} • ${totalPicks} decided picks">
+      <div class="dow-day-name">${DOW_LABELS[displayIndex]}</div>
+      <div class="dow-rate" style="color: ${display.color}">${display.rateText}</div>
+      <div class="dow-record">${wins}W – ${losses}L</div>
+      <div class="dow-heat-bar-track"><div class="dow-heat-bar-fill" style="width: ${Math.max(0, Math.min(display.barWidth, 100))}%; background: ${display.color}"></div></div>
+      <div class="dow-verdict" style="color: ${display.color}">${display.verdictLabel}</div>
     </div>`;
   }).join('');
 
@@ -1674,6 +1707,13 @@ function initDayOfWeekChartRendering() {
 }
 
 // ── Tabs ──
+  const todayDow = new Date().getDay();
+  document.querySelectorAll('.dow-day-card').forEach(card => {
+    if (parseInt(card.dataset.dow, 10) === todayDow) {
+      card.classList.add('is-today');
+    }
+  });
+
 function switchTab(name) {
   document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
   document.querySelectorAll('.tab-content').forEach(t=>t.classList.remove('active'));
