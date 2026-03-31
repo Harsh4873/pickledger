@@ -1330,7 +1330,9 @@ async function refreshAutoGrades(silent = false) {
     localStorage.setItem(GAME_TIMES_KEY, JSON.stringify(mergedTimes));
     scheduleLedgerStateSync();
 
-    render();
+    if (typeof renderPickLog === 'function') renderPickLog();
+    else if (typeof renderPicks === 'function') renderPicks();
+    else render();
     if (document.getElementById('tab-search').classList.contains('active')) {
       renderSearch();
     }
@@ -1987,37 +1989,137 @@ function switchTab(name) {
 
 // ── Search ──
 function normalizeMLBTeam(name) {
-  if (!name) return name;
+  if (!name) return '';
   const trimmed = String(name).trim();
   const n = trimmed.toLowerCase();
   const map = {
+    // Angels
     'anaheim': 'Los Angeles Angels',
-    'la angels': 'Los Angeles Angels',
     'angels': 'Los Angeles Angels',
-    'gardians': 'Cleveland Guardians',
-    'guardians': 'Cleveland Guardians',
-    'cleveland': 'Cleveland Guardians',
+    'la angels': 'Los Angeles Angels',
+    'los angeles angels': 'Los Angeles Angels',
+    // Astros
+    'astros': 'Houston Astros',
+    'houston': 'Houston Astros',
+    'houston astros': 'Houston Astros',
+    // Athletics
     'athletics': 'Oakland Athletics',
     'oakland': 'Oakland Athletics',
-    'sox': null,
-    'white sox': 'Chicago White Sox',
-    'red sox': 'Boston Red Sox',
-    'chicago white': 'Chicago White Sox',
-    'boston': 'Boston Red Sox',
-    'ny mets': 'New York Mets',
-    'ny yankees': 'New York Yankees',
+    'a\'s': 'Oakland Athletics',
+    'oakland athletics': 'Oakland Athletics',
+    // Blue Jays
+    'blue jays': 'Toronto Blue Jays',
+    'toronto': 'Toronto Blue Jays',
+    'toronto blue jays': 'Toronto Blue Jays',
+    // Braves
+    'braves': 'Atlanta Braves',
+    'atlanta': 'Atlanta Braves',
+    'atlanta braves': 'Atlanta Braves',
+    // Brewers
+    'brewers': 'Milwaukee Brewers',
+    'milwaukee': 'Milwaukee Brewers',
+    'milwaukee brewers': 'Milwaukee Brewers',
+    // Cardinals
+    'cardinals': 'St. Louis Cardinals',
+    'st. louis': 'St. Louis Cardinals',
+    'stl': 'St. Louis Cardinals',
+    'st louis': 'St. Louis Cardinals',
+    // Cubs
+    'cubs': 'Chicago Cubs',
+    'chicago cubs': 'Chicago Cubs',
+    // Dodgers
+    'dodgers': 'Los Angeles Dodgers',
     'la dodgers': 'Los Angeles Dodgers',
-    'la clippers': null,
+    'los angeles dodgers': 'Los Angeles Dodgers',
+    // Giants
+    'giants': 'San Francisco Giants',
     'sf giants': 'San Francisco Giants',
+    'san francisco': 'San Francisco Giants',
+    'san francisco giants': 'San Francisco Giants',
+    // Guardians
+    'guardians': 'Cleveland Guardians',
+    'gardians': 'Cleveland Guardians',
+    'cleveland': 'Cleveland Guardians',
+    'cleveland guardians': 'Cleveland Guardians',
+    // Mariners
+    'mariners': 'Seattle Mariners',
+    'seattle': 'Seattle Mariners',
+    'seattle mariners': 'Seattle Mariners',
+    // Marlins
+    'marlins': 'Miami Marlins',
+    'miami': 'Miami Marlins',
+    'miami marlins': 'Miami Marlins',
+    // Mets
+    'mets': 'New York Mets',
+    'ny mets': 'New York Mets',
+    'new york mets': 'New York Mets',
+    // Nationals
+    'nationals': 'Washington Nationals',
+    'washington': 'Washington Nationals',
+    'washington nationals': 'Washington Nationals',
+    // Orioles
+    'orioles': 'Baltimore Orioles',
+    'baltimore': 'Baltimore Orioles',
+    'baltimore orioles': 'Baltimore Orioles',
+    // Padres
+    'padres': 'San Diego Padres',
+    'san diego': 'San Diego Padres',
+    'san diego padres': 'San Diego Padres',
     'sd padres': 'San Diego Padres',
+    // phillies
+    'phillies': 'Philadelphia Phillies',
+    'philadelphia': 'Philadelphia Phillies',
+    'philadelphia phillies': 'Philadelphia Phillies',
+    // Pirates
+    'pirates': 'Pittsburgh Pirates',
+    'pittsburgh': 'Pittsburgh Pirates',
+    'pittsburgh pirates': 'Pittsburgh Pirates',
+    // Rangers
+    'rangers': 'Texas Rangers',
+    'texas': 'Texas Rangers',
+    'texas rangers': 'Texas Rangers',
+    // rays
+    'rays': 'Tampa Bay Rays',
+    'tampa bay': 'Tampa Bay Rays',
     'tb rays': 'Tampa Bay Rays',
+    'tampa bay rays': 'Tampa Bay Rays',
+    // Red Sox
+    'red sox': 'Boston Red Sox',
+    'boston': 'Boston Red Sox',
+    'boston red sox': 'Boston Red Sox',
+    // Reds
+    'reds': 'Cincinnati Reds',
+    'cincinnati': 'Cincinnati Reds',
+    'cincinnati reds': 'Cincinnati Reds',
+    // Rockies
+    'rockies': 'Colorado Rockies',
+    'colorado': 'Colorado Rockies',
+    'colorado rockies': 'Colorado Rockies',
+    // Royals
+    'royals': 'Kansas City Royals',
+    'kansas city': 'Kansas City Royals',
+    'kansas city royals': 'Kansas City Royals',
+    // Tigers
+    'tigers': 'Detroit Tigers',
+    'detroit': 'Detroit Tigers',
+    'detroit tigers': 'Detroit Tigers',
+    // Twins
+    'twins': 'Minnesota Twins',
+    'minnesota': 'Minnesota Twins',
+    // White Sox
+    'white sox': 'Chicago White Sox',
+    'chicago white sox': 'Chicago White Sox',
+    // Yankees
+    'yankees': 'New York Yankees',
+    'ny yankees': 'New York Yankees',
+    'new york yankees': 'New York Yankees',
+    // Diamondbacks
+    'diamondbacks': 'Arizona Diamondbacks',
+    'arizona': 'Arizona Diamondbacks',
+    'd-backs': 'Arizona Diamondbacks',
+    'arizona diamondbacks': 'Arizona Diamondbacks',
   };
-  for (const [k, v] of Object.entries(map)) {
-    if (n === k || n.startsWith(`${k} `) || n.endsWith(` ${k}`)) {
-      return v || trimmed;
-    }
-  }
-  return trimmed;
+  return map[n] || trimmed;
 }
 
 function extractGameKey(pickText, sport) {
@@ -2821,8 +2923,30 @@ function renderTrends() {
 
 // ── Render ──
 function render() {
-  const picks = getPicks();
+  let picks = getPicks();
   const gameTimes = getGameTimes();
+
+  // Re-normalize MLB game keys on every render so existing picks get fixed.
+  if (typeof normalizeMLBTeam === 'function') {
+    picks = picks.map(p => {
+      if ((p.sport || '').toUpperCase() !== 'MLB') return p;
+      let t1 = normalizeMLBTeam(p.away_team || p.team1 || '');
+      let t2 = normalizeMLBTeam(p.home_team || p.team2 || '');
+      if (!t1 || !t2) {
+        const parsedKey = extractGameKey(p.pick, p.sport);
+        const parts = String(parsedKey || '').split(/\s+(?:vs|@)\s+/i).map(s => s.trim()).filter(Boolean);
+        if (parts.length === 2) {
+          t1 = t1 || normalizeMLBTeam(parts[0]);
+          t2 = t2 || normalizeMLBTeam(parts[1]);
+        }
+      }
+      const newKey = [t1, t2].filter(Boolean).sort((a, b) => a.localeCompare(b)).join(' vs ');
+      if (newKey && newKey !== ' vs ') {
+        return { ...p, _gameKey: newKey };
+      }
+      return p;
+    });
+  }
 
   // Leaderboard (Rankings tab)
   const rankingSources = [...new Set(picks.map(p => getRankingSourceKey(p)))];
@@ -2907,7 +3031,7 @@ function render() {
   const allGameStartIso = {};
   picks.forEach(p => {
     const inferredLabel = inferNbaPropsMatchupLabel(p, picks);
-    const gameLabel = extractGameKey(p.pick, p.sport) || inferredLabel || p.pick;
+    const gameLabel = p._gameKey || extractGameKey(p.pick, p.sport) || inferredLabel || p.pick;
     const key = `${p.sport}::${p.date}::${gameLabel || p.id}`;
     const iso = gameTimes[String(p.id)] || '';
     if (!iso) return;
@@ -2922,7 +3046,7 @@ function render() {
 
   const detailedSeed = filtered.map(p => {
     const inferredLabel = inferNbaPropsMatchupLabel(p, picks);
-    const gameLabel = extractGameKey(p.pick, p.sport) || inferredLabel || p.pick;
+    const gameLabel = p._gameKey || extractGameKey(p.pick, p.sport) || inferredLabel || p.pick;
     const key = `${p.sport}::${p.date}::${gameLabel || p.id}`;
     const ownIso = gameTimes[String(p.id)] || '';
     const resolvedIso = allGameStartIso[key] || ownIso;
