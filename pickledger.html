@@ -769,6 +769,40 @@
     .dow-day-card { min-width: calc(50% - 16px); }
     .dow-table th, .dow-table td { padding: 8px; font-size: 12px; }
   }
+
+  /* ── Kelly Edge Badge ─────────────────────────────────── */
+  .kelly-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.8px;
+    text-transform: uppercase;
+    margin-top: 8px;
+    width: fit-content;
+  }
+  .kelly-badge.BET    { background: rgba(0,230,118,0.15); color: #00e676; border: 1px solid rgba(0,230,118,0.3); }
+  .kelly-badge.LEAN   { background: rgba(255,193,7,0.15);  color: #ffc107; border: 1px solid rgba(255,193,7,0.3); }
+  .kelly-badge.PASS   { background: rgba(255,255,255,0.06); color: #7a7a82; border: 1px solid rgba(255,255,255,0.1); }
+  .kelly-badge.FADE   { background: rgba(255,82,82,0.15);  color: #ff5252; border: 1px solid rgba(255,82,82,0.3); }
+  .kelly-badge.NO_LINE, .kelly-badge.ERROR, .kelly-badge.NO_MODEL_SPREAD {
+    background: rgba(255,255,255,0.04); color: #555; border: 1px solid rgba(255,255,255,0.06);
+  }
+  .kelly-details {
+    display: flex;
+    gap: 14px;
+    margin-top: 5px;
+    font-size: 11px;
+    color: #7a7a82;
+    flex-wrap: wrap;
+  }
+  .kelly-details span { display: flex; flex-direction: column; gap: 1px; }
+  .kelly-details .kd-label { font-size: 9px; text-transform: uppercase; letter-spacing: 0.8px; color: #555; }
+  .kelly-details .kd-val   { font-size: 12px; font-weight: 600; color: #aaa; }
+  .kelly-wrap { margin-top: 10px; padding-top: 10px; border-top: 1px solid rgba(255,255,255,0.06); }
 </style>
 </head>
 <body>
@@ -2723,12 +2757,62 @@ function render() {
         <option value="push" ${p.result==='push'?'selected':''}>PUSH</option>
         <option value="delete">DELETE</option></select>`;
       const plHtml = showSettled ? `<span class="pick-bubble-pl ${pc}">${ps}</span>` : '';
+      const sourceUpper = String(p.source || '').toUpperCase();
+      const isNbaNewPick = sourceUpper.includes('NBANEW') || sourceUpper.includes('NBA NEW');
       currentBubbles.push(`<div class="pick-bubble">
         <span class="pick-bubble-source">${getRankingSourceKey(p)}</span>
         <span class="pick-bubble-pick">${p.pick}</span>
         <span class="pick-bubble-odds">${formatOddsOrProbabilityDisplay(p.odds, p.probability)}</span>
         <span class="pick-bubble-result">${res}</span>
         ${plHtml}
+        ${isNbaNewPick && p.kelly_edge ? (() => {
+          const ke = p.kelly_edge;
+          const v  = ke.verdict || 'PASS';
+          const verdictLabel = {
+            BET: '🔥 Bet',
+            LEAN: '~ Lean',
+            PASS: '— Pass',
+            FADE: '✗ Fade',
+            NO_LINE: '— No Line',
+            ERROR: '— Error',
+            NO_MODEL_SPREAD: '— No Spread'
+          }[v] || v;
+
+          const edgeRow = (ke.edge_pct != null) ? `
+            <div class="kelly-details">
+              <span>
+                <div class="kd-label">Edge</div>
+                <div class="kd-val">${ke.edge_pct}%</div>
+              </span>
+              <span>
+                <div class="kd-label">Model P</div>
+                <div class="kd-val">${ke.model_prob}%</div>
+              </span>
+              <span>
+                <div class="kd-label">Market P</div>
+                <div class="kd-val">${ke.market_prob}%</div>
+              </span>
+              <span>
+                <div class="kd-label">Kelly Stake</div>
+                <div class="kd-val">${ke.kelly_frac_pct}%</div>
+              </span>
+              <span>
+                <div class="kd-label">Bet Side</div>
+                <div class="kd-val">${ke.bet_side || '—'}</div>
+              </span>
+              ${ke.vegas_spread != null ? `
+              <span>
+                <div class="kd-label">Vegas Line</div>
+                <div class="kd-val">${ke.vegas_spread > 0 ? '+' : ''}${ke.vegas_spread}</div>
+              </span>` : ''}
+            </div>` : '';
+
+          return `
+            <div class="kelly-wrap">
+              <div class="kelly-badge ${v}">${verdictLabel}</div>
+              ${edgeRow}
+            </div>`;
+        })() : ''}
       </div>`);
     });
     flushBlock(currentTitle, currentMeta);
