@@ -3554,10 +3554,31 @@ function initSportyTraderSyncMeta() {
   }
 }
 
+function removePickLogNhlFilterOption() {
+  const filterBar = document.getElementById('filter-bar');
+  if (!filterBar) return;
+  filterBar.querySelectorAll('.filter-btn').forEach((button) => {
+    if (String(button.textContent || '').trim() === 'NHL') {
+      button.remove();
+    }
+  });
+}
+
+function initPickLogFilterCleanup() {
+  const filterBar = document.getElementById('filter-bar');
+  if (!filterBar) return;
+  const observer = new MutationObserver(() => {
+    removePickLogNhlFilterOption();
+  });
+  observer.observe(filterBar, { childList: true, subtree: true });
+  removePickLogNhlFilterOption();
+}
+
 initTheme();
 initializeNbaModelDate();
 initScores24SyncMeta();
 initSportyTraderSyncMeta();
+initPickLogFilterCleanup();
 syncWithServer().catch(() => setSyncStatus('offline'));
 loadNbaPropsGames();
 const savedTab = localStorage.getItem('pickledger_tab') || 'home';
