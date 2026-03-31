@@ -722,32 +722,47 @@
 
   #day-of-week-section { margin-top: 48px; padding: 0 0 48px 0; }
   .dow-subtitle { color: var(--muted); font-size: 12px; margin-bottom: 24px; font-family: 'DM Mono', monospace; letter-spacing: 0.4px; }
-  #dow-overall-heatmap { display: flex; flex-wrap: wrap; margin: 0 -8px; }
+  #dow-overall-heatmap { display: flex; gap: 14px; flex-wrap: wrap; margin-bottom: 28px; }
   #dow-model-breakdown { margin-top: 8px; overflow-x: auto; }
   .dow-day-card {
     display: inline-flex;
     flex-direction: column;
     align-items: center;
-    gap: 8px;
-    background: var(--card);
-    border: 1px solid rgba(0,229,160,0.22);
-    border-radius: 16px;
-    padding: 20px;
-    min-width: 120px;
-    margin: 8px;
+    gap: 14px;
+    background: #161618;
+    border: 1px solid rgba(255,255,255,0.07);
+    border-radius: 24px;
+    padding: 22px 18px 18px;
+    min-width: 170px;
+    flex: 1;
     text-align: center;
-    box-shadow: 0 0 0 1px rgba(0,229,160,0.04), 0 12px 28px rgba(0,0,0,0.16);
+    transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+    cursor: default;
   }
+  .dow-day-card:hover { transform: translateY(-3px); box-shadow: 0 16px 34px rgba(0,0,0,0.35); }
   .dow-day-label { font-family: 'Bebas Neue', sans-serif; font-size: 28px; letter-spacing: 1px; color: var(--text); }
   .dow-day-rate { font-family: 'Bebas Neue', sans-serif; font-size: 34px; line-height: 1; }
   .dow-day-record { font-family: 'DM Mono', monospace; font-size: 11px; color: var(--muted); letter-spacing: 0.4px; }
-  .dow-heat-bar-track { width: 100%; background: rgba(255,255,255,0.08); height: 6px; border-radius: 3px; margin-top: 8px; overflow: hidden; }
-  .dow-heat-bar-fill { height: 100%; border-radius: 3px; transition: width 0.6s ease; }
-  .dow-day-card.is-today { border-color: #00c2a8; box-shadow: 0 0 0 1px #00c2a8, 0 0 20px rgba(0,194,168,0.2); }
-  .dow-day-name { font-weight: 800; font-size: 15px; letter-spacing: 1.5px; text-transform: uppercase; color: #e8e8ea; margin-bottom: 8px; }
-  .dow-rate { font-size: 28px; font-weight: 800; letter-spacing: -1px; margin-bottom: 4px; line-height: 1; }
-  .dow-record { font-size: 11px; color: #7a7a82; margin-bottom: 10px; }
-  .dow-verdict { font-size: 10px; font-weight: 700; letter-spacing: 0.8px; text-transform: uppercase; }
+  .dow-heat-bar-track { width: 100%; background: rgba(255,255,255,0.08); height: 6px; border-radius: 999px; overflow: hidden; }
+  .dow-heat-bar-fill { height: 100%; border-radius: 999px; transition: width 0.8s ease; }
+  .dow-day-card.is-today { border-color: #19d3d1; box-shadow: 0 0 0 1px #19d3d1, 0 0 28px rgba(25,211,209,0.24); }
+  .dow-day-card.is-today:hover { border-color: #4da6ff; box-shadow: 0 0 0 1px #4da6ff, 0 0 32px rgba(77,166,255,0.28); }
+  .dow-day-name { font-weight: 800; font-size: 19px; letter-spacing: 1.6px; text-transform: uppercase; color: #ececef; line-height: 1; }
+  .dow-today-pill { display: inline-flex; align-items: center; justify-content: center; min-width: 68px; padding: 5px 12px; border-radius: 999px; background: #12d5ca; color: #081012; font-family: 'DM Mono', monospace; font-size: 11px; font-weight: 700; letter-spacing: 0.8px; text-transform: uppercase; }
+  .dow-sport-stack { width: 100%; display: flex; flex-direction: column; gap: 12px; }
+  .dow-sport-panel { width: 100%; border-radius: 16px; padding: 14px 14px 12px; text-align: left; }
+  .dow-sport-panel.is-good { background: rgba(13, 56, 44, 0.85); }
+  .dow-sport-panel.is-caution { background: rgba(70, 58, 22, 0.85); }
+  .dow-sport-panel.is-skip { background: rgba(70, 28, 31, 0.85); }
+  .dow-sport-panel.is-nodata { background: rgba(45, 45, 52, 0.82); }
+  .dow-sport-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 10px; }
+  .dow-sport-pill { display: inline-flex; align-items: center; justify-content: center; min-width: 58px; padding: 6px 14px; border-radius: 999px; font-family: 'DM Mono', monospace; font-size: 13px; font-weight: 700; letter-spacing: 0.8px; }
+  .dow-sport-pill.nba { background: rgba(255, 119, 51, 0.16); color: #ff7a2f; }
+  .dow-sport-pill.mlb { background: rgba(77, 166, 255, 0.14); color: #52c2ff; }
+  .dow-rate { font-size: 22px; font-weight: 800; letter-spacing: -0.8px; line-height: 1; }
+  .dow-record { margin-top: 8px; font-size: 11px; color: rgba(233,233,238,0.75); letter-spacing: 0.4px; }
+  .dow-verdict { margin-top: 10px; font-size: 11px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; }
+  .dow-day-summary { width: 100%; padding: 16px 14px; border-radius: 14px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.06); color: #8d9099; font-size: 15px; line-height: 1.35; }
   .dow-table { width: 100%; border-collapse: collapse; margin-top: 24px; }
   .dow-table th { background: rgba(0,229,160,0.06); color: var(--accent); padding: 10px; text-align: center; font-size: 13px; border: 1px solid rgba(255,255,255,0.08); }
   .dow-table td { padding: 10px; text-align: center; font-size: 13px; border: 1px solid rgba(255,255,255,0.08); }
@@ -756,7 +771,12 @@
   .dow-cell-yellow { background: rgba(255,200,0,0.15); color: #ffc800; }
   .dow-cell-red { background: rgba(255,80,80,0.15); color: #ff5050; }
   .dow-cell-gray { background: rgba(255,255,255,0.05); color: #666; }
-  body[data-theme="light"] .dow-day-card { border-color: rgba(11,157,116,0.22); box-shadow: var(--shadow-soft); }
+  body[data-theme="light"] .dow-day-card { background: #ffffff; border-color: rgba(15,25,40,0.08); box-shadow: var(--shadow-soft); }
+  body[data-theme="light"] .dow-sport-panel.is-good { background: rgba(11,157,116,0.12); }
+  body[data-theme="light"] .dow-sport-panel.is-caution { background: rgba(255,193,7,0.16); }
+  body[data-theme="light"] .dow-sport-panel.is-skip { background: rgba(255,82,82,0.12); }
+  body[data-theme="light"] .dow-sport-panel.is-nodata { background: rgba(15,25,40,0.06); }
+  body[data-theme="light"] .dow-day-summary { background: rgba(15,25,40,0.04); color: #5f6774; }
   body[data-theme="light"] .dow-heat-bar-track { background: rgba(15,25,40,0.08); }
   body[data-theme="light"] .dow-table th { background: rgba(11,157,116,0.08); }
 
@@ -766,7 +786,8 @@
     .leaderboard { grid-template-columns: 1fr; }
     .tab { padding: 12px 14px; font-size: 14px; letter-spacing: 1px; }
     .search-input { font-size: 14px; padding: 14px 16px 14px 42px; }
-    .dow-day-card { min-width: calc(50% - 16px); }
+    #dow-overall-heatmap { gap: 10px; }
+    .dow-day-card { min-width: calc(50% - 10px); padding: 18px 14px 14px; }
     .dow-table th, .dow-table td { padding: 8px; font-size: 12px; }
   }
 
@@ -803,6 +824,15 @@
   .kelly-details .kd-label { font-size: 9px; text-transform: uppercase; letter-spacing: 0.8px; color: #555; }
   .kelly-details .kd-val   { font-size: 12px; font-weight: 600; color: #aaa; }
   .kelly-wrap { margin-top: 10px; padding-top: 10px; border-top: 1px solid rgba(255,255,255,0.06); }
+  .model-results-verdict { display: flex; align-items: center; }
+  .model-results-verdict .kelly-badge { margin-top: 0; }
+  .model-pred-val {
+    font-weight: 700;
+    font-size: 13px;
+    color: #00c2a8;
+    font-variant-numeric: tabular-nums;
+  }
+  .pick-model-pred { text-align: center; min-width: 80px; }
 </style>
 </head>
 <body>
@@ -992,7 +1022,7 @@
       <div class="panel">
         <div class="table-wrap">
           <table>
-            <thead><tr><th style="width:32px"><input type="checkbox" id="model-select-all" onchange="toggleAllModelPicks(this.checked)" title="Select all"></th><th>SOURCE</th><th>PICK</th><th>SPORT</th><th>ODDS</th><th>PROB</th><th>EDGE</th><th>DECISION</th></tr></thead>
+            <thead><tr><th style="width:32px"><input type="checkbox" id="model-select-all" onchange="toggleAllModelPicks(this.checked)" title="Select all"></th><th>SOURCE</th><th>PICK</th><th>SPORT</th><th>ODDS</th><th>PROB</th><th>EDGE</th><th>VEGAS</th><th>MODEL PRED</th><th>KELLY</th><th>DECISION</th></tr></thead>
             <tbody id="model-results-body"></tbody>
           </table>
         </div>
@@ -1034,12 +1064,9 @@ function normalizeServerBase(value) {
 function inferDefaultModelServer() {
   const pageProtocol = /^https?:$/i.test(window.location.protocol) ? window.location.protocol : 'http:';
   const pageHost = String(window.location.hostname || '').trim();
-  const pageOrigin = normalizeServerBase(window.location.origin);
   if (!pageHost) return 'http://127.0.0.1:8765';
-  if (LOOPBACK_HOST_RE.test(pageHost)) {
-    return `${pageProtocol}//127.0.0.1:8765`;
-  }
-  return pageOrigin || `${pageProtocol}//${pageHost}`;
+  const serverHost = LOOPBACK_HOST_RE.test(pageHost) ? '127.0.0.1' : pageHost;
+  return `${pageProtocol}//${serverHost}:8765`;
 }
 
 const DEFAULT_MODEL_SERVER = inferDefaultModelServer();
@@ -1351,10 +1378,13 @@ function calcPL(u,r) {
   if(r==='loss') return -u;
   return u;
 }
-function normalizeOddsValue(value) {
+function normalizeNumericValue(value) {
   if (value == null || value === '') return null;
   const num = Number(value);
   return Number.isFinite(num) ? num : null;
+}
+function normalizeOddsValue(value) {
+  return normalizeNumericValue(value);
 }
 function formatOddsDisplay(odds) {
   const num = normalizeOddsValue(odds);
@@ -1372,6 +1402,137 @@ function formatOddsOrProbabilityDisplay(odds, probability) {
   const prob = normalizeProbabilityValue(probability);
   if (prob == null) return '—';
   return `${(prob * 100).toFixed(1)}%`;
+}
+function americanImpliedProb(odds) {
+  const num = normalizeNumericValue(odds);
+  if (num == null || num === 0) return null;
+  if (num > 0) return 100 / (num + 100);
+  return Math.abs(num) / (Math.abs(num) + 100);
+}
+function quarterKellyPct(odds, probability, maxPct = 5) {
+  const price = normalizeNumericValue(odds);
+  const prob = normalizeProbabilityValue(probability);
+  if (price == null || prob == null || prob <= 0 || prob >= 1) return null;
+  const decimalNet = price > 0 ? price / 100 : 100 / Math.abs(price);
+  if (!(decimalNet > 0)) return null;
+  const fullKellyFrac = (decimalNet * prob - (1 - prob)) / decimalNet;
+  if (!(fullKellyFrac > 0)) return 0;
+  return Math.min(fullKellyFrac * 0.25 * 100, maxPct);
+}
+function isProjectedTotalPick(pickText) {
+  const text = String(pickText || '').trim().toLowerCase();
+  return text.startsWith('projected total') || text.startsWith('o/u ') || text.startsWith('over ') || text.startsWith('under ');
+}
+function modelResultsFallbackOdds(pick) {
+  if (!pick) return null;
+  if (normalizeNumericValue(pick.odds) != null) return normalizeNumericValue(pick.odds);
+  if (normalizeNumericValue(pick.assumed_odds) != null) return normalizeNumericValue(pick.assumed_odds);
+  if (!['NBA', 'MLB'].includes(String(pick.sport || '').toUpperCase())) return null;
+  const prob = normalizeProbabilityValue(pick.probability);
+  if (prob != null || normalizeNumericValue(pick && (pick.market_edge != null ? pick.market_edge : pick.edge)) != null) return -110;
+  return null;
+}
+function modelResultsEdgeValue(pick) {
+  const explicit = normalizeNumericValue(pick && (pick.market_edge != null ? pick.market_edge : pick.edge));
+  if (explicit != null) return explicit;
+  const odds = modelResultsFallbackOdds(pick);
+  const prob = normalizeProbabilityValue(pick && pick.probability);
+  const implied = americanImpliedProb(odds);
+  if (prob == null || implied == null) return null;
+  return (prob - implied) * 100;
+}
+const MODEL_RESULTS_BET_EDGE_PCT = 5;
+const MODEL_RESULTS_LEAN_EDGE_PCT = 3;
+function modelResultsDerivedProbability(pick) {
+  const explicit = normalizeProbabilityValue(pick && pick.probability);
+  if (explicit != null) return explicit;
+  if (pick && pick.model_prediction != null) return null;
+  const edge = modelResultsEdgeValue(pick);
+  const implied = americanImpliedProb(modelResultsFallbackOdds(pick));
+  if (edge == null || implied == null) return null;
+  const derived = implied + (edge / 100);
+  if (!Number.isFinite(derived)) return null;
+  return Math.max(0, Math.min(1, derived));
+}
+function modelResultsVerdict(pick) {
+  const explicit = String(pick && pick.kelly_edge && pick.kelly_edge.verdict || '').toUpperCase();
+  if (explicit) return explicit;
+  const explicitDecision = String(pick && pick.decision || '').toUpperCase();
+  if (pick && pick.model_prediction != null && explicitDecision) return explicitDecision;
+  const edge = modelResultsEdgeValue(pick);
+  if (edge == null) return String(pick && pick.decision || 'PASS').toUpperCase();
+  if (edge >= MODEL_RESULTS_BET_EDGE_PCT) return 'BET';
+  if (edge >= MODEL_RESULTS_LEAN_EDGE_PCT) return 'LEAN';
+  if (edge <= -MODEL_RESULTS_BET_EDGE_PCT) return 'FADE';
+  return 'PASS';
+}
+function modelResultsVerdictLabel(verdict) {
+  return {
+    BET: 'BET',
+    LEAN: 'LEAN',
+    PASS: 'PASS',
+    FADE: 'FADE',
+    NO_LINE: 'NO LINE',
+    ERROR: 'ERROR',
+    NO_MODEL_SPREAD: 'NO SPREAD',
+  }[String(verdict || '').toUpperCase()] || String(verdict || 'PASS').toUpperCase();
+}
+function modelResultsPickMatchesKellySide(pick) {
+  const ke = pick && pick.kelly_edge;
+  if (!ke || !ke.bet_side) return true;
+  const team = String(pick.team || '').trim();
+  const home = String(pick.home_team || '').trim();
+  const away = String(pick.away_team || '').trim();
+  const side = String(ke.bet_side || '').toUpperCase();
+  if (!team || !home || !away) return true;
+  if (side.includes('HOME')) return team === home;
+  if (side.includes('AWAY')) return team === away;
+  return true;
+}
+function modelResultsKellyValue(pick) {
+  const verdict = modelResultsVerdict(pick);
+  if (!['BET', 'LEAN'].includes(verdict)) return null;
+  const explicitKelly = normalizeNumericValue(pick && pick.kelly_edge && pick.kelly_edge.kelly_frac_pct);
+  if (explicitKelly != null && explicitKelly > 0 && modelResultsPickMatchesKellySide(pick)) {
+    return explicitKelly;
+  }
+  if (pick && pick.model_prediction != null) return null;
+  const explicitOdds = normalizeNumericValue(pick && pick.odds);
+  const explicitUnits = normalizeNumericValue(pick && pick.units);
+  if (explicitOdds != null && explicitUnits != null && explicitUnits > 0 && verdict === 'BET') {
+    return explicitUnits;
+  }
+  const fallbackKelly = quarterKellyPct(modelResultsFallbackOdds(pick), modelResultsDerivedProbability(pick));
+  if (fallbackKelly == null || fallbackKelly <= 0) return null;
+  return fallbackKelly;
+}
+function formatModelResultsLineValue(lineValue, useSign = false) {
+  const line = normalizeNumericValue(lineValue);
+  if (line == null) return '—';
+  const formatted = Number.isInteger(line) ? line.toFixed(0) : line.toFixed(1);
+  return useSign && line > 0 ? `+${formatted}` : formatted;
+}
+function modelResultsVegasDisplay(pick) {
+  const kellySpread = normalizeNumericValue(pick && pick.kelly_edge && pick.kelly_edge.vegas_spread);
+  if (kellySpread != null) return formatModelResultsLineValue(kellySpread, true);
+  const marketLine = normalizeNumericValue(pick && (pick.market_line != null ? pick.market_line : pick.line));
+  if (marketLine != null) return formatModelResultsLineValue(marketLine, !isProjectedTotalPick(pick && pick.pick));
+  const totalMatch = String(pick && pick.pick || '').match(/(?:^|\s)(?:O\/U|Over|Under)\s+([0-9]+(?:\.[0-9]+)?)/i);
+  if (totalMatch) return formatModelResultsLineValue(totalMatch[1], false);
+  const odds = modelResultsFallbackOdds(pick);
+  if (odds != null) return formatOddsDisplay(odds);
+  return '—';
+}
+function formatKellyDisplay(units, decision) {
+  const num = normalizeNumericValue(units);
+  if (String(decision || '').toUpperCase() !== 'BET') return '—';
+  if (num == null || num <= 0) return '—';
+  return `${num.toFixed(2)}%`;
+}
+function modelResultsKellyDisplay(pick) {
+  const kelly = modelResultsKellyValue(pick);
+  if (kelly == null || kelly <= 0) return '—';
+  return `${kelly.toFixed(2)}%`;
 }
 function getResults() { return JSON.parse(localStorage.getItem(RESULTS_KEY)||'{}'); }
 function getGameTimes() { return JSON.parse(localStorage.getItem(GAME_TIMES_KEY)||'{}'); }
@@ -1628,6 +1789,10 @@ function buildDayOfWeekChart() {
   }
 
   const overallByDay = DAY_LABELS.map(() => createDayOfWeekStatsBucket());
+  const sportDayStats = {
+    NBA: DAY_LABELS.map(() => createDayOfWeekStatsBucket()),
+    MLB: DAY_LABELS.map(() => createDayOfWeekStatsBucket()),
+  };
   const sourceByDay = new Map();
 
   allPicks.forEach((pick) => {
@@ -1639,6 +1804,10 @@ function buildDayOfWeekChart() {
     if (result !== 'W' && result !== 'WIN' && result !== 'L' && result !== 'LOSS') return;
 
     addPickToDayOfWeekStats(overallByDay[dayIndex], pick);
+    const sportKey = String(pick.sport || '').trim().toUpperCase();
+    if (sportDayStats[sportKey]) {
+      addPickToDayOfWeekStats(sportDayStats[sportKey][dayIndex], pick);
+    }
 
     const sourceKey = getRankingSourceKey(pick);
     if (!sourceByDay.has(sourceKey)) {
@@ -1650,16 +1819,50 @@ function buildDayOfWeekChart() {
   const DOW_ORDER = [1, 2, 3, 4, 5, 6, 0];
   const DOW_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
-  const getDowDisplay = (wins, losses) => {
+  const getDowDisplay = (wins, losses, sportLabel = '') => {
     const totalPicks = wins + losses;
-    if (totalPicks < 5) return { color: '#555', verdictLabel: '— No Data', rateText: '—', barWidth: 0 };
+    if (totalPicks < 5) {
+      return { color: '#555', verdictLabel: 'NO DATA', rateText: '—', barWidth: 0, tone: 'nodata' };
+    }
 
     const winRate = totalPicks > 0 ? (wins / totalPicks) * 100 : 0;
-    if (winRate >= 62) return { color: '#00e676', verdictLabel: '🔥 Bet Heavy', rateText: `${winRate.toFixed(1)}%`, barWidth: winRate };
-    if (winRate >= 55) return { color: '#00c2a8', verdictLabel: '✓ Good', rateText: `${winRate.toFixed(1)}%`, barWidth: winRate };
-    if (winRate >= 50) return { color: '#ffc107', verdictLabel: '~ Caution', rateText: `${winRate.toFixed(1)}%`, barWidth: winRate };
-    if (winRate >= 1) return { color: '#ff5252', verdictLabel: '✗ Skip', rateText: `${winRate.toFixed(1)}%`, barWidth: winRate };
-    return { color: '#ff5252', verdictLabel: '✗ Skip', rateText: `${winRate.toFixed(1)}%`, barWidth: winRate };
+    if (winRate >= 62) return { color: '#00e676', verdictLabel: `🔥 BET HEAVY${sportLabel ? ' ' + sportLabel : ''}`, rateText: `${winRate.toFixed(1)}%`, barWidth: winRate, tone: 'good' };
+    if (winRate >= 55) return { color: '#00cfc2', verdictLabel: `✓ GOOD${sportLabel ? ' ' + sportLabel : ''}`, rateText: `${winRate.toFixed(1)}%`, barWidth: winRate, tone: 'good' };
+    if (winRate >= 50) return { color: '#ffc107', verdictLabel: `~ CAUTION${sportLabel ? ' ' + sportLabel : ''}`, rateText: `${winRate.toFixed(1)}%`, barWidth: winRate, tone: 'caution' };
+    if (winRate >= 1) return { color: '#ff5252', verdictLabel: `✗ SKIP${sportLabel ? ' ' + sportLabel : ''}`, rateText: `${winRate.toFixed(1)}%`, barWidth: winRate, tone: 'skip' };
+    return { color: '#ff5252', verdictLabel: `✗ SKIP${sportLabel ? ' ' + sportLabel : ''}`, rateText: `${winRate.toFixed(1)}%`, barWidth: winRate, tone: 'skip' };
+  };
+
+  const buildSportPanel = (sportKey, display) => {
+    const sportClass = sportKey.toLowerCase();
+    const panelClass = `dow-sport-panel is-${display.tone}`;
+    const statsText = display.recordText;
+    return `<div class="${panelClass}">
+      <div class="dow-sport-head">
+        <div class="dow-sport-pill ${sportClass}">${sportKey}</div>
+        <div class="dow-rate" style="color: ${display.color}">${display.rateText}</div>
+      </div>
+      <div class="dow-heat-bar-track"><div class="dow-heat-bar-fill" style="width: ${Math.max(0, Math.min(display.barWidth, 100))}%; background: ${display.color}"></div></div>
+      <div class="dow-verdict" style="color: ${display.color}">${display.verdictLabel}</div>
+      <div class="dow-record">${statsText}</div>
+    </div>`;
+  };
+
+  const buildDaySummary = (dayLabel, nbaDisplay, mlbDisplay) => {
+    const liveDisplays = [nbaDisplay, mlbDisplay].filter(display => display.tone !== 'nodata');
+    if (!liveDisplays.length) return `${dayLabel} is thin across both leagues. No reliable sample yet.`;
+    if (liveDisplays.length === 1) {
+      const only = liveDisplays[0];
+      const league = only.sportKey;
+      if (only.tone === 'good') return `${league} is carrying ${dayLabel}. Lean ${league} only.`;
+      if (only.tone === 'caution') return `${league} is breakeven on ${dayLabel}. Keep volume light.`;
+      return `${dayLabel} has been rough for ${league}. Pass weak ${league} looks.`;
+    }
+    if (nbaDisplay.tone === 'good' && mlbDisplay.tone === 'good') return `${dayLabel} is live for both leagues. Press the strongest edges.`;
+    if (nbaDisplay.tone === 'skip' && mlbDisplay.tone === 'skip') return `${dayLabel} is a weak board overall. Skip low-conviction spots.`;
+    if (nbaDisplay.tone === 'good' && mlbDisplay.tone !== 'good') return `NBA is the cleaner ${dayLabel} angle. Be selective with MLB.`;
+    if (mlbDisplay.tone === 'good' && nbaDisplay.tone !== 'good') return `MLB has the stronger ${dayLabel} profile. Treat NBA cautiously.`;
+    return `${dayLabel} is mixed across NBA and MLB. Pick spots, not volume.`;
   };
 
   const decidedCount = overallByDay.reduce((sum, stats) => sum + stats.wins + stats.losses, 0);
@@ -1669,20 +1872,39 @@ function buildDayOfWeekChart() {
     return;
   }
 
+  const todayDow = new Date().getDay();
   heatmap.innerHTML = DOW_ORDER.map((dayIndex, displayIndex) => {
-    const stats = overallByDay[dayIndex];
-    const wins = stats.wins;
-    const losses = stats.losses;
-    const totalPicks = wins + losses;
-    const display = getDowDisplay(wins, losses);
+    const dayLabel = DOW_LABELS[displayIndex];
+    const nbaStats = sportDayStats.NBA[dayIndex];
+    const mlbStats = sportDayStats.MLB[dayIndex];
+    const totalPicks = nbaStats.wins + nbaStats.losses + mlbStats.wins + mlbStats.losses;
+    const nbaDisplay = {
+      ...getDowDisplay(nbaStats.wins, nbaStats.losses, 'NBA'),
+      sportKey: 'NBA',
+      recordText: `${nbaStats.wins}W – ${nbaStats.losses}L`,
+    };
+    const mlbDisplay = {
+      ...getDowDisplay(mlbStats.wins, mlbStats.losses, 'MLB'),
+      sportKey: 'MLB',
+      recordText: `${mlbStats.wins}W – ${mlbStats.losses}L`,
+    };
+    const summary = buildDaySummary(dayLabel, nbaDisplay, mlbDisplay);
     return `<div class="dow-day-card" data-dow="${dayIndex}" title="${DOW_LABELS[displayIndex]} • ${totalPicks} decided picks">
-      <div class="dow-day-name">${DOW_LABELS[displayIndex]}</div>
-      <div class="dow-rate" style="color: ${display.color}">${display.rateText}</div>
-      <div class="dow-record">${wins}W – ${losses}L</div>
-      <div class="dow-heat-bar-track"><div class="dow-heat-bar-fill" style="width: ${Math.max(0, Math.min(display.barWidth, 100))}%; background: ${display.color}"></div></div>
-      <div class="dow-verdict" style="color: ${display.color}">${display.verdictLabel}</div>
+      <div class="dow-day-name">${dayLabel}</div>
+      ${todayDow === dayIndex ? '<div class="dow-today-pill">Today</div>' : ''}
+      <div class="dow-sport-stack">
+        ${buildSportPanel('NBA', nbaDisplay)}
+        ${buildSportPanel('MLB', mlbDisplay)}
+      </div>
+      <div class="dow-day-summary">${summary}</div>
     </div>`;
   }).join('');
+
+  document.querySelectorAll('.dow-day-card').forEach(card => {
+    if (parseInt(card.dataset.dow, 10) === todayDow) {
+      card.classList.add('is-today');
+    }
+  });
 
   const sortedSources = [...sourceByDay.keys()].sort((a, b) => {
     const aStats = getSourceStats(a);
@@ -1741,13 +1963,6 @@ function initDayOfWeekChartRendering() {
 }
 
 // ── Tabs ──
-  const todayDow = new Date().getDay();
-  document.querySelectorAll('.dow-day-card').forEach(card => {
-    if (parseInt(card.dataset.dow, 10) === todayDow) {
-      card.classList.add('is-today');
-    }
-  });
-
 function switchTab(name) {
   document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
   document.querySelectorAll('.tab-content').forEach(t=>t.classList.remove('active'));
@@ -3279,22 +3494,6 @@ function saveSportyTraderCachedFeed(payload) {
   localStorage.setItem(SPORTYTRADER_CACHE_KEY, JSON.stringify(payload));
 }
 
-function describeSportyTraderPickSummary(picks) {
-  const list = Array.isArray(picks) ? picks : [];
-  const counts = { NBA: 0, MLB: 0 };
-  list.forEach((pick) => {
-    const sport = String(pick && pick.sport || '').toUpperCase();
-    if (sport === 'NBA' || sport === 'MLB') {
-      counts[sport] += 1;
-    }
-  });
-  const parts = [];
-  if (counts.NBA) parts.push(`${counts.NBA} NBA`);
-  if (counts.MLB) parts.push(`${counts.MLB} MLB`);
-  if (!parts.length) return '0 pick(s)';
-  return `${list.length} pick(s) (${parts.join(', ')})`;
-}
-
 function formatScores24SyncMeta(meta) {
   if (!meta) return 'Last sync: never';
   const from = String(meta.from || '').trim();
@@ -3590,23 +3789,17 @@ async function runModel(model) {
     try {
       setModelStatus(model, 'Trying live SportyTrader backend sync...', 'running');
       const synced = await syncSportyTraderFromServer();
-      if (!Array.isArray(synced.picks) || !synced.picks.length) {
-        throw new Error('no NBA/MLB picks returned from backend');
-      }
       _clearNbaComparisonResults();
       pendingModelPicks = synced.picks;
       renderModelResults(synced.picks, { meta: '' });
       saveSportyTraderCachedFeed({ picks: synced.picks, meta: synced.meta });
       setSportyTraderSyncMeta(synced.meta);
-      setModelStatus(model, `Synced ${describeSportyTraderPickSummary(synced.picks)} from backend`, 'ok');
+      setModelStatus(model, `Synced ${synced.picks.length} NBA pick(s) from backend`, 'ok');
     } catch (e) {
       backendErr = String(e && e.message ? e.message : e);
       try {
         setModelStatus(model, 'Backend sync unavailable, loading feed file...', 'running');
         const loaded = await loadSportyTraderManualFeed();
-        if (!Array.isArray(loaded.picks) || !loaded.picks.length) {
-          throw new Error('no NBA/MLB picks in feed');
-        }
         _clearNbaComparisonResults();
         pendingModelPicks = loaded.picks;
         renderModelResults(loaded.picks, { meta: '' });
@@ -3617,7 +3810,7 @@ async function runModel(model) {
         };
         saveSportyTraderCachedFeed({ picks: loaded.picks, meta });
         setSportyTraderSyncMeta(meta);
-        setModelStatus(model, `Loaded ${describeSportyTraderPickSummary(loaded.picks)} from feed file`, 'ok');
+        setModelStatus(model, `Loaded ${loaded.picks.length} NBA pick(s) from feed file`, 'ok');
       } catch (feedErr) {
         const cached = getSportyTraderCachedFeed();
         if (cached && Array.isArray(cached.picks) && _isFreshFeedMeta(cached.meta)) {
@@ -3625,7 +3818,7 @@ async function runModel(model) {
           pendingModelPicks = cached.picks;
           renderModelResults(cached.picks, { meta: '' });
           setSportyTraderSyncMeta({ ...(cached.meta || {}), from: 'cache' });
-          setModelStatus(model, `Using cached SportyTrader feed (${describeSportyTraderPickSummary(cached.picks)})`, 'ok');
+          setModelStatus(model, `Using cached SportyTrader feed (${cached.picks.length} pick(s))`, 'ok');
         } else {
           const feedMsg = String(feedErr && feedErr.message ? feedErr.message : feedErr);
           setModelStatus(model, `Sync failed (${backendErr}); feed unavailable (${feedMsg})`, 'error');
@@ -3698,18 +3891,24 @@ function renderModelResults(picks, options = {}) {
   pendingModelPicks = sorted.map(({ pick }) => pick);
   let lastSource = '';
   tbody.innerHTML = sorted.map(({ pick: p }, idx) => {
-    const isBet = p.decision === 'BET';
-    const cls = isBet ? 'model-result-bet' : 'model-result-pass';
-    const edgeStr = p.edge != null ? (p.edge > 0 ? '+' : '') + p.edge.toFixed(1) + '%' : '—';
-    const probStr = p.probability != null ? (p.probability * 100).toFixed(1) + '%' : '—';
-    const oddsStr = formatOddsDisplay(p.odds);
+    const verdict = modelResultsVerdict(p);
+    const isBet = verdict === 'BET';
+    const isActionable = verdict === 'BET' || verdict === 'LEAN';
+    const edgeNum = modelResultsEdgeValue(p);
+    const probNum = modelResultsDerivedProbability(p);
+    const edgeStr = edgeNum != null ? (edgeNum > 0 ? '+' : '') + edgeNum.toFixed(1) + '%' : '—';
+    const probStr = probNum != null ? (probNum * 100).toFixed(1) + '%' : '—';
+    const oddsStr = formatOddsDisplay(modelResultsFallbackOdds(p));
+    const vegasStr = modelResultsVegasDisplay(p);
+    const kellyStr = modelResultsKellyDisplay(p);
+    const verdictLabel = modelResultsVerdictLabel(verdict);
     const source = String(p.source || '').toUpperCase();
     const sourceDisplay = sourceDisplayLabels[source] || p.source || 'MODEL';
     const groupHeader = source !== lastSource
-      ? `<tr class="model-result-group-row"><td colspan="8">${sourceDisplay}</td></tr>`
+      ? `<tr class="model-result-group-row"><td colspan="11">${sourceDisplay}</td></tr>`
       : '';
     lastSource = source;
-    return `${groupHeader}<tr class="${isBet ? '' : 'model-result-pass-row'}" style="${isBet ? '' : 'opacity:0.5'}">
+    return `${groupHeader}<tr class="${isActionable ? '' : 'model-result-pass-row'}" style="${isActionable ? '' : 'opacity:0.55'}">
       <td><input type="checkbox" class="model-pick-cb" data-idx="${idx}" ${isBet ? 'checked' : ''} onchange="updateModelSelectAll()"></td>
       <td><span class="badge badge-source">${sourceDisplay}</span></td>
       <td><div class="log-pick-main">${p.pick}</div></td>
@@ -3717,7 +3916,14 @@ function renderModelResults(picks, options = {}) {
       <td><span class="log-odds-text">${oddsStr}</span></td>
       <td><span class="log-odds-text">${probStr}</span></td>
       <td><span class="log-odds-text">${edgeStr}</span></td>
-      <td class="${cls}"><span class="log-pl-text">${p.decision}</span></td>
+      <td><span class="log-odds-text">${vegasStr}</span></td>
+      <td class="pick-model-pred">
+        ${p.model_prediction != null
+          ? `<span class="model-pred-val">${p.model_prediction}</span>`
+          : '—'}
+      </td>
+      <td><span class="log-odds-text">${kellyStr}</span></td>
+      <td><div class="model-results-verdict"><span class="kelly-badge ${verdict}">${verdictLabel}</span></div></td>
     </tr>`;
   }).join('');
   const addSelectedBtn = document.getElementById('btn-add-selected');
@@ -3726,7 +3932,7 @@ function renderModelResults(picks, options = {}) {
   }
   const addAllBtn = document.getElementById('btn-add-picks');
   if (addAllBtn) {
-    const betCount = picks.filter(p => p.decision === 'BET').length;
+    const betCount = picks.filter(p => modelResultsVerdict(p) === 'BET').length;
     addAllBtn.disabled = betCount === 0;
     addAllBtn.textContent = 'ADD ALL BET PICKS TO LEDGER';
   }
@@ -3832,7 +4038,16 @@ function _appendModelPicksToLedger(candidates) {
       sport: String(p.sport || 'Other'),
       units: Number(p.units) || 1,
       odds: normalizeOddsValue(p.odds),
-      probability: normalizeProbabilityValue(p.probability),
+      assumed_odds: normalizeOddsValue(p.assumed_odds),
+      probability: modelResultsDerivedProbability(p),
+      edge: modelResultsEdgeValue(p),
+      decision: modelResultsVerdict(p),
+      market_line: normalizeNumericValue(p.market_line),
+      line: normalizeNumericValue(p.line),
+      team: p.team || '',
+      home_team: p.home_team || '',
+      away_team: p.away_team || '',
+      kelly_edge: p.kelly_edge || null,
     };
 
     const isDup = [...activeLedgerPicks, ...newEntries].some(ep => _isDuplicatePick(ep, shaped, dateStr));
@@ -3850,6 +4065,15 @@ function _appendModelPicksToLedger(candidates) {
       units: shaped.units,
       odds: shaped.odds,
       probability: shaped.probability,
+      edge: shaped.edge,
+      decision: shaped.decision,
+      assumed_odds: shaped.assumed_odds,
+      market_line: shaped.market_line,
+      line: shaped.line,
+      team: shaped.team,
+      home_team: shaped.home_team,
+      away_team: shaped.away_team,
+      kelly_edge: shaped.kelly_edge,
       result: 'pending'
     });
     added++;
@@ -3881,7 +4105,7 @@ function addSelectedPicksToLedger() {
 }
 
 function addModelPicksToLedger() {
-  const betPicks = pendingModelPicks.filter(p => p.decision === 'BET');
+  const betPicks = pendingModelPicks.filter(p => modelResultsVerdict(p) === 'BET');
   if (!betPicks.length) { alert('No BET picks to add.'); return; }
 
   const { added } = _appendModelPicksToLedger(betPicks);
