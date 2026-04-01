@@ -13,6 +13,7 @@ import json
 import os
 import re
 import sys
+import time
 import unicodedata
 from datetime import datetime, timedelta
 from html import unescape
@@ -1134,7 +1135,8 @@ def run_with_olostep(args) -> int:
             return matchup, "", {}
 
         resolved: list[tuple[dict[str, str], str, dict]] = [({}, "", {}) for _ in expected_matchups]
-        max_workers = max(1, min(len(expected_matchups), 4 if requested_league == "nba" else 1))
+        parallel_leagues = {"nba", "mlb"}
+        max_workers = max(1, min(len(expected_matchups), 4 if requested_league in parallel_leagues else 1))
         with ThreadPoolExecutor(max_workers=max_workers) as executor:
             future_map = {
                 executor.submit(_resolve_matchup, matchup): idx
@@ -1292,7 +1294,44 @@ def load_page(ctx, url: str, wait_ms: int = 6000):
 
 
 def pause_for_manual_cloudflare(ctx, url: str):
-    return
+    """Open a visible browser, let user solve CF challenge, return the page."""
+    page = ctx.new_page()
+    try:
+        page.goto(url, timeout=25000, wait_until="domcontentloaded")
+    except Exception:
+        pass
+
+    print("Please solve the Cloudflare challenge in the browser window...")
+    deadline = time.time() + 90
+
+    while time.time() < deadline:
+        try:
+            title = page.title()
+        except Exception:
+            title = ""
+        try:
+            current_url = page.url
+        except Exception:
+            current_url = url
+
+        title_ok = "just a moment" not in title.lower()
+        url_ok = current_url.rstrip("/") != url.rstrip("/")
+        block_cleared = False
+        if title_ok or url_ok:
+            try:
+                body_head = page.evaluate("() => (document.body?.innerText || '').slice(0, 1200)")
+            except Exception:
+                body_head = ""
+            block_cleared = not _looks_like_cloudflare_block(f"{title}\n{body_head}")
+
+        if block_cleared:
+            page.wait_for_timeout(1500)
+            return page
+
+        page.wait_for_timeout(1000)
+
+    page.close()
+    return None
 
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -1806,12 +1845,17 @@ def main():
 
             if not listing_page:
                 if status == 403:
-                    print("Listing page status: ❌ Cloudflare blocked this runtime (status 403)")
-                    print("Hint: Configure PLAYWRIGHT_PROXY_SERVER (and optional PLAYWRIGHT_PROXY_USERNAME/PLAYWRIGHT_PROXY_PASSWORD) for Render.")
-                    pause_for_manual_cloudflare(ctx, used_listing_url or listing_url)
+                    print("Listing page status: ⚠️  Cloudflare challenge — opening browser for manual solve...")
+                    solved_page = pause_for_manual_cloudflare(ctx, used_listing_url or listing_url)
+                    if solved_page:
+                        listing_page = solved_page
+                        print("Listing page status: ✅ Cloudflare solved — continuing scrape")
+                    else:
+                        print("Listing page status: ❌ Cloudflare not solved — giving up")
+                        return
                 else:
                     print(f"Listing page status: ❌ Page failed (status {status})")
-                return
+                    return
             if used_listing_url and used_listing_url != listing_url:
                 print(f"Listing URL fallback: {used_listing_url}")
             print("Listing page status: ✅ Page loaded")
