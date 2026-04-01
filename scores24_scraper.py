@@ -270,6 +270,126 @@ def fetch_daily_matchups(sport_slug: str, date_str: str | None) -> list[dict[str
     return matchups
 
 
+def _schedule_team_matches(team_text: str, candidate_text: str) -> bool:
+    team_norm = _normalize_match_text(team_text)
+    cand_norm = _normalize_match_text(candidate_text)
+    if not team_norm or not cand_norm:
+        return False
+
+    team_aliases = _team_code_aliases(team_text)
+    cand_aliases = _team_code_aliases(candidate_text)
+    if team_aliases and cand_aliases and team_aliases & cand_aliases:
+        return True
+
+    if team_norm == cand_norm:
+        return True
+    if len(team_norm) > 3 and team_norm in cand_norm:
+        return True
+    if len(cand_norm) > 3 and cand_norm in team_norm:
+        return True
+
+    team_tokens = team_norm.split()
+    cand_tokens = cand_norm.split()
+    if len(team_tokens) >= 2 and len(cand_tokens) >= 2:
+        return " ".join(team_tokens[-2:]) == " ".join(cand_tokens[-2:])
+    return False
+
+
+def _fetch_mlb_schedule_http(date_str: str) -> list[dict[str, str]]:
+    url = f"https://statsapi.mlb.com/api/v1/schedule?sportId=1&date={date_str}"
+    req = Request(url, headers={"User-Agent": "Scores24Scraper/1.0"})
+    with urlopen(req, timeout=20) as resp:
+        data = json.loads(resp.read().decode("utf-8"))
+
+    games: list[dict[str, str]] = []
+    for day in data.get("dates", []) if isinstance(data, dict) else []:
+        for game in day.get("games", []) if isinstance(day, dict) else []:
+            teams = game.get("teams", {}) if isinstance(game, dict) else {}
+            away = ((teams.get("away") or {}).get("team") or {}).get("name")
+            home = ((teams.get("home") or {}).get("team") or {}).get("name")
+            game_datetime = str(game.get("gameDate") or "").strip()
+            away_name = str(away or "").strip()
+            home_name = str(home or "").strip()
+            if not away_name or not home_name:
+                continue
+            games.append({
+                "away_name": away_name,
+                "home_name": home_name,
+                "game_datetime": game_datetime,
+            })
+    return games
+
+
+def _validate_mlb_picks_against_schedule(picks, target_date_str):
+    """
+    Filter/flag MLB picks that don't match real statsapi schedule.
+    Returns picks with 'start_time' populated from statsapi if matched,
+    or with 'start_time' = '' and 'unverified' = True if not matched.
+    """
+    try:
+        try:
+            import statsapi  # type: ignore
+        except Exception:
+            statsapi = None
+        from datetime import datetime, timedelta
+
+        base = datetime.strptime(target_date_str, "%Y-%m-%d")
+        # Check yesterday, today, tomorrow to handle UTC offset.
+        real_games: list[dict[str, str]] = []
+        for delta in (0, -1, 1):
+            d = base + timedelta(days=delta)
+            if statsapi is not None:
+                try:
+                    day_games = statsapi.schedule(date=d.strftime("%m/%d/%Y"), sportId=1)
+                except Exception:
+                    day_games = _fetch_mlb_schedule_http(d.strftime("%Y-%m-%d"))
+            else:
+                day_games = _fetch_mlb_schedule_http(d.strftime("%Y-%m-%d"))
+            for game in day_games or []:
+                away_name = str(game.get("away_name") or "").strip()
+                home_name = str(game.get("home_name") or "").strip()
+                if not away_name or not home_name:
+                    continue
+                real_games.append({
+                    "away_name": away_name,
+                    "home_name": home_name,
+                    "game_datetime": str(game.get("game_datetime") or "").strip(),
+                })
+
+        result = []
+        for pick in picks:
+            away_name = str(pick.get("away_team") or "").strip()
+            home_name = str(pick.get("home_team") or "").strip()
+            if (not away_name or not home_name) and " vs " in str(pick.get("matchup") or ""):
+                left, right = [part.strip() for part in str(pick.get("matchup") or "").split(" vs ", 1)]
+                home_name = home_name or left
+                away_name = away_name or right
+
+            matched_time = ""
+            for game in real_games:
+                away_match = _schedule_team_matches(away_name, str(game.get("away_name") or ""))
+                home_match = _schedule_team_matches(home_name, str(game.get("home_name") or ""))
+                reverse_away_match = _schedule_team_matches(away_name, str(game.get("home_name") or ""))
+                reverse_home_match = _schedule_team_matches(home_name, str(game.get("away_name") or ""))
+                if (away_match and home_match) or (reverse_away_match and reverse_home_match):
+                    matched_time = str(game.get("game_datetime") or "").strip()
+                    break
+
+            if matched_time:
+                pick["start_time"] = matched_time
+                pick["unverified"] = False
+            else:
+                pick["start_time"] = ""
+                pick["unverified"] = True
+                print(f"[WARN] No statsapi match for: {away_name or '?'} vs {home_name or '?'}")
+            result.append(pick)
+        return result
+
+    except Exception as e:
+        print(f"[WARN] Schedule validation failed: {e}")
+        return picks
+
+
 def _prediction_matches_matchup(pred: dict, matchup: dict[str, str]) -> bool:
     home = str(pred.get("homeTeam", "") or "").strip()
     away = str(pred.get("awayTeam", "") or "").strip()
@@ -307,6 +427,40 @@ def _matches_requested_date(date_str: str, card: dict, variants: list[str]) -> b
         return dt.astimezone(ZoneInfo("America/New_York")).strftime("%Y-%m-%d") == date_str
     except Exception:
         return False
+
+
+def _build_scraped_pick(pred: dict, card: dict, url: str) -> dict:
+    card_copy = dict(card or {})
+    home = str(pred.get("homeTeam") or card_copy.get("home", "") or "").strip()
+    away = str(pred.get("awayTeam") or card_copy.get("away", "") or "").strip()
+    matchup = f"{home} vs {away}" if home and away else str(pred.get("matchTitle", "") or "").strip()
+    return {
+        "pred": pred,
+        "card": card_copy,
+        "url": url,
+        "matchup": matchup,
+        "away_team": away,
+        "home_team": home,
+        "start_time": str(card_copy.get("start_time") or card_copy.get("isoDate") or "").strip(),
+        "unverified": False,
+    }
+
+
+def _emit_scraped_predictions(entries: list[dict], requested_league: str | None, target_date_str: str | None, sport_label: str, stats: dict) -> None:
+    if _requested_league_key(requested_league) == "mlb":
+        effective_date = (target_date_str or "").strip() or datetime.now(ZoneInfo("America/New_York")).strftime("%Y-%m-%d")
+        entries = _validate_mlb_picks_against_schedule(entries, effective_date)
+
+    for entry in entries:
+        if entry.get("unverified"):
+            stats["unverified"] = stats.get("unverified", 0) + 1
+            continue
+        card = dict(entry.get("card") or {})
+        start_time = str(entry.get("start_time") or "").strip()
+        if start_time:
+            card["start_time"] = start_time
+        print_prediction(entry.get("pred") or {}, card, sport_label, str(entry.get("url") or ""))
+        stats["loaded"] += 1
 
 def guess_urls(sport_slug: str, date_str: str, matchup_str: str) -> list[str]:
     if not date_str or "vs" not in matchup_str.lower(): return []
@@ -899,6 +1053,7 @@ def run_with_olostep(args) -> int:
                 "isoDate": "",
                 "visDate": "",
                 "visTime": "",
+                "start_time": "",
                 "league": sport_label,
                 "confidence": "",
             })
@@ -932,6 +1087,7 @@ def run_with_olostep(args) -> int:
                     "isoDate": "",
                     "visDate": "",
                     "visTime": "",
+                    "start_time": "",
                     "league": sport_label,
                     "confidence": "",
                 })
@@ -955,7 +1111,7 @@ def run_with_olostep(args) -> int:
         return 0
 
     if expected_matchups and not args.matchup:
-        stats = {"loaded": 0, "404": 0, "no_data": 0}
+        stats = {"loaded": 0, "404": 0, "no_data": 0, "unverified": 0}
         discovered_urls = [str(card.get("href", "")).strip() for card in filtered if str(card.get("href", "")).strip()]
 
         def _resolve_matchup(matchup: dict[str, str]) -> tuple[dict[str, str], str, dict]:
@@ -993,13 +1149,13 @@ def run_with_olostep(args) -> int:
                 except Exception:
                     resolved[idx] = (expected_matchups[idx], "", {})
 
+        entries: list[dict] = []
         for matchup, chosen_url, pred in resolved:
             if not chosen_url:
                 stats["no_data"] += 1
                 continue
 
-            stats["loaded"] += 1
-            print_prediction(
+            entries.append(_build_scraped_pick(
                 pred,
                 {
                     "league": pred.get("league", sport_label),
@@ -1008,11 +1164,13 @@ def run_with_olostep(args) -> int:
                     "isoDate": "",
                     "visDate": "",
                     "visTime": "",
+                    "start_time": "",
                     "confidence": "",
                 },
-                sport_label,
                 chosen_url,
-            )
+            ))
+
+        _emit_scraped_predictions(entries, requested_league, args.date, sport_label, stats)
 
         print("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
         print("SUMMARY")
@@ -1020,10 +1178,13 @@ def run_with_olostep(args) -> int:
         print(f"Individual pages loaded:        {stats['loaded']}")
         print(f"Individual pages 404'd:         {stats['404']}")
         print(f"Matchups with no data:          {stats['no_data']}")
+        if stats.get("unverified"):
+            print(f"Unverified MLB picks skipped:   {stats['unverified']}")
         print("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
         return 0 if stats["loaded"] else 1
 
-    stats = {"loaded": 0, "404": 0, "no_data": 0}
+    stats = {"loaded": 0, "404": 0, "no_data": 0, "unverified": 0}
+    entries: list[dict] = []
     for card in filtered:
         full_url = card["href"]
         pred = _scrape_prediction_with_retry(full_url, sport_label)
@@ -1033,14 +1194,19 @@ def run_with_olostep(args) -> int:
             continue
         if expected_matchups and not any(_prediction_matches_matchup(pred, matchup) for matchup in expected_matchups):
             continue
-        stats["loaded"] += 1
-        print_prediction(pred, {"league": pred.get("league", sport_label)}, sport_label, full_url)
+        entry_card = dict(card)
+        entry_card["league"] = pred.get("league", sport_label)
+        entries.append(_build_scraped_pick(pred, entry_card, full_url))
+
+    _emit_scraped_predictions(entries, requested_league, args.date, sport_label, stats)
 
     print("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
     print("SUMMARY")
     print(f"Total matches extracted:        {len(filtered)}")
     print(f"Individual pages loaded:        {stats['loaded']}")
     print(f"Individual pages 404'd:         {stats['404']}")
+    if stats.get("unverified"):
+        print(f"Unverified MLB picks skipped:   {stats['unverified']}")
     print("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
     return 0
 
@@ -1194,6 +1360,27 @@ LISTING_JS = """
         const dateMeta = card.querySelector('meta[itemprop="startDate"]');
         const isoDate = dateMeta ? dateMeta.content : '';
 
+        let startTime = '';
+        const timeCandidates = [
+            card.querySelector('time[datetime]'),
+            card.querySelector('[datetime]'),
+            card.querySelector('[data-time]'),
+            card.querySelector('[data-start-time]'),
+            dateMeta,
+        ].filter(Boolean);
+        for (const node of timeCandidates) {
+            const value =
+                node.getAttribute('datetime') ||
+                node.getAttribute('data-time') ||
+                node.getAttribute('data-start-time') ||
+                node.getAttribute('content') ||
+                '';
+            if (value) {
+                startTime = value.trim();
+                break;
+            }
+        }
+
         const dateSpans = card.querySelectorAll('span');
         let visDate = '';
         let visTime = '';
@@ -1201,6 +1388,12 @@ LISTING_JS = """
             const t = sp.textContent.trim();
             if (/^\\d{1,2}\\s+[A-Za-z]{3}/.test(t)) visDate = t;
             if (/^\\d{2}:\\d{2}$/.test(t)) visTime = t;
+        }
+        if (!startTime) {
+            if (visDate && visTime) startTime = `${visDate} ${visTime}`;
+            else if (isoDate) startTime = isoDate;
+            else if (visDate) startTime = visDate;
+            else if (visTime) startTime = visTime;
         }
 
         const league = card.querySelector('span')
@@ -1219,7 +1412,7 @@ LISTING_JS = """
             }
         }
 
-        return { href, home, away, isoDate, visDate, visTime, league, confidence };
+        return { href, home, away, isoDate, visDate, visTime, start_time: startTime, league, confidence };
     });
 }
 """
@@ -1278,6 +1471,7 @@ def _normalize_listing_card(card: dict, source_url: str) -> dict:
     href = _normalize_prediction_page_url(normalized.get("href", ""))
     if href:
         normalized["href"] = href
+    normalized["start_time"] = str(normalized.get("start_time") or normalized.get("isoDate") or "").strip()
     normalized["sourceListingUrl"] = source_url
     return normalized
 
@@ -1302,6 +1496,7 @@ def _collect_listing_cards(page, source_url: str) -> tuple[list[dict], list[str]
                 "isoDate": "",
                 "visDate": "",
                 "visTime": "",
+                "start_time": "",
                 "league": "",
                 "confidence": "",
             }, source_url))
@@ -1476,9 +1671,9 @@ def print_prediction(pred: dict, card: dict, sport_label: str, url: str):
     away = pred.get("awayTeam") or card.get("away", "")
     match_str = f"{home} vs {away}" if home and away else pred.get("matchTitle", "[unknown]")
 
-    date_str = pred.get("date") or card.get("visDate", "")
-    if card.get("visTime"):
-        date_str = f"{date_str}, {card['visTime']}"
+    date_str = str(card.get("start_time") or "").strip() or pred.get("date") or card.get("visDate", "")
+    if not card.get("start_time") and card.get("visTime"):
+        date_str = f"{date_str}, {card['visTime']}" if date_str else card["visTime"]
 
     league = card.get("league") or sport_label
     tip = pred.get("tip", "")
@@ -1644,7 +1839,7 @@ def main():
             if not filtered:
                 direct_links = extract_prediction_links(listing_page)
                 for href in direct_links:
-                    c = {"href": href, "home": "", "away": "", "isoDate": "", "visDate": "", "visTime": "", "league": sport_label, "confidence": ""}
+                    c = {"href": href, "home": "", "away": "", "isoDate": "", "visDate": "", "visTime": "", "start_time": "", "league": sport_label, "confidence": ""}
                     if variants:
                         if not _href_matches_requested_date(href, args.date, variants):
                             continue
@@ -1716,7 +1911,8 @@ def main():
                 return
 
             # ── EXTRACT DATA ──
-            stats = {"loaded": 0, "404": 0, "no_data": 0}
+            stats = {"loaded": 0, "404": 0, "no_data": 0, "unverified": 0}
+            entries: list[dict] = []
 
             for card in filtered:
                 href = card.get("href", "")
@@ -1748,14 +1944,17 @@ def main():
                 if not _prediction_matches_requested_sport(pred, card, args.sport):
                     continue
 
-                stats["loaded"] += 1
-                print_prediction(pred, card, sport_label, full_url)
+                entries.append(_build_scraped_pick(pred, card, full_url))
+
+            _emit_scraped_predictions(entries, requested_league, args.date, sport_label, stats)
 
             print("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
             print("SUMMARY")
             print(f"Total matches extracted:        {len(filtered)}")
             print(f"Individual pages loaded:        {stats['loaded']}")
             print(f"Individual pages 404'd:         {stats['404']}")
+            if stats.get("unverified"):
+                print(f"Unverified MLB picks skipped:   {stats['unverified']}")
             print("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
         finally:
             ctx.close()
