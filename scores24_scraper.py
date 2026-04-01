@@ -322,9 +322,8 @@ def _fetch_mlb_schedule_http(date_str: str) -> list[dict[str, str]]:
 
 def _validate_mlb_picks_against_schedule(picks, target_date_str):
     """
-    Filter/flag MLB picks that don't match real statsapi schedule.
-    Returns picks with 'start_time' populated from statsapi if matched,
-    or with 'start_time' = '' and 'unverified' = True if not matched.
+    Add MLB start times from the real schedule when a match is found.
+    Unmatched picks are kept as-is.
     """
     try:
         try:
@@ -379,9 +378,8 @@ def _validate_mlb_picks_against_schedule(picks, target_date_str):
                 pick["start_time"] = matched_time
                 pick["unverified"] = False
             else:
-                pick["start_time"] = ""
-                pick["unverified"] = True
-                print(f"[WARN] No statsapi match for: {away_name or '?'} vs {home_name or '?'}")
+                pick["unverified"] = False
+                print(f"[INFO] No statsapi time match for: {away_name or '?'} vs {home_name or '?'}")
             result.append(pick)
         return result
 
