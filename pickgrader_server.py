@@ -91,6 +91,37 @@ def _sl_get_ml(home, away, league='MLB'):
         return None, None
 
 
+def _sl_get_spread(home, away, league='NBA'):
+    """Get real Vegas spread from cbs_odds (SportsLine data).
+    Returns (spread_home, spread_away, spread_odds) or (None, None, None)."""
+    candidates = ['pickledger.db', '../pickledger.db']
+    db = next((p for p in candidates if _os.path.exists(p)), None)
+    if not db:
+        return None, None, None
+    try:
+        conn = _sqlite3.connect(db)
+        cur = conn.cursor()
+        cur.execute(
+            """
+            SELECT spread_home, spread_away, spread_odds FROM cbs_odds
+            WHERE league=? AND spread_home IS NOT NULL
+            AND (home_team LIKE ? OR away_team LIKE ?)
+            ORDER BY fetched_at DESC LIMIT 1
+            """,
+            (league, f'%{home.split()[-1]}%', f'%{away.split()[-1]}%'),
+        )
+        row = cur.fetchone()
+        conn.close()
+        if not row:
+            return None, None, None
+        spread_home = float(row[0]) if row[0] is not None else None
+        spread_away = float(row[1]) if row[1] is not None else None
+        spread_odds = int(row[2]) if row[2] is not None else -110
+        return spread_home, spread_away, spread_odds
+    except Exception:
+        return None, None, None
+
+
 def _ou_probability(model_total: float, vegas_line: float, rmse: float) -> float:
     """
     Derive P(under) or P(over) from model point estimate using normal CDF.
@@ -1421,6 +1452,38 @@ def _parse_nba_output(output: str, source_label: str = "NBA Model") -> list[dict
                 "home_team": current_home,
                 "predicted_spread": spread_val,
             }
+            if source_label == "NBA New":
+                sl_spread_home, sl_spread_away, sl_spread_odds = _sl_get_spread(
+                    current_home, current_away, 'NBA'
+                )
+                if sl_spread_home is not None:
+                    # Pick the Vegas spread for the winning team
+                    team_last = winner.split()[-1].lower()
+                    home_last = current_home.split()[-1].lower()
+                    vegas_spread = sl_spread_home if team_last == home_last else sl_spread_away
+
+                    _sp_odds = sl_spread_odds if sl_spread_odds else -110
+                    # Implied probability from Vegas vig
+                    _implied = (abs(_sp_odds) / (abs(_sp_odds) + 100)) if _sp_odds < 0 \
+                               else (100 / (_sp_odds + 100))
+                    _model_prob = pick.get("probability") or 0.75
+                    _edge_val = round((_model_prob - _implied) * 100, 2)
+
+                    # Quarter-Kelly sizing (capped at 5%)
+                    _b = 100.0 / abs(_sp_odds) if _sp_odds < 0 else _sp_odds / 100.0
+                    _kf = round(min(max((_b * _model_prob - (1 - _model_prob)) / _b, 0.0) * 0.25, 0.05) * 100, 2)
+
+                    pick["odds"] = _sp_odds
+                    pick["market_line"] = vegas_spread
+                    pick["model_prediction"] = round(float(spread_val), 1)
+                    pick["edge"] = _edge_val
+                    pick["units"] = _kf
+                    if _edge_val >= 5.0:
+                        pick["decision"] = "BET"
+                    elif _edge_val >= 3.0:
+                        pick["decision"] = "LEAN"
+                    else:
+                        pick["decision"] = "PASS"
             _append_unique(pick)
 
         # Over/Under decision: "**O/U Decision: BET OVER**"
