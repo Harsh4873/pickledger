@@ -42,6 +42,15 @@ The frontend now reads this value automatically.
 2. Keep model runs async (already supported) to avoid browser timeouts.
 3. Scores24 scraping can run on Render, but Cloudflare often blocks non-proxied Render egress IPs.
 4. For persistent pick storage later, move from local browser storage to Postgres.
+5. SportsGambler can run on Render without Playwright or proxy requirements because the picks are server-rendered in HTML/JSON-LD.
+
+## 4a. SportsGambler On Render
+
+Required Render env vars:
+
+1. `ENABLE_SPORTSGAMBLER_REMOTE=true`
+
+Unlike Scores24, SportsGambler does not currently need the proxy-backed Playwright path in this repo.
 
 ## 5. Scores24 On Render (Proxy Required For Stability)
 
