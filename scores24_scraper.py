@@ -1607,8 +1607,8 @@ PREDICTION_JS = """
     }
     if (!result.tip) {
         const tipPatterns = [
-            /([A-Z0-9][A-Za-z0-9 .&'\\-]+ Handicap\\s*\\([+-]?\\d+(?:\\.\\d+)?\\)(?:\\s*\\([^)]+\\))?(?:\\s*at odds of\\s*[^\\n]+)?)/i,
-            /([A-Z0-9][A-Za-z0-9 .&'\\-]+ Win(?:\\s*\\([^)]+\\))?(?:\\s*at odds of\\s*[^\\n]+)?)/i,
+            /([A-Z][A-Za-z0-9 .&'\\-]+ Handicap\\s*\\([+-]?\\d+(?:\\.\\d+)?\\)(?:\\s*\\([^)]+\\))?(?:\\s*at odds of\\s*[^\\n]+)?)/i,
+            /([A-Z][A-Za-z0-9 .&'\\-]+ Win(?:\\s*\\([^)]+\\))?(?:\\s*at odds of\\s*[^\\n]+)?)/i,
             /((?:Over|Under)\\s+\\d+(?:\\.\\d+)?(?:\\s*\\([^)]+\\))?(?:\\s*at odds of\\s*[^\\n]+)?)/i,
             /(Total (?:Over|Under)\\s*\\([\\d.]+\\))/i,
             /(?:prediction|tip|pick)[:\\s]+((?:over|under|total|handicap|win|draw|home|away)[^\\n]{0,60})/i,

@@ -2287,6 +2287,17 @@ def _strip_scores24_trailing_context(text: str) -> str:
     return cleaned
 
 
+def _is_scores24_team_hint(text: str) -> bool:
+    hint = re.sub(r"\s+", " ", str(text or "")).strip()
+    if not hint:
+        return False
+    if not re.search(r"[A-Za-z]", hint):
+        return False
+    if re.fullmatch(r"[+-]?\d+(?:\.\d+)?", hint):
+        return False
+    return True
+
+
 def _clean_scores24_pick(tip: str, matchup: str, sport: str) -> str:
     """Convert raw Scores24 tip into clean format matching NBA/MLB model picks."""
     # Strip "at odds of ..." suffix from tip
@@ -2297,7 +2308,7 @@ def _clean_scores24_pick(tip: str, matchup: str, sport: str) -> str:
 
     # ── Pattern: "<Team> Handicap (<spread>)" ──
     m = re.match(r"^(.+?)\s+Handicap\s*\(([+-]?\d+\.?\d*)\)", tip_clean, re.IGNORECASE)
-    if m:
+    if m and _is_scores24_team_hint(m.group(1)):
         team = _scores24_resolve_team_name(m.group(1), matchup, sport)
         spread = m.group(2)
         if not spread.startswith(("+", "-")):
@@ -2306,7 +2317,7 @@ def _clean_scores24_pick(tip: str, matchup: str, sport: str) -> str:
 
     # ── Pattern: "<Team> +/-spread" (already spread-like text) ──
     m = re.match(r"^(.+?)\s+([+-]\d+\.?\d*)\b", tip_compact, re.IGNORECASE)
-    if m:
+    if m and _is_scores24_team_hint(m.group(1)):
         team = _scores24_resolve_team_name(m.group(1), matchup, sport)
         return f"{team} {m.group(2)}"
 
@@ -2356,19 +2367,19 @@ def _clean_scores24_pick(tip: str, matchup: str, sport: str) -> str:
 
     # ── Pattern: "<Team> Win (...)" → moneyline ──
     m = re.match(r"^(.+?)\s+Win(?:\s*\([^)]*\))?$", tip_clean, re.IGNORECASE)
-    if m:
+    if m and _is_scores24_team_hint(m.group(1)):
         team = _scores24_resolve_team_name(m.group(1), matchup, sport)
         return f"{team} ML"
 
     # ── Pattern: "<Team> to win" → moneyline ──
     m = re.match(r"^(.+?)\s+to\s+win$", tip_clean, re.IGNORECASE)
-    if m:
+    if m and _is_scores24_team_hint(m.group(1)):
         team = _scores24_resolve_team_name(m.group(1), matchup, sport)
         return f"{team} ML"
 
     # ── Pattern: "<Team> ML" ──
     m = re.match(r"^(.+?)\s+ML$", tip_compact, re.IGNORECASE)
-    if m:
+    if m and _is_scores24_team_hint(m.group(1)):
         team = _scores24_resolve_team_name(m.group(1), matchup, sport)
         return f"{team} ML"
 
