@@ -100,6 +100,10 @@
 
 .winner-callout {
   margin-top: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
   font-family: 'DM Mono', monospace;
   font-size: 11px;
   color: var(--muted, #5a7085);
@@ -143,6 +147,12 @@
   padding: 12px;
   border-bottom: 1px solid rgba(128,128,128,0.08);
   vertical-align: middle;
+}
+
+.ipl-fantasy-table th:last-child,
+.ipl-fantasy-table td.add-col {
+  text-align: center;
+  width: 72px;
 }
 
 .ipl-fantasy-table tr:last-child td {
@@ -228,48 +238,38 @@
   opacity: 0.72;
 }
 
-.ipl-actions {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 12px;
-  margin-top: 16px;
-}
-
-.btn.btn-primary {
+.ipl-add-check {
   appearance: none;
+  min-width: 34px;
+  min-height: 34px;
+  padding: 0 10px;
   border: 1px solid rgba(77,166,255,0.24);
-  border-radius: 12px;
+  border-radius: 11px;
   background: linear-gradient(135deg, rgba(77,166,255,0.18), rgba(0,229,160,0.16));
   color: var(--text, #e8edf2);
   cursor: pointer;
   font-family: 'DM Mono', monospace;
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.4px;
-  padding: 11px 16px;
+  line-height: 1;
   transition: transform 0.18s ease, border-color 0.18s ease, opacity 0.18s ease;
 }
 
-.btn.btn-primary:hover:not(:disabled) {
+.ipl-add-check:hover:not(:disabled) {
   transform: translateY(-1px);
   border-color: rgba(0,229,160,0.34);
 }
 
-.btn.btn-primary:disabled {
+.ipl-add-check.is-added {
+  border-color: rgba(0,229,160,0.42);
+  background: rgba(0,229,160,0.12);
+  color: var(--accent, #00e5a0);
+}
+
+.ipl-add-check:disabled {
   cursor: not-allowed;
   opacity: 0.72;
-}
-
-.ipl-add-picks-status {
-  font-family: 'DM Mono', monospace;
-  font-size: 11px;
-  color: var(--muted, #5a7085);
-  letter-spacing: 0.4px;
-}
-
-.ipl-add-picks-status.is-error {
-  color: var(--loss, #ff4560);
 }
 
 .ipl-empty {

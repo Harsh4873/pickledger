@@ -70,6 +70,9 @@ function renderIPLPrediction(data) {
 
   const confidenceClass = confidence === 'HIGH' ? 'badge-high' : confidence === 'LOW' ? 'badge-low' : 'badge-medium';
   const winnerSide = String(predictedWinner).trim().toLowerCase() === String(team1).trim().toLowerCase() ? 'team1' : 'team2';
+  const winnerState = typeof getIplWinnerActionState === 'function'
+    ? getIplWinnerActionState(data)
+    : { locked: false };
 
   const rows = players.map((player, index) => {
     const playerName = safe(player?.player_name || player?.name || player?.player, `Player ${index + 1}`);
@@ -86,6 +89,11 @@ function renderIPLPrediction(data) {
     const captainBadge = isCaptain ? '<span class="decision-badge bet">C</span>' : '';
     const vcBadge = isViceCaptain ? '<span class="decision-badge bet">VC</span>' : '';
     const teamBadge = playerTeam ? `<span class="badge badge-low">${escapeHtml(playerTeam)}</span>` : '';
+    const fantasyState = typeof getIplFantasyActionState === 'function'
+      ? getIplFantasyActionState(data, index)
+      : { locked: false };
+    const fantasyButtonLabel = fantasyState.locked ? '✓ Added' : '✓';
+    const fantasyButtonClass = `ipl-add-check${fantasyState.locked ? ' is-added' : ''}`;
 
     return `
       <tr class="${rowClass}">
@@ -97,11 +105,20 @@ function renderIPLPrediction(data) {
         <td><span class="decision-badge ${decisionClass}">${escapeHtml(decision)}</span></td>
         <td class="score-col">${fmtNumber(score)}</td>
         <td class="flags-col">${captainBadge}${vcBadge}${teamBadge}</td>
+        <td class="add-col">
+          <button
+            class="${fantasyButtonClass}"
+            type="button"
+            ${fantasyState.locked ? 'disabled' : ''}
+            onclick="addIplFantasyPick(${index})"
+            aria-label="Add ${escapeHtml(playerName)} to Pick Log"
+          >${fantasyButtonLabel}</button>
+        </td>
       </tr>
     `;
   }).join('');
 
-  const renderedRows = rows || '<tr><td colspan="5" class="ipl-empty">No fantasy XI available</td></tr>';
+  const renderedRows = rows || '<tr><td colspan="6" class="ipl-empty">No fantasy XI available</td></tr>';
 
   const html = `
     <div class="ipl-prediction-container">
@@ -132,7 +149,14 @@ function renderIPLPrediction(data) {
         </div>
 
         <div class="winner-callout">
-          Predicted winner: <strong>${escapeHtml(predictedWinner)}</strong>
+          <span>Predicted winner: <strong>${escapeHtml(predictedWinner)}</strong></span>
+          <button
+            class="ipl-add-check${winnerState.locked ? ' is-added' : ''}"
+            type="button"
+            ${winnerState.locked ? 'disabled' : ''}
+            onclick="addIplWinnerPick()"
+            aria-label="Add winner pick to Pick Log"
+          >${winnerState.locked ? '✓ Added' : '✓'}</button>
         </div>
       </div>
 
@@ -150,16 +174,13 @@ function renderIPLPrediction(data) {
                 <th>Decision</th>
                 <th>Score</th>
                 <th>Tags</th>
+                <th>Add</th>
               </tr>
             </thead>
             <tbody>
               ${renderedRows}
             </tbody>
           </table>
-        </div>
-        <div class="ipl-actions">
-          <button id="ipl-add-picks-btn" class="btn btn-primary" type="button">📋 Add to Pick Log</button>
-          <div id="ipl-add-picks-status" class="ipl-add-picks-status" aria-live="polite"></div>
         </div>
       </div>
     </div>

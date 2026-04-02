@@ -73,14 +73,6 @@
   .header-controls { display: flex; align-items: center; gap: 8px; }
   .header-stat-val { font-family: 'Bebas Neue', sans-serif; font-size: 32px; color: var(--accent); text-align: right; }
   .header-stat-label { font-size: 11px; color: var(--muted); letter-spacing: 1px; text-align: right; }
-  .header-subrecord {
-    margin-top: 4px;
-    font-family: 'DM Mono', monospace;
-    font-size: 11px;
-    color: var(--accent3);
-    letter-spacing: 0.5px;
-    text-align: right;
-  }
   body[data-theme="light"] .logo-title {
     font-family: 'Fraunces', serif;
     font-size: 54px;
@@ -380,33 +372,6 @@
   .pick-bubble-sport.is-ipl {
     background: rgba(255,215,0,0.14);
     color: #f6c453;
-  }
-  .pick-grade-buttons {
-    display: inline-flex;
-    gap: 6px;
-    align-items: center;
-  }
-  .pick-grade-btn {
-    appearance: none;
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    background: var(--surface);
-    color: var(--text);
-    cursor: pointer;
-    font-family: 'DM Mono', monospace;
-    font-size: 11px;
-    font-weight: 700;
-    min-width: 34px;
-    padding: 6px 8px;
-    transition: border-color 0.18s, transform 0.18s, opacity 0.18s;
-  }
-  .pick-grade-btn:hover:not(:disabled) {
-    border-color: var(--accent3);
-    transform: translateY(-1px);
-  }
-  .pick-grade-btn:disabled {
-    opacity: 0.55;
-    cursor: wait;
   }
   .pick-bubble-pl {
     font-family: 'Bebas Neue', sans-serif;
@@ -917,7 +882,6 @@
       <div>
         <div class="header-stat-val" id="total-record">0-0</div>
         <div class="header-stat-label">OVERALL RECORD</div>
-        <div class="header-subrecord" id="ipl-record">IPL: 0-0</div>
       </div>
     </div>
   </header>
@@ -1146,7 +1110,6 @@ const SAVED_MODEL_SERVER = normalizeServerBase(localStorage.getItem('pickledger_
 const MODEL_SERVER = QUERY_MODEL_SERVER || SAVED_MODEL_SERVER || DEFAULT_MODEL_SERVER;
 localStorage.setItem('pickledger_model_server', MODEL_SERVER);
 const GRADER_URL = `${MODEL_SERVER}/grade`;
-const PICKS_API_URL = `${MODEL_SERVER}/api/picks`;
 const HEALTH_URL = `${MODEL_SERVER}/health`;
 const LEDGER_STATE_URL = `${MODEL_SERVER}/api/ledger-state`;
 const SCORES24_FEED_URL = './scores24_manual_feed.json';
@@ -1158,7 +1121,6 @@ const LOCAL_SCORES24_SERVER = LOOPBACK_MODEL_SERVER;
 const LOCAL_SPORTYTRADER_SERVER = LOOPBACK_MODEL_SERVER;
 let ledgerStateSyncTimer = null;
 let ledgerStateSyncInFlight = false;
-const manualGradeInFlightIds = new Set();
 
 function getAddedPicks() {
   try {
@@ -1752,14 +1714,6 @@ function getSportBadgeText(sport) {
 }
 
 function renderPickResultControl(p) {
-  if (isIplPick(p) && p.result === 'pending') {
-    const disabled = manualGradeInFlightIds.has(String(p.id)) ? 'disabled' : '';
-    return `<div class="pick-grade-buttons">
-      <button class="pick-grade-btn" type="button" ${disabled} onclick="gradePickManually(${p.id}, 'W')">W</button>
-      <button class="pick-grade-btn" type="button" ${disabled} onclick="gradePickManually(${p.id}, 'L')">L</button>
-      <button class="pick-grade-btn" type="button" ${disabled} onclick="gradePickManually(${p.id}, 'P')">P</button>
-    </div>`;
-  }
   return `<select class="result-select" onchange="setResult(${p.id},this.value)">
     <option value="pending" ${p.result==='pending'?'selected':''}>PENDING</option>
     <option value="win" ${p.result==='win'?'selected':''}>WIN</option>
@@ -1768,175 +1722,150 @@ function renderPickResultControl(p) {
     <option value="delete">DELETE</option></select>`;
 }
 
-function updateIplAddPicksUi(message, state = {}) {
-  const btn = document.getElementById('ipl-add-picks-btn');
-  const status = document.getElementById('ipl-add-picks-status');
-  if (btn && state.buttonText) btn.textContent = state.buttonText;
-  if (btn && typeof state.disabled === 'boolean') btn.disabled = state.disabled;
-  if (status) {
-    status.textContent = message || '';
-    status.classList.toggle('is-error', Boolean(state.error));
+const iplPredictionAddedKeys = new Set();
+const iplPredictionPendingKeys = new Set();
+
+function _buildIplWinnerLedgerPick(data) {
+  const dateLabel = formatTodayPickDateLabel();
+  const team1 = String(data && data.team1 || '').trim();
+  const team2 = String(data && data.team2 || '').trim();
+  const predictedWinner = String(
+    data && (data.predicted_winner || data.winner || data.prediction?.winner || team1 || team2)
+  ).trim();
+  const winnerProbRaw = predictedWinner === team2 ? Number(data && data.team2_win_prob) : Number(data && data.team1_win_prob);
+  const probability = Number.isFinite(winnerProbRaw)
+    ? (winnerProbRaw > 1 ? winnerProbRaw / 100 : winnerProbRaw)
+    : null;
+  return {
+    sport: 'IPL',
+    source: 'IPL Model',
+    pick: `WINNER: ${predictedWinner}`,
+    date: dateLabel,
+    units: 1,
+    odds: null,
+    result: 'pending',
+    notes: 'IPL Winner',
+    start_time: null,
+    game: String(data && (data.match_label || data.match || data.fixture || '')).trim(),
+    team1,
+    team2,
+    team: predictedWinner,
+    confidence: probability == null ? null : Math.round(probability * 100),
+    probability,
+  };
+}
+
+function _buildIplFantasyLedgerPick(data, index) {
+  const players = Array.isArray(data && data.selected_players) ? data.selected_players : [];
+  const player = players[index];
+  if (!player) return null;
+  const dateLabel = formatTodayPickDateLabel();
+  const playerName = String(player.player_name || player.name || player.player || `Player ${index + 1}`).trim();
+  const role = String(player.role || player.position || '').trim();
+  const team = String(player.team || player.franchise || player.squad || '').trim();
+  const fantasyPct = Number(player.fantasy_probability_pct ?? player.probability ?? player.confidence);
+  const safePct = Number.isFinite(fantasyPct) ? fantasyPct : 0;
+  const decision = String(player.decision || player.pick_decision || (player.is_bet ? 'BET' : 'PASS') || 'PASS').trim().toUpperCase();
+  return {
+    sport: 'IPL',
+    source: 'IPL Model',
+    pick: `FANTASY: ${playerName} | ${role} | ${team} | ${safePct.toFixed(1)}% ${decision}`,
+    date: dateLabel,
+    units: 1,
+    odds: null,
+    result: 'pending',
+    notes: 'IPL Fantasy',
+    start_time: null,
+    game: String(data && (data.match_label || data.match || data.fixture || '')).trim(),
+    player_name: playerName,
+    role,
+    team,
+    probability: safePct > 0 ? safePct / 100 : null,
+    confidence: Math.round(safePct),
+  };
+}
+
+function _getIplActionKey(type, value) {
+  return `${type}:${String(value || '').trim()}`;
+}
+
+function _isIplActionLocked(actionKey, pick) {
+  if (!pick) return true;
+  return iplPredictionPendingKeys.has(actionKey) || iplPredictionAddedKeys.has(actionKey) || isExactLedgerDuplicate(pick);
+}
+
+function _appendIplPickToLedger(actionKey, pick) {
+  if (!pick) return false;
+  const key = String(actionKey || '').trim();
+  if (!key) return false;
+  if (iplPredictionPendingKeys.has(key) || iplPredictionAddedKeys.has(key) || isExactLedgerDuplicate(pick)) {
+    iplPredictionAddedKeys.add(key);
+    if (pendingIplPrediction && typeof renderIPLPrediction === 'function') {
+      renderIPLPrediction(pendingIplPrediction);
+    }
+    return false;
+  }
+
+  iplPredictionPendingKeys.add(key);
+  try {
+    const { added } = _appendModelPicksToLedger([pick]);
+    if (added > 0) {
+      iplPredictionAddedKeys.add(key);
+    }
+    render();
+    if (document.getElementById('tab-search').classList.contains('active')) {
+      renderSearch();
+    }
+    if (pendingIplPrediction && typeof renderIPLPrediction === 'function') {
+      renderIPLPrediction(pendingIplPrediction);
+    }
+    return added > 0;
+  } finally {
+    iplPredictionPendingKeys.delete(key);
   }
 }
 
-function buildIplPickEntries(data) {
-  if (!data || typeof data !== 'object') return [];
-  const dateLabel = formatTodayPickDateLabel();
-  const match = String(data.match || `${data.team1 || 'Team 1'} vs ${data.team2 || 'Team 2'}`).trim();
-  const confidenceLabel = String(data.confidence || 'MEDIUM').trim().toUpperCase();
-  const team1 = String(data.team1 || '').trim();
-  const predictedWinner = String(data.predicted_winner || team1 || '').trim();
-  const team1Prob = Number(data.team1_win_prob);
-  const team2Prob = Number(data.team2_win_prob);
-  const winnerProb = predictedWinner && predictedWinner === String(data.team2 || '').trim() ? team2Prob : team1Prob;
-  const winnerProbPct = Number.isFinite(winnerProb) ? winnerProb * 100 : 0;
-  const picks = [{
-    sport: 'IPL',
-    game: match,
-    pick: `WINNER: ${predictedWinner} (${winnerProbPct.toFixed(1)}% ${confidenceLabel})`,
-    confidence: Math.round(winnerProbPct),
-    probability: winnerProbPct > 0 ? winnerProbPct / 100 : null,
-    result: '',
-    source: 'IPL Model',
-    notes: 'IPL Winner',
-    date: dateLabel,
-  }];
+function getIplWinnerActionState(data) {
+  const pick = _buildIplWinnerLedgerPick(data);
+  const actionKey = _getIplActionKey('winner', `${pick.game || ''}::${pick.pick}`);
+  const locked = _isIplActionLocked(actionKey, pick);
+  return { actionKey, pick, locked };
+}
 
-  const players = Array.isArray(data.selected_players) ? data.selected_players : [];
-  players.forEach((p) => {
-    const fantasyPct = Number(p && p.fantasy_probability_pct);
-    const safePct = Number.isFinite(fantasyPct) ? fantasyPct : 0;
-    picks.push({
-      sport: 'IPL',
-      game: match,
-      pick: `FANTASY: ${String(p && p.player_name || '').trim()} | ${String(p && p.role || '').trim()} | ${String(p && p.team || '').trim()} | ${safePct.toFixed(1)}% ${String(p && p.decision || 'PASS').trim().toUpperCase()}`,
-      confidence: Math.round(safePct),
-      probability: safePct > 0 ? safePct / 100 : null,
-      result: '',
-      source: 'IPL Model',
-      notes: p && p.is_captain ? 'IPL Fantasy C' : p && p.is_vice_captain ? 'IPL Fantasy VC' : 'IPL Fantasy',
-      date: dateLabel,
-    });
-  });
-  return picks;
+function getIplFantasyActionState(data, index) {
+  const pick = _buildIplFantasyLedgerPick(data, index);
+  if (!pick) return { actionKey: '', pick: null, locked: true };
+  const actionKey = _getIplActionKey('fantasy', `${pick.game || ''}::${index}:${pick.pick}`);
+  const locked = _isIplActionLocked(actionKey, pick);
+  return { actionKey, pick, locked };
+}
+
+function addIplWinnerPick() {
+  if (!pendingIplPrediction) return;
+  const state = getIplWinnerActionState(pendingIplPrediction);
+  _appendIplPickToLedger(state.actionKey, state.pick);
+}
+
+function addIplFantasyPick(index) {
+  if (!pendingIplPrediction) return;
+  const state = getIplFantasyActionState(pendingIplPrediction, index);
+  if (!state.pick) return;
+  _appendIplPickToLedger(state.actionKey, state.pick);
 }
 
 function isExactLedgerDuplicate(candidate) {
+  const candidateGame = String(candidate && candidate.game || '').trim().toLowerCase();
   return getAllLedgerPicks().some((existing) => (
     String(existing.sport || '').toUpperCase() === String(candidate.sport || '').toUpperCase() &&
     String(existing.source || '') === String(candidate.source || '') &&
     String(existing.date || '') === String(candidate.date || '') &&
-    String(existing.pick || '') === String(candidate.pick || '')
+    String(existing.pick || '') === String(candidate.pick || '') &&
+    (() => {
+      const existingGame = String(existing.game || '').trim().toLowerCase();
+      if (!existingGame || !candidateGame) return true;
+      return existingGame === candidateGame;
+    })()
   ));
-}
-
-function _buildIplPickApiPayload(entry) {
-  const confidence = Number(entry && entry.confidence);
-  return {
-    sport: 'IPL',
-    game: String(entry && entry.game || '').trim(),
-    pick: String(entry && entry.pick || '').trim(),
-    confidence: Number.isFinite(confidence) ? Math.round(confidence) : 0,
-    result: 'pending',
-    source: 'IPL Model',
-    notes: String(entry && entry.notes || '').trim(),
-    odds: null,
-    units: 1,
-    date: _getTodayIsoDate(),
-    start_time: null,
-  };
-}
-
-async function addIplPicksToLog() {
-  const entries = buildIplPickEntries(pendingIplPrediction).filter(entry => !isExactLedgerDuplicate(entry));
-  if (!entries.length) {
-    updateIplAddPicksUi('IPL picks for this match are already in the log.', {
-      buttonText: '✅ Already in Pick Log',
-      disabled: true,
-      error: false,
-    });
-    return;
-  }
-
-  updateIplAddPicksUi(`Saving ${entries.length} IPL picks...`, {
-    buttonText: 'Saving...',
-    disabled: true,
-    error: false,
-  });
-
-  const results = await Promise.all(entries.map(async (entry) => {
-    try {
-      const res = await fetch('/api/picks', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(_buildIplPickApiPayload(entry)),
-      });
-      if (!res.ok) {
-        throw new Error(await res.text());
-      }
-      const data = await res.json();
-      const pickId = data && (data.id ?? (data.pick && data.pick.id));
-      if (pickId === undefined || pickId === null) {
-        throw new Error('Missing pick id');
-      }
-      return { ok: true, entry };
-    } catch (error) {
-      return { ok: false, entry, error };
-    }
-  }));
-
-  const savedEntries = results.filter(r => r && r.ok).map(r => r.entry);
-  const failedCount = results.length - savedEntries.length;
-
-  if (savedEntries.length) {
-    _appendModelPicksToLedger(savedEntries);
-    render();
-  }
-
-  if (failedCount === 0) {
-    updateIplAddPicksUi(`Saved ${savedEntries.length} IPL picks to the pick log.`, {
-      buttonText: `✅ Added ${savedEntries.length} picks to log`,
-      disabled: true,
-      error: false,
-    });
-    return;
-  }
-
-  updateIplAddPicksUi(`⚠️ ${failedCount} picks failed to save`, {
-    buttonText: '📋 Add to Pick Log',
-    disabled: false,
-    error: true,
-  });
-}
-
-async function gradePickManually(id, result) {
-  const idStr = String(id);
-  if (!idStr || manualGradeInFlightIds.has(idStr)) return;
-  manualGradeInFlightIds.add(idStr);
-  render();
-  try {
-    const resp = await fetch(GRADER_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id, result }),
-    });
-    const data = await resp.json().catch(() => ({}));
-    if (!resp.ok || !data || data.ok === false) {
-      throw new Error(data.error || `HTTP ${resp.status}`);
-    }
-    const nextResult = normalizeResultValue(data.result || result);
-    const current = getResults();
-    current[idStr] = nextResult;
-    localStorage.setItem(RESULTS_KEY, JSON.stringify(current));
-    saveResultToServer(idStr, nextResult);
-    scheduleLedgerStateSync();
-    setRefreshStatus(`Saved manual grade: ${nextResult.toUpperCase()}`, 'ok');
-  } catch (err) {
-    setRefreshStatus(`Manual grade failed: ${String(err && err.message ? err.message : err)}`, 'error');
-  } finally {
-    manualGradeInFlightIds.delete(idStr);
-    render();
-  }
 }
 
 function getRankingSourceKey(p) {
@@ -3481,11 +3410,7 @@ function render() {
   const d=w+l, acc=d>0?(w/d*100).toFixed(1)+'%':'—';
   const nu=decided.reduce((s,p)=>s+p.pl,0), tw=decided.filter(p=>p.result!=='push').reduce((s,p)=>s+p.units,0);
   const roi=tw>0?((nu/tw)*100).toFixed(1)+'%':'—', nuf=nu;
-  const iplDecided = picks.filter(p => isIplPick(p) && (p.result === 'win' || p.result === 'loss'));
-  const iplWins = iplDecided.filter(p => p.result === 'win').length;
-  const iplLosses = iplDecided.filter(p => p.result === 'loss').length;
   document.getElementById('total-record').textContent=`${w}-${l}`;
-  document.getElementById('ipl-record').textContent=`IPL: ${iplWins}-${iplLosses}`;
   document.getElementById('stat-picks').textContent=picks.length;
   document.getElementById('stat-wins').textContent=w;
   document.getElementById('stat-losses').textContent=l;
@@ -3707,9 +3632,6 @@ function renderIplResults(result, options = {}) {
 
   if (typeof renderIPLPrediction === 'function') {
     target.innerHTML = renderIPLPrediction(result);
-    const addBtn = document.getElementById('ipl-add-picks-btn');
-    if (addBtn) addBtn.onclick = addIplPicksToLog;
-    updateIplAddPicksUi('', { buttonText: '📋 Add to Pick Log', disabled: false, error: false });
   } else {
     target.innerHTML = '<div class="empty-state">IPL renderer unavailable</div>';
   }
@@ -4520,7 +4442,12 @@ function _isDuplicatePick(existingPick, newPick, dateStr) {
   if (String(existingPick.sport || '').toUpperCase() !== String(newPick.sport || '').toUpperCase()) return false;
 
   // Exact text match
-  if (existingPick.pick === newPick.pick) return true;
+  if (existingPick.pick === newPick.pick) {
+    const existingGame = String(existingPick.game || '').trim().toLowerCase();
+    const newGame = String(newPick.game || '').trim().toLowerCase();
+    if (existingGame && newGame && existingGame !== newGame) return false;
+    return true;
+  }
 
   // Fuzzy match: same game + same side (team or over/under direction)
   const existTeams = _extractMatchupTeams(existingPick.pick);
@@ -4587,6 +4514,10 @@ function _appendModelPicksToLedger(candidates) {
       home_team: p.home_team || '',
       away_team: p.away_team || '',
       kelly_edge: p.kelly_edge || null,
+      notes: p.notes || '',
+      start_time: p.start_time ?? null,
+      game: p.game || '',
+      confidence: p.confidence ?? null,
     };
 
     const isDup = [...activeLedgerPicks, ...newEntries].some(ep => _isDuplicatePick(ep, shaped, dateStr));
@@ -4613,6 +4544,10 @@ function _appendModelPicksToLedger(candidates) {
       home_team: shaped.home_team,
       away_team: shaped.away_team,
       kelly_edge: shaped.kelly_edge,
+      notes: shaped.notes,
+      start_time: shaped.start_time,
+      game: shaped.game,
+      confidence: shaped.confidence,
       result: 'pending'
     });
     added++;
