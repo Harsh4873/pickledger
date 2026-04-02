@@ -1475,7 +1475,7 @@ def _parse_nba_output(output: str, source_label: str = "NBA Model") -> list[dict
 
                     pick["odds"] = _sp_odds
                     pick["market_line"] = vegas_spread
-                    pick["model_prediction"] = round(float(spread_val), 1)
+                    pick["model_prediction"] = -round(float(spread_val), 1)
                     pick["edge"] = _edge_val
                     pick["units"] = _kf
                     if _edge_val >= 5.0:
