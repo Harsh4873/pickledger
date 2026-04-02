@@ -3446,10 +3446,35 @@ function renderIplResults(result, options = {}) {
 async function _runNbaVariantModel(model, dateStr) {
   const endpoint = model === 'nba-old' ? '/run-nba-old-model' : '/run-nba-model';
   const label = formatModelRunDate(dateStr);
+
+  // For NBA New, refresh SportsLine odds first so spread lines are current
+  if (model === 'nba-new') {
+    setModelStatus(model, `Refreshing SportsLine odds...`, 'running');
+    await _refreshSportsLineOdds();
+  }
+
   setModelStatus(model, `Running ${NBA_MODEL_SOURCE_LABELS[model]} for ${label}...`, 'running');
   const picks = await _runAsyncModelRequest(model, endpoint, { async: true, date: dateStr });
   setModelStatus(model, `Done. ${picks.length} prediction(s) returned for ${label}.`, 'ok');
   return picks;
+}
+
+async function _refreshSportsLineOdds() {
+  try {
+    const resp = await fetch(MODEL_SERVER + '/run-sportsline-odds', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ async: true, league: 'NBA' }),
+    });
+    const launch = await resp.json();
+    if (launch.job_id) {
+      await _pollJob(launch.job_id, 'sportsline-odds');
+    }
+    // Non-async fallback: if no job_id, the scraper already ran inline
+  } catch (_e) {
+    // Scraper failure is non-fatal — model will use whatever is in DB
+    console.warn('SportsLine odds refresh failed (non-fatal):', _e);
+  }
 }
 
 async function runNbaModelComparison() {
