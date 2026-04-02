@@ -2848,6 +2848,40 @@ def _launch_job(target_fn, *args) -> str:
     return job_id
 
 
+def run_sportsline_odds(league: str = "NBA") -> dict[str, Any]:
+    """Run the SportsLine odds scraper to refresh cbs_odds table."""
+    import subprocess as _sp
+    import re as _re
+
+    scraper_path = os.path.join(BASE_DIR, "NBAPredictionModel", "cbs_odds_scraper.py")
+    if not os.path.exists(scraper_path):
+        return {"ok": False, "error": f"SportsLine scraper not found at {scraper_path}"}
+    python_bin = _resolve_python_bin(
+        os.path.join(BASE_DIR, "NBAPredictionModel", "venv", "bin", "python")
+    )
+    try:
+        result = _sp.run(
+            [python_bin, scraper_path],
+            cwd=BASE_DIR,
+            capture_output=True,
+            text=True,
+            timeout=120,
+        )
+        stdout = result.stdout.strip()
+        stderr = result.stderr.strip()
+        rows_saved = 0
+        m = _re.search(r"Saved (\d+)", stdout)
+        if m:
+            rows_saved = int(m.group(1))
+        if result.returncode != 0:
+            return {"ok": False, "error": stderr or stdout or "scraper exited non-zero"}
+        return {"ok": True, "rows_saved": rows_saved, "output": stdout}
+    except _sp.TimeoutExpired:
+        return {"ok": False, "error": "SportsLine scraper timed out (120s)"}
+    except Exception as exc:
+        return {"ok": False, "error": str(exc)}
+
+
 class Handler(BaseHTTPRequestHandler):
     def _send_json(
         self,
@@ -2885,6 +2919,7 @@ class Handler(BaseHTTPRequestHandler):
                 "/health",
                 "/ledger-state",
                 "/grade",
+                "/run-sportsline-odds",
                 "/run-nba-model",
                 "/run-nba-old-model",
                 "/run-nba-props-model",
@@ -3053,6 +3088,15 @@ class Handler(BaseHTTPRequestHandler):
 
             result = auto_grade(picks, existing, year)
             self._send_json(200, {"ok": True, **result})
+
+        elif path == "/run-sportsline-odds":
+            league = str(body.get("league", "NBA")).upper()
+            if async_mode:
+                job_id = _launch_job(run_sportsline_odds, league)
+                self._send_json(200, {"ok": True, "job_id": job_id, "status": "running"})
+            else:
+                result = run_sportsline_odds(league)
+                self._send_json(200, result)
 
         elif path == "/run-nba-model":
             if async_mode:
