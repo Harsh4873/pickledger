@@ -3851,6 +3851,9 @@ async function loadScores24ManualFeed() {
     probability: (p.probability == null ? null : Number(p.probability)),
     edge: (p.edge == null ? null : Number(p.edge)),
     decision: String(p.decision || 'BET').toUpperCase(),
+    home_team: String(p.home_team || '').trim(),
+    away_team: String(p.away_team || '').trim(),
+    start_time: (p.start_time == null ? null : String(p.start_time).trim()),
   })).filter(p => p.pick);
 
   const meta = {

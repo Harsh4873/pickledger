@@ -1057,6 +1057,23 @@ def _is_scores24_mlb_pick(pick: dict[str, Any] | None) -> bool:
     return str(pick.get("source", "")).strip() == "Scores24" and str(pick.get("sport", "")).upper() == "MLB"
 
 
+def _is_scores24_pick(pick: dict[str, Any] | None) -> bool:
+    return isinstance(pick, dict) and str(pick.get("source", "")).strip() == "Scores24"
+
+
+def _scores24_pick_matchup(pick: dict[str, Any] | None) -> tuple[str, str] | None:
+    if not _is_scores24_pick(pick):
+        return None
+    away_team = str((pick or {}).get("away_team") or "").strip()
+    home_team = str((pick or {}).get("home_team") or "").strip()
+    if not away_team or not home_team:
+        return None
+    if _is_scores24_mlb_pick(pick):
+        away_team = _norm_mlb(away_team)
+        home_team = _norm_mlb(home_team)
+    return away_team, home_team
+
+
 def _scores24_mlb_team_matches_competitor(team_text: str, comp: dict[str, Any]) -> bool:
     team_name = _norm_mlb(team_text).lower()
     if not team_name:
@@ -1142,14 +1159,7 @@ def find_game_for_pick(
     pick_text: str,
     pick: dict[str, Any] | None = None,
 ) -> dict[str, Any] | None:
-    matchup = None
-    if _is_scores24_mlb_pick(pick):
-        away_team = str((pick or {}).get("away_team") or "").strip()
-        home_team = str((pick or {}).get("home_team") or "").strip()
-        if away_team and home_team:
-            matchup = (_norm_mlb(away_team), _norm_mlb(home_team))
-    if matchup is None:
-        matchup = parse_matchup(pick_text)
+    matchup = _scores24_pick_matchup(pick) or parse_matchup(pick_text)
     if matchup:
         team_a, team_b = matchup
         for game in games:
@@ -2229,28 +2239,76 @@ def _strip_scores24_ot_qualifier(text: str) -> str:
     return re.sub(r"\s+", " ", cleaned).strip()
 
 
+def _scores24_matchup_candidates(matchup: str, sport: str) -> list[str]:
+    teams = [part.strip() for part in re.split(r"\s+vs\s+", str(matchup or ""), maxsplit=1, flags=re.IGNORECASE) if part.strip()]
+    if str(sport or "").upper() == "MLB":
+        return [_norm_mlb(team) for team in teams]
+    return teams
+
+
+def _scores24_resolve_team_name(team_hint: str, matchup: str, sport: str) -> str:
+    hint = re.sub(r"\s+", " ", str(team_hint or "")).strip()
+    if not hint:
+        return hint
+
+    hint_norm = normalize(hint)
+    candidates = _scores24_matchup_candidates(matchup, sport)
+    if not candidates:
+        return hint
+
+    for full_team in candidates:
+        full_norm = normalize(full_team)
+        if not full_norm:
+            continue
+        if hint_norm == full_norm:
+            return full_team
+        if len(hint_norm) > 2 and (hint_norm in full_norm or full_norm in hint_norm):
+            return full_team
+        full_tokens = full_norm.split()
+        hint_tokens = hint_norm.split()
+        if hint_norm in full_tokens:
+            return full_team
+        if hint_tokens and full_tokens and hint_tokens[-1] == full_tokens[-1]:
+            return full_team
+
+    return hint
+
+
+def _strip_scores24_trailing_context(text: str) -> str:
+    cleaned = re.sub(r"\s+", " ", str(text or "")).strip()
+    while True:
+        match = re.search(r"\s*\(([^()]*)\)\s*$", cleaned)
+        if not match:
+            break
+        inner = re.sub(r"\s+", " ", match.group(1)).strip()
+        if not re.search(r"\bvs\b|basketball|baseball|ice hockey|ice-hockey|soccer|american football|\d{1,2}/\d{1,2}/\d{2,4}|\d{4}", inner, flags=re.IGNORECASE):
+            break
+        cleaned = cleaned[:match.start()].rstrip()
+    return cleaned
+
+
 def _clean_scores24_pick(tip: str, matchup: str, sport: str) -> str:
     """Convert raw Scores24 tip into clean format matching NBA/MLB model picks."""
     # Strip "at odds of ..." suffix from tip
     tip_clean = re.sub(r"\s*at odds of\s*[^\)]*\*?\s*$", "", tip).strip()
     tip_clean = _strip_scores24_ot_qualifier(tip_clean)
-
-    # Build shortened matchup
-    teams = matchup.split(" vs ")
-    home = teams[0].strip() if len(teams) > 0 else ""
-    away = teams[1].strip() if len(teams) > 1 else ""
-    home_short = _shorten_team(home)
-    away_short = _shorten_team(away)
-    matchup_short = f"{home_short} vs {away_short}"
+    tip_clean = re.sub(r"\s+", " ", tip_clean).strip().rstrip(".")
+    tip_compact = _strip_scores24_trailing_context(tip_clean)
 
     # ── Pattern: "<Team> Handicap (<spread>)" ──
     m = re.match(r"^(.+?)\s+Handicap\s*\(([+-]?\d+\.?\d*)\)", tip_clean, re.IGNORECASE)
     if m:
-        team = _shorten_team(m.group(1))
+        team = _scores24_resolve_team_name(m.group(1), matchup, sport)
         spread = m.group(2)
         if not spread.startswith(("+", "-")):
             spread = "+" + spread
-        return f"{team} {spread} ({matchup_short})"
+        return f"{team} {spread}"
+
+    # ── Pattern: "<Team> +/-spread" (already spread-like text) ──
+    m = re.match(r"^(.+?)\s+([+-]\d+\.?\d*)\b", tip_compact, re.IGNORECASE)
+    if m:
+        team = _scores24_resolve_team_name(m.group(1), matchup, sport)
+        return f"{team} {m.group(2)}"
 
     # ── Pattern: "<Team> Total goals/points Over/Under (<value>)" (team total) ──
     m = re.match(
@@ -2258,12 +2316,12 @@ def _clean_scores24_pick(tip: str, matchup: str, sport: str) -> str:
         tip_clean, re.IGNORECASE,
     )
     if m:
-        team = _shorten_team(m.group(1))
+        team = _scores24_resolve_team_name(m.group(1), matchup, sport)
         kind = m.group(2).lower()
-        direction = m.group(3)
+        direction = m.group(3).title()
         value = m.group(4)
         suffix = " TG" if kind == "goals" else ""
-        return f"{team} {direction} {value}{suffix} ({matchup_short})"
+        return f"{team} {direction} {value}{suffix}"
 
     # ── Pattern: "Total goals/points Over/Under (<value>)" (game total) ──
     m = re.match(
@@ -2272,10 +2330,20 @@ def _clean_scores24_pick(tip: str, matchup: str, sport: str) -> str:
     )
     if m:
         kind = m.group(1).lower()
-        direction = m.group(2)
+        direction = m.group(2).title()
         value = m.group(3)
         suffix = " TG" if kind == "goals" else ""
-        return f"{direction} {value}{suffix} ({matchup_short})"
+        return f"{direction} {value}{suffix}"
+
+    # ── Pattern: "Total Over/Under (<value>)" (generic total) ──
+    m = re.match(r"^Total\s+(Over|Under)\s*\((\d+\.?\d*)\)", tip_clean, re.IGNORECASE)
+    if m:
+        return f"{m.group(1).title()} {m.group(2)}"
+
+    # ── Pattern: "Over/Under X" with optional trailing matchup noise ──
+    m = re.match(r"^(Over|Under)\s+(\d+\.?\d*)\b", tip_compact, re.IGNORECASE)
+    if m:
+        return f"{m.group(1).title()} {m.group(2)}"
 
     # ── Pattern: "Both Teams To Score (Yes/No)" with optional period prefix ──
     m = re.match(
@@ -2284,29 +2352,28 @@ def _clean_scores24_pick(tip: str, matchup: str, sport: str) -> str:
     )
     if m:
         answer = m.group(1)
-        return f"BTTS {answer} ({matchup_short})"
+        return f"BTTS {answer}"
+
+    # ── Pattern: "<Team> Win (...)" → moneyline ──
+    m = re.match(r"^(.+?)\s+Win(?:\s*\([^)]*\))?$", tip_clean, re.IGNORECASE)
+    if m:
+        team = _scores24_resolve_team_name(m.group(1), matchup, sport)
+        return f"{team} ML"
 
     # ── Pattern: "<Team> to win" → moneyline ──
     m = re.match(r"^(.+?)\s+to\s+win$", tip_clean, re.IGNORECASE)
     if m:
-        team = _shorten_team(m.group(1))
-        return f"{team} ML ({matchup_short})"
+        team = _scores24_resolve_team_name(m.group(1), matchup, sport)
+        return f"{team} ML"
 
     # ── Pattern: "<Team> ML" ──
-    m = re.match(r"^(.+?)\s+ML$", tip_clean, re.IGNORECASE)
+    m = re.match(r"^(.+?)\s+ML$", tip_compact, re.IGNORECASE)
     if m:
-        team = _shorten_team(m.group(1))
-        return f"{team} ML ({matchup_short})"
-
-    # ── Pattern: "Over/Under (<value>)" (generic total) ──
-    m = re.match(r"^(Over|Under)\s*\((\d+\.?\d*)\)", tip_clean, re.IGNORECASE)
-    if m:
-        direction = m.group(1)
-        value = m.group(2)
-        return f"{direction} {value} ({matchup_short})"
+        team = _scores24_resolve_team_name(m.group(1), matchup, sport)
+        return f"{team} ML"
 
     # ── Fallback: cleaned tip + shortened matchup ──
-    return f"{tip_clean} ({matchup_short})"
+    return tip_compact or tip_clean
 
 
 def _parse_scores24_matchup_teams(matchup: str, sport: str) -> tuple[str | None, str | None]:

@@ -877,8 +877,11 @@ def _extract_tip(markdown: str) -> str:
     line_patterns = [
         r"Our choice\s+([^\n]+)",
         r"Our choice[:\s]*([^\n]+)",
+        r"([A-Za-z0-9 .&'\-]+ Handicap\s*\([+-]?[\d.]+\)(?:\s*\([^)]+\))?)",
+        r"([A-Za-z0-9 .&'\-]+ Win(?:\s*\([^)]+\))?)",
+        r"((?:Over|Under)\s+\d+(?:\.\d+)?(?:\s*\([^)]+\))?)",
+        r"(Total (?:Over|Under)\s*\([\d.]+\))",
         r"(Total (?:goals|points) (?:Over|Under)\s*\([\d.]+\))",
-        r"([A-Za-z0-9 .&'\-]+ Handicap\s*\([+-]?[\d.]+\))",
         r"([A-Za-z0-9 .&'\-]+ Total (?:goals|points) (?:Over|Under)\s*\([\d.]+\))",
         r"(Both Teams To Score\s*\((?:Yes|No)\))",
         r"([A-Za-z0-9 .&'\-]+ to win)",
@@ -1570,6 +1573,8 @@ PREDICTION_JS = """
 () => {
     const result = {};
     result.matchTitle = document.title || '';
+    const cleanText = (value) => String(value || '').replace(/\\s+/g, ' ').trim();
+    const looksGenericTeam = (value) => /^(basketball|baseball|soccer|ice hockey|ice-hockey|american football|tennis|volleyball|handball)$/i.test(cleanText(value));
 
     const dateEl = document.querySelector('span[data-testid="MatchHeaderHeadDate"]');
     result.date = dateEl ? dateEl.textContent.trim() : '';
@@ -1581,12 +1586,31 @@ PREDICTION_JS = """
 
     result.tip = '';
     const allText = document.body.innerText;
+    const matchupCandidates = [
+        document.querySelector('h1') ? document.querySelector('h1').textContent : '',
+        document.title || '',
+        allText.split('\\n').slice(0, 12).join(' '),
+    ];
+    if (!result.homeTeam || !result.awayTeam || looksGenericTeam(result.homeTeam) || looksGenericTeam(result.awayTeam)) {
+        for (const rawCandidate of matchupCandidates) {
+            const candidate = cleanText(rawCandidate);
+            const match = candidate.match(/([A-Z][A-Za-z0-9 .&'()\\/-]+?)\\s+vs\\.?\\s+([A-Z][A-Za-z0-9 .&'()\\/-]+?)(?:\\s+(?:Prediction|Live Stream)\\b|$)/i);
+            if (!match) continue;
+            if (!result.homeTeam || looksGenericTeam(result.homeTeam)) result.homeTeam = cleanText(match[1]);
+            if (!result.awayTeam || looksGenericTeam(result.awayTeam)) result.awayTeam = cleanText(match[2]);
+            break;
+        }
+    }
     const ourChoiceMatch = allText.match(/Our choice[:\\s]*([^\\n]+)/i);
     if (ourChoiceMatch) {
-        result.tip = ourChoiceMatch[1].trim();
+        result.tip = cleanText(ourChoiceMatch[1]);
     }
     if (!result.tip) {
         const tipPatterns = [
+            /([A-Z0-9][A-Za-z0-9 .&'\\-]+ Handicap\\s*\\([+-]?\\d+(?:\\.\\d+)?\\)(?:\\s*\\([^)]+\\))?(?:\\s*at odds of\\s*[^\\n]+)?)/i,
+            /([A-Z0-9][A-Za-z0-9 .&'\\-]+ Win(?:\\s*\\([^)]+\\))?(?:\\s*at odds of\\s*[^\\n]+)?)/i,
+            /((?:Over|Under)\\s+\\d+(?:\\.\\d+)?(?:\\s*\\([^)]+\\))?(?:\\s*at odds of\\s*[^\\n]+)?)/i,
+            /(Total (?:Over|Under)\\s*\\([\\d.]+\\))/i,
             /(?:prediction|tip|pick)[:\\s]+((?:over|under|total|handicap|win|draw|home|away)[^\\n]{0,60})/i,
             /(Total goals (?:Over|Under) \\([\\d.]+\\))/i,
             /((?:Home|Away|Draw)\\s+(?:Win|Team))/i,
@@ -1594,9 +1618,10 @@ PREDICTION_JS = """
         ];
         for (const pat of tipPatterns) {
             const m = allText.match(pat);
-            if (m) { result.tip = m[1].trim(); break; }
+            if (m) { result.tip = cleanText(m[1]); break; }
         }
     }
+    result.tip = cleanText(result.tip).replace(/\\s+at odds of\\s+[^\\n]+$/i, '');
 
     const valueSpans = document.querySelectorAll('span.value');
     result.allOdds = Array.from(valueSpans).map(s => s.textContent.trim()).filter(t => /^[-+]?\\d/.test(t));
