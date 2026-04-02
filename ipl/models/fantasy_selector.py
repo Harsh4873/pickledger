@@ -22,6 +22,7 @@ from ipl.data_loader import _default_db_path
 MODEL_DIR = Path(__file__).resolve().parent
 MODEL_PATH = MODEL_DIR / "fantasy_ranker.pkl"
 FEATURES_PATH = MODEL_DIR / "fantasy_ranker_features.json"
+MEDIANS_PATH = MODEL_DIR / "fantasy_ranker_medians.json"
 POOL_COLUMNS = ["player_name", "team", "role", "is_overseas"]
 ROLLING_COLS = [
     "avg_runs_last5",
@@ -33,30 +34,6 @@ ROLLING_COLS = [
     "matches_played_last5",
 ]
 TRAINING_FEATURES = [
-    "runs_scored",
-    "balls_faced",
-    "fours",
-    "sixes",
-    "dismissed",
-    "strike_rate",
-    "is_duck",
-    "milestone_50",
-    "milestone_100",
-    "pp_runs",
-    "mid_runs",
-    "death_runs",
-    "pp_sr",
-    "death_sr",
-    "overs_bowled",
-    "balls_bowled",
-    "runs_conceded",
-    "wickets_taken",
-    "economy_rate",
-    "maidens",
-    "dot_balls",
-    "pp_wickets",
-    "death_wickets",
-    "death_economy",
     "avg_runs_last5",
     "avg_sr_last5",
     "avg_wickets_last5",
@@ -64,6 +41,7 @@ TRAINING_FEATURES = [
     "avg_fours_last5",
     "avg_sixes_last5",
     "matches_played_last5",
+    "role_encoded",
 ]
 TEAM_ALIASES = {
     "Delhi Daredevils": "Delhi Capitals",
@@ -75,6 +53,12 @@ ROLE_WEIGHTS = {
     "All-Rounder": 1.12,
     "Batsman": 1.00,
     "Bowler": 0.96,
+}
+ROLE_ENCODING = {
+    "Wicket-Keeper": 3,
+    "All-Rounder": 2,
+    "Batsman": 1,
+    "Bowler": 0,
 }
 BATTER_ROLES = {"Batsman", "Wicket-Keeper", "All-Rounder"}
 BOWLER_ROLES = {"Bowler", "All-Rounder"}
@@ -466,6 +450,24 @@ def _load_venue_aggregates(
     )
 
 
+def _load_role_lookup(con: sqlite3.Connection) -> dict[str, int]:
+    rows = con.execute(
+        """
+        SELECT player_name, role
+        FROM ipl_current_squads
+        WHERE season='2026'
+        """
+    ).fetchall()
+    lookup: dict[str, int] = {}
+    for player_name, role in rows:
+        name = _normalize_text(player_name)
+        role_name = _normalize_role(role)
+        if name is None:
+            continue
+        lookup[name] = ROLE_ENCODING.get(role_name or "", 1)
+    return lookup
+
+
 def _build_training_frame(con: sqlite3.Connection) -> pd.DataFrame:
     base = pd.read_sql_query(
         """
@@ -475,29 +477,11 @@ def _build_training_frame(con: sqlite3.Connection) -> pd.DataFrame:
             f.season,
             m.date,
             f.runs_scored,
-            f.balls_faced,
+            f.strike_rate,
             f.fours,
             f.sixes,
-            f.dismissed,
-            f.strike_rate,
-            f.is_duck,
-            f.milestone_50,
-            f.milestone_100,
-            f.pp_runs,
-            f.mid_runs,
-            f.death_runs,
-            f.pp_sr,
-            f.death_sr,
-            f.overs_bowled,
-            f.balls_bowled,
-            f.runs_conceded,
             f.wickets_taken,
             f.economy_rate,
-            f.maidens,
-            f.dot_balls,
-            f.pp_wickets,
-            f.death_wickets,
-            f.death_economy,
             p.total_fantasy_points
         FROM ipl_player_match_features f
         JOIN ipl_player_fantasy_points p
@@ -530,21 +514,39 @@ def _build_training_frame(con: sqlite3.Connection) -> pd.DataFrame:
             con,
         )
     else:
-        history_base = base[["player_name", "match_id", "date", "runs_scored", "fours", "sixes", "wickets_taken", "strike_rate", "economy_rate"]]
+        history_base = base[
+            [
+                "player_name",
+                "match_id",
+                "date",
+                "runs_scored",
+                "fours",
+                "sixes",
+                "wickets_taken",
+                "strike_rate",
+                "economy_rate",
+            ]
+        ]
         rolling = _rebuild_rolling_features(history_base)
 
-    return base.merge(
+    frame = base.merge(
         rolling[["player_name", "match_id", *ROLLING_COLS]],
         on=["player_name", "match_id"],
         how="left",
     )
+    role_lookup = _load_role_lookup(con)
+    frame["role_encoded"] = frame["player_name"].map(lambda name: role_lookup.get(name, 1))
+    frame[TRAINING_FEATURES] = frame[TRAINING_FEATURES].apply(pd.to_numeric, errors="coerce")
+    return frame
 
 
-def _load_model_artifacts() -> tuple[Any, list[str]]:
+def _load_model_artifacts() -> tuple[Any, list[str], dict[str, float]]:
     model = joblib.load(MODEL_PATH)
     with FEATURES_PATH.open("r", encoding="utf-8") as handle:
         feature_list = json.load(handle)
-    return model, feature_list
+    with MEDIANS_PATH.open("r", encoding="utf-8") as handle:
+        medians = json.load(handle)
+    return model, feature_list, medians
 
 
 def get_match_player_pool(
@@ -762,7 +764,7 @@ def build_prematch_player_snapshot(
 
 
 def train_fantasy_ranker(db_path: str | Path) -> dict[str, float | str | int]:
-    from sklearn.ensemble import RandomForestRegressor
+    from sklearn.ensemble import GradientBoostingRegressor
     from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 
     con = sqlite3.connect(db_path)
@@ -776,39 +778,42 @@ def train_fantasy_ranker(db_path: str | Path) -> dict[str, float | str | int]:
 
     training["date"] = _parse_dates(training["date"])
     training = training.dropna(subset=["date"]).copy()
-    training[TRAINING_FEATURES] = training[TRAINING_FEATURES].fillna(0.0)
 
     train_mask = training["date"] < pd.Timestamp("2025-01-01")
     test_mask = ~train_mask
     if not train_mask.any() or not test_mask.any():
         raise ValueError("Temporal split failed; need rows on both sides of 2025-01-01")
 
-    x_train = training.loc[train_mask, TRAINING_FEATURES]
+    medians = training.loc[train_mask, TRAINING_FEATURES].median(numeric_only=True).to_dict()
+    medians = {key: float(value) if pd.notna(value) else 0.0 for key, value in medians.items()}
+
+    x_train = training.loc[train_mask, TRAINING_FEATURES].fillna(medians)
     y_train = training.loc[train_mask, "total_fantasy_points"].astype(float)
-    x_test = training.loc[test_mask, TRAINING_FEATURES]
+    x_test = training.loc[test_mask, TRAINING_FEATURES].fillna(medians)
     y_test = training.loc[test_mask, "total_fantasy_points"].astype(float)
 
-    backend = "random_forest"
+    backend = "gradient_boosting"
     try:
         from xgboost import XGBRegressor
 
         model = XGBRegressor(
-            objective="reg:squarederror",
             n_estimators=400,
             max_depth=4,
             learning_rate=0.05,
             subsample=0.8,
             colsample_bytree=0.8,
             random_state=42,
+            objective="reg:squarederror",
             n_jobs=-1,
         )
         backend = "xgboost"
     except Exception:
-        model = RandomForestRegressor(
+        model = GradientBoostingRegressor(
             n_estimators=400,
-            max_depth=8,
+            learning_rate=0.05,
+            subsample=0.8,
+            max_depth=4,
             random_state=42,
-            n_jobs=-1,
         )
 
     model.fit(x_train, y_train)
@@ -826,6 +831,8 @@ def train_fantasy_ranker(db_path: str | Path) -> dict[str, float | str | int]:
     joblib.dump(model, MODEL_PATH)
     with FEATURES_PATH.open("w", encoding="utf-8") as handle:
         json.dump(TRAINING_FEATURES, handle, indent=2)
+    with MEDIANS_PATH.open("w", encoding="utf-8") as handle:
+        json.dump(medians, handle, indent=2)
 
     return metrics
 
@@ -838,43 +845,15 @@ def rank_match_players(
     toss_decision: str,
     db_path: str | Path,
 ) -> pd.DataFrame:
-    if not MODEL_PATH.exists() or not FEATURES_PATH.exists():
+    if not MODEL_PATH.exists() or not FEATURES_PATH.exists() or not MEDIANS_PATH.exists():
         train_fantasy_ranker(db_path)
 
-    model, feature_list = _load_model_artifacts()
+    model, feature_list, medians = _load_model_artifacts()
     snapshot = build_prematch_player_snapshot(team1, team2, venue, toss_winner, toss_decision, db_path)
 
     scoring = snapshot.copy()
-    safe_sr = scoring["avg_sr_last5"].clip(lower=1.0)
-    bowling_share = scoring["bowling_match_share"].clip(lower=0.0)
-    bowling_overs = bowling_share * 4.0
-
-    scoring["runs_scored"] = scoring["avg_runs_last5"]
-    scoring["balls_faced"] = (scoring["avg_runs_last5"] / safe_sr) * 100.0
-    scoring["fours"] = scoring["avg_fours_last5"]
-    scoring["sixes"] = scoring["avg_sixes_last5"]
-    scoring["dismissed"] = scoring["duck_rate"]
-    scoring["strike_rate"] = scoring["avg_sr_last5"]
-    scoring["is_duck"] = scoring["duck_rate"]
-    scoring["milestone_50"] = scoring["fifty_rate"]
-    scoring["milestone_100"] = scoring["hundred_rate"]
-    scoring["pp_runs"] = scoring["avg_pp_runs"]
-    scoring["mid_runs"] = scoring["avg_mid_runs"]
-    scoring["death_runs"] = scoring["avg_death_runs"]
-    scoring["pp_sr"] = scoring["avg_sr_last5"]
-    scoring["death_sr"] = scoring["avg_sr_last5"]
-    scoring["overs_bowled"] = bowling_overs
-    scoring["balls_bowled"] = bowling_share * 24.0
-    scoring["runs_conceded"] = scoring["avg_economy_last5"].clip(lower=0.0) * bowling_overs.clip(lower=0.0)
-    scoring["wickets_taken"] = scoring["avg_wickets_last5"]
-    scoring["economy_rate"] = scoring["avg_economy_last5"]
-    scoring["maidens"] = 0.0
-    scoring["dot_balls"] = bowling_share * 8.0
-    scoring["pp_wickets"] = scoring["avg_pp_wickets"]
-    scoring["death_wickets"] = scoring["avg_death_wickets"]
-    scoring["death_economy"] = scoring["avg_death_economy"]
-
-    model_input = scoring[feature_list].fillna(0.0)
+    scoring["role_encoded"] = scoring["role"].map(ROLE_ENCODING).fillna(1).astype(int)
+    model_input = scoring[feature_list].apply(pd.to_numeric, errors="coerce").fillna(medians)
     predicted_points = model.predict(model_input)
     scoring["predicted_points"] = predicted_points
 

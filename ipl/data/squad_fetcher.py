@@ -28,6 +28,17 @@ SQUAD_URL_TEMPLATE = (
     "{match_id}-squad.js"
 )
 REQUEST_HEADERS = {"User-Agent": "Mozilla/5.0"}
+PLAYER_NAME_ALIASES = {
+    "K L Rahul": "KL Rahul",
+}
+FORCED_PLAYER_TEAMS = {
+    "Sanju Samson": "Rajasthan Royals",
+    "KL Rahul": "Delhi Capitals",
+    "Noor Ahmad": "Chennai Super Kings",
+}
+REMOVED_PLAYERS = {
+    "AB de Villiers",
+}
 
 
 FALLBACK_SQUADS: dict[str, list[tuple[str, str, int]]] = {
@@ -201,7 +212,8 @@ def _clean_player_name(name: str | None) -> str:
         return text
     text = re.sub(r"\s*\((?:c|wk|vc|ip|rp)\)", "", text, flags=re.I)
     text = re.sub(r"\s*\((?:captain|vice[- ]captain)\)", "", text, flags=re.I)
-    return " ".join(text.split()).strip()
+    text = " ".join(text.split()).strip()
+    return PLAYER_NAME_ALIASES.get(text, text)
 
 
 def _map_role(row: dict[str, Any]) -> str:
@@ -305,10 +317,72 @@ def _persist_squads(
         con.close()
 
 
+def _clear_season_rows(
+    db_path: str | os.PathLike[str],
+    season: str,
+) -> None:
+    con = sqlite3.connect(db_path)
+    try:
+        con.execute(
+            """
+            CREATE TABLE IF NOT EXISTS ipl_current_squads (
+                player_name   TEXT,
+                team          TEXT,
+                role          TEXT,
+                is_overseas   INTEGER,
+                is_available  INTEGER DEFAULT 1,
+                season        TEXT,
+                fetched_at    TEXT,
+                PRIMARY KEY (player_name, season)
+            )
+            """
+        )
+        con.execute("DELETE FROM ipl_current_squads WHERE season=?", (season,))
+        con.commit()
+    finally:
+        con.close()
+
+
+def _sanitize_roster_map(
+    roster_by_team: dict[str, list[tuple[str, str, int]]],
+    supplement_forced_players: bool = True,
+) -> dict[str, list[tuple[str, str, int]]]:
+    sanitized: dict[str, list[tuple[str, str, int]]] = OrderedDict()
+    seen_players: set[str] = set()
+
+    for team, roster in roster_by_team.items():
+        for player_name, role, is_overseas in roster:
+            clean_name = _clean_player_name(player_name)
+            if not clean_name or clean_name in REMOVED_PLAYERS:
+                continue
+            forced_team = FORCED_PLAYER_TEAMS.get(clean_name, team)
+            sanitized.setdefault(forced_team, [])
+            if clean_name in seen_players:
+                continue
+            sanitized[forced_team].append((clean_name, role, is_overseas))
+            seen_players.add(clean_name)
+
+    if supplement_forced_players:
+        for team, players in FALLBACK_SQUADS.items():
+            for player_name, role, is_overseas in players:
+                clean_name = _clean_player_name(player_name)
+                if not clean_name or clean_name in REMOVED_PLAYERS:
+                    continue
+                forced_team = FORCED_PLAYER_TEAMS.get(clean_name, team)
+                if clean_name in seen_players:
+                    continue
+                if clean_name in FORCED_PLAYER_TEAMS:
+                    sanitized.setdefault(forced_team, []).append((clean_name, role, is_overseas))
+                    seen_players.add(clean_name)
+
+    return sanitized
+
+
 def _fallback_rows(season: str) -> list[tuple[str, str, str, int, int, str, str]]:
     fetched_at = datetime.now(timezone.utc).isoformat()
     rows: list[tuple[str, str, str, int, int, str, str]] = []
-    for team, players in FALLBACK_SQUADS.items():
+    fallback_map = _sanitize_roster_map(FALLBACK_SQUADS, supplement_forced_players=False)
+    for team, players in fallback_map.items():
         for player_name, role, is_overseas in players:
             rows.append(
                 (
@@ -324,10 +398,70 @@ def _fallback_rows(season: str) -> list[tuple[str, str, str, int, int, str, str]
     return rows
 
 
+def validate_squad_integrity(
+    db_path: str | os.PathLike[str],
+    season: str = "2026",
+) -> dict[str, Any]:
+    con = sqlite3.connect(db_path)
+    try:
+        total_players = con.execute(
+            """
+            SELECT COUNT(*)
+            FROM ipl_current_squads
+            WHERE season=? AND is_available=1
+            """,
+            (season,),
+        ).fetchone()[0]
+        per_team_counts = dict(
+            con.execute(
+                """
+                SELECT team, COUNT(*)
+                FROM ipl_current_squads
+                WHERE season=? AND is_available=1
+                GROUP BY team
+                ORDER BY team
+                """,
+                (season,),
+            ).fetchall()
+        )
+        duplicate_rows = con.execute(
+            """
+            SELECT player_name, GROUP_CONCAT(DISTINCT team), COUNT(DISTINCT team)
+            FROM ipl_current_squads
+            WHERE season=?
+            GROUP BY player_name
+            HAVING COUNT(DISTINCT team) > 1
+            ORDER BY player_name
+            """,
+            (season,),
+        ).fetchall()
+    finally:
+        con.close()
+
+    duplicate_players = [
+        {"player_name": player_name, "teams": teams, "team_count": team_count}
+        for player_name, teams, team_count in duplicate_rows
+    ]
+    if duplicate_players:
+        print(f"FAIL: squad integrity for {season}")
+        print(f"per-team counts: {per_team_counts}")
+        print(f"duplicate players: {duplicate_players}")
+    else:
+        print(f"PASS: squad integrity for {season}")
+        print(f"per-team counts: {per_team_counts}")
+
+    return {
+        "total_players": int(total_players),
+        "per_team_counts": per_team_counts,
+        "duplicate_players": duplicate_players,
+    }
+
+
 def fetch_current_squads(season: str = "2026") -> None:
     db_path = _default_db_path()
     fetched_at = datetime.now(timezone.utc).isoformat()
     rows: list[tuple[str, str, str, int, int, str, str]] = []
+    _clear_season_rows(db_path, season)
 
     try:
         match_ids = _match_ids_for_season(season)
@@ -358,13 +492,17 @@ def fetch_current_squads(season: str = "2026") -> None:
         if len(seen_teams) < 10:
             raise RuntimeError("Live squad feed did not produce all 10 teams")
 
-        for team, roster in roster_by_team.items():
+        sanitized_map = _sanitize_roster_map(roster_by_team)
+        for team, roster in sanitized_map.items():
             for player_name, role, is_overseas in roster:
                 rows.append((player_name, team, role, is_overseas, 1, season, fetched_at))
     except Exception:
         rows = _fallback_rows(season)
 
     _persist_squads(db_path, rows)
+    report = validate_squad_integrity(db_path, season)
+    if report["duplicate_players"]:
+        raise RuntimeError(f"Duplicate players across teams detected: {report['duplicate_players']}")
 
 
 def get_available_players(team, db_path):
@@ -387,15 +525,34 @@ def get_available_players(team, db_path):
 if __name__ == "__main__":
     fetch_current_squads()
     con = sqlite3.connect(_default_db_path())
-    for team in con.execute(
-        "SELECT DISTINCT team FROM ipl_current_squads WHERE season='2026' ORDER BY team"
-    ).fetchall():
-        players = con.execute(
-            "SELECT player_name, role, is_overseas FROM ipl_current_squads "
-            "WHERE team=? AND season='2026' AND is_available=1",
-            (team[0],),
+    try:
+        for team in con.execute(
+            "SELECT DISTINCT team FROM ipl_current_squads WHERE season='2026' ORDER BY team"
+        ).fetchall():
+            players = con.execute(
+                "SELECT player_name, role, is_overseas FROM ipl_current_squads "
+                "WHERE team=? AND season='2026' AND is_available=1",
+                (team[0],),
+            ).fetchall()
+            print(f"\n{team[0]} ({len(players)} players):")
+            for p in players:
+                print(f"  {p[0]} [{p[1]}]{'  *overseas*' if p[2] else ''}")
+
+        duplicates = con.execute(
+            """
+            SELECT player_name, GROUP_CONCAT(DISTINCT team), COUNT(DISTINCT team)
+            FROM ipl_current_squads
+            WHERE season='2026'
+            GROUP BY player_name
+            HAVING COUNT(DISTINCT team) > 1
+            ORDER BY player_name
+            """
         ).fetchall()
-        print(f"\n{team[0]} ({len(players)} players):")
-        for p in players:
-            print(f"  {p[0]} [{p[1]}]{'  *overseas*' if p[2] else ''}")
-    con.close()
+        print("\nMulti-team duplicates:")
+        if duplicates:
+            for row in duplicates:
+                print(row)
+        else:
+            print("none")
+    finally:
+        con.close()
