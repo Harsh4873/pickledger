@@ -1830,6 +1830,23 @@ function isExactLedgerDuplicate(candidate) {
   ));
 }
 
+function _buildIplPickApiPayload(entry) {
+  const confidence = Number(entry && entry.confidence);
+  return {
+    sport: 'IPL',
+    game: String(entry && entry.game || '').trim(),
+    pick: String(entry && entry.pick || '').trim(),
+    confidence: Number.isFinite(confidence) ? Math.round(confidence) : 0,
+    result: 'pending',
+    source: 'IPL Model',
+    notes: String(entry && entry.notes || '').trim(),
+    odds: null,
+    units: 1,
+    date: _getTodayIsoDate(),
+    start_time: null,
+  };
+}
+
 async function addIplPicksToLog() {
   const entries = buildIplPickEntries(pendingIplPrediction).filter(entry => !isExactLedgerDuplicate(entry));
   if (!entries.length) {
@@ -1847,33 +1864,36 @@ async function addIplPicksToLog() {
     error: false,
   });
 
-  const savedEntries = [];
-  let failed = false;
-
-  await Promise.all(entries.map(async (entry) => {
+  const results = await Promise.all(entries.map(async (entry) => {
     try {
-      const resp = await fetch(PICKS_API_URL, {
+      const res = await fetch('/api/picks', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(entry),
+        body: JSON.stringify(_buildIplPickApiPayload(entry)),
       });
-      const data = await resp.json().catch(() => ({}));
-      if (!resp.ok || !data || data.ok === false || !data.pick) {
-        failed = true;
-        return;
+      if (!res.ok) {
+        throw new Error(await res.text());
       }
-      savedEntries.push(data.pick);
-    } catch {
-      failed = true;
+      const data = await res.json();
+      const pickId = data && (data.id ?? (data.pick && data.pick.id));
+      if (pickId === undefined || pickId === null) {
+        throw new Error('Missing pick id');
+      }
+      return { ok: true, entry };
+    } catch (error) {
+      return { ok: false, entry, error };
     }
   }));
 
+  const savedEntries = results.filter(r => r && r.ok).map(r => r.entry);
+  const failedCount = results.length - savedEntries.length;
+
   if (savedEntries.length) {
-    saveAddedPicks([...getAddedPicks(), ...savedEntries]);
+    _appendModelPicksToLedger(savedEntries);
     render();
   }
 
-  if (!failed && savedEntries.length === entries.length) {
+  if (failedCount === 0) {
     updateIplAddPicksUi(`Saved ${savedEntries.length} IPL picks to the pick log.`, {
       buttonText: `✅ Added ${savedEntries.length} picks to log`,
       disabled: true,
@@ -1882,7 +1902,7 @@ async function addIplPicksToLog() {
     return;
   }
 
-  updateIplAddPicksUi('⚠️ Some picks failed to save', {
+  updateIplAddPicksUi(`⚠️ ${failedCount} picks failed to save`, {
     buttonText: '📋 Add to Pick Log',
     disabled: false,
     error: true,

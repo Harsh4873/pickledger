@@ -366,15 +366,70 @@ def _ensure_picks_table(conn: sqlite3.Connection) -> None:
             pick TEXT NOT NULL DEFAULT '',
             date TEXT NOT NULL DEFAULT '',
             units INTEGER NOT NULL DEFAULT 1,
-            odds INTEGER NOT NULL DEFAULT -110,
+            odds INTEGER DEFAULT NULL,
             result TEXT NOT NULL DEFAULT 'pending',
             notes TEXT NOT NULL DEFAULT '',
-            start_time TEXT NOT NULL DEFAULT '',
+            start_time TEXT DEFAULT NULL,
             created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
             updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
         )
         """
     )
+    columns = {
+        str(row["name"]): row
+        for row in conn.execute("PRAGMA table_info(picks)").fetchall()
+    }
+    odds_column = columns.get("odds")
+    start_time_column = columns.get("start_time")
+    needs_migration = (
+        odds_column is not None and bool(odds_column["notnull"])
+    ) or (
+        start_time_column is not None and bool(start_time_column["notnull"])
+    )
+    if not needs_migration:
+        return
+
+    conn.execute("ALTER TABLE picks RENAME TO picks_legacy")
+    conn.execute(
+        """
+        CREATE TABLE picks (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            sport TEXT NOT NULL DEFAULT 'Other',
+            source TEXT NOT NULL DEFAULT '',
+            pick TEXT NOT NULL DEFAULT '',
+            date TEXT NOT NULL DEFAULT '',
+            units INTEGER NOT NULL DEFAULT 1,
+            odds INTEGER DEFAULT NULL,
+            result TEXT NOT NULL DEFAULT 'pending',
+            notes TEXT NOT NULL DEFAULT '',
+            start_time TEXT DEFAULT NULL,
+            created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
+            updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
+        )
+        """
+    )
+    conn.execute(
+        """
+        INSERT INTO picks (
+            id, sport, source, pick, date, units, odds, result, notes, start_time, created_at, updated_at
+        )
+        SELECT
+            id,
+            sport,
+            source,
+            pick,
+            date,
+            units,
+            odds,
+            result,
+            notes,
+            NULLIF(start_time, ''),
+            created_at,
+            updated_at
+        FROM picks_legacy
+        """
+    )
+    conn.execute("DROP TABLE picks_legacy")
 
 
 def _sync_picks_table_from_state(conn: sqlite3.Connection, state: dict[str, Any]) -> None:
@@ -405,10 +460,16 @@ def _sync_picks_table_from_state(conn: sqlite3.Connection, state: dict[str, Any]
             units = int(item.get("units", 1))
         except (TypeError, ValueError):
             units = 1
-        try:
-            odds = int(float(item.get("odds", -110)))
-        except (TypeError, ValueError):
-            odds = -110
+        raw_odds = item.get("odds")
+        if raw_odds in {"", None}:
+            odds = None
+        else:
+            try:
+                odds = int(float(raw_odds))
+            except (TypeError, ValueError):
+                odds = None
+        start_time_value = game_time_map.get(pick_id_str, item.get("start_time"))
+        start_time = str(start_time_value).strip() if start_time_value not in {"", None} else None
         rows.append((
             pick_id,
             str(item.get("sport", "Other") or "Other"),
@@ -419,7 +480,7 @@ def _sync_picks_table_from_state(conn: sqlite3.Connection, state: dict[str, Any]
             odds,
             str(result_map.get(pick_id_str, item.get("result", "pending")) or "pending"),
             str(item.get("notes", "") or ""),
-            str(game_time_map.get(pick_id_str, item.get("start_time", "")) or ""),
+            start_time,
             str(item.get("created_at", "") or now_iso),
             now_iso,
         ))
@@ -556,6 +617,24 @@ def _normalize_pick_result(value: Any, *, allow_pending: bool = True) -> str | N
     return None
 
 
+def _coerce_optional_int(value: Any, default: int) -> int:
+    if value in {"", None}:
+        return default
+    try:
+        return int(float(value))
+    except (TypeError, ValueError):
+        return default
+
+
+def _coerce_optional_float(value: Any) -> float | None:
+    if value in {"", None}:
+        return None
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None
+
+
 def _next_ledger_pick_id(state: dict[str, Any]) -> int:
     max_id = 0
     for item in state.get("addedPicks", []):
@@ -578,6 +657,7 @@ def _next_ledger_pick_id(state: dict[str, Any]) -> int:
 
 def _build_pick_log_entry(raw: dict[str, Any], pick_id: int | None = None) -> dict[str, Any]:
     now_iso = datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")
+    today_iso = datetime.now().strftime("%Y-%m-%d")
     probability = raw.get("probability")
     confidence = raw.get("confidence")
     if probability is None and confidence is not None:
@@ -593,28 +673,26 @@ def _build_pick_log_entry(raw: dict[str, Any], pick_id: int | None = None) -> di
             odds = int(float(raw_odds))
         except (TypeError, ValueError):
             odds = None
-    try:
-        units = int(raw.get("units", 1))
-    except (TypeError, ValueError):
-        units = 1
-    try:
-        confidence_int = int(round(float(confidence)))
-    except (TypeError, ValueError):
-        confidence_int = 0
+    units = _coerce_optional_int(raw.get("units", 1), 1)
+    confidence_float = _coerce_optional_float(confidence)
+    confidence_int = int(round(confidence_float)) if confidence_float is not None else 0
+    date_value = str(raw.get("date", "") or today_iso).strip() or today_iso
+    source_value = str(raw.get("source", "") or "Manual").strip() or "Manual"
+    notes_value = str(raw.get("notes", "") or "").strip()
     entry = {
         "id": pick_id,
         "sport": str(raw.get("sport", "Other") or "Other"),
-        "source": str(raw.get("source", "") or ""),
+        "source": source_value,
         "game": str(raw.get("game", "") or ""),
         "pick": str(raw.get("pick", "") or ""),
-        "date": str(raw.get("date", "") or _format_ledger_date_label()),
+        "date": date_value,
         "units": units,
         "odds": odds,
         "confidence": confidence_int,
         "probability": probability,
         "result": _normalize_pick_result(raw.get("result"), allow_pending=True) or "pending",
-        "notes": str(raw.get("notes", "") or ""),
-        "start_time": str(raw.get("start_time", "") or ""),
+        "notes": notes_value,
+        "start_time": raw.get("start_time") if raw.get("start_time") not in {"", None} else None,
         "created_at": str(raw.get("created_at", "") or now_iso),
     }
     return entry
@@ -3109,7 +3187,7 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header("Content-Type", "application/json; charset=utf-8")
         self.send_header("Content-Length", str(len(data)))
         self.send_header("Access-Control-Allow-Origin", "*")
-        self.send_header("Access-Control-Allow-Methods", "POST, GET, OPTIONS")
+        self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
         self.send_header("Access-Control-Allow-Headers", "Content-Type")
         if extra_headers:
             for key, value in extra_headers.items():
@@ -3264,6 +3342,7 @@ class Handler(BaseHTTPRequestHandler):
         elif path.startswith("/api/"):
             path = path[4:]
 
+        content_type = str(self.headers.get("Content-Type", "")).lower()
         try:
             length = int(self.headers.get("Content-Length", "0"))
         except ValueError:
@@ -3272,8 +3351,14 @@ class Handler(BaseHTTPRequestHandler):
 
         try:
             raw = self.rfile.read(length)
-            body = json.loads(raw.decode("utf-8")) if raw else {}
+            if raw:
+                body = json.loads(raw.decode("utf-8"))
+            else:
+                body = {}
         except (UnicodeDecodeError, json.JSONDecodeError):
+            if "application/json" in content_type:
+                self._send_json(400, {"error": "bad json"})
+                return
             self._send_json(400, {"ok": False, "error": "Invalid JSON body"})
             return
 
@@ -3298,7 +3383,7 @@ class Handler(BaseHTTPRequestHandler):
             if not ok or entry is None:
                 self._send_json(400, {"ok": False, "error": error or "Failed to save pick"})
                 return
-            self._send_json(200, {"ok": True, "pick": entry})
+            self._send_json(200, {"success": True, "id": entry.get("id")})
             return
 
         if path == "/grade" and "id" in body and "result" in body and "picks" not in body:
