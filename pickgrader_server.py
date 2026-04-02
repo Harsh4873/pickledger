@@ -518,6 +518,165 @@ def _save_ledger_state(payload: dict[str, Any]) -> bool:
     return sql_ok or file_ok
 
 
+def _load_ledger_state_unlocked() -> dict[str, Any]:
+    from_sql = _load_ledger_state_from_sql()
+    if from_sql is not None:
+        return from_sql
+
+    from_file = _load_ledger_state_from_file()
+    if from_file is not None:
+        _save_ledger_state_to_sql(from_file)
+        return from_file
+    return _default_ledger_state()
+
+
+def _save_ledger_state_unlocked(payload: dict[str, Any]) -> tuple[bool, dict[str, Any]]:
+    state = _coerce_ledger_state(payload)
+    state["savedAt"] = datetime.utcnow().isoformat() + "Z"
+    sql_ok = _save_ledger_state_to_sql(state)
+    file_ok = _save_ledger_state_to_file(state)
+    return sql_ok or file_ok, state
+
+
+def _format_ledger_date_label(dt: datetime | None = None) -> str:
+    current = dt or datetime.now()
+    return current.strftime("%b %d").replace(" 0", " ")
+
+
+def _normalize_pick_result(value: Any, *, allow_pending: bool = True) -> str | None:
+    text = str(value or "").strip().lower()
+    if text in {"w", "win"}:
+        return "win"
+    if text in {"l", "loss"}:
+        return "loss"
+    if text in {"p", "push"}:
+        return "push"
+    if allow_pending and text in {"", "pending"}:
+        return "pending"
+    return None
+
+
+def _next_ledger_pick_id(state: dict[str, Any]) -> int:
+    max_id = 0
+    for item in state.get("addedPicks", []):
+        if not isinstance(item, dict):
+            continue
+        try:
+            max_id = max(max_id, int(item.get("id") or 0))
+        except (TypeError, ValueError):
+            continue
+    try:
+        with _ledger_db_connect() as conn:
+            _ensure_picks_table(conn)
+            row = conn.execute("SELECT MAX(id) AS max_id FROM picks").fetchone()
+        if row and row["max_id"] is not None:
+            max_id = max(max_id, int(row["max_id"]))
+    except sqlite3.Error:
+        pass
+    return max_id + 1
+
+
+def _build_pick_log_entry(raw: dict[str, Any], pick_id: int | None = None) -> dict[str, Any]:
+    now_iso = datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")
+    probability = raw.get("probability")
+    confidence = raw.get("confidence")
+    if probability is None and confidence is not None:
+        try:
+            probability = max(0.0, min(float(confidence) / 100.0, 1.0))
+        except (TypeError, ValueError):
+            probability = None
+    raw_odds = raw.get("odds")
+    if raw_odds in {"", None}:
+        odds = None
+    else:
+        try:
+            odds = int(float(raw_odds))
+        except (TypeError, ValueError):
+            odds = None
+    try:
+        units = int(raw.get("units", 1))
+    except (TypeError, ValueError):
+        units = 1
+    try:
+        confidence_int = int(round(float(confidence)))
+    except (TypeError, ValueError):
+        confidence_int = 0
+    entry = {
+        "id": pick_id,
+        "sport": str(raw.get("sport", "Other") or "Other"),
+        "source": str(raw.get("source", "") or ""),
+        "game": str(raw.get("game", "") or ""),
+        "pick": str(raw.get("pick", "") or ""),
+        "date": str(raw.get("date", "") or _format_ledger_date_label()),
+        "units": units,
+        "odds": odds,
+        "confidence": confidence_int,
+        "probability": probability,
+        "result": _normalize_pick_result(raw.get("result"), allow_pending=True) or "pending",
+        "notes": str(raw.get("notes", "") or ""),
+        "start_time": str(raw.get("start_time", "") or ""),
+        "created_at": str(raw.get("created_at", "") or now_iso),
+    }
+    return entry
+
+
+def _save_pick_to_ledger(raw: dict[str, Any]) -> tuple[bool, dict[str, Any] | None, str | None]:
+    with _ledger_state_lock:
+        state = _load_ledger_state_unlocked()
+        entry = _build_pick_log_entry(raw, pick_id=_next_ledger_pick_id(state))
+        if not entry["pick"]:
+            return False, None, "Pick text is required"
+        added = state.get("addedPicks")
+        added_list = list(added) if isinstance(added, list) else []
+        added_list.append(entry)
+        state["addedPicks"] = added_list
+        ok, _ = _save_ledger_state_unlocked(state)
+    if not ok:
+        return False, None, "Failed to persist pick"
+    return True, entry, None
+
+
+def _set_pick_result_in_ledger(pick_id: Any, result: Any) -> tuple[bool, str | None, str | None]:
+    normalized = _normalize_pick_result(result, allow_pending=True)
+    if normalized is None:
+        return False, None, "Result must be one of W/L/P or pending"
+
+    pick_id_str = str(pick_id or "").strip()
+    if not pick_id_str:
+        return False, None, "Pick id is required"
+
+    with _ledger_state_lock:
+        state = _load_ledger_state_unlocked()
+        known_ids = set()
+        for item in state.get("addedPicks", []):
+            if isinstance(item, dict):
+                known_ids.add(str(item.get("id", "")).strip())
+        if pick_id_str not in known_ids:
+            try:
+                with _ledger_db_connect() as conn:
+                    _ensure_picks_table(conn)
+                    row = conn.execute(
+                        "SELECT 1 FROM picks WHERE id = ? LIMIT 1",
+                        (pick_id_str,),
+                    ).fetchone()
+                if row is None:
+                    return False, None, "Pick not found"
+            except sqlite3.Error:
+                return False, None, "Pick lookup failed"
+
+        results = state.get("results")
+        result_map = dict(results) if isinstance(results, dict) else {}
+        if normalized == "pending":
+            result_map.pop(pick_id_str, None)
+        else:
+            result_map[pick_id_str] = normalized
+        state["results"] = result_map
+        ok, _ = _save_ledger_state_unlocked(state)
+    if not ok:
+        return False, None, "Failed to persist result"
+    return True, normalized, None
+
+
 def _extract_matchup_from_pick_text(pick_text: str) -> str | None:
     text = str(pick_text or "")
     matches = re.findall(r"\(([^)]+)\)", text)
@@ -2581,6 +2740,53 @@ def _resolve_scores24_date(date_str: str | None) -> str:
     return datetime.now().strftime("%Y-%m-%d")
 
 
+def _write_scores24_manual_feed(
+    picks: list[dict[str, Any]],
+    date_str: str,
+    sports: list[str] | None = None,
+    note: str | None = None,
+) -> None:
+    feed_path = os.path.join(BASE_DIR, "scores24_manual_feed.json")
+    requested = {
+        _normalize_scores24_sport(str(s or "").strip(), str(s or "").strip().upper())
+        for s in (sports or [])
+        if str(s or "").strip()
+    }
+    requested = {sport for sport in requested if sport}
+
+    existing_payload: dict[str, Any] = {}
+    existing_picks: list[dict[str, Any]] = []
+    try:
+        with open(feed_path, encoding="utf-8") as fh:
+            existing_payload = json.load(fh)
+        if isinstance(existing_payload.get("picks"), list):
+            existing_picks = [pick for pick in existing_payload["picks"] if isinstance(pick, dict)]
+    except Exception:
+        existing_payload = {}
+        existing_picks = []
+
+    keep_existing = str(existing_payload.get("date") or "").strip() == date_str
+    merged_picks: list[dict[str, Any]] = []
+    if keep_existing and requested:
+        for pick in existing_picks:
+            sport = _normalize_scores24_sport(str(pick.get("sport", "")), str(pick.get("sport", "")))
+            if sport in requested:
+                continue
+            merged_picks.append(pick)
+    merged_picks.extend(picks)
+
+    payload = {
+        "updated_at": datetime.now().isoformat(),
+        "date": date_str,
+        "leagues": ",".join(sorted(requested)).lower() if requested else "",
+        "note": note or "Synced from local backend.",
+        "picks": merged_picks,
+    }
+    with open(feed_path, "w", encoding="utf-8") as fh:
+        json.dump(payload, fh, indent=2)
+        fh.write("\n")
+
+
 def run_scores24_scraper(sports: list[str], date_str: str | None = None) -> dict[str, Any]:
     """Execute the Scores24 scraper for selected sports."""
     python_bin = _resolve_python_bin(SCORES24_VENV)
@@ -2612,7 +2818,7 @@ def run_scores24_scraper(sports: list[str], date_str: str | None = None) -> dict
         if not sport_slug:
             return sport_code, [], f"Unsupported sport code: {sport_code}"
 
-        timeout_s = 120
+        timeout_s = 300 if sport_code == "mlb" else 180
         date_candidates = [target_date]
         try:
             base_date = datetime.strptime(target_date, "%Y-%m-%d")
@@ -2720,6 +2926,15 @@ def run_scores24_scraper(sports: list[str], date_str: str | None = None) -> dict
     if not all_picks and errors:
         return {"ok": False, "error": "; ".join(errors[:4])}
 
+    try:
+        _write_scores24_manual_feed(
+            all_picks,
+            target_date,
+            selected,
+            note="Synced from local backend.",
+        )
+    except Exception as exc:
+        errors.append(f"feed write failed: {exc}")
     return {"ok": True, "picks": all_picks, "errors": errors}
 
 
@@ -2918,6 +3133,7 @@ class Handler(BaseHTTPRequestHandler):
             endpoints = [
                 "/health",
                 "/ledger-state",
+                "/picks",
                 "/grade",
                 "/run-sportsline-odds",
                 "/run-nba-model",
@@ -3075,6 +3291,22 @@ class Handler(BaseHTTPRequestHandler):
                 self._send_json(500, {"ok": False, "error": "Failed to persist ledger state"})
                 return
             self._send_json(200, {"ok": True, "state": _load_ledger_state()})
+            return
+
+        if path == "/picks":
+            ok, entry, error = _save_pick_to_ledger(body if isinstance(body, dict) else {})
+            if not ok or entry is None:
+                self._send_json(400, {"ok": False, "error": error or "Failed to save pick"})
+                return
+            self._send_json(200, {"ok": True, "pick": entry})
+            return
+
+        if path == "/grade" and "id" in body and "result" in body and "picks" not in body:
+            ok, normalized, error = _set_pick_result_in_ledger(body.get("id"), body.get("result"))
+            if not ok or normalized is None:
+                self._send_json(400, {"ok": False, "error": error or "Failed to save result"})
+                return
+            self._send_json(200, {"ok": True, "id": body.get("id"), "result": normalized})
             return
 
         if path == "/grade":

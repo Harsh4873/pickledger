@@ -157,6 +157,10 @@ function renderIPLPrediction(data) {
             </tbody>
           </table>
         </div>
+        <div class="ipl-actions">
+          <button id="ipl-add-picks-btn" class="btn btn-primary" type="button">📋 Add to Pick Log</button>
+          <div id="ipl-add-picks-status" class="ipl-add-picks-status" aria-live="polite"></div>
+        </div>
       </div>
     </div>
   `;

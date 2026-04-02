@@ -228,6 +228,50 @@
   opacity: 0.72;
 }
 
+.ipl-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.btn.btn-primary {
+  appearance: none;
+  border: 1px solid rgba(77,166,255,0.24);
+  border-radius: 12px;
+  background: linear-gradient(135deg, rgba(77,166,255,0.18), rgba(0,229,160,0.16));
+  color: var(--text, #e8edf2);
+  cursor: pointer;
+  font-family: 'DM Mono', monospace;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.4px;
+  padding: 11px 16px;
+  transition: transform 0.18s ease, border-color 0.18s ease, opacity 0.18s ease;
+}
+
+.btn.btn-primary:hover:not(:disabled) {
+  transform: translateY(-1px);
+  border-color: rgba(0,229,160,0.34);
+}
+
+.btn.btn-primary:disabled {
+  cursor: not-allowed;
+  opacity: 0.72;
+}
+
+.ipl-add-picks-status {
+  font-family: 'DM Mono', monospace;
+  font-size: 11px;
+  color: var(--muted, #5a7085);
+  letter-spacing: 0.4px;
+}
+
+.ipl-add-picks-status.is-error {
+  color: var(--loss, #ff4560);
+}
+
 .ipl-empty {
   text-align: center;
   color: var(--muted, #5a7085);

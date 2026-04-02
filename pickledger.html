@@ -73,6 +73,14 @@
   .header-controls { display: flex; align-items: center; gap: 8px; }
   .header-stat-val { font-family: 'Bebas Neue', sans-serif; font-size: 32px; color: var(--accent); text-align: right; }
   .header-stat-label { font-size: 11px; color: var(--muted); letter-spacing: 1px; text-align: right; }
+  .header-subrecord {
+    margin-top: 4px;
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    color: var(--accent3);
+    letter-spacing: 0.5px;
+    text-align: right;
+  }
   body[data-theme="light"] .logo-title {
     font-family: 'Fraunces', serif;
     font-size: 54px;
@@ -358,6 +366,48 @@
   .pick-bubble-result {
     flex-shrink: 0;
   }
+  .pick-bubble-sport {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.4px;
+    padding: 5px 10px;
+    border-radius: 999px;
+    background: rgba(255,255,255,0.06);
+    color: var(--muted);
+    white-space: nowrap;
+  }
+  .pick-bubble-sport.is-ipl {
+    background: rgba(255,215,0,0.14);
+    color: #f6c453;
+  }
+  .pick-grade-buttons {
+    display: inline-flex;
+    gap: 6px;
+    align-items: center;
+  }
+  .pick-grade-btn {
+    appearance: none;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--surface);
+    color: var(--text);
+    cursor: pointer;
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    font-weight: 700;
+    min-width: 34px;
+    padding: 6px 8px;
+    transition: border-color 0.18s, transform 0.18s, opacity 0.18s;
+  }
+  .pick-grade-btn:hover:not(:disabled) {
+    border-color: var(--accent3);
+    transform: translateY(-1px);
+  }
+  .pick-grade-btn:disabled {
+    opacity: 0.55;
+    cursor: wait;
+  }
   .pick-bubble-pl {
     font-family: 'Bebas Neue', sans-serif;
     font-size: 18px;
@@ -427,6 +477,14 @@
   body[data-theme="light"] .pick-bubble-source {
     background: rgba(37,99,235,0.10);
     color: var(--accent3);
+  }
+  body[data-theme="light"] .pick-bubble-sport {
+    background: rgba(15,23,42,0.06);
+    color: #4b5563;
+  }
+  body[data-theme="light"] .pick-bubble-sport.is-ipl {
+    background: rgba(245,158,11,0.15);
+    color: #b45309;
   }
 
   .log-date-text,
@@ -859,6 +917,7 @@
       <div>
         <div class="header-stat-val" id="total-record">0-0</div>
         <div class="header-stat-label">OVERALL RECORD</div>
+        <div class="header-subrecord" id="ipl-record">IPL: 0-0</div>
       </div>
     </div>
   </header>
@@ -1087,6 +1146,7 @@ const SAVED_MODEL_SERVER = normalizeServerBase(localStorage.getItem('pickledger_
 const MODEL_SERVER = QUERY_MODEL_SERVER || SAVED_MODEL_SERVER || DEFAULT_MODEL_SERVER;
 localStorage.setItem('pickledger_model_server', MODEL_SERVER);
 const GRADER_URL = `${MODEL_SERVER}/grade`;
+const PICKS_API_URL = `${MODEL_SERVER}/api/picks`;
 const HEALTH_URL = `${MODEL_SERVER}/health`;
 const LEDGER_STATE_URL = `${MODEL_SERVER}/api/ledger-state`;
 const SCORES24_FEED_URL = './scores24_manual_feed.json';
@@ -1098,6 +1158,7 @@ const LOCAL_SCORES24_SERVER = LOOPBACK_MODEL_SERVER;
 const LOCAL_SPORTYTRADER_SERVER = LOOPBACK_MODEL_SERVER;
 let ledgerStateSyncTimer = null;
 let ledgerStateSyncInFlight = false;
+const manualGradeInFlightIds = new Set();
 
 function getAddedPicks() {
   try {
@@ -1388,9 +1449,17 @@ function toggleShowSettled() {
 }
 
 function calcPL(u,r) {
-  if(r==='push'||r==='pending') return 0;
-  if(r==='loss') return -u;
+  const normalized = normalizeResultValue(r);
+  if(normalized==='push'||normalized==='pending') return 0;
+  if(normalized==='loss') return -u;
   return u;
+}
+function normalizeResultValue(value) {
+  const text = String(value || '').trim().toLowerCase();
+  if (text === 'w' || text === 'win') return 'win';
+  if (text === 'l' || text === 'loss') return 'loss';
+  if (text === 'p' || text === 'push') return 'push';
+  return 'pending';
 }
 function normalizeNumericValue(value) {
   if (value == null || value === '') return null;
@@ -1586,9 +1655,9 @@ function setResult(id,r) {
     return;
   }
   const o=getResults();
-  o[id]=r;
+  o[id]=normalizeResultValue(r);
   localStorage.setItem(RESULTS_KEY,JSON.stringify(o));
-  saveResultToServer(id, r);
+  saveResultToServer(id, normalizeResultValue(r));
   scheduleLedgerStateSync();
   render();
 }
@@ -1623,7 +1692,7 @@ function formatStartLabel(iso) {
 }
 
 function getGameKeyForPick(p) {
-  const label = extractGameKey(p.pick, p.sport) || inferNbaPropsMatchupLabel(p, getPicks());
+  const label = p.game || extractGameKey(p.pick, p.sport) || inferNbaPropsMatchupLabel(p, getPicks());
   return label || `${p.sport}::${p.date}::${p.id}`;
 }
 
@@ -1668,7 +1737,186 @@ function jumpToSource(source) {
 
 function getPicks() {
   const ov = getResults();
-  return getAllLedgerPicks().map(p => { const r=ov[p.id]||p.result; return {...p, result:r, pl:calcPL(p.units,r)}; });
+  return getAllLedgerPicks().map(p => {
+    const r = normalizeResultValue(ov[p.id] || p.result);
+    return { ...p, result: r, pl: calcPL(p.units, r) };
+  });
+}
+
+function isIplPick(p) {
+  return String(p && p.sport || '').trim().toUpperCase() === 'IPL';
+}
+
+function getSportBadgeText(sport) {
+  return String(sport || '').toUpperCase() === 'IPL' ? '🏏 IPL' : String(sport || 'OTHER').toUpperCase();
+}
+
+function renderPickResultControl(p) {
+  if (isIplPick(p) && p.result === 'pending') {
+    const disabled = manualGradeInFlightIds.has(String(p.id)) ? 'disabled' : '';
+    return `<div class="pick-grade-buttons">
+      <button class="pick-grade-btn" type="button" ${disabled} onclick="gradePickManually(${p.id}, 'W')">W</button>
+      <button class="pick-grade-btn" type="button" ${disabled} onclick="gradePickManually(${p.id}, 'L')">L</button>
+      <button class="pick-grade-btn" type="button" ${disabled} onclick="gradePickManually(${p.id}, 'P')">P</button>
+    </div>`;
+  }
+  return `<select class="result-select" onchange="setResult(${p.id},this.value)">
+    <option value="pending" ${p.result==='pending'?'selected':''}>PENDING</option>
+    <option value="win" ${p.result==='win'?'selected':''}>WIN</option>
+    <option value="loss" ${p.result==='loss'?'selected':''}>LOSS</option>
+    <option value="push" ${p.result==='push'?'selected':''}>PUSH</option>
+    <option value="delete">DELETE</option></select>`;
+}
+
+function updateIplAddPicksUi(message, state = {}) {
+  const btn = document.getElementById('ipl-add-picks-btn');
+  const status = document.getElementById('ipl-add-picks-status');
+  if (btn && state.buttonText) btn.textContent = state.buttonText;
+  if (btn && typeof state.disabled === 'boolean') btn.disabled = state.disabled;
+  if (status) {
+    status.textContent = message || '';
+    status.classList.toggle('is-error', Boolean(state.error));
+  }
+}
+
+function buildIplPickEntries(data) {
+  if (!data || typeof data !== 'object') return [];
+  const dateLabel = formatTodayPickDateLabel();
+  const match = String(data.match || `${data.team1 || 'Team 1'} vs ${data.team2 || 'Team 2'}`).trim();
+  const confidenceLabel = String(data.confidence || 'MEDIUM').trim().toUpperCase();
+  const team1 = String(data.team1 || '').trim();
+  const predictedWinner = String(data.predicted_winner || team1 || '').trim();
+  const team1Prob = Number(data.team1_win_prob);
+  const team2Prob = Number(data.team2_win_prob);
+  const winnerProb = predictedWinner && predictedWinner === String(data.team2 || '').trim() ? team2Prob : team1Prob;
+  const winnerProbPct = Number.isFinite(winnerProb) ? winnerProb * 100 : 0;
+  const picks = [{
+    sport: 'IPL',
+    game: match,
+    pick: `WINNER: ${predictedWinner} (${winnerProbPct.toFixed(1)}% ${confidenceLabel})`,
+    confidence: Math.round(winnerProbPct),
+    probability: winnerProbPct > 0 ? winnerProbPct / 100 : null,
+    result: '',
+    source: 'IPL Model',
+    notes: 'IPL Winner',
+    date: dateLabel,
+  }];
+
+  const players = Array.isArray(data.selected_players) ? data.selected_players : [];
+  players.forEach((p) => {
+    const fantasyPct = Number(p && p.fantasy_probability_pct);
+    const safePct = Number.isFinite(fantasyPct) ? fantasyPct : 0;
+    picks.push({
+      sport: 'IPL',
+      game: match,
+      pick: `FANTASY: ${String(p && p.player_name || '').trim()} | ${String(p && p.role || '').trim()} | ${String(p && p.team || '').trim()} | ${safePct.toFixed(1)}% ${String(p && p.decision || 'PASS').trim().toUpperCase()}`,
+      confidence: Math.round(safePct),
+      probability: safePct > 0 ? safePct / 100 : null,
+      result: '',
+      source: 'IPL Model',
+      notes: p && p.is_captain ? 'IPL Fantasy C' : p && p.is_vice_captain ? 'IPL Fantasy VC' : 'IPL Fantasy',
+      date: dateLabel,
+    });
+  });
+  return picks;
+}
+
+function isExactLedgerDuplicate(candidate) {
+  return getAllLedgerPicks().some((existing) => (
+    String(existing.sport || '').toUpperCase() === String(candidate.sport || '').toUpperCase() &&
+    String(existing.source || '') === String(candidate.source || '') &&
+    String(existing.date || '') === String(candidate.date || '') &&
+    String(existing.pick || '') === String(candidate.pick || '')
+  ));
+}
+
+async function addIplPicksToLog() {
+  const entries = buildIplPickEntries(pendingIplPrediction).filter(entry => !isExactLedgerDuplicate(entry));
+  if (!entries.length) {
+    updateIplAddPicksUi('IPL picks for this match are already in the log.', {
+      buttonText: '✅ Already in Pick Log',
+      disabled: true,
+      error: false,
+    });
+    return;
+  }
+
+  updateIplAddPicksUi(`Saving ${entries.length} IPL picks...`, {
+    buttonText: 'Saving...',
+    disabled: true,
+    error: false,
+  });
+
+  const savedEntries = [];
+  let failed = false;
+
+  await Promise.all(entries.map(async (entry) => {
+    try {
+      const resp = await fetch(PICKS_API_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(entry),
+      });
+      const data = await resp.json().catch(() => ({}));
+      if (!resp.ok || !data || data.ok === false || !data.pick) {
+        failed = true;
+        return;
+      }
+      savedEntries.push(data.pick);
+    } catch {
+      failed = true;
+    }
+  }));
+
+  if (savedEntries.length) {
+    saveAddedPicks([...getAddedPicks(), ...savedEntries]);
+    render();
+  }
+
+  if (!failed && savedEntries.length === entries.length) {
+    updateIplAddPicksUi(`Saved ${savedEntries.length} IPL picks to the pick log.`, {
+      buttonText: `✅ Added ${savedEntries.length} picks to log`,
+      disabled: true,
+      error: false,
+    });
+    return;
+  }
+
+  updateIplAddPicksUi('⚠️ Some picks failed to save', {
+    buttonText: '📋 Add to Pick Log',
+    disabled: false,
+    error: true,
+  });
+}
+
+async function gradePickManually(id, result) {
+  const idStr = String(id);
+  if (!idStr || manualGradeInFlightIds.has(idStr)) return;
+  manualGradeInFlightIds.add(idStr);
+  render();
+  try {
+    const resp = await fetch(GRADER_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id, result }),
+    });
+    const data = await resp.json().catch(() => ({}));
+    if (!resp.ok || !data || data.ok === false) {
+      throw new Error(data.error || `HTTP ${resp.status}`);
+    }
+    const nextResult = normalizeResultValue(data.result || result);
+    const current = getResults();
+    current[idStr] = nextResult;
+    localStorage.setItem(RESULTS_KEY, JSON.stringify(current));
+    saveResultToServer(idStr, nextResult);
+    scheduleLedgerStateSync();
+    setRefreshStatus(`Saved manual grade: ${nextResult.toUpperCase()}`, 'ok');
+  } catch (err) {
+    setRefreshStatus(`Manual grade failed: ${String(err && err.message ? err.message : err)}`, 'error');
+  } finally {
+    manualGradeInFlightIds.delete(idStr);
+    render();
+  }
 }
 
 function getRankingSourceKey(p) {
@@ -3015,7 +3263,7 @@ function render() {
   }
 
   // Filters (Home tab)
-  const PRIMARY_SPORTS = ['ALL', 'NHL', 'MLB', 'NBA'];
+  const PRIMARY_SPORTS = ['ALL', 'NHL', 'MLB', 'NBA', 'IPL'];
   const sports=[...new Set(picks.map(p=>p.sport).filter(s=>s!=='EPL'))], sources=[...new Set(picks.map(p=>getRankingSourceKey(p)))];
   const moreFilters = [...sports.filter(s=>!PRIMARY_SPORTS.includes(s)), ...sources];
   if (![...PRIMARY_SPORTS, ...moreFilters].includes(activeFilter)) activeFilter = 'ALL';
@@ -3043,7 +3291,7 @@ function render() {
   const allGameStartIso = {};
   picks.forEach(p => {
     const inferredLabel = inferNbaPropsMatchupLabel(p, picks);
-    const gameLabel = p._gameKey || extractGameKey(p.pick, p.sport) || inferredLabel || p.pick;
+    const gameLabel = p.game || p._gameKey || extractGameKey(p.pick, p.sport) || inferredLabel || p.pick;
     const key = `${p.sport}::${p.date}::${gameLabel || p.id}`;
     const iso = gameTimes[String(p.id)] || '';
     if (!iso) return;
@@ -3058,7 +3306,7 @@ function render() {
 
   const detailedSeed = filtered.map(p => {
     const inferredLabel = inferNbaPropsMatchupLabel(p, picks);
-    const gameLabel = p._gameKey || extractGameKey(p.pick, p.sport) || inferredLabel || p.pick;
+    const gameLabel = p.game || p._gameKey || extractGameKey(p.pick, p.sport) || inferredLabel || p.pick;
     const key = `${p.sport}::${p.date}::${gameLabel || p.id}`;
     const ownIso = gameTimes[String(p.id)] || '';
     const resolvedIso = allGameStartIso[key] || ownIso;
@@ -3140,17 +3388,14 @@ function render() {
       }
       const pc = p.pl>0 ? 'positive' : p.pl<0 ? 'negative' : 'neutral';
       const ps = p.result==='pending' ? '&mdash;' : (p.pl>=0?'+':'')+p.pl+'u';
-      const res = `<select class="result-select" onchange="setResult(${p.id},this.value)">
-        <option value="pending" ${p.result==='pending'?'selected':''}>PENDING</option>
-        <option value="win" ${p.result==='win'?'selected':''}>WIN</option>
-        <option value="loss" ${p.result==='loss'?'selected':''}>LOSS</option>
-        <option value="push" ${p.result==='push'?'selected':''}>PUSH</option>
-        <option value="delete">DELETE</option></select>`;
+      const res = renderPickResultControl(p);
       const plHtml = showSettled ? `<span class="pick-bubble-pl ${pc}">${ps}</span>` : '';
       const sourceUpper = String(p.source || '').toUpperCase();
       const isNbaNewPick = sourceUpper.includes('NBANEW') || sourceUpper.includes('NBA NEW');
+      const sportBadgeClass = isIplPick(p) ? 'pick-bubble-sport is-ipl' : 'pick-bubble-sport';
       currentBubbles.push(`<div class="pick-bubble">
         <span class="pick-bubble-source">${getRankingSourceKey(p)}</span>
+        <span class="${sportBadgeClass}">${getSportBadgeText(p.sport)}</span>
         <span class="pick-bubble-pick">${p.pick}</span>
         <span class="pick-bubble-odds">${formatOddsOrProbabilityDisplay(p.odds, p.probability)}</span>
         <span class="pick-bubble-result">${res}</span>
@@ -3216,7 +3461,11 @@ function render() {
   const d=w+l, acc=d>0?(w/d*100).toFixed(1)+'%':'—';
   const nu=decided.reduce((s,p)=>s+p.pl,0), tw=decided.filter(p=>p.result!=='push').reduce((s,p)=>s+p.units,0);
   const roi=tw>0?((nu/tw)*100).toFixed(1)+'%':'—', nuf=nu;
+  const iplDecided = picks.filter(p => isIplPick(p) && (p.result === 'win' || p.result === 'loss'));
+  const iplWins = iplDecided.filter(p => p.result === 'win').length;
+  const iplLosses = iplDecided.filter(p => p.result === 'loss').length;
   document.getElementById('total-record').textContent=`${w}-${l}`;
+  document.getElementById('ipl-record').textContent=`IPL: ${iplWins}-${iplLosses}`;
   document.getElementById('stat-picks').textContent=picks.length;
   document.getElementById('stat-wins').textContent=w;
   document.getElementById('stat-losses').textContent=l;
@@ -3438,6 +3687,9 @@ function renderIplResults(result, options = {}) {
 
   if (typeof renderIPLPrediction === 'function') {
     target.innerHTML = renderIPLPrediction(result);
+    const addBtn = document.getElementById('ipl-add-picks-btn');
+    if (addBtn) addBtn.onclick = addIplPicksToLog;
+    updateIplAddPicksUi('', { buttonText: '📋 Add to Pick Log', disabled: false, error: false });
   } else {
     target.innerHTML = '<div class="empty-state">IPL renderer unavailable</div>';
   }
