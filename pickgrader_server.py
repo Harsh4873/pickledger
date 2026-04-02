@@ -187,8 +187,6 @@ _scores24_env = os.environ.get("ENABLE_SCORES24_REMOTE", "true").strip().lower()
 ENABLE_SCORES24_REMOTE = _scores24_env not in {"0", "false", "no", "off"}
 _sportytrader_env = os.environ.get("ENABLE_SPORTYTRADER_REMOTE", "true").strip().lower()
 ENABLE_SPORTYTRADER_REMOTE = _sportytrader_env not in {"0", "false", "no", "off"}
-_sportsgambler_env = os.environ.get("ENABLE_SPORTSGAMBLER_REMOTE", "true").strip().lower()
-ENABLE_SPORTSGAMBLER_REMOTE = _sportsgambler_env not in {"0", "false", "no", "off"}
 PLAYWRIGHT_PROXY_CONFIGURED = bool(os.environ.get("PLAYWRIGHT_PROXY_SERVER", "").strip())
 
 SPORT_TO_ESPNSLUG = {
@@ -432,6 +430,27 @@ def _ensure_picks_table(conn: sqlite3.Connection) -> None:
         """
     )
     conn.execute("DROP TABLE picks_legacy")
+
+
+def _ensure_nba_props_games_table(conn: sqlite3.Connection) -> None:
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS nba_props_games (
+            game_id TEXT PRIMARY KEY,
+            game_date TEXT NOT NULL,
+            home_team TEXT NOT NULL DEFAULT '',
+            away_team TEXT NOT NULL DEFAULT '',
+            game_time TEXT NOT NULL DEFAULT '',
+            updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
+        )
+        """
+    )
+    conn.execute(
+        """
+        CREATE INDEX IF NOT EXISTS idx_nba_props_games_game_date
+        ON nba_props_games (game_date)
+        """
+    )
 
 
 def _sync_picks_table_from_state(conn: sqlite3.Connection, state: dict[str, Any]) -> None:
@@ -786,11 +805,198 @@ def _parse_model_date_arg(date_str: str | None = None) -> tuple[str, str]:
     return dt.strftime("%Y-%m-%d"), dt.strftime("%m/%d/%Y")
 
 
+def _fetch_nba_props_games_from_api(date_str: str | None = None) -> list[dict[str, str]]:
+    date_iso, date_us = _parse_model_date_arg(date_str)
+    python_candidates = [
+        os.path.join(BASE_DIR, ".venv", "bin", "python"),
+        os.path.join(NBA_PROPS_MODEL_DIR, "venv", "bin", "python"),
+    ]
+    python_bin = next((path for path in python_candidates if os.path.exists(path)), sys.executable)
+    script = """
+import json
+import sys
+from nba_api.stats.endpoints import scoreboardv2
+from nba_api.stats.static import teams
+
+date_us = sys.argv[1]
+date_iso = sys.argv[2]
+team_lookup = {
+    int(team["id"]): str(team.get("full_name") or team.get("nickname") or team["id"])
+    for team in teams.get_teams()
+}
+board = scoreboardv2.ScoreboardV2(game_date=date_us)
+header = None
+for frame in board.get_data_frames():
+    columns = set(getattr(frame, "columns", []))
+    if {"GAME_ID", "HOME_TEAM_ID", "VISITOR_TEAM_ID"}.issubset(columns):
+        header = frame
+        break
+games = []
+seen = set()
+if header is not None:
+    for _, row in header.iterrows():
+        game_id = str(row.get("GAME_ID", "")).strip()
+        if not game_id or game_id in seen:
+            continue
+        seen.add(game_id)
+        home_team = team_lookup.get(int(row["HOME_TEAM_ID"]), str(row["HOME_TEAM_ID"]))
+        away_team = team_lookup.get(int(row["VISITOR_TEAM_ID"]), str(row["VISITOR_TEAM_ID"]))
+        games.append({
+            "game_id": game_id,
+            "game_date": date_iso,
+            "home_team": home_team,
+            "away_team": away_team,
+            "game_time": str(row.get("GAME_STATUS_TEXT", "")).strip(),
+        })
+print(json.dumps({"ok": True, "games": games}))
+"""
+    result = _subprocess_run(
+        [python_bin, "-c", script, date_us, date_iso],
+        cwd=BASE_DIR,
+        capture_output=True,
+        text=True,
+        timeout=90,
+    )
+    output = (result.stdout or "") + (result.stderr or "")
+    if result.returncode != 0:
+        raise RuntimeError(_compact_error_text(output))
+    try:
+        payload = json.loads(result.stdout or "{}")
+    except json.JSONDecodeError as exc:
+        raise RuntimeError(f"Failed to decode NBA props slate response: {exc}") from exc
+    games = payload.get("games", [])
+    if not isinstance(games, list):
+        raise RuntimeError("NBA props slate response was not a game list")
+    cleaned: list[dict[str, str]] = []
+    seen_ids: set[str] = set()
+    for game in games:
+        if not isinstance(game, dict):
+            continue
+        game_id = str(game.get("game_id", "")).strip()
+        if not game_id or game_id in seen_ids:
+            continue
+        seen_ids.add(game_id)
+        away_team = str(game.get("away_team", "")).strip()
+        home_team = str(game.get("home_team", "")).strip()
+        game_time = str(game.get("game_time", "")).strip()
+        label = f"{away_team} @ {home_team}" if away_team and home_team else game_id
+        cleaned.append({
+            "game_id": game_id,
+            "away_team": away_team,
+            "home_team": home_team,
+            "game_time": game_time,
+            "label": label,
+        })
+    return cleaned
+
+
+def _upsert_nba_props_games(games: list[dict[str, Any]], date_str: str | None = None) -> list[dict[str, str]]:
+    date_iso, _ = _parse_model_date_arg(date_str)
+    cleaned: list[dict[str, str]] = []
+    rows: list[tuple[str, str, str, str, str]] = []
+    seen_ids: set[str] = set()
+
+    for game in games:
+        if not isinstance(game, dict):
+            continue
+        game_id = str(game.get("game_id", "")).strip()
+        if not game_id or game_id in seen_ids:
+            continue
+        seen_ids.add(game_id)
+        away_team = str(game.get("away_team", "")).strip()
+        home_team = str(game.get("home_team", "")).strip()
+        game_time = str(game.get("game_time", "")).strip()
+        label = f"{away_team} @ {home_team}" if away_team and home_team else game_id
+        cleaned.append({
+            "game_id": game_id,
+            "away_team": away_team,
+            "home_team": home_team,
+            "game_time": game_time,
+            "label": label,
+        })
+        rows.append((game_id, date_iso, home_team, away_team, game_time))
+
+    with _ledger_db_connect() as conn:
+        _ensure_nba_props_games_table(conn)
+        if rows:
+            conn.executemany(
+                """
+                INSERT INTO nba_props_games (
+                    game_id,
+                    game_date,
+                    home_team,
+                    away_team,
+                    game_time,
+                    updated_at
+                )
+                VALUES (?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
+                ON CONFLICT(game_id) DO UPDATE SET
+                    game_date = excluded.game_date,
+                    home_team = excluded.home_team,
+                    away_team = excluded.away_team,
+                    game_time = excluded.game_time,
+                    updated_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now')
+                """,
+                rows,
+            )
+            placeholders = ", ".join("?" for _ in rows)
+            conn.execute(
+                f"""
+                DELETE FROM nba_props_games
+                WHERE game_date = ?
+                  AND game_id NOT IN ({placeholders})
+                """,
+                [date_iso, *[row[0] for row in rows]],
+            )
+        else:
+            conn.execute("DELETE FROM nba_props_games WHERE game_date = ?", (date_iso,))
+        conn.commit()
+
+    return cleaned
+
+
+def _refresh_nba_props_games(date_str: str | None = None) -> dict[str, Any]:
+    date_iso, _ = _parse_model_date_arg(date_str)
+    games = _fetch_nba_props_games_from_api(date_str)
+    stored_games = _upsert_nba_props_games(games, date_iso)
+    return {"ok": True, "date": date_iso, "games": stored_games}
+
+
 def _load_nba_games_from_sqlite(date_str: str | None = None) -> list[dict[str, str]]:
     today_iso, today_us = _parse_model_date_arg(date_str)
     labels: dict[str, str] = {}
     try:
         with _ledger_db_connect() as conn:
+            _ensure_nba_props_games_table(conn)
+            cached_games = conn.execute(
+                """
+                SELECT game_id, away_team, home_team, game_time
+                FROM nba_props_games
+                WHERE game_date = ?
+                ORDER BY
+                    CASE WHEN NULLIF(TRIM(game_time), '') IS NULL THEN 1 ELSE 0 END,
+                    game_time,
+                    away_team,
+                    home_team
+                """,
+                (today_iso,),
+            ).fetchall()
+            if cached_games:
+                games: list[dict[str, str]] = []
+                for row in cached_games:
+                    game_id = str(row["game_id"] or "").strip()
+                    away_team = str(row["away_team"] or "").strip()
+                    home_team = str(row["home_team"] or "").strip()
+                    game_time = str(row["game_time"] or "").strip()
+                    label = f"{away_team} @ {home_team}" if away_team and home_team else game_id
+                    games.append({
+                        "game_id": game_id,
+                        "away_team": away_team,
+                        "home_team": home_team,
+                        "game_time": game_time,
+                        "label": label,
+                    })
+                return games
             rows = conn.execute(
                 """
                 SELECT pick, date
@@ -850,8 +1056,15 @@ def _load_nba_props_games_with_meta(date_str: str | None = None) -> dict[str, An
     if error_match:
         error = error_match.group(1).strip()
 
+    live_games = _extract_nba_props_games(output)
+    if live_games:
+        try:
+            live_games = _upsert_nba_props_games(live_games, date_str)
+        except sqlite3.Error:
+            pass
+
     return {
-        "games": _extract_nba_props_games(output),
+        "games": live_games,
         "source": "live",
         "error": error,
     }
@@ -1487,7 +1700,6 @@ MLB_MODEL_DIR = os.path.join(BASE_DIR, "MLBPredictionModel")
 NBA_PROPS_MODEL_DIR = os.path.join(BASE_DIR, "NBAPlayerBettingModel")
 SCORES24_VENV = os.path.join(BASE_DIR, ".venv", "bin", "python")
 SPORTYTRADER_VENV = os.path.join(BASE_DIR, ".venv", "bin", "python")
-SPORTSGAMBLER_VENV = os.path.join(BASE_DIR, ".venv", "bin", "python")
 
 # ─── Async Job Store ──────────────────────────────────────────────────────────
 # Tracks running/completed model jobs so the frontend can poll for results.
@@ -2298,7 +2510,25 @@ def _is_scores24_team_hint(text: str) -> bool:
         return False
     if re.fullmatch(r"[+-]?\d+(?:\.\d+)?", hint):
         return False
+    hint_tokens = normalize(hint).split()
+    generic_tokens = {"match", "game", "winner", "win", "moneyline", "ml", "home", "away", "draw", "team"}
+    if hint_tokens and all(token in generic_tokens for token in hint_tokens):
+        return False
     return True
+
+
+def _is_generic_scores24_pick_text(text: str) -> bool:
+    cleaned = normalize(str(text or ""))
+    if not cleaned:
+        return True
+    generic_patterns = (
+        r"^(?:match|game) ml$",
+        r"^(?:winner|win|moneyline|ml)$",
+        r"^(?:home|away|draw)(?: (?:team|win|winner|ml))?$",
+        r"^both teams to score$",
+        r"^handicap(?: [+-]?\d+(?:\.\d+)?)?$",
+    )
+    return any(re.fullmatch(pattern, cleaned) for pattern in generic_patterns)
 
 
 def _clean_scores24_pick(tip: str, matchup: str, sport: str) -> str:
@@ -2590,11 +2820,15 @@ def _parse_scores24_output(output: str) -> list[dict[str, Any]]:
 
         # Clean the tip and build proper pick text
         pick_text = _strip_scores24_ot_qualifier(_clean_scores24_pick(tip, matchup, sport))
+        if _is_generic_scores24_pick_text(pick_text):
+            continue
         away_team, home_team = _parse_scores24_matchup_teams(matchup, sport)
 
         picks.append({
             "source": "Scores24",
             "pick": pick_text,
+            "matchup": matchup,
+            "tip": tip,
             "sport": sport,
             "odds": odds_val,
             "units": 1,
@@ -2662,11 +2896,16 @@ def _parse_scores24_output(output: str) -> list[dict[str, Any]]:
             conf_num = re.search(r"(\d+)", confidence)
             if conf_num:
                 conf_val = int(conf_num.group(1))
+        pick_text = _strip_scores24_ot_qualifier(_clean_scores24_pick(tip, matchup, sport))
+        if _is_generic_scores24_pick_text(pick_text):
+            continue
         away_team, home_team = _parse_scores24_matchup_teams(matchup, sport)
 
         picks.append({
             "source": "Scores24",
-            "pick": _strip_scores24_ot_qualifier(_clean_scores24_pick(tip, matchup, sport)),
+            "pick": pick_text,
+            "matchup": matchup,
+            "tip": tip,
             "sport": sport,
             "odds": odds_val,
             "units": 1,
@@ -3206,105 +3445,6 @@ def run_sportytrader_scraper(
         return {"ok": False, "error": f"sportytrader: {exc}"}
 
 
-def run_sportsgambler_scraper(
-    date_str: str | None = None,
-    sports: list[str] | None = None,
-) -> dict[str, Any]:
-    """Execute the SportsGambler scraper for NBA and/or MLB."""
-    python_bin = _resolve_python_bin(SPORTSGAMBLER_VENV)
-    target_date = _resolve_scores24_date(date_str)
-    scraper_path = os.path.join(BASE_DIR, "sportsgambler_scraper.py")
-    if not os.path.exists(scraper_path):
-        return {"ok": False, "error": f"sportsgambler scraper not found at {scraper_path}"}
-
-    timeout_s = 120
-    sport_map = {
-        "nba": "nba",
-        "basketball": "nba",
-        "mlb": "mlb",
-        "baseball": "mlb",
-    }
-    default_sports = ["nba", "mlb"]
-    selected = [sport_map.get(str(s).strip().lower(), "") for s in (sports or default_sports)]
-    selected = [sport for sport in selected if sport]
-    if not selected:
-        selected = default_sports
-
-    def _invoke(sport_code: str) -> subprocess.CompletedProcess[str]:
-        return _subprocess_run(
-            [python_bin, scraper_path, "--sport", sport_code, "--date", target_date],
-            cwd=BASE_DIR,
-            capture_output=True,
-            text=True,
-            timeout=timeout_s,
-        )
-
-    try:
-        all_picks: list[dict[str, Any]] = []
-        errors: list[str] = []
-
-        for sport_code in selected:
-            result = _invoke(sport_code)
-            output = (result.stdout or "") + (result.stderr or "")
-
-            picks: list[dict[str, Any]] = []
-            blocks = re.split(r"━{10,}", output)
-            expected_sport = sport_code.upper()
-            for block in blocks:
-                match_m = re.search(r"Match:\s*(.+)", block)
-                tip_m = re.search(r"Tip:\s*(.+)", block)
-                odds_m = re.search(r"Odds:\s*(.+)", block)
-                league_m = re.search(r"League:\s*(.+)", block)
-                if not match_m or not tip_m:
-                    continue
-
-                matchup = match_m.group(1).strip()
-                tip = tip_m.group(1).strip()
-                if not matchup or not tip:
-                    continue
-                league = league_m.group(1).strip() if league_m else ""
-                sport = _normalize_sportytrader_sport(league, expected_sport)
-                if sport != expected_sport:
-                    continue
-
-                odds_val = None
-                odds_str = odds_m.group(1).strip() if odds_m else ""
-                if odds_str and odds_str != "[not found on page]":
-                    try:
-                        odds_val = int(float(odds_str))
-                    except ValueError:
-                        odds_val = None
-
-                picks.append({
-                    "source": "SportsGambler",
-                    "pick": _clean_sportytrader_pick(tip, matchup, sport=sport),
-                    "sport": sport,
-                    "odds": odds_val,
-                    "units": 1,
-                    "probability": None,
-                    "edge": None,
-                    "decision": "BET",
-                })
-
-            if result.returncode != 0 and not picks:
-                errors.append(f"{sport_code}: scraper exited {result.returncode} ({_compact_error_text(output)})")
-                continue
-            if not picks:
-                errors.append(f"{sport_code}: no picks parsed ({_compact_error_text(output)})")
-                continue
-
-            all_picks.extend(picks)
-
-        if not all_picks and errors:
-            return {"ok": False, "error": "; ".join(errors[:4])}
-
-        return {"ok": True, "picks": all_picks, "errors": errors}
-    except subprocess.TimeoutExpired:
-        return {"ok": False, "error": f"sportsgambler: timed out after {timeout_s}s"}
-    except Exception as exc:
-        return {"ok": False, "error": f"sportsgambler: {exc}"}
-
-
 def _launch_job(target_fn, *args) -> str:
     """Launch a model run in a background thread and return a job_id."""
     job_id = uuid.uuid4().hex[:12]
@@ -3319,6 +3459,29 @@ def _launch_job(target_fn, *args) -> str:
     t = threading.Thread(target=_worker, daemon=True)
     t.start()
     return job_id
+
+
+def _public_endpoints() -> list[str]:
+    endpoints = [
+        "/health",
+        "/ledger-state",
+        "/picks",
+        "/grade",
+        "/run-sportsline-odds",
+        "/run-nba-model",
+        "/run-nba-old-model",
+        "/refresh-nba-props-games",
+        "/run-nba-props-model",
+        "/run-mlb-model",
+        "/api/ipl",
+        "/ask-opus",
+        "/job-status?id=<id>",
+    ]
+    if ENABLE_SCORES24_REMOTE:
+        endpoints.append("/run-scores24")
+    if ENABLE_SPORTYTRADER_REMOTE:
+        endpoints.append("/run-sportytrader")
+    return endpoints
 
 
 def run_sportsline_odds(league: str = "NBA") -> dict[str, Any]:
@@ -3388,26 +3551,6 @@ class Handler(BaseHTTPRequestHandler):
             path = path[4:]
 
         if path == "/":
-            endpoints = [
-                "/health",
-                "/ledger-state",
-                "/picks",
-                "/grade",
-                "/run-sportsline-odds",
-                "/run-nba-model",
-                "/run-nba-old-model",
-                "/run-nba-props-model",
-                "/run-mlb-model",
-                "/api/ipl",
-                "/ask-opus",
-                "/job-status?id=<id>",
-            ]
-            if ENABLE_SCORES24_REMOTE:
-                endpoints.append("/run-scores24")
-            if ENABLE_SPORTYTRADER_REMOTE:
-                endpoints.append("/run-sportytrader")
-            if ENABLE_SPORTSGAMBLER_REMOTE:
-                endpoints.append("/run-sportsgambler")
             self._send_json(200, {
                 "ok": True,
                 "service": "pickledger-grader",
@@ -3417,8 +3560,7 @@ class Handler(BaseHTTPRequestHandler):
                 "scores24_remote_enabled": ENABLE_SCORES24_REMOTE,
                 "playwright_proxy_configured": PLAYWRIGHT_PROXY_CONFIGURED,
                 "sportytrader_remote_enabled": ENABLE_SPORTYTRADER_REMOTE,
-                "sportsgambler_remote_enabled": ENABLE_SPORTSGAMBLER_REMOTE,
-                "endpoints": endpoints,
+                "endpoints": _public_endpoints(),
             })
             return
 
@@ -3431,7 +3573,7 @@ class Handler(BaseHTTPRequestHandler):
                 "scores24_remote_enabled": ENABLE_SCORES24_REMOTE,
                 "playwright_proxy_configured": PLAYWRIGHT_PROXY_CONFIGURED,
                 "sportytrader_remote_enabled": ENABLE_SPORTYTRADER_REMOTE,
-                "sportsgambler_remote_enabled": ENABLE_SPORTSGAMBLER_REMOTE,
+                "endpoints": _public_endpoints(),
             })
             return
 
@@ -3445,6 +3587,19 @@ class Handler(BaseHTTPRequestHandler):
                 "nba_games_source": nba_games_meta.get("source"),
                 "nba_games_error": nba_games_meta.get("error"),
             })
+            return
+
+        if path == "/refresh-nba-props-games":
+            from urllib.parse import parse_qs
+
+            qs = parse_qs(parsed.query)
+            refresh_date = (qs.get("date") or [""])[0] or None
+            try:
+                result = _refresh_nba_props_games(refresh_date)
+            except Exception as exc:
+                self._send_json(500, {"ok": False, "error": str(exc)})
+                return
+            self._send_json(200, result)
             return
 
         if path == "/ipl":
@@ -3475,13 +3630,8 @@ class Handler(BaseHTTPRequestHandler):
                 self._send_json(500, {"error": str(e)})
             return
 
-        if path in {"/scores24-feed", "/sportytrader-feed", "/sportsgambler-feed"}:
-            feed_map = {
-                "/scores24-feed": "scores24_manual_feed.json",
-                "/sportytrader-feed": "sportytrader_manual_feed.json",
-                "/sportsgambler-feed": "sportsgambler_manual_feed.json",
-            }
-            feed_name = feed_map[path]
+        if path in {"/scores24-feed", "/sportytrader-feed"}:
+            feed_name = "scores24_manual_feed.json" if path == "/scores24-feed" else "sportytrader_manual_feed.json"
             feed_path = os.path.join(BASE_DIR, feed_name)
             if not os.path.exists(feed_path):
                 self._send_json(404, {"ok": False, "error": f"{feed_name} not found"})
@@ -3515,7 +3665,14 @@ class Handler(BaseHTTPRequestHandler):
             self._send_json(404, {"ok": False, "error": "Route not found"})
 
     def do_HEAD(self) -> None:  # noqa: N802
-        if self.path in {"/", "/health", "/ledger-state", "/api/ledger-state"}:
+        if self.path in {
+            "/",
+            "/health",
+            "/ledger-state",
+            "/api/ledger-state",
+            "/refresh-nba-props-games",
+            "/api/refresh-nba-props-games",
+        }:
             self.send_response(200)
             self.send_header("Content-Type", "application/json; charset=utf-8")
             self.send_header("Access-Control-Allow-Origin", "*")
@@ -3555,6 +3712,15 @@ class Handler(BaseHTTPRequestHandler):
         date_str = body.get("date")  # optional MM/DD/YYYY date for the model
         game_id = body.get("game_id")
         game_label = body.get("game_label")
+
+        if path == "/refresh-nba-props-games":
+            try:
+                result = _refresh_nba_props_games(date_str)
+            except Exception as exc:
+                self._send_json(500, {"ok": False, "error": str(exc)})
+                return
+            self._send_json(200, result)
+            return
 
         if path == "/ledger-state":
             state = body.get("state", body)
@@ -3674,26 +3840,6 @@ class Handler(BaseHTTPRequestHandler):
                 self._send_json(200, {"ok": True, "job_id": job_id, "status": "running"})
             else:
                 result = run_sportytrader_scraper(scrape_date, sports)
-                self._send_json(200, result)
-
-        elif path == "/run-sportsgambler":
-            if IS_RENDER_RUNTIME and not ENABLE_SPORTSGAMBLER_REMOTE:
-                self._send_json(403, {
-                    "ok": False,
-                    "error": "SportsGambler scraping is disabled on Render. Run it locally and sync sportsgambler_manual_feed.json.",
-                })
-                return
-
-            scrape_date = body.get("date")
-            league = str(body.get("league", "")).strip().lower()
-            sports = body.get("sports")
-            if not isinstance(sports, list):
-                sports = [league] if league else ["nba", "mlb"]
-            if async_mode:
-                job_id = _launch_job(run_sportsgambler_scraper, scrape_date, sports)
-                self._send_json(200, {"ok": True, "job_id": job_id, "status": "running"})
-            else:
-                result = run_sportsgambler_scraper(scrape_date, sports)
                 self._send_json(200, result)
 
         elif path == "/ask-opus":
