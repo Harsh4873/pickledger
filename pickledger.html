@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>PickLedger</title>
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500;600&family=Fraunces:opsz,wght@9..144,600;9..144,700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="./ipl/ipl_styles.css">
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -968,6 +969,13 @@
         <button class="model-run-btn" id="btn-run-mlb" onclick="runModel('mlb')">RUN MLB MODEL</button>
         <div class="model-status" id="status-mlb"></div>
       </div>
+      <div class="model-card" id="model-card-ipl">
+        <div class="model-card-icon">&#127951;</div>
+        <div class="model-card-title">IPL Model</div>
+        <div class="model-card-desc">Runs the live IPL winner prediction and fantasy XI pipeline through the integrated backend route.</div>
+        <button class="model-run-btn" id="btn-run-ipl" onclick="runModel('ipl')">RUN IPL MODEL</button>
+        <div class="model-status" id="status-ipl"></div>
+      </div>
       <div class="model-card" id="model-card-nba-new">
         <div class="model-card-icon">&#127936;</div>
         <div class="model-card-title">NBA New</div>
@@ -1019,6 +1027,9 @@
     <div id="model-results-section" style="display:none;">
       <div class="section-title clean-title" style="margin-top:24px">Model Results</div>
       <div class="model-status" id="model-results-meta"></div>
+      <div class="panel" id="ipl-model-results-panel" style="display:none;">
+        <div id="ipl-prediction-root"></div>
+      </div>
       <div class="panel">
         <div class="table-wrap">
           <table>
@@ -1036,6 +1047,7 @@
 
 </div>
 
+<script src="./ipl/ipl_frontend.js"></script>
 <script>
 // ╔══════════════════════════════════════════════════════════════╗
 // ║  PICK DATA — edited whenever new picks are logged           ║
@@ -3232,6 +3244,7 @@ function toggleTheme() {
 
 // ── Models Tab ──
 let pendingModelPicks = [];
+let pendingIplPrediction = null;
 const NBA_COMPARISON_MODELS = new Set(['nba-old', 'nba-new']);
 const NBA_MODEL_SOURCE_LABELS = {
   'nba-old': 'NBA Model',
@@ -3357,6 +3370,7 @@ function _resetModelButton(model) {
   const btn = document.getElementById('btn-run-' + model);
   if (!btn) return;
   const labels = {
+    ipl: 'RUN IPL MODEL',
     mlb: 'RUN MLB MODEL',
     'nba-new': 'RUN NBA NEW',
     'nba-old': 'RUN NBA MODEL',
@@ -3390,6 +3404,43 @@ async function _runAsyncModelRequest(model, endpoint, body) {
     throw new Error((data && data.error) || 'Job failed');
   }
   return Array.isArray(data.picks) ? data.picks : [];
+}
+
+async function _runIplModelRequest() {
+  setModelStatus('ipl', 'Calling IPL backend...', 'running');
+  const resp = await fetch(`${MODEL_SERVER}/api/ipl`, { method: 'GET' });
+  const data = await resp.json().catch(() => ({}));
+  if (!resp.ok) {
+    throw new Error(data.error || `HTTP ${resp.status}`);
+  }
+  if (data && data.error) {
+    throw new Error(data.error);
+  }
+  return data;
+}
+
+function renderIplResults(result, options = {}) {
+  const section = document.getElementById('model-results-section');
+  const iplPanel = document.getElementById('ipl-model-results-panel');
+  const tablePanel = document.getElementById('model-results-body')?.closest('.panel');
+  const addSelectedBtn = document.getElementById('btn-add-selected');
+  const addAllBtn = document.getElementById('btn-add-picks');
+  const target = document.getElementById('ipl-prediction-root');
+
+  if (!section || !iplPanel || !target) return;
+
+  section.style.display = 'block';
+  iplPanel.style.display = 'block';
+  if (tablePanel) tablePanel.style.display = 'none';
+  if (addSelectedBtn) addSelectedBtn.style.display = 'none';
+  if (addAllBtn) addAllBtn.style.display = 'none';
+  setModelResultsMeta(options.meta || '', options.metaState || '');
+
+  if (typeof renderIPLPrediction === 'function') {
+    target.innerHTML = renderIPLPrediction(result);
+  } else {
+    target.innerHTML = '<div class="empty-state">IPL renderer unavailable</div>';
+  }
 }
 
 async function _runNbaVariantModel(model, dateStr) {
@@ -3901,6 +3952,25 @@ async function runModel(model) {
     return;
   }
 
+  if (model === 'ipl') {
+    try {
+      const result = await _runIplModelRequest();
+      pendingIplPrediction = result;
+      pendingModelPicks = [];
+      renderIplResults(result, {
+        meta: `Showing IPL live model for ${String(result.match || '').trim() || 'current match'}`,
+        metaState: 'ok',
+      });
+      const playerCount = Array.isArray(result.selected_players) ? result.selected_players.length : 0;
+      setModelStatus(model, `Done. Winner + ${playerCount} fantasy selections returned.`, 'ok');
+    } catch (e) {
+      setModelStatus(model, `Error: ${String(e && e.message ? e.message : e)}`, 'error');
+    } finally {
+      _resetModelButton(model);
+    }
+    return;
+  }
+
   if (model === 'scores24') {
     try {
       setModelStatus(model, 'Trying live Scores24 backend sync...', 'running');
@@ -4021,12 +4091,23 @@ async function runModel(model) {
 function renderModelResults(picks, options = {}) {
   const section = document.getElementById('model-results-section');
   const tbody = document.getElementById('model-results-body');
+  const iplPanel = document.getElementById('ipl-model-results-panel');
+  const tablePanel = tbody ? tbody.closest('.panel') : null;
+  const addSelectedBtn = document.getElementById('btn-add-selected');
+  const addAllBtn = document.getElementById('btn-add-picks');
+  const iplRoot = document.getElementById('ipl-prediction-root');
   if (!picks.length) {
     section.style.display = 'none';
     setModelResultsMeta('', '');
+    pendingIplPrediction = null;
+    if (iplRoot) iplRoot.innerHTML = '';
     return;
   }
   section.style.display = 'block';
+  if (iplPanel) iplPanel.style.display = 'none';
+  if (tablePanel) tablePanel.style.display = 'block';
+  if (addSelectedBtn) addSelectedBtn.style.display = '';
+  if (addAllBtn) addAllBtn.style.display = '';
   if (Object.prototype.hasOwnProperty.call(options, 'meta')) {
     setModelResultsMeta(options.meta, options.metaState || '');
   }
@@ -4089,11 +4170,9 @@ function renderModelResults(picks, options = {}) {
       <td><div class="model-results-verdict"><span class="kelly-badge ${verdict}">${verdictLabel}</span></div></td>
     </tr>`;
   }).join('');
-  const addSelectedBtn = document.getElementById('btn-add-selected');
   if (addSelectedBtn) {
     addSelectedBtn.disabled = false;
   }
-  const addAllBtn = document.getElementById('btn-add-picks');
   if (addAllBtn) {
     const betCount = picks.filter(p => modelResultsVerdict(p) === 'BET').length;
     addAllBtn.disabled = betCount === 0;
