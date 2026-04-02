@@ -1104,17 +1104,40 @@ function normalizeServerBase(value) {
   return raw;
 }
 
+function getHostedOrigin() {
+  const origin = String(window.location.origin || '').trim().replace(/\/+$/, '');
+  return /^https?:\/\//i.test(origin) ? origin : '';
+}
+
 function inferDefaultModelServer() {
   const pageProtocol = /^https?:$/i.test(window.location.protocol) ? window.location.protocol : 'http:';
   const pageHost = String(window.location.hostname || '').trim();
   if (!pageHost) return 'http://127.0.0.1:8765';
-  const serverHost = LOOPBACK_HOST_RE.test(pageHost) ? '127.0.0.1' : pageHost;
-  return `${pageProtocol}//${serverHost}:8765`;
+  if (LOOPBACK_HOST_RE.test(pageHost)) {
+    return `${pageProtocol}//127.0.0.1:8765`;
+  }
+  return getHostedOrigin() || `${pageProtocol}//${pageHost}`;
+}
+
+function repairSavedModelServer(value) {
+  const normalized = normalizeServerBase(value);
+  if (!normalized) return '';
+
+  const pageProtocol = /^https?:$/i.test(window.location.protocol) ? window.location.protocol : 'http:';
+  const pageHost = String(window.location.hostname || '').trim();
+  if (!pageHost || LOOPBACK_HOST_RE.test(pageHost)) return normalized;
+
+  const legacyHostedDefault = `${pageProtocol}//${pageHost}:8765`;
+  if (normalized === legacyHostedDefault) {
+    return getHostedOrigin() || normalized;
+  }
+
+  return normalized;
 }
 
 const DEFAULT_MODEL_SERVER = inferDefaultModelServer();
 const QUERY_MODEL_SERVER = normalizeServerBase(new URLSearchParams(window.location.search).get('api'));
-const SAVED_MODEL_SERVER = normalizeServerBase(localStorage.getItem('pickledger_model_server'));
+const SAVED_MODEL_SERVER = repairSavedModelServer(localStorage.getItem('pickledger_model_server'));
 const MODEL_SERVER = QUERY_MODEL_SERVER || SAVED_MODEL_SERVER || DEFAULT_MODEL_SERVER;
 localStorage.setItem('pickledger_model_server', MODEL_SERVER);
 const GRADER_URL = `${MODEL_SERVER}/grade`;
