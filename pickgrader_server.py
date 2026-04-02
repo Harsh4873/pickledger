@@ -30,7 +30,7 @@ from datetime import datetime, timedelta
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from typing import Any
 from urllib.error import URLError, HTTPError
-from urllib.parse import urlencode, urlparse
+from urllib.parse import urlparse
 from urllib.request import Request, urlopen
 
 try:
@@ -167,22 +167,12 @@ SPORT_TO_ESPNSLUG = {
 }
 
 USER_AGENT = "PickLedgerAutoGrader/1.0"
-ODDS_API_KEY = os.environ.get("ODDS_API_KEY", "").strip()
-ODDS_API_REGION = os.environ.get("ODDS_API_REGION", "us").strip() or "us"
-ODDS_API_BOOKMAKERS = os.environ.get("ODDS_API_BOOKMAKERS", "").strip()
-ODDS_API_BASE = "https://api.the-odds-api.com/v4"
-ODDS_API_CACHE_TTL_S = 90
 
 ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY", "").strip()
 ANTHROPIC_API_URL = os.environ.get("ANTHROPIC_API_URL", "https://api.anthropic.com/v1/messages").strip() or "https://api.anthropic.com/v1/messages"
 ANTHROPIC_MODEL = os.environ.get("ANTHROPIC_MODEL", "").strip()
 ANTHROPIC_VERSION = os.environ.get("ANTHROPIC_VERSION", "2023-06-01").strip() or "2023-06-01"
 ANTHROPIC_MAX_TOKENS_DEFAULT = 800
-
-SPORT_TO_ODDS_API_KEY = {
-    "NBA": "basketball_nba",
-    "MLB": "baseball_mlb",
-}
 
 TEAM_ABBREVIATION_ALIASES = {
     "WAS": {"WSH"},
@@ -200,15 +190,6 @@ TEAM_ABBREVIATION_ALIASES = {
     "BKN": {"BRK"},
     "BRK": {"BKN"},
 }
-
-PROP_MARKET_TO_ODDS_API_KEY = {
-    "points": "player_points",
-    "rebounds": "player_rebounds",
-    "assists": "player_assists",
-}
-
-_odds_cache: dict[str, tuple[float, Any]] = {}
-_odds_cache_lock = threading.Lock()
 _ledger_state_lock = threading.Lock()
 LEDGER_DB_FILE = os.environ.get(
     "LEDGER_DB_FILE",
@@ -617,60 +598,20 @@ def _normalize_person_name(text: str) -> str:
     return re.sub(r"\s+", " ", text).strip().lower()
 
 
-def _american_implied_prob(odds: int | float | None) -> float | None:
-    try:
-        odds_val = int(float(odds)) if odds is not None else 0
-    except (ValueError, TypeError):
-        return None
-    if odds_val == 0:
-        return None
-    if odds_val > 0:
-        return 100.0 / (odds_val + 100.0)
-    return abs(odds_val) / (abs(odds_val) + 100.0)
-
-
-def _quarter_kelly_pct(odds: int | float | None, model_prob: float | None, max_bankroll_pct: float = 0.05) -> float | None:
-    try:
-        odds_val = int(float(odds)) if odds is not None else 0
-        prob_val = float(model_prob) if model_prob is not None else None
-    except (ValueError, TypeError):
-        return None
-    if not prob_val or prob_val <= 0 or prob_val >= 1 or odds_val == 0:
-        return None
-    if odds_val > 0:
-        b = odds_val / 100.0
-    else:
-        b = 100.0 / abs(odds_val)
-    q = 1.0 - prob_val
-    kelly = (b * prob_val - q) / b
-    if kelly <= 0:
-        return 0.0
-    return min(kelly / 4.0, max_bankroll_pct) * 100.0
-
-
-def _odds_cache_get(key: str) -> Any | None:
-    now = time.time()
-    with _odds_cache_lock:
-        cached = _odds_cache.get(key)
-        if not cached:
-            return None
-        expires_at, payload = cached
-        if expires_at <= now:
-            _odds_cache.pop(key, None)
-            return None
-        return payload
-
-
-def _odds_cache_set(key: str, payload: Any) -> Any:
-    with _odds_cache_lock:
-        _odds_cache[key] = (time.time() + ODDS_API_CACHE_TTL_S, payload)
-    return payload
-
-
-def _fetch_json_url(url: str, timeout: int = 20) -> Any:
-    req = Request(url, headers={"User-Agent": USER_AGENT})
-    with urlopen(req, timeout=timeout) as resp:
-        return json.loads(resp.read().decode("utf-8"))
+def _person_names_match_loose(name_a: str, name_b: str) -> bool:
+    a = _normalize_person_name(name_a)
+    b = _normalize_person_name(name_b)
+    if not a or not b:
+        return False
+    if a == b or a in b or b in a:
+        return True
+    a_parts = a.split()
+    b_parts = b.split()
+    if not a_parts or not b_parts:
+        return False
+    if a_parts[-1] != b_parts[-1]:
+        return False
+    return a_parts[0][0] == b_parts[0][0]
 
 
 def _invoke_anthropic(
@@ -755,429 +696,6 @@ def _invoke_anthropic(
         "response": "\n".join(part for part in text_parts if part).strip(),
         "raw": decoded,
     }
-
-
-def _should_enrich_market_odds(date_str: str | None = None) -> bool:
-    if not ODDS_API_KEY:
-        return False
-    if not date_str:
-        return True
-    for fmt in ("%Y-%m-%d", "%m/%d/%Y"):
-        try:
-            target = datetime.strptime(date_str, fmt).date()
-            return target >= datetime.now().date()
-        except ValueError:
-            continue
-    return True
-
-
-def _odds_api_query(path: str, params: dict[str, Any]) -> Any | None:
-    clean_params = {k: v for k, v in params.items() if v not in (None, "", [])}
-    clean_params["apiKey"] = ODDS_API_KEY
-    query = urlencode(clean_params, doseq=True)
-    url = f"{ODDS_API_BASE}{path}?{query}"
-    cached = _odds_cache_get(url)
-    if cached is not None:
-        return cached
-    try:
-        payload = _fetch_json_url(url)
-    except (HTTPError, URLError, TimeoutError, json.JSONDecodeError):
-        return None
-    return _odds_cache_set(url, payload)
-
-
-def _fetch_featured_market_odds(sport: str, markets: list[str]) -> list[dict[str, Any]]:
-    sport_key = SPORT_TO_ODDS_API_KEY.get(str(sport or "").upper())
-    if not sport_key or not markets:
-        return []
-    params: dict[str, Any] = {
-        "markets": ",".join(sorted(set(markets))),
-        "oddsFormat": "american",
-        "dateFormat": "iso",
-    }
-    if ODDS_API_BOOKMAKERS:
-        params["bookmakers"] = ODDS_API_BOOKMAKERS
-    else:
-        params["regions"] = ODDS_API_REGION
-    payload = _odds_api_query(f"/sports/{sport_key}/odds", params)
-    return payload if isinstance(payload, list) else []
-
-
-def _fetch_event_market_odds(sport: str, event_id: str, markets: list[str]) -> dict[str, Any] | None:
-    sport_key = SPORT_TO_ODDS_API_KEY.get(str(sport or "").upper())
-    if not sport_key or not event_id or not markets:
-        return None
-    params: dict[str, Any] = {
-        "markets": ",".join(sorted(set(markets))),
-        "oddsFormat": "american",
-        "dateFormat": "iso",
-    }
-    if ODDS_API_BOOKMAKERS:
-        params["bookmakers"] = ODDS_API_BOOKMAKERS
-    else:
-        params["regions"] = ODDS_API_REGION
-    payload = _odds_api_query(f"/sports/{sport_key}/events/{event_id}/odds", params)
-    return payload if isinstance(payload, dict) else None
-
-
-def _team_matches_name(team_text: str, candidate_name: str) -> bool:
-    t = normalize(team_text)
-    c = normalize(candidate_name)
-    if not t or not c:
-        return False
-    if t == c or t in c or (c in t and len(c) > 2):
-        return True
-    t_tokens = set(t.split())
-    c_tokens = set(c.split())
-    if t_tokens and c_tokens and (t_tokens & c_tokens):
-        if t_tokens <= c_tokens or c_tokens <= t_tokens:
-            return True
-        if len(t_tokens & c_tokens) >= min(2, len(t_tokens), len(c_tokens)):
-            return True
-    t_parts = t.split()
-    if t_parts:
-        last = t_parts[-1]
-        if len(last) >= 3 and last in c_tokens:
-            return True
-    return False
-
-
-def _player_names_match(name_a: str, name_b: str) -> bool:
-    a = _normalize_person_name(name_a)
-    b = _normalize_person_name(name_b)
-    if not a or not b:
-        return False
-    if a == b or a in b or b in a:
-        return True
-    a_parts = a.split()
-    b_parts = b.split()
-    if not a_parts or not b_parts:
-        return False
-    if a_parts[-1] != b_parts[-1]:
-        return False
-    return a_parts[0][0] == b_parts[0][0]
-
-
-def _extract_pick_head(pick_text: str) -> str:
-    return str(pick_text or "").split("(", 1)[0].strip()
-
-
-def _find_matching_event(events: list[dict[str, Any]], team_a: str | None, team_b: str | None) -> dict[str, Any] | None:
-    if not team_a or not team_b:
-        return None
-    for event in events:
-        home = str(event.get("home_team", ""))
-        away = str(event.get("away_team", ""))
-        direct = _team_matches_name(team_a, away) and _team_matches_name(team_b, home)
-        reverse = _team_matches_name(team_a, home) and _team_matches_name(team_b, away)
-        if direct or reverse:
-            return event
-    return None
-
-
-def _float_or_none(value: Any) -> float | None:
-    try:
-        return float(value)
-    except (ValueError, TypeError):
-        return None
-
-
-def _int_or_none(value: Any) -> int | None:
-    try:
-        return int(float(value))
-    except (ValueError, TypeError):
-        return None
-
-
-def _pick_market_descriptor(pick: dict[str, Any]) -> dict[str, Any] | None:
-    explicit_market = str(pick.get("market_type", "")).strip()
-    if explicit_market:
-        descriptor = {
-            "market_type": explicit_market,
-            "selection": pick.get("selection"),
-            "line": _float_or_none(pick.get("line")),
-            "team": pick.get("team"),
-            "player_name": pick.get("player_name"),
-            "away_team": pick.get("away_team"),
-            "home_team": pick.get("home_team"),
-        }
-        return descriptor
-
-    pick_text = str(pick.get("pick", ""))
-    head = _extract_pick_head(pick_text)
-    matchup = parse_matchup(pick_text)
-    away_team = matchup[0] if matchup else None
-    home_team = matchup[1] if matchup else None
-
-    ml_m = re.search(r"^(.*?)\s+ML\b", head, flags=re.IGNORECASE)
-    if ml_m:
-        return {
-            "market_type": "h2h",
-            "team": ml_m.group(1).strip(),
-            "away_team": away_team,
-            "home_team": home_team,
-        }
-
-    total_m = re.search(r"^(Over|Under)\s+(\d+(?:\.\d+)?)\b", head, flags=re.IGNORECASE)
-    if total_m:
-        return {
-            "market_type": "totals",
-            "selection": total_m.group(1).title(),
-            "line": float(total_m.group(2)),
-            "away_team": away_team,
-            "home_team": home_team,
-        }
-
-    spread_m = re.search(r"^(.*?)\s*([+-]\d+(?:\.\d+)?)\b", head)
-    if spread_m:
-        return {
-            "market_type": "spreads",
-            "team": spread_m.group(1).strip(),
-            "line": float(spread_m.group(2)),
-            "away_team": away_team,
-            "home_team": home_team,
-        }
-
-    prop_m = re.search(
-        r"^(.*?)\s+(points|rebounds|assists)\s+(OVER|UNDER)\s+(\d+(?:\.\d+)?)\s+vs\s+(.+)$",
-        pick_text,
-        flags=re.IGNORECASE,
-    )
-    if prop_m:
-        return {
-            "market_type": PROP_MARKET_TO_ODDS_API_KEY.get(prop_m.group(2).lower()),
-            "player_name": prop_m.group(1).strip(),
-            "selection": prop_m.group(3).title(),
-            "line": float(prop_m.group(4)),
-            "team": pick.get("team"),
-            "away_team": pick.get("away_team"),
-            "home_team": pick.get("home_team"),
-        }
-
-    return None
-
-
-def _best_market_price(event_payload: dict[str, Any], descriptor: dict[str, Any]) -> dict[str, Any] | None:
-    target_market = str(descriptor.get("market_type", ""))
-    target_line = _float_or_none(descriptor.get("line"))
-    selection = str(descriptor.get("selection", "") or "").title()
-    team = str(descriptor.get("team", "") or "")
-    player_name = str(descriptor.get("player_name", "") or "")
-    best: dict[str, Any] | None = None
-    nearest: dict[str, Any] | None = None
-
-    for bookmaker in event_payload.get("bookmakers", []) or []:
-        book_title = str(bookmaker.get("title") or bookmaker.get("key") or "").strip()
-        for market in bookmaker.get("markets", []) or []:
-            if str(market.get("key", "")).strip() != target_market:
-                continue
-            for outcome in market.get("outcomes", []) or []:
-                price = _int_or_none(outcome.get("price"))
-                if price is None:
-                    continue
-
-                matched = False
-                line_val = _float_or_none(outcome.get("point"))
-
-                if target_market == "h2h":
-                    matched = _team_matches_name(team, str(outcome.get("name", "")))
-                elif target_market == "totals":
-                    matched = (
-                        str(outcome.get("name", "")).strip().title() == selection
-                        and target_line is not None
-                        and line_val is not None
-                        and abs(line_val - target_line) < 0.001
-                    )
-                elif target_market == "spreads":
-                    matched = (
-                        _team_matches_name(team, str(outcome.get("name", "")))
-                        and target_line is not None
-                        and line_val is not None
-                        and abs(line_val - target_line) < 0.001
-                    )
-                elif target_market in {"player_points", "player_rebounds", "player_assists"}:
-                    same_player = _player_names_match(player_name, str(outcome.get("description", "")))
-                    same_side = str(outcome.get("name", "")).strip().title() == selection
-                    if same_player and same_side and target_line is not None and line_val is not None:
-                        if abs(line_val - target_line) < 0.001:
-                            matched = True
-                        elif abs(line_val - target_line) <= 1.0:
-                            candidate = {
-                                "odds": price,
-                                "bookmaker": book_title,
-                                "line": line_val,
-                                "line_delta": abs(line_val - target_line),
-                            }
-                            if nearest is None or (
-                                candidate["line_delta"] < nearest["line_delta"]
-                                or (
-                                    abs(candidate["line_delta"] - nearest["line_delta"]) < 0.001
-                                    and candidate["odds"] > nearest["odds"]
-                                )
-                            ):
-                                nearest = candidate
-
-                if matched:
-                    candidate = {
-                        "odds": price,
-                        "bookmaker": book_title,
-                        "line": line_val,
-                    }
-                    if best is None or candidate["odds"] > best["odds"]:
-                        best = candidate
-
-    return best or nearest
-
-
-def _replace_pick_line(pick_text: str, new_line: float | None) -> str:
-    if new_line is None:
-        return pick_text
-    line_text = f"{new_line:.1f}".rstrip("0").rstrip(".")
-    pick_text = re.sub(
-        r"(\s+(?:OVER|UNDER)\s+)(\d+(?:\.\d+)?)",
-        rf"\g<1>{line_text}",
-        pick_text,
-        count=1,
-        flags=re.IGNORECASE,
-    )
-    pick_text = re.sub(
-        r"(\b(?:Over|Under)\s+)(\d+(?:\.\d+)?)",
-        rf"\g<1>{line_text}",
-        pick_text,
-        count=1,
-    )
-    return pick_text
-
-
-def _enrich_picks_with_market_odds(picks: list[dict[str, Any]], date_str: str | None = None) -> list[dict[str, Any]]:
-    if not picks or not _should_enrich_market_odds(date_str):
-        return picks
-
-    sport_market_needs: dict[str, set[str]] = {}
-    event_cache: dict[tuple[str, str], dict[str, Any] | None] = {}
-    event_lookup_cache: dict[tuple[str, str, str], dict[str, Any] | None] = {}
-
-    for pick in picks:
-        if _int_or_none(pick.get("odds")) is not None:
-            continue
-        descriptor = _pick_market_descriptor(pick)
-        if not descriptor:
-            continue
-        sport = str(pick.get("sport", "")).upper()
-        market_type = str(descriptor.get("market_type", "")).strip()
-        if sport in SPORT_TO_ODDS_API_KEY and market_type in {"h2h", "totals", "spreads"}:
-            sport_market_needs.setdefault(sport, set()).add(market_type)
-
-    featured_by_sport = {
-        sport: _fetch_featured_market_odds(sport, list(markets))
-        for sport, markets in sport_market_needs.items()
-    }
-
-    for pick in picks:
-        if _int_or_none(pick.get("odds")) is not None:
-            continue
-
-        descriptor = _pick_market_descriptor(pick)
-        if not descriptor:
-            continue
-
-        sport = str(pick.get("sport", "")).upper()
-        away_team = str(descriptor.get("away_team") or "").strip()
-        home_team = str(descriptor.get("home_team") or "").strip()
-        if not away_team or not home_team:
-            matchup = parse_matchup(str(pick.get("pick", "")))
-            if matchup:
-                away_team, home_team = matchup
-        if not away_team or not home_team:
-            continue
-
-        event = _find_matching_event(featured_by_sport.get(sport, []), away_team, home_team)
-        if event is None and descriptor.get("market_type") in {"player_points", "player_rebounds", "player_assists"}:
-            lookup_key = (sport, away_team, home_team)
-            if lookup_key not in event_lookup_cache:
-                event_lookup_cache[lookup_key] = _find_matching_event(
-                    _fetch_featured_market_odds(sport, ["h2h"]),
-                    away_team,
-                    home_team,
-                )
-            event = event_lookup_cache[lookup_key]
-        if not event:
-            continue
-
-        payload = event
-        if descriptor.get("market_type") in {"player_points", "player_rebounds", "player_assists"}:
-            event_id = str(event.get("id", "")).strip()
-            event_key = (sport, event_id)
-            if event_key not in event_cache:
-                event_cache[event_key] = _fetch_event_market_odds(
-                    sport,
-                    event_id,
-                    [
-                        "player_points",
-                        "player_rebounds",
-                        "player_assists",
-                    ],
-                )
-            payload = event_cache[event_key] or {}
-
-        market_price = _best_market_price(payload or {}, descriptor)
-        if not market_price:
-            continue
-
-        pick["odds"] = market_price["odds"]
-        if market_price.get("bookmaker"):
-            pick["odds_bookmaker"] = market_price["bookmaker"]
-        actual_line = _float_or_none(market_price.get("line"))
-        if actual_line is not None:
-            pick["market_line"] = actual_line
-            if descriptor.get("market_type") in {"player_points", "player_rebounds", "player_assists"}:
-                pick["pick"] = _replace_pick_line(str(pick.get("pick", "")), actual_line)
-                pick["line"] = actual_line
-
-        implied_prob = _american_implied_prob(pick.get("odds"))
-        if implied_prob is not None:
-            pick["market_implied_probability"] = round(implied_prob, 4)
-            model_prob = _float_or_none(pick.get("probability"))
-            if model_prob is not None:
-                pick["market_edge"] = round((model_prob - implied_prob) * 100.0, 2)
-                quarter_kelly = _quarter_kelly_pct(pick.get("odds"), model_prob)
-                if quarter_kelly is not None:
-                    pick["units"] = round(quarter_kelly, 2)
-
-    return picks
-
-
-def _apply_default_market_assumptions(picks: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    for pick in picks:
-        sport = str(pick.get("sport", "")).upper()
-        decision = str(pick.get("decision", "")).upper()
-        descriptor = _pick_market_descriptor(pick)
-        if sport != "NBA" or not descriptor:
-            continue
-        if str(descriptor.get("market_type", "")) not in {"spreads", "h2h"}:
-            continue
-        if _int_or_none(pick.get("odds")) is not None:
-            continue
-
-        model_prob = _float_or_none(pick.get("probability"))
-        if model_prob is None:
-            continue
-
-        assumed_odds = -110
-        implied_prob = _american_implied_prob(assumed_odds)
-        if implied_prob is None:
-            continue
-
-        pick["assumed_odds"] = assumed_odds
-        pick["assumed_odds_label"] = "Baseline -110"
-        pick["market_implied_probability"] = round(implied_prob, 4)
-        pick["market_edge"] = round((model_prob - implied_prob) * 100.0, 2)
-        if decision == "BET":
-            quarter_kelly = _quarter_kelly_pct(assumed_odds, model_prob)
-            if quarter_kelly is not None:
-                pick["units"] = round(quarter_kelly, 2)
-
-    return picks
 
 
 def parse_pick_date(date_text: str, year: int) -> str | None:
@@ -1456,7 +974,7 @@ def _extract_nba_player_stat(summary: dict[str, Any], player_name: str, stat_key
             for athlete in athletes if isinstance(athletes, list) else []:
                 athlete_info = athlete.get("athlete", {}) if isinstance(athlete, dict) else {}
                 display_name = str(athlete_info.get("displayName", "")).strip()
-                if not _player_names_match(player_name, display_name):
+                if not _person_names_match_loose(player_name, display_name):
                     continue
                 stats = athlete.get("stats", []) if isinstance(athlete, dict) else []
                 if stat_idx >= len(stats):
@@ -1903,13 +1421,6 @@ def _parse_nba_output(output: str, source_label: str = "NBA Model") -> list[dict
                 "home_team": current_home,
                 "predicted_spread": spread_val,
             }
-            if source_label == "NBA New":
-                # Kelly edge layer — appends bet recommendation, never modifies prediction
-                try:
-                    from NBAPredictionModel.kelly_edge import enrich_pick_with_edge
-                    pick = enrich_pick_with_edge(pick, league='NBA')
-                except Exception as _ke_err:
-                    pick['kelly_edge'] = {'verdict': 'ERROR', 'reason': str(_ke_err)}
             _append_unique(pick)
 
         # Over/Under decision: "**O/U Decision: BET OVER**"
@@ -2063,7 +1574,11 @@ def _parse_nba_props_output(output: str) -> list[dict[str, Any]]:
             quarter_kelly = float(current_metrics.get("quarter_kelly", 0.0))
             direction = str(current_metrics.get("direction", "OVER")).upper()
             true_prob = min(0.78, 0.5238 + (edge_pct * 0.008))
-            market_type = PROP_MARKET_TO_ODDS_API_KEY.get(current_prop["key"], "")
+            market_type = {
+                "points": "player_points",
+                "rebounds": "player_rebounds",
+                "assists": "player_assists",
+            }.get(current_prop["key"], "")
 
             picks.append({
                 "source": "NBA Props Model",
@@ -2825,8 +2340,6 @@ def run_nba_model(date_str: str | None = None, variant: str = "new") -> dict[str
                 "raw_lines": len(output.split("\n")),
             }
 
-        picks = _enrich_picks_with_market_odds(picks, date_str)
-        picks = _apply_default_market_assumptions(picks)
         return {"ok": True, "picks": picks, "raw_lines": len(output.split("\n"))}
     except subprocess.TimeoutExpired:
         return {"ok": False, "error": f"{source_label} timed out (5 min limit)"}
@@ -2894,7 +2407,6 @@ def run_nba_props_model(
                     "raw_lines": len(chunk_output.split("\n")),
                     "note": "No NBA props candidates found for selected game",
                 }
-            picks = _enrich_picks_with_market_odds(picks, date_str)
             return {"ok": True, "picks": picks, "raw_lines": len(chunk_output.split("\n"))}
         except subprocess.TimeoutExpired:
             return {"ok": False, "error": "NBA props model timed out (per-game run limit)"}
@@ -2944,7 +2456,6 @@ def run_nba_props_model(
                     "error": f"NBA props parser found no predictions ({tail})",
                     "raw_lines": len(output.split("\n")),
                 }
-            picks = _enrich_picks_with_market_odds(picks, date_str)
             return {"ok": True, "picks": picks, "raw_lines": len(output.split("\n"))}
 
         all_picks: list[dict[str, Any]] = []
@@ -2971,7 +2482,6 @@ def run_nba_props_model(
                 "note": "No NBA props candidates found today",
             }
 
-        all_picks = _enrich_picks_with_market_odds(all_picks, date_str)
         return {"ok": True, "picks": all_picks, "raw_lines": raw_lines}
     except subprocess.TimeoutExpired:
         return {"ok": False, "error": "NBA props model timed out (per-game run limit)"}
@@ -2990,7 +2500,6 @@ def run_mlb_model(date_str: str | None = None) -> dict[str, Any]:
     try:
         output = _run_script(python_bin, "run_today.py", MLB_MODEL_DIR, timeout=300, extra_args=extra)
         picks = _parse_mlb_output(output)
-        picks = _enrich_picks_with_market_odds(picks, date_str)
         return {"ok": True, "picks": picks, "raw_lines": len(output.split("\n"))}
     except subprocess.TimeoutExpired:
         return {"ok": False, "error": "MLB model timed out (5 min limit)"}
@@ -3148,7 +2657,6 @@ def run_scores24_scraper(sports: list[str], date_str: str | None = None) -> dict
     if not all_picks and errors:
         return {"ok": False, "error": "; ".join(errors[:4])}
 
-    all_picks = _enrich_picks_with_market_odds(all_picks, date_str)
     return {"ok": True, "picks": all_picks, "errors": errors}
 
 
@@ -3254,7 +2762,6 @@ def run_sportytrader_scraper(
         if not all_picks and errors:
             return {"ok": False, "error": "; ".join(errors[:4])}
 
-        all_picks = _enrich_picks_with_market_odds(all_picks, date_str)
         return {"ok": True, "picks": all_picks, "errors": errors}
     except subprocess.TimeoutExpired:
         return {"ok": False, "error": f"sportytrader: timed out after {timeout_s}s"}
@@ -3331,7 +2838,6 @@ class Handler(BaseHTTPRequestHandler):
                 "ok": True,
                 "service": "pickledger-grader",
                 "status": "healthy",
-                "odds_api_enabled": bool(ODDS_API_KEY),
                 "anthropic_enabled": bool(ANTHROPIC_API_KEY),
                 "anthropic_model": ANTHROPIC_MODEL,
                 "scores24_remote_enabled": ENABLE_SCORES24_REMOTE,
@@ -3345,7 +2851,6 @@ class Handler(BaseHTTPRequestHandler):
             self._send_json(200, {
                 "ok": True,
                 "status": "healthy",
-                "odds_api_enabled": bool(ODDS_API_KEY),
                 "anthropic_enabled": bool(ANTHROPIC_API_KEY),
                 "anthropic_model": ANTHROPIC_MODEL,
                 "scores24_remote_enabled": ENABLE_SCORES24_REMOTE,
