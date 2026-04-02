@@ -33,6 +33,13 @@ from urllib.error import URLError, HTTPError
 from urllib.parse import urlencode, urlparse
 from urllib.request import Request, urlopen
 
+try:
+    from ipl.ipl_model import run_ipl_model, format_ipl_output
+    IPL_AVAILABLE = True
+except Exception as e:
+    IPL_AVAILABLE = False
+    print(f"[IPL] Model not available: {e}")
+
 
 def _sl_get_total(home, away, league='MLB'):
     """Get real Vegas total line and odds from cbs_odds (SportsLine data)."""
@@ -3312,6 +3319,7 @@ class Handler(BaseHTTPRequestHandler):
                 "/run-nba-old-model",
                 "/run-nba-props-model",
                 "/run-mlb-model",
+                "/api/ipl",
                 "/ask-opus",
                 "/job-status?id=<id>",
             ]
@@ -3356,6 +3364,34 @@ class Handler(BaseHTTPRequestHandler):
                 "nba_games_source": nba_games_meta.get("source"),
                 "nba_games_error": nba_games_meta.get("error"),
             })
+            return
+
+        if path == "/ipl":
+            from urllib.parse import parse_qs
+
+            if not IPL_AVAILABLE:
+                self._send_json(503, {"error": "IPL model not loaded"})
+                return
+
+            qs = parse_qs(parsed.query)
+
+            def _optional_query_arg(name: str) -> str | None:
+                value = (qs.get(name) or [""])[0]
+                text = str(value).strip()
+                return text or None
+
+            try:
+                result = run_ipl_model(
+                    team1=_optional_query_arg("team1"),
+                    team2=_optional_query_arg("team2"),
+                    venue=_optional_query_arg("venue"),
+                    toss_winner=_optional_query_arg("toss_winner"),
+                    toss_decision=_optional_query_arg("toss_decision"),
+                    db_path=LEDGER_DB_FILE,
+                )
+                self._send_json(200, result)
+            except Exception as e:
+                self._send_json(500, {"error": str(e)})
             return
 
         if path in {"/scores24-feed", "/sportytrader-feed"}:
