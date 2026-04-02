@@ -857,6 +857,11 @@ def rank_match_players(
     predicted_points = model.predict(model_input)
     scoring["predicted_points"] = predicted_points
 
+    from ipl.models.win_predictor import predict_winner
+
+    winner_prediction = predict_winner(team1, team2, venue, toss_winner, toss_decision, db_path)
+    predicted_winner = winner_prediction["predicted_winner"]
+
     scoring["venue_factor"] = np.where(
         (scoring["venue_matches"] >= 3)
         & (scoring["venue_avg_fantasy_points"] > scoring["avg_fantasy_points"]),
@@ -876,9 +881,14 @@ def rank_match_players(
     )
     toss_factor = np.where(batter_boost | bowler_boost, 1.03, toss_factor)
     scoring["toss_factor"] = toss_factor
+    scoring["win_factor"] = np.where(scoring["team"] == predicted_winner, 1.06, 0.94)
 
     scoring["adjusted_score"] = (
-        scoring["predicted_points"] * scoring["role_weight"] * scoring["venue_factor"] * scoring["toss_factor"]
+        scoring["predicted_points"]
+        * scoring["role_weight"]
+        * scoring["venue_factor"]
+        * scoring["toss_factor"]
+        * scoring["win_factor"]
     )
 
     min_score = float(scoring["adjusted_score"].min())
