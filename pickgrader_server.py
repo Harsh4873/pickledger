@@ -3842,6 +3842,18 @@ class Handler(BaseHTTPRequestHandler):
                 result = run_sportytrader_scraper(scrape_date, sports)
                 self._send_json(200, result)
 
+        elif path == "/run-sportsgambler":
+            scrape_date = body.get("date")
+            sports = body.get("sports")
+            league = str(body.get("league", "")).strip().lower()
+            if not isinstance(sports, list):
+                sports = [league] if league else ["nba", "mlb"]
+            if async_mode:
+                job_id = _launch_job(run_sportsgambler_scraper, scrape_date, sports)
+                self._send_json(200, {"ok": True, "job_id": job_id, "status": "running"})
+            else:
+                result = run_sportsgambler_scraper(scrape_date, sports)
+                self._send_json(200, result)
         elif path == "/ask-opus":
             prompt = body.get("prompt")
             system = body.get("system")

@@ -1,67 +1,24 @@
 #!/usr/bin/env python3
-"""
-SportsGambler Scraper
-=====================
-Scrapes NBA and MLB picks from SportsGambler and prints SportyTrader-style
-blocks so the existing backend parser pattern can consume them.
-"""
-
+"""SportsGambler scraper — NBA and MLB picks."""
 from __future__ import annotations
-
-import argparse
-import json
-import re
-import sys
+import argparse, json, re, sys
 from datetime import date, datetime
 from typing import Any
-
 import requests
 from bs4 import BeautifulSoup
 
-SPORT_CONFIG = {
-    "nba": {
-        "aliases": {"nba", "basketball"},
-        "league": "NBA",
-        "title": "NBA",
-        "url": "https://www.sportsgambler.com/betting-tips/basketball/nba-predictions/",
-    },
-    "mlb": {
-        "aliases": {"mlb", "baseball"},
-        "league": "MLB",
-        "title": "MLB",
-        "url": "https://www.sportsgambler.com/betting-tips/baseball/",
-    },
-}
-
-SPORT_ALIAS_MAP = {
-    alias: key
-    for key, cfg in SPORT_CONFIG.items()
-    for alias in cfg["aliases"]
-}
-
-REQUEST_HEADERS = {
-    "User-Agent": (
-        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
-        "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36"
-    ),
+HEADERS = {
+    "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36",
     "Accept-Language": "en-US,en;q=0.9",
 }
 
+NBA_URL = "https://www.sportsgambler.com/betting-tips/basketball/nba-predictions/"
+MLB_URL = "https://www.sportsgambler.com/betting-tips/baseball/"
 
-def _normalize_line(value: str) -> str:
-    return re.sub(r"\s+", " ", str(value or "")).strip()
+def _norm(s: str) -> str:
+    return re.sub(r"\s+", " ", str(s or "")).strip()
 
-
-def _normalize_sport(raw: str) -> str:
-    key = _normalize_line(raw).lower()
-    if key in SPORT_ALIAS_MAP:
-        return SPORT_ALIAS_MAP[key]
-    return ""
-
-
-def _parse_target_date(raw: str | None) -> date | None:
-    if not raw:
-        return None
+def _parse_date(raw: str) -> date | None:
     for fmt in ("%Y-%m-%d", "%m/%d/%Y"):
         try:
             return datetime.strptime(raw, fmt).date()
@@ -69,259 +26,139 @@ def _parse_target_date(raw: str | None) -> date | None:
             continue
     return None
 
+def _split_tip_odds(raw: str) -> tuple[str, str]:
+    m = re.match(r"^(.*?)\s*@\s*([+-]?\d+(?:\.\d+)?)$", _norm(raw))
+    return (_norm(m.group(1)), _norm(m.group(2))) if m else (_norm(raw), "")
 
-def _fetch_html(url: str) -> str:
-    resp = requests.get(url, headers=REQUEST_HEADERS, timeout=30)
-    resp.raise_for_status()
-    return resp.text
-
-
-def _iter_json_nodes(value: Any):
-    if isinstance(value, dict):
-        yield value
-        for child in value.values():
-            yield from _iter_json_nodes(child)
-    elif isinstance(value, list):
-        for item in value:
-            yield from _iter_json_nodes(item)
-
-
-def _json_ld_objects(soup: BeautifulSoup) -> list[Any]:
-    parsed: list[Any] = []
+def _json_ld(soup: BeautifulSoup) -> list[Any]:
+    out = []
     for tag in soup.find_all("script", attrs={"type": "application/ld+json"}):
-        raw = tag.string or tag.get_text("\n", strip=True)
-        raw = raw.strip()
-        if not raw:
-            continue
-        try:
-            parsed.append(json.loads(raw))
-        except json.JSONDecodeError:
-            continue
-    return parsed
+        raw = (tag.string or tag.get_text("\n", strip=True)).strip()
+        if raw:
+            try:
+                out.append(json.loads(raw))
+            except json.JSONDecodeError:
+                pass
+    return out
 
+def _iter_nodes(v: Any):
+    if isinstance(v, dict):
+        yield v
+        for child in v.values():
+            yield from _iter_nodes(child)
+    elif isinstance(v, list):
+        for item in v:
+            yield from _iter_nodes(item)
 
-def _extract_iso_date(raw: str) -> date | None:
-    text = _normalize_line(raw)
-    match = re.search(r"(\d{4}-\d{2}-\d{2})", text)
-    if not match:
-        return None
+def _iso_date(raw: str) -> date | None:
+    m = re.search(r"(\d{4}-\d{2}-\d{2})", _norm(raw))
     try:
-        return datetime.strptime(match.group(1), "%Y-%m-%d").date()
+        return datetime.strptime(m.group(1), "%Y-%m-%d").date() if m else None
     except ValueError:
         return None
 
-
-def _extract_listing_matchup(item: dict[str, Any]) -> str:
-    event_name = _normalize_line(item.get("name", ""))
-    if event_name:
-        return event_name
-
-    competitors = item.get("competitor")
-    if isinstance(competitors, list):
-        teams = [
-            _normalize_line(team.get("name", ""))
-            for team in competitors
-            if isinstance(team, dict) and _normalize_line(team.get("name", ""))
-        ]
+def _matchup_from_node(node: dict) -> str:
+    name = _norm(node.get("name", ""))
+    if name:
+        return name
+    comps = node.get("competitor")
+    if isinstance(comps, list):
+        teams = [_norm(t.get("name", "")) for t in comps if isinstance(t, dict) and _norm(t.get("name", ""))]
         if len(teams) >= 2:
             return f"{teams[0]} vs {teams[1]}"
     return ""
 
-
-def _split_tip_and_odds(raw_prediction: str) -> tuple[str, str]:
-    text = _normalize_line(raw_prediction)
-    match = re.match(r"^(.*?)\s*@\s*([+-]?\d+(?:\.\d+)?)$", text)
-    if not match:
-        return text, ""
-    return _normalize_line(match.group(1)), _normalize_line(match.group(2))
-
-
-def _extract_detail_matchup(soup: BeautifulSoup) -> str:
-    for obj in _json_ld_objects(soup):
-        for node in _iter_json_nodes(obj):
-            if node.get("@type") == "SportsEvent":
-                matchup = _extract_listing_matchup(node)
-                if matchup:
-                    return matchup
-
-    header = soup.select_one("h1.p_title")
-    if not header:
-        return ""
-    text = _normalize_line(header.get_text(" ", strip=True))
-    match = re.match(r"^(.*?)\s+Prediction\b", text, re.IGNORECASE)
-    return _normalize_line(match.group(1) if match else text)
-
-
-def _extract_nba_article_rows(target_date: date | None) -> list[dict[str, str]]:
-    html = _fetch_html(SPORT_CONFIG["nba"]["url"])
+def scrape_nba(target: date | None) -> list[dict]:
+    html = requests.get(NBA_URL, headers=HEADERS, timeout=30).text
     soup = BeautifulSoup(html, "html.parser")
-
-    articles: list[dict[str, str]] = []
-    seen_urls: set[str] = set()
-
-    for obj in _json_ld_objects(soup):
-        for node in _iter_json_nodes(obj):
+    articles, seen = [], set()
+    for obj in _json_ld(soup):
+        for node in _iter_nodes(obj):
             item = node.get("item")
             if not isinstance(item, dict) or item.get("@type") != "SportsEvent":
                 continue
-
-            url = _normalize_line(item.get("url", ""))
-            matchup = _extract_listing_matchup(item)
-            start_date_raw = _normalize_line(item.get("startDate", ""))
-            event_date = _extract_iso_date(start_date_raw)
-
-            if not url or not matchup or url in seen_urls:
+            url = _norm(item.get("url", ""))
+            matchup = _matchup_from_node(item)
+            event_date = _iso_date(_norm(item.get("startDate", "")))
+            if not url or not matchup or url in seen:
                 continue
-            if target_date and event_date and event_date != target_date:
+            if target and event_date and event_date != target:
                 continue
+            seen.add(url)
+            articles.append({"url": url, "matchup": matchup, "date": item.get("startDate", "")})
 
-            seen_urls.add(url)
-            articles.append({
-                "url": url,
-                "matchup": matchup,
-                "datetime": start_date_raw or (event_date.isoformat() if event_date else ""),
-            })
-
-    rows: list[dict[str, str]] = []
-    for article in articles:
-        detail_html = _fetch_html(article["url"])
-        detail_soup = BeautifulSoup(detail_html, "html.parser")
-
+    rows = []
+    for art in articles:
+        try:
+            detail = BeautifulSoup(requests.get(art["url"], headers=HEADERS, timeout=30).text, "html.parser")
+        except Exception:
+            continue
         prediction = ""
-        for container in detail_soup.select("div.tpbot_container"):
-            label = _normalize_line(container.select_one(".tpbot_title").get_text(" ", strip=True)) if container.select_one(".tpbot_title") else ""
-            if "prediction" not in label.lower():
-                continue
-            spans = container.select("a.tpbot_tip span")
-            if spans:
-                prediction = _normalize_line(spans[-1].get_text(" ", strip=True))
-                break
-
+        for cont in detail.select("div.tpbot_container"):
+            title_el = cont.select_one(".tpbot_title")
+            if title_el and "prediction" in title_el.get_text().lower():
+                spans = cont.select("a.tpbot_tip span")
+                if spans:
+                    prediction = _norm(spans[-1].get_text(" ", strip=True))
+                    break
         if not prediction:
             continue
-
-        matchup = _extract_detail_matchup(detail_soup) or article["matchup"]
-        tip, odds = _split_tip_and_odds(prediction)
-        if not matchup or not tip:
+        tip, odds = _split_tip_odds(prediction)
+        if not tip:
             continue
-
-        rows.append({
-            "datetime": article["datetime"],
-            "league": "NBA",
-            "matchup": matchup,
-            "tip": tip,
-            "odds": odds,
-            "href": article["url"],
-        })
-
+        rows.append({"datetime": art["date"], "league": "NBA", "matchup": art["matchup"], "tip": tip, "odds": odds, "href": art["url"]})
     return rows
 
-
-def _parse_listing_date(raw: str, target_date: date | None) -> date | None:
-    text = _normalize_line(raw)
-    if not text:
-        return None
-
-    year = (target_date or date.today()).year
-    try:
-        return datetime.strptime(f"{text} {year}", "%H:%M %a %d/%m %Y").date()
-    except ValueError:
-        return None
-
-
-def _extract_mlb_rows(target_date: date | None) -> list[dict[str, str]]:
-    html = _fetch_html(SPORT_CONFIG["mlb"]["url"])
+def scrape_mlb(target: date | None) -> list[dict]:
+    html = requests.get(MLB_URL, headers=HEADERS, timeout=30).text
     soup = BeautifulSoup(html, "html.parser")
-
-    rows: list[dict[str, str]] = []
-    seen: set[tuple[str, str]] = set()
-
+    rows, seen = [], set()
     for item in soup.select("div.tipbox_item"):
         title_spans = item.select(".tipsbox_title h3 > span")
-        matchup = _normalize_line(title_spans[0].get_text(" ", strip=True)) if title_spans else ""
+        matchup = _norm(title_spans[0].get_text(" ", strip=True)) if title_spans else ""
         meta_spans = item.select(".tipsbox_title .tipsbox_meta span")
-        date_text = _normalize_line(meta_spans[0].get_text(" ", strip=True)) if meta_spans else ""
-        league_text = _normalize_line(" ".join(span.get_text(" ", strip=True) for span in meta_spans[1:]))
-        league_text = league_text.lstrip("-").strip()
-
+        date_text = _norm(meta_spans[0].get_text(" ", strip=True)) if meta_spans else ""
+        league_text = _norm(" ".join(s.get_text(" ", strip=True) for s in meta_spans[1:])).lstrip("-").strip()
         if league_text.upper() != "MLB":
             continue
-        if target_date:
-            item_date = _parse_listing_date(date_text, target_date)
-            if item_date and item_date != target_date:
-                continue
-
         tip_spans = item.select(".tipbox_tip span")
-        prediction = _normalize_line(tip_spans[-1].get_text(" ", strip=True)) if tip_spans else ""
-        tip, odds = _split_tip_and_odds(prediction)
+        prediction = _norm(tip_spans[-1].get_text(" ", strip=True)) if tip_spans else ""
+        tip, odds = _split_tip_odds(prediction)
         if not matchup or not tip:
             continue
-
         key = (matchup, tip)
         if key in seen:
             continue
         seen.add(key)
-
         anchor = item.get("id", "").strip()
-        href = SPORT_CONFIG["mlb"]["url"] + (f"#{anchor}" if anchor else "")
-
-        rows.append({
-            "datetime": date_text,
-            "league": "MLB",
-            "matchup": matchup,
-            "tip": tip,
-            "odds": odds,
-            "href": href,
-        })
-
+        href = MLB_URL + (f"#{anchor}" if anchor else "")
+        rows.append({"datetime": date_text, "league": "MLB", "matchup": matchup, "tip": tip, "odds": odds, "href": href})
     return rows
 
-
-def _print_pick(row: dict[str, str]) -> None:
-    print("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
-    print(f"Match:          {row['matchup']}")
-    print(f"Date/Time:      {row['datetime'] or '[not found on page]'}")
-    print(f"League:         {row['league']}")
-    print(f"Tip:            {row['tip']}")
-    print(f"Odds:           {row['odds'] or '[not found on page]'}")
-    print("Confidence:     [not found on page]")
-    print("User vote:      [not found on page]")
-    print(f"Source URL:     {row['href']}")
-    print("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
-
-
 def main() -> None:
-    ap = argparse.ArgumentParser(description="SportsGambler scraper")
-    ap.add_argument("--sport", "-s", default="nba", help="Supported: nba/mlb")
-    ap.add_argument("--date", "-d", help="Date in YYYY-MM-DD or MM/DD/YYYY")
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--sport", "-s", default="nba")
+    ap.add_argument("--date", "-d", default=None)
     args = ap.parse_args()
-
-    sport_key = _normalize_sport(args.sport or "")
-    if not sport_key:
-        print("Error: SportsGambler scraper supports only NBA/basketball and MLB/baseball.")
-        sys.exit(1)
-
-    target_date = _parse_target_date(args.date)
-
+    sport = args.sport.strip().lower()
+    target = _parse_date(args.date) if args.date else None
     try:
-        if sport_key == "nba":
-            rows = _extract_nba_article_rows(target_date)
-        else:
-            rows = _extract_mlb_rows(target_date)
-    except requests.RequestException as exc:
-        print(f"Error loading SportsGambler {SPORT_CONFIG[sport_key]['title']} page: {exc}")
-        sys.exit(1)
+        rows = scrape_nba(target) if sport in ("nba", "basketball") else scrape_mlb(target)
     except Exception as exc:
-        print(f"Error parsing SportsGambler {SPORT_CONFIG[sport_key]['title']} page: {exc}")
+        print(f"Error: {exc}", file=sys.stderr)
         sys.exit(1)
-
     if not rows:
-        print(f"No SportsGambler {SPORT_CONFIG[sport_key]['title']} picks parsed.")
-        return
-
-    for row in rows:
-        _print_pick(row)
-
+        print("No picks found.")
+        sys.exit(0)
+    for r in rows:
+        print("\n" + "━" * 32)
+        print(f"Match:          {r['matchup']}")
+        print(f"Date/Time:      {r['datetime'] or '[not found]'}")
+        print(f"League:         {r['league']}")
+        print(f"Tip:            {r['tip']}")
+        print(f"Odds:           {r['odds'] or '[not found]'}")
+        print(f"Source URL:     {r['href']}")
+        print("━" * 32)
 
 if __name__ == "__main__":
     main()
