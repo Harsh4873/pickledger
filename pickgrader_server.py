@@ -1700,6 +1700,7 @@ MLB_MODEL_DIR = os.path.join(BASE_DIR, "MLBPredictionModel")
 NBA_PROPS_MODEL_DIR = os.path.join(BASE_DIR, "NBAPlayerBettingModel")
 SCORES24_VENV = os.path.join(BASE_DIR, ".venv", "bin", "python")
 SPORTYTRADER_VENV = os.path.join(BASE_DIR, ".venv", "bin", "python")
+SPORTSGAMBLER_VENV = os.path.join(BASE_DIR, ".venv", "bin", "python")
 
 # ─── Async Job Store ──────────────────────────────────────────────────────────
 # Tracks running/completed model jobs so the frontend can poll for results.
@@ -3445,6 +3446,106 @@ def run_sportytrader_scraper(
         return {"ok": False, "error": f"sportytrader: {exc}"}
 
 
+def run_sportsgambler_scraper(
+    date_str: str | None = None,
+    sports: list[str] | None = None,
+) -> dict[str, Any]:
+    """Execute the SportsGambler scraper for NBA and/or MLB."""
+    python_bin = _resolve_python_bin(SPORTSGAMBLER_VENV)
+    target_date = _resolve_scores24_date(date_str)
+    scraper_path = os.path.join(BASE_DIR, "sportsgambler_scraper.py")
+    if not os.path.exists(scraper_path):
+        return {"ok": False, "error": f"sportsgambler scraper not found at {scraper_path}"}
+
+    timeout_s = 120
+    sport_map = {
+        "nba": "nba",
+        "basketball": "nba",
+        "mlb": "mlb",
+        "baseball": "mlb",
+    }
+    default_sports = ["nba", "mlb"]
+    selected = [sport_map.get(str(s).strip().lower(), "") for s in (sports or default_sports)]
+    selected = [sport for sport in selected if sport]
+    if not selected:
+        selected = default_sports
+
+    def _invoke(sport_code: str) -> subprocess.CompletedProcess[str]:
+        return _subprocess_run(
+            [python_bin, scraper_path, "--sport", sport_code, "--date", target_date],
+            cwd=BASE_DIR,
+            capture_output=True,
+            text=True,
+            timeout=timeout_s,
+        )
+
+    try:
+        all_picks: list[dict[str, Any]] = []
+        errors: list[str] = []
+
+        for sport_code in selected:
+            result = _invoke(sport_code)
+            output = (result.stdout or "") + (result.stderr or "")
+
+            picks: list[dict[str, Any]] = []
+            blocks = re.split(r"━{10,}", output)
+            expected_sport = sport_code.upper()
+            for block in blocks:
+                match_m = re.search(r"Match:\s*(.+)", block)
+                tip_m = re.search(r"Tip:\s*(.+)", block)
+                odds_m = re.search(r"Odds:\s*(.+)", block)
+                league_m = re.search(r"League:\s*(.+)", block)
+                if not match_m or not tip_m:
+                    continue
+
+                matchup = match_m.group(1).strip()
+                tip = tip_m.group(1).strip()
+                if not matchup or not tip:
+                    continue
+
+                league = league_m.group(1).strip() if league_m else ""
+                sport = (league or expected_sport).upper()
+                if sport not in {"NBA", "MLB"}:
+                    sport = expected_sport
+
+                odds_val = None
+                odds_str = odds_m.group(1).strip() if odds_m else ""
+                if odds_str and odds_str != "[not found on page]":
+                    try:
+                        odds_val = int(float(odds_str))
+                    except ValueError:
+                        odds_val = None
+
+                picks.append({
+                    "source": "SportsGambler",
+                    "pick": f"{tip} ({matchup})",
+                    "sport": sport,
+                    "odds": odds_val,
+                    "units": 1,
+                    "probability": None,
+                    "edge": None,
+                    "decision": "BET",
+                })
+
+            if result.returncode != 0 and not picks:
+                errors.append(f"{sport_code}: scraper exited {result.returncode} ({_compact_error_text(output)})")
+                continue
+            if not picks:
+                errors.append(f"{sport_code}: no picks parsed ({_compact_error_text(output)})")
+                continue
+
+            all_picks.extend(picks)
+
+        if not all_picks and errors:
+            return {"ok": False, "error": "; ".join(errors[:4])}
+
+        return {"ok": True, "picks": all_picks, "errors": errors}
+    except subprocess.TimeoutExpired:
+        return {"ok": False, "error": f"sportsgambler: timed out after {timeout_s}s"}
+    except Exception as exc:
+        return {"ok": False, "error": f"sportsgambler: {exc}"}
+
+
 def _launch_job(target_fn, *args) -> str:
     """Launch a model run in a background thread and return a job_id."""
     job_id = uuid.uuid4().hex[:12]
@@ -3476,6 +3577,7 @@ def _public_endpoints() -> list[str]:
         "/api/ipl",
         "/ask-opus",
         "/job-status?id=<id>",
+        "/run-sportsgambler",
     ]
     if ENABLE_SCORES24_REMOTE:
         endpoints.append("/run-scores24")
