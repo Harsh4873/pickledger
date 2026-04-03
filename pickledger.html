@@ -276,6 +276,8 @@
   th { text-align: left; padding: 10px 14px 10px; font-family: 'DM Mono', monospace; font-size: 10px; letter-spacing: 1.5px; color: var(--muted); font-weight: 500; text-transform: uppercase; }
   td { padding: 12px 14px; border-bottom: 1px solid var(--border); transition: background-color 0.15s; vertical-align: middle; }
   tr:last-child td { border-bottom: none; }
+  .log-pick-main { font-weight: 600; line-height: 1.25; }
+  .log-pick-sub { margin-top: 4px; font-size: 11px; color: var(--muted); font-family: 'DM Mono', monospace; line-height: 1.35; }
 
   /* === Pick Log Feed (Home tab) === */
   .pick-feed { display: flex; flex-direction: column; gap: 0; }
@@ -1046,14 +1048,6 @@
         <button class="model-run-btn" id="btn-run-sportytrader" onclick="runModel('sportytrader')">SYNC SPORTYTRADER NOW</button>
         <div class="model-status" id="status-sportytrader"></div>
       </div>
-      <div class="model-card" id="model-card-sportsgambler">
-        <div class="model-card-icon">&#127921;</div>
-        <div class="model-card-title">SportsGambler NBA + MLB Feed</div>
-        <div class="model-card-desc">Sync SportsGambler NBA article picks plus MLB listing picks. Tries backend first, then local feed/cache.</div>
-        <div class="model-status" id="sportsgambler-sync-meta">Last sync: never</div>
-        <button class="model-run-btn" id="btn-run-sportsgambler" onclick="runModel('sportsgambler')">SYNC SPORTSGAMBLER NOW</button>
-        <div class="model-status" id="status-sportsgambler"></div>
-      </div>
     </div>
     <div id="model-results-section" style="display:none;">
       <div class="section-title clean-title" style="margin-top:24px">Model Results</div>
@@ -1103,7 +1097,7 @@ function normalizeServerBase(value) {
   return /^https?:\/\//i.test(s) ? s : '';
 }
 
-// Always use local Mac agent. No Render. Clear any stale hosted URL from storage.
+// Hard-locked to local Mac agent. No Render.
 localStorage.removeItem('pickledger_model_server');
 const MODEL_SERVER = 'http://127.0.0.1:8765';
 const GRADER_URL = `${MODEL_SERVER}/grade`;
@@ -1113,12 +1107,9 @@ const SCORES24_FEED_URL = './scores24_manual_feed.json';
 const SCORES24_CACHE_KEY = 'pickledger_scores24_feed_cache';
 const SPORTYTRADER_FEED_URL = './sportytrader_manual_feed.json';
 const SPORTYTRADER_CACHE_KEY = 'pickledger_sportytrader_feed_cache';
-const SPORTSGAMBLER_FEED_URL = './sportsgambler_manual_feed.json';
-const SPORTSGAMBLER_CACHE_KEY = 'pickledger_sportsgambler_feed_cache';
 const LOOPBACK_MODEL_SERVER = 'http://127.0.0.1:8765';
 const LOCAL_SCORES24_SERVER = LOOPBACK_MODEL_SERVER;
 const LOCAL_SPORTYTRADER_SERVER = LOOPBACK_MODEL_SERVER;
-const LOCAL_SPORTSGAMBLER_SERVER = LOOPBACK_MODEL_SERVER;
 let ledgerStateSyncTimer = null;
 let ledgerStateSyncInFlight = false;
 
@@ -1522,6 +1513,17 @@ function modelResultsVerdictLabel(verdict) {
     NO_MODEL_SPREAD: 'NO SPREAD',
   }[String(verdict || '').toUpperCase()] || String(verdict || 'PASS').toUpperCase();
 }
+function modelResultsMatchupLabel(pick) {
+  if (!pick) return '';
+  const explicit = String(pick.matchup || pick.game || '').replace(/\s*@\s*/g, ' vs ').trim();
+  const away = String(pick.away_team || '').trim();
+  const home = String(pick.home_team || '').trim();
+  const label = explicit || (away && home ? `${away} vs ${home}` : '');
+  if (!label) return '';
+  const pickText = String(pick.pick || '').trim().toLowerCase();
+  if (pickText && pickText.includes(label.toLowerCase())) return '';
+  return label;
+}
 function modelResultsPickMatchesKellySide(pick) {
   const ke = pick && pick.kelly_edge;
   if (!ke || !ke.bet_side) return true;
@@ -1654,7 +1656,7 @@ function formatStartLabel(iso) {
 }
 
 function getGameKeyForPick(p) {
-  const label = p.game || extractGameKey(p.pick, p.sport) || inferNbaPropsMatchupLabel(p, getPicks());
+  const label = deriveGameLabel(p, getPicks());
   return label || `${p.sport}::${p.date}::${p.id}`;
 }
 
@@ -2348,6 +2350,126 @@ function extractGameKey(pickText, sport) {
   return inside;
 }
 
+const NBA_TEAM_NAME_ALIASES = {
+  'ATLANTA HAWKS': 'Hawks',
+  'HAWKS': 'Hawks',
+  'BOSTON CELTICS': 'Celtics',
+  'CELTICS': 'Celtics',
+  'BROOKLYN NETS': 'Nets',
+  'NETS': 'Nets',
+  'CHARLOTTE HORNETS': 'Hornets',
+  'CHARLOTTE': 'Hornets',
+  'HORNETS': 'Hornets',
+  'CHICAGO BULLS': 'Bulls',
+  'BULLS': 'Bulls',
+  'CLEVELAND CAVALIERS': 'Cavaliers',
+  'CLEVELAND': 'Cavaliers',
+  'CAVALIERS': 'Cavaliers',
+  'CAVS': 'Cavaliers',
+  'DALLAS MAVERICKS': 'Mavericks',
+  'MAVERICKS': 'Mavericks',
+  'MAVS': 'Mavericks',
+  'DENVER NUGGETS': 'Nuggets',
+  'NUGGETS': 'Nuggets',
+  'DETROIT PISTONS': 'Pistons',
+  'DETROIT': 'Pistons',
+  'PISTONS': 'Pistons',
+  'GOLDEN STATE WARRIORS': 'Warriors',
+  'WARRIORS': 'Warriors',
+  'HOUSTON ROCKETS': 'Rockets',
+  'ROCKETS': 'Rockets',
+  'INDIANA PACERS': 'Pacers',
+  'PACERS': 'Pacers',
+  'LOS ANGELES CLIPPERS': 'Clippers',
+  'LA CLIPPERS': 'Clippers',
+  'CLIPPERS': 'Clippers',
+  'LOS ANGELES LAKERS': 'Lakers',
+  'LAKERS': 'Lakers',
+  'MEMPHIS GRIZZLIES': 'Grizzlies',
+  'GRIZZLIES': 'Grizzlies',
+  'MIAMI HEAT': 'Heat',
+  'HEAT': 'Heat',
+  'MILWAUKEE BUCKS': 'Bucks',
+  'BUCKS': 'Bucks',
+  'MINNESOTA TIMBERWOLVES': 'Timberwolves',
+  'MINNESOTA': 'Timberwolves',
+  'TIMBERWOLVES': 'Timberwolves',
+  'WOLVES': 'Timberwolves',
+  'NEW ORLEANS PELICANS': 'Pelicans',
+  'NEW ORLEANS': 'Pelicans',
+  'PELICANS': 'Pelicans',
+  'NEW YORK KNICKS': 'Knicks',
+  'KNICKS': 'Knicks',
+  'OKLAHOMA CITY THUNDER': 'Thunder',
+  'OKLAHOMA': 'Thunder',
+  'THUNDER': 'Thunder',
+  'ORLANDO MAGIC': 'Magic',
+  'MAGIC': 'Magic',
+  'PHILADELPHIA 76ERS': '76ers',
+  '76ERS': '76ers',
+  'SIXERS': '76ers',
+  'PHOENIX SUNS': 'Suns',
+  'PHOENIX': 'Suns',
+  'SUNS': 'Suns',
+  'PORTLAND TRAIL BLAZERS': 'Trail Blazers',
+  'PORTLAND': 'Trail Blazers',
+  'TRAIL BLAZERS': 'Trail Blazers',
+  'BLAZERS': 'Trail Blazers',
+  'SACRAMENTO KINGS': 'Kings',
+  'KINGS': 'Kings',
+  'SAN ANTONIO SPURS': 'Spurs',
+  'SAN ANTONIO': 'Spurs',
+  'SPURS': 'Spurs',
+  'TORONTO RAPTORS': 'Raptors',
+  'RAPTORS': 'Raptors',
+  'UTAH JAZZ': 'Jazz',
+  'JAZZ': 'Jazz',
+  'WASHINGTON WIZARDS': 'Wizards',
+  'WIZARDS': 'Wizards',
+};
+
+function normalizeNBATeam(name) {
+  const trimmed = String(name || '').trim();
+  if (!trimmed) return '';
+  const upper = trimmed.toUpperCase().replace(/[.'"]/g, '').replace(/\s+/g, ' ').trim();
+  return NBA_TEAM_NAME_ALIASES[upper] || trimmed;
+}
+
+function normalizeTeamForGameLabel(name, sport) {
+  const trimmed = String(name || '').trim();
+  if (!trimmed) return '';
+  const upperSport = String(sport || '').toUpperCase();
+  if (upperSport === 'MLB') return normalizeMLBTeam(trimmed);
+  if (upperSport === 'NBA') return normalizeNBATeam(trimmed);
+  return trimmed;
+}
+
+function matchupLabelFromTeams(teamA, teamB, sport) {
+  const parts = [teamA, teamB].map(team => normalizeTeamForGameLabel(team, sport)).filter(Boolean);
+  if (parts.length !== 2) return '';
+  return parts.sort((a, b) => a.localeCompare(b)).join(' vs ');
+}
+
+function deriveGameLabel(p, allPicks) {
+  const sport = String(p && p.sport || '').toUpperCase();
+  const explicit = String(p && (p.matchup || p.game || p._gameKey) || '').trim();
+  if (/\s+(?:vs|@)\s+/i.test(explicit)) {
+    const explicitParts = explicit.split(/\s+(?:vs|@)\s+/i).map(s => s.trim()).filter(Boolean);
+    const explicitLabel = matchupLabelFromTeams(explicitParts[0], explicitParts[1], sport);
+    if (explicitLabel) return explicitLabel;
+  }
+  const fromTeams = matchupLabelFromTeams(p && p.away_team, p && p.home_team, sport);
+  if (fromTeams) return fromTeams;
+  const extracted = extractGameKey(p && p.pick, sport);
+  if (extracted) {
+    const parts = String(extracted).split(/\s+(?:vs|@)\s+/i).map(s => s.trim()).filter(Boolean);
+    const extractedLabel = matchupLabelFromTeams(parts[0], parts[1], sport);
+    if (extractedLabel) return extractedLabel;
+    return extracted;
+  }
+  return inferNbaPropsMatchupLabel(p, allPicks || getPicks()) || '';
+}
+
 const NBA_OPP_ABBR_TO_TEAM_NAMES = {
   ATL: ['Hawks'], BOS: ['Celtics'], BKN: ['Nets'], CHA: ['Hornets'], CHI: ['Bulls'],
   CLE: ['Cavaliers', 'Cavs'], DAL: ['Mavericks', 'Mavs'], DEN: ['Nuggets'], DET: ['Pistons'],
@@ -2419,8 +2541,8 @@ function renderSearch() {
   }
 
   container.innerHTML = matches.map(p => {
-    const gameKey = extractGameKey(p.pick, p.sport);
-    const related = gameKey ? picks.filter(rp => rp.id !== p.id && extractGameKey(rp.pick, rp.sport) === gameKey) : [];
+    const gameKey = deriveGameLabel(p, picks);
+    const related = gameKey ? picks.filter(rp => rp.id !== p.id && deriveGameLabel(rp, picks) === gameKey) : [];
     const resultBadge = p.result === 'win' ? 'badge-win' : p.result === 'loss' ? 'badge-loss' : p.result === 'push' ? 'badge-push' : 'badge-pending';
     const resultLabel = p.result.toUpperCase();
     const plStr = p.result === 'pending' ? '—' : (p.pl >= 0 ? '+' : '') + p.pl + 'u';
@@ -2944,7 +3066,7 @@ function renderTrends() {
 
   const gameMap = {};
   trendPicks.forEach(p => {
-    const gameLabel = extractGameKey(p.pick, p.sport);
+    const gameLabel = deriveGameLabel(p, trendPicks);
     if (!gameLabel) return;
     const gameKey = `${p.sport}::${canonicalGameKeyFromMatchup(gameLabel)}`;
     if (!gameMap[gameKey]) {
@@ -3239,8 +3361,7 @@ function render() {
 
   const allGameStartIso = {};
   picks.forEach(p => {
-    const inferredLabel = inferNbaPropsMatchupLabel(p, picks);
-    const gameLabel = p.game || p._gameKey || extractGameKey(p.pick, p.sport) || inferredLabel || p.pick;
+    const gameLabel = deriveGameLabel(p, picks) || p.pick;
     const key = `${p.sport}::${p.date}::${gameLabel || p.id}`;
     const iso = gameTimes[String(p.id)] || '';
     if (!iso) return;
@@ -3254,8 +3375,7 @@ function render() {
   });
 
   const detailedSeed = filtered.map(p => {
-    const inferredLabel = inferNbaPropsMatchupLabel(p, picks);
-    const gameLabel = p.game || p._gameKey || extractGameKey(p.pick, p.sport) || inferredLabel || p.pick;
+    const gameLabel = deriveGameLabel(p, picks) || p.pick;
     const key = `${p.sport}::${p.date}::${gameLabel || p.id}`;
     const ownIso = gameTimes[String(p.id)] || '';
     const resolvedIso = allGameStartIso[key] || ownIso;
@@ -3571,7 +3691,6 @@ function _resetModelButton(model) {
     'nba-props': 'RUN PROPS MODEL',
     scores24: 'SYNC SCORES24 NOW',
     sportytrader: 'SYNC SPORTYTRADER NOW',
-    sportsgambler: 'SYNC SPORTSGAMBLER NOW',
   };
   btn.disabled = false;
   btn.textContent = labels[model] || 'RUN';
@@ -3772,9 +3891,6 @@ async function _pollJob(jobId, model, baseUrl = MODEL_SERVER, timeoutMs = 600000
       } else if (model === 'sportytrader') {
         const secs = Math.floor(elapsedMs / 1000);
         setModelStatus(model, `Running local SportyTrader scrape... ${secs}s`, 'running');
-      } else if (model === 'sportsgambler') {
-        const secs = Math.floor(elapsedMs / 1000);
-        setModelStatus(model, `Running SportsGambler sync... ${secs}s`, 'running');
       }
 
       const resp = await fetch(`${baseUrl}/job-status?id=${jobId}`);
@@ -3844,6 +3960,7 @@ async function loadScores24ManualFeed() {
   const normalized = picks.map(p => ({
     source: String(p.source || 'Scores24').trim() || 'Scores24',
     pick: String(p.pick || '').trim(),
+    matchup: String(p.matchup || p.game || '').trim(),
     sport: String(p.sport || 'Other').trim() || 'Other',
     odds: normalizeOddsValue(p.odds),
     units: Number(p.units) || 1,
@@ -3927,81 +4044,6 @@ function getSportyTraderCachedFeed() {
 
 function saveSportyTraderCachedFeed(payload) {
   localStorage.setItem(SPORTYTRADER_CACHE_KEY, JSON.stringify(payload));
-}
-
-async function loadSportsgamblerManualFeed() {
-  const payload = await _fetchManualFeedPayload(
-    _buildManualFeedCandidates(SPORTSGAMBLER_FEED_URL, '/sportsgambler-feed')
-  );
-  const picks = Array.isArray(payload) ? payload : payload.picks;
-  if (!Array.isArray(picks)) {
-    throw new Error('Invalid feed format: expected { picks: [] }');
-  }
-
-  const normalized = picks.map(p => ({
-    source: String(p.source || 'SportsGambler').trim() || 'SportsGambler',
-    pick: String(p.pick || '').trim(),
-    sport: String(p.sport || 'NBA').trim() || 'NBA',
-    odds: normalizeOddsValue(p.odds),
-    units: Number(p.units) || 1,
-    probability: (p.probability == null ? null : Number(p.probability)),
-    edge: (p.edge == null ? null : Number(p.edge)),
-    decision: String(p.decision || 'BET').toUpperCase(),
-  })).filter(p => {
-    const sport = String(p.sport || '').toUpperCase();
-    return p.pick && (sport === 'NBA' || sport === 'MLB');
-  });
-
-  const meta = {
-    updatedAt: String(payload.updated_at || payload.updatedAt || '').trim(),
-    date: String(payload.date || '').trim(),
-    note: String(payload.note || '').trim(),
-    leagues: String(payload.leagues || '').trim(),
-  };
-
-  return { picks: normalized, meta };
-}
-
-function getSportsgamblerCachedFeed() {
-  try {
-    const raw = localStorage.getItem(SPORTSGAMBLER_CACHE_KEY);
-    if (!raw) return null;
-    const parsed = JSON.parse(raw);
-    if (!parsed || !Array.isArray(parsed.picks)) return null;
-    return parsed;
-  } catch {
-    return null;
-  }
-}
-
-function saveSportsgamblerCachedFeed(payload) {
-  localStorage.setItem(SPORTSGAMBLER_CACHE_KEY, JSON.stringify(payload));
-}
-
-function formatSportsgamblerSyncMeta(meta) {
-  if (!meta) return 'Last sync: never';
-  const from = String(meta.from || '').trim();
-  const updatedAt = String(meta.updatedAt || '').trim();
-  const date = String(meta.date || '').trim();
-  const leagues = String(meta.leagues || '').trim();
-
-  const parts = [];
-  if (updatedAt) {
-    const dt = new Date(updatedAt);
-    const ts = Number.isNaN(dt.getTime()) ? updatedAt : dt.toLocaleString();
-    parts.push(ts);
-  }
-  if (date) parts.push(`for ${date}`);
-  if (leagues) parts.push(`[${leagues}]`);
-  if (from) parts.push(`[${from}]`);
-
-  return parts.length ? `Last sync: ${parts.join(' ')}` : 'Last sync: unknown';
-}
-
-function setSportsgamblerSyncMeta(meta) {
-  const el = document.getElementById('sportsgambler-sync-meta');
-  if (!el) return;
-  el.textContent = formatSportsgamblerSyncMeta(meta);
 }
 
 function formatScores24SyncMeta(meta) {
@@ -4124,57 +4166,6 @@ async function syncSportyTraderFromServer() {
           data = await _pollJob(launch.job_id, 'sportytrader', pollBase, 600000);
         }
         if (!data || !data.ok) throw new Error((data && data.error) || 'SportyTrader job failed');
-
-        const picks = Array.isArray(data.picks) ? data.picks.filter(p => {
-          const sport = String(p.sport || '').toUpperCase();
-          return sport === 'NBA' || sport === 'MLB';
-        }) : [];
-        return {
-          picks,
-          meta: {
-            updatedAt: new Date().toISOString(),
-            date: _getTodayDateStr(),
-            note: 'Synced from backend',
-            from: (server === modelBase ? 'render-backend' : 'local-backend'),
-            leagues: 'nba,mlb',
-          },
-        };
-      } catch (e) {
-        lastErr = String(e && e.message ? e.message : e);
-      }
-    }
-  }
-
-  throw new Error(lastErr);
-}
-
-async function syncSportsgamblerFromServer() {
-  const body = { async: true, date: _getTodayDateStr(), sports: ['nba', 'mlb'] };
-  const modelBase = String(MODEL_SERVER || '').trim().replace(/\/+$/, '');
-  const candidates = [MODEL_SERVER, LOCAL_SPORTSGAMBLER_SERVER]
-    .map(v => String(v || '').trim().replace(/\/+$/, ''))
-    .filter((v, i, arr) => v && arr.indexOf(v) === i);
-  let lastErr = 'SportsGambler sync failed';
-
-  for (const server of candidates) {
-    const routes = /\/api$/i.test(server) ? ['/run-sportsgambler'] : ['/run-sportsgambler', '/api/run-sportsgambler'];
-    for (const route of routes) {
-      try {
-        const resp = await fetch(`${server}${route}`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(body),
-        });
-
-        const launch = await resp.json();
-        if (!launch.ok) throw new Error(launch.error || `HTTP ${resp.status}`);
-
-        let data = launch;
-        if (launch.job_id) {
-          const pollBase = `${server}${route}`.replace(/\/(?:api\/)?run-sportsgambler$/, '');
-          data = await _pollJob(launch.job_id, 'sportsgambler', pollBase, 600000);
-        }
-        if (!data || !data.ok) throw new Error((data && data.error) || 'SportsGambler job failed');
 
         const picks = Array.isArray(data.picks) ? data.picks.filter(p => {
           const sport = String(p.sport || '').toUpperCase();
@@ -4410,52 +4401,6 @@ async function runModel(model) {
     return;
   }
 
-  if (model === 'sportsgambler') {
-    let backendErr = '';
-    try {
-      setModelStatus(model, 'Trying live SportsGambler backend sync...', 'running');
-      const synced = await syncSportsgamblerFromServer();
-      _clearNbaComparisonResults();
-      pendingModelPicks = synced.picks;
-      renderModelResults(synced.picks, { meta: '' });
-      saveSportsgamblerCachedFeed({ picks: synced.picks, meta: synced.meta });
-      setSportsgamblerSyncMeta(synced.meta);
-      setModelStatus(model, `Synced ${synced.picks.length} SportsGambler pick(s) from backend`, 'ok');
-    } catch (e) {
-      backendErr = String(e && e.message ? e.message : e);
-      try {
-        setModelStatus(model, 'Backend sync unavailable, loading feed file...', 'running');
-        const loaded = await loadSportsgamblerManualFeed();
-        _clearNbaComparisonResults();
-        pendingModelPicks = loaded.picks;
-        renderModelResults(loaded.picks, { meta: '' });
-        const meta = {
-          ...loaded.meta,
-          from: 'feed-file',
-          updatedAt: loaded.meta.updatedAt || new Date().toISOString(),
-        };
-        saveSportsgamblerCachedFeed({ picks: loaded.picks, meta });
-        setSportsgamblerSyncMeta(meta);
-        setModelStatus(model, `Loaded ${loaded.picks.length} SportsGambler pick(s) from feed file`, 'ok');
-      } catch (feedErr) {
-        const cached = getSportsgamblerCachedFeed();
-        if (cached && Array.isArray(cached.picks) && _isFreshFeedMeta(cached.meta)) {
-          _clearNbaComparisonResults();
-          pendingModelPicks = cached.picks;
-          renderModelResults(cached.picks, { meta: '' });
-          setSportsgamblerSyncMeta({ ...(cached.meta || {}), from: 'cache' });
-          setModelStatus(model, `Using cached SportsGambler feed (${cached.picks.length} pick(s))`, 'ok');
-        } else {
-          const feedMsg = String(feedErr && feedErr.message ? feedErr.message : feedErr);
-          setModelStatus(model, `Sync failed (${backendErr}); feed unavailable (${feedMsg})`, 'error');
-        }
-      }
-    } finally {
-      _resetModelButton(model);
-    }
-    return;
-  }
-
   let endpoint = '';
   let body = { async: true, date: _getTodayDateStr() };
   if (model === 'mlb') endpoint = '/run-mlb-model';
@@ -4539,6 +4484,7 @@ function renderModelResults(picks, options = {}) {
     const vegasStr = modelResultsVegasDisplay(p);
     const kellyStr = modelResultsKellyDisplay(p);
     const verdictLabel = modelResultsVerdictLabel(verdict);
+    const matchupLabel = modelResultsMatchupLabel(p);
     const source = String(p.source || '').toUpperCase();
     const sourceDisplay = sourceDisplayLabels[source] || p.source || 'MODEL';
     const groupHeader = source !== lastSource
@@ -4548,7 +4494,7 @@ function renderModelResults(picks, options = {}) {
     return `${groupHeader}<tr class="${isActionable ? '' : 'model-result-pass-row'}" style="${isActionable ? '' : 'opacity:0.55'}">
       <td><input type="checkbox" class="model-pick-cb" data-idx="${idx}" ${isBet ? 'checked' : ''} onchange="updateModelSelectAll()"></td>
       <td><span class="badge badge-source">${sourceDisplay}</span></td>
-      <td><div class="log-pick-main">${p.pick}</div></td>
+      <td><div class="log-pick-main">${p.pick}</div>${matchupLabel ? `<div class="log-pick-sub">${matchupLabel}</div>` : ''}</td>
       <td><span class="log-sport-text">${p.sport}</span></td>
       <td><span class="log-odds-text">${oddsStr}</span></td>
       <td><span class="log-odds-text">${probStr}</span></td>
@@ -4685,12 +4631,13 @@ function _appendModelPicksToLedger(candidates) {
       market_line: normalizeNumericValue(p.market_line),
       line: normalizeNumericValue(p.line),
       team: p.team || '',
+      matchup: String(p.matchup || p.game || '').trim(),
       home_team: p.home_team || '',
       away_team: p.away_team || '',
       kelly_edge: p.kelly_edge || null,
       notes: p.notes || '',
       start_time: p.start_time ?? null,
-      game: p.game || '',
+      game: p.game || p.matchup || '',
       confidence: p.confidence ?? null,
     };
 
@@ -4715,6 +4662,7 @@ function _appendModelPicksToLedger(candidates) {
       market_line: shaped.market_line,
       line: shaped.line,
       team: shaped.team,
+      matchup: shaped.matchup,
       home_team: shaped.home_team,
       away_team: shaped.away_team,
       kelly_edge: shaped.kelly_edge,
@@ -4785,15 +4733,6 @@ function initSportyTraderSyncMeta() {
   }
 }
 
-function initSportsgamblerSyncMeta() {
-  const cached = getSportsgamblerCachedFeed();
-  if (cached && cached.meta && _isFreshFeedMeta(cached.meta)) {
-    setSportsgamblerSyncMeta(cached.meta);
-  } else {
-    setSportsgamblerSyncMeta(null);
-  }
-}
-
 function removePickLogNhlFilterOption() {
   const filterBar = document.getElementById('filter-bar');
   if (!filterBar) return;
@@ -4818,7 +4757,6 @@ initTheme();
 initializeNbaModelDate();
 initScores24SyncMeta();
 initSportyTraderSyncMeta();
-initSportsgamblerSyncMeta();
 initPickLogFilterCleanup();
 initDayOfWeekChartRendering();
 syncWithServer().catch(() => setSyncStatus('offline'));
