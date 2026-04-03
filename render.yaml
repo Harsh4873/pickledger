@@ -1,34 +1,5 @@
-services:
-  - type: web
-    name: pickledger-grader
-    env: python
-    plan: starter
-    buildCommand: >-
-      pip install -r requirements.txt &&
-      pip install -r NBAPredictionModel/requirements.txt &&
-      pip install -r MLBPredictionModel/requirements.txt &&
-      pip install -r NBAPlayerBettingModel/requirements.txt
-    startCommand: python pickgrader_server.py
-    healthCheckPath: /health
-    autoDeploy: true
-    envVars:
-      - key: PYTHON_VERSION
-        value: 3.11.9
-      - key: ENABLE_SCORES24_REMOTE
-        value: "true"
-      - key: ENABLE_SPORTYTRADER_REMOTE
-        value: "true"
-      - key: ENABLE_SPORTSGAMBLER_REMOTE
-        value: "true"
-      - key: PLAYWRIGHT_PROXY_SERVER
-        sync: false
-      - key: PLAYWRIGHT_PROXY_USERNAME
-        sync: false
-      - key: PLAYWRIGHT_PROXY_PASSWORD
-        sync: false
-      - key: ODDS_API_KEY
-        sync: false
-      - key: ODDS_API_REGION
-        value: "us"
-      - key: ODDS_API_BOOKMAKERS
-        sync: false
+# Render deployment is disabled. PickLedger runs fully local via macOS launchd agents.
+# Backend: com.pickledger.pickgrader.server.plist (pickgrader_server.py on 127.0.0.1:8765)
+# Scores24: scores24_local_sync.py via launchd
+# SportyTrader: sportytrader_local_sync.py via launchd
+# SportsGambler: sportsgambler_local_sync.py via launchd

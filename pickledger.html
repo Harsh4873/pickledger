@@ -1098,48 +1098,14 @@ let showSettled = false;
 const LOOPBACK_HOST_RE = /^(?:localhost|127(?:\.\d{1,3}){3}|0\.0\.0\.0)$/i;
 
 function normalizeServerBase(value) {
-  const raw = String(value || '').trim().replace(/\/+$/, '');
-  if (!raw) return '';
-  if (!/^https?:\/\//i.test(raw)) return '';
-  return raw;
+  if (!value) return '';
+  const s = String(value).trim().replace(/\/+$/, '');
+  return /^https?:\/\//i.test(s) ? s : '';
 }
 
-function getHostedOrigin() {
-  const origin = String(window.location.origin || '').trim().replace(/\/+$/, '');
-  return /^https?:\/\//i.test(origin) ? origin : '';
-}
-
-function inferDefaultModelServer() {
-  const pageProtocol = /^https?:$/i.test(window.location.protocol) ? window.location.protocol : 'http:';
-  const pageHost = String(window.location.hostname || '').trim();
-  if (!pageHost) return 'http://127.0.0.1:8765';
-  if (LOOPBACK_HOST_RE.test(pageHost)) {
-    return `${pageProtocol}//127.0.0.1:8765`;
-  }
-  return getHostedOrigin() || `${pageProtocol}//${pageHost}`;
-}
-
-function repairSavedModelServer(value) {
-  const normalized = normalizeServerBase(value);
-  if (!normalized) return '';
-
-  const pageProtocol = /^https?:$/i.test(window.location.protocol) ? window.location.protocol : 'http:';
-  const pageHost = String(window.location.hostname || '').trim();
-  if (!pageHost || LOOPBACK_HOST_RE.test(pageHost)) return normalized;
-
-  const legacyHostedDefault = `${pageProtocol}//${pageHost}:8765`;
-  if (normalized === legacyHostedDefault) {
-    return getHostedOrigin() || normalized;
-  }
-
-  return normalized;
-}
-
-const DEFAULT_MODEL_SERVER = inferDefaultModelServer();
-const QUERY_MODEL_SERVER = normalizeServerBase(new URLSearchParams(window.location.search).get('api'));
-const SAVED_MODEL_SERVER = repairSavedModelServer(localStorage.getItem('pickledger_model_server'));
-const MODEL_SERVER = QUERY_MODEL_SERVER || SAVED_MODEL_SERVER || DEFAULT_MODEL_SERVER;
-localStorage.setItem('pickledger_model_server', MODEL_SERVER);
+// Always use local Mac agent. No Render. Clear any stale hosted URL from storage.
+localStorage.removeItem('pickledger_model_server');
+const MODEL_SERVER = 'http://127.0.0.1:8765';
 const GRADER_URL = `${MODEL_SERVER}/grade`;
 const HEALTH_URL = `${MODEL_SERVER}/health`;
 const LEDGER_STATE_URL = `${MODEL_SERVER}/api/ledger-state`;
@@ -3859,12 +3825,7 @@ async function _fetchManualFeedPayload(candidates) {
 
 function _buildManualFeedCandidates(feedUrl, endpointPath) {
   const cacheBust = `t=${Date.now()}`;
-  const serverBases = [
-    MODEL_SERVER,
-    /^https?:$/i.test(window.location.protocol) ? window.location.origin : '',
-    DEFAULT_MODEL_SERVER,
-    LOOPBACK_MODEL_SERVER,
-  ].map(normalizeServerBase).filter((value, index, list) => value && list.indexOf(value) === index);
+  const serverBases = ['http://127.0.0.1:8765'].map(normalizeServerBase).filter((value, index, list) => value && list.indexOf(value) === index);
 
   const candidates = serverBases.map(base => `${base}${endpointPath}?${cacheBust}`);
   candidates.push(`${feedUrl}?${cacheBust}`);
