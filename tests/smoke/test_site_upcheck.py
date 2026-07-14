@@ -208,6 +208,44 @@ def test_data_only_readiness_uses_independent_mlb_team_slate(tmp_path: Path):
     assert "mlb_player_props has scheduled games but zero picks" in result.stdout
 
 
+def test_data_only_readiness_allows_documented_mlb_props_gate_abstention(tmp_path: Path):
+    today = datetime.now(ZoneInfo("America/Chicago")).strftime("%Y-%m-%d")
+    script = _upcheck_repo(tmp_path, today)
+    model_path = tmp_path / "data" / "model_cache" / "latest.json"
+    model_payload = json.loads(model_path.read_text(encoding="utf-8"))
+    model_payload["models"]["mlb_inning"]["games"] = [{"game_id": "all-star"}]
+    _write_json(model_path, model_payload)
+    props_path = tmp_path / "data" / "player_props_cache" / "latest.json"
+    props_payload = json.loads(props_path.read_text(encoding="utf-8"))
+    props_payload["models"]["mlb_player_props"].update(
+        {
+            "ok": True,
+            "date": today,
+            "games": 1,
+            "picks": [],
+            "abstained": True,
+            "candidate_count": 12,
+            "scored_count": 40,
+            "consensus_rejected_count": 40,
+            "consensus_rejection_reasons": {"under price unavailable": 4},
+            "note": "No MLB prop cleared the consensus publication gate.",
+        }
+    )
+    _write_json(props_path, props_payload)
+
+    result = subprocess.run(
+        [sys.executable, str(script), "--data-only"],
+        cwd=tmp_path,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0
+    assert "daily data is ready" in result.stdout
+    assert "documented gate/special-event abstention" in result.stdout
+
+
 @pytest.mark.parametrize(
     "field",
     [

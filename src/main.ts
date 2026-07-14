@@ -748,28 +748,16 @@ function activeFilterSummary(): string {
 function ensureSelection(): void {
   const dates = [...new Set(getAllPicks().map(pickDateKey).filter(Boolean))].sort();
   const today = centralDateKey();
-  const latest = dates.at(-1) || today;
-  if (activePickMode === 'player' && (!selectedDate || !dates.includes(selectedDate))) selectedDate = latest;
-  else if (followCentralToday) selectedDate = dates.includes(today) ? today : latest;
-  else if (!dates.includes(selectedDate)) selectedDate = dates.at(-1) || today;
+  // Stay pinned to Central "today" while following the live slate — even when the
+  // active mode is empty (e.g. no player props on All-Star day). Falling back to a
+  // prior date made Team Home look like Monday while Summer/WNBA/FIFA lived on today.
+  if (followCentralToday) selectedDate = today;
+  else if (!selectedDate || !dates.includes(selectedDate)) selectedDate = dates.at(-1) || today;
   if (!calendarMonth) calendarMonth = selectedDate.slice(0, 7);
 }
 
-// When the viewer is following "today" but today has no picks/props for the
-// active mode, ensureSelection() falls back to the most recent populated slate.
-// This banner makes that fallback explicit so an empty slate (e.g. an MLB
-// All-Star break) does not look like the date toggle is stuck on a past day.
-// Returns '' when we are genuinely on today, or when the user has manually
-// navigated to a past date (followCentralToday is false in that case).
 function boardDateFallbackHtml(): string {
-  const today = centralDateKey();
-  if (!followCentralToday || !selectedDate || selectedDate === today) return '';
-  if (getAllPicks().some(pick => pickDateKey(pick) === today)) return '';
-  const itemLabel = activePickMode === 'player' ? 'player props' : 'team picks';
-  return `<div class="board-date-notice" role="status">
-    <span class="board-date-notice-icon" aria-hidden="true">&#128197;</span>
-    <span class="board-date-notice-text">No ${itemLabel} scheduled for today (${escapeHtml(dateLabel(today, true))}). Showing the most recent slate: <strong>${escapeHtml(dateLabel(selectedDate, true))}</strong>.</span>
-  </div>`;
+  return '';
 }
 
 function filteredPicks(): Pick[] {

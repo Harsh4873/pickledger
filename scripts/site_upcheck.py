@@ -175,6 +175,34 @@ def _visible_player_picks(bucket: Any) -> list[dict[str, Any]]:
     ]
 
 
+def _positive_int(value: Any) -> int:
+    try:
+        return max(0, int(value or 0))
+    except (TypeError, ValueError):
+        return 0
+
+
+def _mlb_player_props_documented_abstention(bucket: dict[str, Any]) -> bool:
+    """True when MLB props refreshed ok and documented a gate/special-event abstention.
+
+    Special-event / one-sided boards (e.g. All-Star) can leave scheduled MLB games with
+    zero published props after the scorer evaluates real candidates. That is a degraded
+    props state, but it must not block deploying an otherwise healthy team slate.
+    """
+    if bucket.get("ok") is not True or bucket.get("abstained") is not True:
+        return False
+    if _bucket_picks(bucket):
+        return False
+    evaluated = max(
+        _positive_int(bucket.get("candidate_count")),
+        _positive_int(bucket.get("scored_count")),
+        _positive_int(bucket.get("consensus_rejected_count")),
+    )
+    reasons = bucket.get("consensus_rejection_reasons")
+    has_reasons = isinstance(reasons, dict) and any(_positive_int(count) > 0 for count in reasons.values())
+    return evaluated > 0 or has_reasons
+
+
 def _scheduled_game_count(bucket: dict[str, Any]) -> int:
     games = bucket.get("games")
     if isinstance(games, list):
@@ -365,10 +393,14 @@ def main() -> int:
             scheduled_games = max(scheduled_games, official_mlb_scheduled_games)
         if bucket.get("ok") is not True:
             failures.append(f"player-props bucket {key} failed: {bucket.get('error') or 'unknown error'}")
-        if scheduled_games > 0 and not picks and (
-            key == "mlb_player_props" or bucket.get("abstained") is not True
-        ):
-            failures.append(f"player-props bucket {key} has scheduled games but zero picks")
+        if scheduled_games > 0 and not picks:
+            if key == "mlb_player_props" and _mlb_player_props_documented_abstention(bucket):
+                warnings.append(
+                    f"player-props bucket {key} abstained with scheduled games and zero picks "
+                    "(documented gate/special-event abstention; team deploy still allowed)"
+                )
+            elif key == "mlb_player_props" or bucket.get("abstained") is not True:
+                failures.append(f"player-props bucket {key} has scheduled games but zero picks")
 
         if picks:
             if key in REQUIRED_PLAYER_PROP_KEYS:
