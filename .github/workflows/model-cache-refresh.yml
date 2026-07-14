@@ -1,0 +1,127 @@
+name: Model Cache Refresh
+
+on:
+  schedule:
+    - cron: "45 12 * * *"
+    - cron: "5 14 * * *"
+    - cron: "30 15 * * *"
+    - cron: "30 20 * * *"
+    # 12:45 UTC = 7:45 CT during daylight time, early safety warmup before GitHub queue delays.
+    # 14:05 UTC = 9:05 CT during daylight time, after more markets post lines.
+    # 15:30 UTC = 10:30 CT during daylight time, after early market data settles.
+    # 20:30 UTC = 15:30 CT during daylight time, safety-net refresh before evening games.
+  workflow_dispatch:
+    inputs:
+      date:
+        description: "Optional target date (YYYY-MM-DD or MM/DD/YYYY)"
+        required: false
+        default: ""
+      models:
+        description: "Comma-separated models, or all"
+        required: false
+        default: "mlb_new,mlb_inning,mlb_first_five,wnba,nba,nba_playoffs,nba_summer,fifa_world_cup"
+
+permissions:
+  contents: write
+  actions: write
+
+concurrency:
+  group: pick-cache-writer
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    env:
+      PICKLEDGER_MLB_TIMEZONE: America/Chicago
+      PICKLEDGER_MLB_MODEL_TIMEOUT_SECONDS: 1200
+      PICKLEDGER_MLB_INNING_TIMEOUT_SECONDS: 240
+      PICKLEDGER_MLB_INNING_LOOKAHEAD_DAYS: 0
+      PICKLEDGER_RUN_WNBA: "true"
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Sync latest main
+        run: |
+          git fetch origin main
+          git reset --hard origin/main
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Refresh model caches
+        run: |
+          python scripts/refresh_model_cache.py \
+            --date "${{ github.event.inputs.date || '' }}" \
+            --models "${{ github.event.inputs.models || 'mlb_new,mlb_inning,mlb_first_five,wnba,nba,nba_playoffs,nba_summer,fifa_world_cup' }}" \
+            --max-workers 3 \
+            --skip-firestore
+
+      - name: Rebuild parlay cards
+        run: python scripts/build_parlay_cards.py --date "${{ github.event.inputs.date || '' }}"
+
+      - name: Rebuild Profit Desk
+        run: python scripts/build_profit_desk.py --date "${{ github.event.inputs.date || '' }}"
+
+      - name: Commit cache JSON if changed
+        id: commit-cache
+        run: |
+          ACTOR_EMAIL="${GITHUB_ACTOR_ID:-41898282}+${GITHUB_ACTOR}@users.noreply.github.com"
+          git config user.name  "${GITHUB_ACTOR}"
+          git config user.email "${ACTOR_EMAIL}"
+          BRANCH="${GITHUB_REF_NAME:-main}"
+          if [ -z "$(git status --porcelain -- data/model_cache data/parlay_cards data/profit_desk data/calibration/team_prop_pregame_ledger.json)" ]; then
+            echo "No model-cache, parlay-card, Profit Desk, or team-prop ledger change — skipping commit."
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          GENERATED_CACHE="${RUNNER_TEMP}/model-cache-latest.json"
+          GENERATED_TEAM_LEDGER="${RUNNER_TEMP}/team-prop-pregame-ledger.json"
+          cp data/model_cache/latest.json "$GENERATED_CACHE"
+          cp data/calibration/team_prop_pregame_ledger.json "$GENERATED_TEAM_LEDGER"
+          for attempt in 1 2 3; do
+            git fetch origin "$BRANCH"
+            git reset --hard "origin/${BRANCH}"
+            python scripts/merge_model_cache_payload.py "$GENERATED_CACHE"
+            cp "$GENERATED_TEAM_LEDGER" data/calibration/team_prop_pregame_ledger.json
+            CACHE_DATE=$(python -c "import json; print(json.load(open('data/model_cache/latest.json'))['date'])")
+            python scripts/build_parlay_cards.py --date "$CACHE_DATE"
+            python scripts/build_profit_desk.py --date "$CACHE_DATE"
+            git add data/model_cache data/parlay_cards data/profit_desk data/calibration/team_prop_pregame_ledger.json
+            if git diff --cached --quiet; then
+              echo "No staged cache change after merge — skipping commit."
+              echo "changed=false" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+            git commit -m "chore(models): refresh model cache for ${CACHE_DATE}"
+            if git push origin "HEAD:${BRANCH}"; then
+              echo "changed=true" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+            echo "Push failed on attempt ${attempt}; retrying merge on latest origin/${BRANCH}."
+          done
+          echo "Unable to publish model cache after retrying latest origin/${BRANCH}."
+          exit 1
+
+      - name: Deploy updated model cache
+        if: steps.commit-cache.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run deploy-pages.yml --ref main
+
+      - name: Notify Profit Desk
+        # Pushes made with GITHUB_TOKEN never emit push events, so the
+        # profit-desk-notify push trigger cannot fire on its own.
+        if: steps.commit-cache.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run profit-desk-notify.yml --ref main

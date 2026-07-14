@@ -1,0 +1,81 @@
+name: MLB Model Training
+
+on:
+  workflow_dispatch:
+    inputs:
+      seasons:
+        description: "Seasons to train on (e.g. 2024-2025 or 2024 2025)"
+        required: false
+        default: "2024-2025"
+
+jobs:
+  train:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install -r MLBPredictionModel/requirements.txt
+
+      - name: Normalize seasons input
+        id: seasons
+        shell: bash
+        run: |
+          raw="${{ github.event.inputs.seasons || '2024-2025' }}"
+          raw="${raw:-2024-2025}"
+          artifact_safe="${raw//[ ,]/-}"
+          while [[ "$artifact_safe" == *"--"* ]]; do
+            artifact_safe="${artifact_safe//--/-}"
+          done
+          seasons_args="${raw//,/ }"
+          seasons_args="${seasons_args//-/ }"
+          echo "artifact_name=mlb-artifacts-${artifact_safe}" >> "$GITHUB_OUTPUT"
+          echo "args=${seasons_args}" >> "$GITHUB_OUTPUT"
+
+      - name: Build historical dataset
+        working-directory: MLBPredictionModel
+        run: python build_historical_dataset.py --seasons ${{ steps.seasons.outputs.args }}
+
+      - name: Train moneyline model
+        working-directory: MLBPredictionModel
+        run: python train_moneyline_model.py
+
+      - name: Train totals model
+        working-directory: MLBPredictionModel
+        run: python train_totals_model.py
+
+      - name: Train calibration model
+        working-directory: MLBPredictionModel
+        run: python train_calibration_model.py
+
+      - name: Train v2 stack (new variant)
+        working-directory: MLBPredictionModel
+        run: python train_model_v2.py
+
+      - name: Upload trained artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.seasons.outputs.artifact_name }}
+          path: |
+            MLBPredictionModel/artifacts/mlb_moneyline_model.joblib
+            MLBPredictionModel/artifacts/mlb_moneyline_model_metadata.json
+            MLBPredictionModel/artifacts/mlb_totals_model.joblib
+            MLBPredictionModel/artifacts/mlb_totals_model_metadata.json
+            MLBPredictionModel/artifacts/mlb_probability_calibration.joblib
+            MLBPredictionModel/artifacts/mlb_probability_calibration_metadata.json
+            MLBPredictionModel/artifacts/mlb_moneyline_model_new.joblib
+            MLBPredictionModel/artifacts/mlb_moneyline_model_new_metadata.json
+            MLBPredictionModel/artifacts/mlb_totals_model_new.joblib
+            MLBPredictionModel/artifacts/mlb_totals_model_new_metadata.json
+            MLBPredictionModel/artifacts/mlb_probability_calibration_new.joblib
+            MLBPredictionModel/artifacts/mlb_probability_calibration_new_metadata.json
+          retention-days: 30
+          if-no-files-found: error

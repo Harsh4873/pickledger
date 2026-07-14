@@ -1,0 +1,297 @@
+.ipl-prediction-container {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: 1fr;
+}
+
+.ipl-winner-card,
+.ipl-fantasy-card {
+  background: var(--card, #131920);
+  border: 1px solid var(--border, #1e2932);
+  border-radius: 18px;
+  padding: 20px;
+  box-shadow: var(--shadow-soft, 0 18px 40px rgba(0,0,0,0.18));
+}
+
+.ipl-match-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 14px;
+  margin-bottom: 16px;
+}
+
+.ipl-match-title {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 30px;
+  letter-spacing: 1.4px;
+  line-height: 1;
+  color: var(--text, #e8edf2);
+}
+
+.ipl-match-subtitle,
+.ipl-section-meta,
+.player-meta {
+  font-family: 'DM Mono', monospace;
+  font-size: 10px;
+  color: var(--muted, #5a7085);
+  letter-spacing: 0.4px;
+  line-height: 1.6;
+}
+
+.winner-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 10px;
+}
+
+.winner-label {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  font-family: 'DM Mono', monospace;
+  font-size: 11px;
+}
+
+.winner-team {
+  color: var(--text, #e8edf2);
+  font-weight: 600;
+}
+
+.winner-team.is-winner {
+  color: var(--accent, #00e5a0);
+}
+
+.winner-prob {
+  color: var(--muted, #5a7085);
+  white-space: nowrap;
+}
+
+.prob-bar {
+  display: flex;
+  width: 100%;
+  height: 14px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--surface, #0e1318);
+  border: 1px solid var(--border, #1e2932);
+}
+
+.prob-team1,
+.prob-team2 {
+  height: 100%;
+  transition: width 0.35s ease;
+}
+
+.prob-team1 {
+  background: linear-gradient(90deg, rgba(0,229,160,0.65), rgba(0,229,160,1));
+}
+
+.prob-team2 {
+  background: linear-gradient(90deg, rgba(77,166,255,1), rgba(37,99,235,1));
+}
+
+.prob-team1.is-winner,
+.prob-team2.is-winner {
+  filter: saturate(1.25) brightness(1.08);
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,0.16);
+}
+
+.winner-callout {
+  margin-top: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  font-family: 'DM Mono', monospace;
+  font-size: 11px;
+  color: var(--muted, #5a7085);
+}
+
+.ipl-section-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 10px;
+  margin-bottom: 12px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--border, #1e2932);
+}
+
+.ipl-section-title {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 24px;
+  letter-spacing: 1.2px;
+  color: var(--text, #e8edf2);
+}
+
+.ipl-fantasy-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+.ipl-fantasy-table th {
+  text-align: left;
+  padding: 10px 12px;
+  font-family: 'DM Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--muted, #5a7085);
+  border-bottom: 1px solid var(--border, #1e2932);
+}
+
+.ipl-fantasy-table td {
+  padding: 12px;
+  border-bottom: 1px solid rgba(128,128,128,0.08);
+  vertical-align: middle;
+}
+
+.ipl-fantasy-table th:last-child,
+.ipl-fantasy-table td.add-col {
+  text-align: center;
+  width: 72px;
+}
+
+.ipl-fantasy-table tr:last-child td {
+  border-bottom: none;
+}
+
+.ipl-fantasy-table tr:hover {
+  background: var(--surface, #0e1318);
+}
+
+.player-name {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text, #e8edf2);
+}
+
+.player-col {
+  min-width: 220px;
+}
+
+.score-col,
+.flags-col {
+  white-space: nowrap;
+}
+
+.badge,
+.decision-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-family: 'DM Mono', monospace;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+
+.badge-high {
+  background: rgba(0,229,160,0.16);
+  color: var(--win, #00e5a0);
+  border: 1px solid rgba(0,229,160,0.22);
+}
+
+.badge-medium {
+  background: rgba(77,166,255,0.14);
+  color: var(--accent3, #4da6ff);
+  border: 1px solid rgba(77,166,255,0.2);
+}
+
+.badge-low {
+  background: rgba(255,215,0,0.14);
+  color: var(--push, #ffd700);
+  border: 1px solid rgba(255,215,0,0.18);
+}
+
+.decision-badge.bet {
+  background: rgba(0,229,160,0.18);
+  color: var(--win, #00e5a0);
+  border: 1px solid rgba(0,229,160,0.26);
+}
+
+.decision-badge.pass {
+  background: rgba(255,69,96,0.16);
+  color: var(--loss, #ff4560);
+  border: 1px solid rgba(255,69,96,0.22);
+}
+
+.captain-row {
+  background: linear-gradient(90deg, rgba(0,229,160,0.08), transparent 55%);
+}
+
+.vc-row {
+  background: linear-gradient(90deg, rgba(77,166,255,0.08), transparent 55%);
+}
+
+.bet-row {
+  background: rgba(0,229,160,0.04);
+}
+
+.pass-row {
+  opacity: 0.72;
+}
+
+.ipl-add-check {
+  appearance: none;
+  min-width: 34px;
+  min-height: 34px;
+  padding: 0 10px;
+  border: 1px solid rgba(77,166,255,0.24);
+  border-radius: 11px;
+  background: linear-gradient(135deg, rgba(77,166,255,0.18), rgba(0,229,160,0.16));
+  color: var(--text, #e8edf2);
+  cursor: pointer;
+  font-family: 'DM Mono', monospace;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.4px;
+  line-height: 1;
+  transition: transform 0.18s ease, border-color 0.18s ease, opacity 0.18s ease;
+}
+
+.ipl-add-check:hover:not(:disabled) {
+  transform: translateY(-1px);
+  border-color: rgba(0,229,160,0.34);
+}
+
+.ipl-add-check.is-added {
+  border-color: rgba(0,229,160,0.42);
+  background: rgba(0,229,160,0.12);
+  color: var(--accent, #00e5a0);
+}
+
+.ipl-add-check:disabled {
+  cursor: not-allowed;
+  opacity: 0.72;
+}
+
+.ipl-empty {
+  text-align: center;
+  color: var(--muted, #5a7085);
+  font-family: 'DM Mono', monospace;
+  font-size: 12px;
+  padding: 24px 12px;
+}
+
+@media (max-width: 720px) {
+  .ipl-winner-card,
+  .ipl-fantasy-card {
+    padding: 16px;
+    border-radius: 16px;
+  }
+
+  .ipl-match-header {
+    flex-direction: column;
+  }
+
+  .ipl-fantasy-table {
+    min-width: 640px;
+  }
+}

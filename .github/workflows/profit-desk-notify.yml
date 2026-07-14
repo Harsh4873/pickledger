@@ -1,0 +1,42 @@
+name: Profit Desk Notify
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - data/profit_desk/latest.json
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+concurrency:
+  group: profit-desk-notify
+  cancel-in-progress: false
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Extract previous artifact
+        run: |
+          git show HEAD~1:data/profit_desk/latest.json > /tmp/previous-profit-desk.json 2>/dev/null \
+            || echo 'null' > /tmp/previous-profit-desk.json
+
+      - name: Alert on new live picks
+        env:
+          PROFIT_DESK_WEBHOOK_URL: ${{ secrets.PROFIT_DESK_WEBHOOK_URL }}
+        run: |
+          python3 scripts/profit_desk_notify.py \
+            --current data/profit_desk/latest.json \
+            --previous /tmp/previous-profit-desk.json

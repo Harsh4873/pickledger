@@ -1,0 +1,98 @@
+# Architecture
+
+## Production Path
+
+```text
+model/feed Actions
+      |
+      v
+committed JSON in data/
+      |
+      +--> scheduled ESPN auto-grader --> committed results
+      |
+      +--> Profit Desk builder --> dated live decision artifacts
+      |
+      v
+Vite static build --> GitHub Pages
+```
+
+The production viewer is intentionally static. It does not load Firebase, authenticate users, or call the optional Python backend.
+
+## Frontend Contract
+
+- `src/data.ts` loads every dated file listed in `data/model_cache/index.json`.
+- `src/data.ts` loads every dated file listed in `data/player_props_cache/index.json`.
+- `src/data.ts` loads the compact, precomputed files listed in
+  `data/profit_desk/index.json`; the browser never invents a profit score from
+  raw picks.
+- Picks receive deterministic browser IDs so client-side ESPN grades can be stored locally.
+- `src/main.ts` renders Home, Search, Rankings, Best Bets, Parlays, and the
+  Profit Desk from the same pick collection plus the precomputed desk artifact.
+- Rankings are calculated from committed results across all manifest dates.
+- Best Bets is the heuristic daily shortlist. Profit Desk is its own tab after
+  Parlays: it requires observed, fresh pricing, uses strictly prior evidence,
+  applies shrinkage and an uncertainty penalty, and stakes only through its
+  qualification lanes (EDGE 1.0u, VALUE 0.5u) — otherwise it publishes 0u and
+  says so. See `docs/PROFIT_DESK.md`.
+- The Refresh button checks ESPN for pending games and stores temporary local grades. The scheduled grader remains authoritative because it writes results into repository JSON.
+
+## Writer Contract
+
+The model-cache, player-prop, external-feed, and auto-grade workflows share the `pick-cache-writer` concurrency group. Only one writer can modify `data/` at a time.
+
+Model and feed refreshes:
+
+1. Generate JSON without Firestore writes.
+2. Reset to the latest `main`.
+3. Merge the generated payload.
+4. Attach real pregame market prices (`scripts/market_odds.py`): both
+   moneylines, total over/under prices, spreads, and MLB first-5-innings
+   markets from the ESPN scoreboard/prop feeds. Scraped picks keep their own
+   executable odds and gain a verifiable two-sided baseline; in-house model
+   picks with assumed prices have them replaced by the real observed price
+   for their exact market and line. Captured pregame prices are preserved by
+   the merge layer once a game goes live.
+4. Preserve existing `result`, `start_time`, and `game_start_time` fields for matching picks.
+5. Commit and push as the triggering GitHub actor.
+
+For the audited in-house team-model buckets (`mlb_new`, `mlb_first_five`,
+`mlb_inning`, `fifa_world_cup`, and `nba_summer`), the model refresh also
+stores an immutable first-publication/revision record in
+`data/calibration/team_prop_pregame_ledger.json`. Certification requires a
+trusted per-pick publication timestamp earlier than the scheduled start.
+Legacy cache rows remain visible but are not promoted into certified evidence.
+
+The certified ledger separates three concepts:
+
+- forecast evaluation, which includes certified PASS/LEAN/BET outcomes;
+- market/ROI evaluation, which additionally requires observed executable odds;
+- calibration training, which additionally requires explicit eligibility and
+  continues to exclude FIFA.
+
+`scripts/team_prop_model_evaluator.py` reads only this ledger and reports
+chronological metrics by model version and market, including Brier score, log
+loss, calibration bins, verified-price ROI, market benchmarks, and retained
+feature-contract coverage.
+
+The universal probability calibrator has a versioned training contract. Rows
+whose probabilities are owned by the player-prop ML policy remain available
+for evaluation but are explicitly ineligible to train the separate shared
+Platt layer. A training-contract change invalidates the prior mapping and
+forces evaluation against a clean identity champion.
+
+`scripts/cache_manifest.py` updates the dated-cache manifest whenever model or feed caches are written or merged.
+
+## Deployment Contract
+
+`.github/workflows/deploy-pages.yml` runs on every push to `main`. It first checks that today's model and player-prop caches are complete. Incomplete daily refreshes defer deployment without failing; ready data is built, copied into `dist/`, and deployed to GitHub Pages.
+
+## Verification
+
+```bash
+npm run build
+npm run typecheck
+python3 -m pytest tests/smoke/test_static_viewer.py -q
+python3 scripts/auto_grade_picks.py
+```
+
+Visual browser inspection is intentionally left to the repository owner.

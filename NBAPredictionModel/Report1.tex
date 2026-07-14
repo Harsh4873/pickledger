@@ -1,0 +1,314 @@
+\documentclass[11pt]{article}
+\usepackage[utf8]{inputenc}
+\usepackage{natbib}
+\usepackage{graphicx}
+\usepackage{url}
+\usepackage{amsmath, amssymb}
+\usepackage[margin=1in]{geometry}
+\usepackage{setspace}
+\usepackage{enumitem}
+\usepackage{booktabs}
+\usepackage{float}
+\usepackage{needspace}
+
+% Formatting
+\setstretch{1.2}
+
+% ============================================================
+% EASY-TO-UPDATE STATISTICS
+% After running code/eda_analysis.py, replace these values
+% with the numbers printed to the console.
+% ============================================================
+\newcommand{\totalRaw}{711{,}897}        % raw pitches before cleaning
+\newcommand{\totalPitches}{702{,}384}    % pitches after cleaning
+\newcommand{\overallWhiff}{12.0}         % overall whiff rate (%)
+\newcommand{\numBatters}{531}            % unique batters (>= 200 pitches)
+\newcommand{\numPitchers}{811}           % unique pitchers
+\newcommand{\batterLow}{2.4}             % lowest batter whiff rate (%)
+\newcommand{\batterHigh}{23.2}           % highest batter whiff rate (%)
+% ============================================================
+
+\title{\textbf{Modeling the Effect of Pitch Sequencing and\\
+Batter-Specific Adjustments on Swing-and-Miss\\
+Outcomes in MLB} \\[6pt]
+\large Project Report 1}
+\author{Group 10: Harsh Dave, Nick Griffin, Jack Leidlein, Hector Carrillo}
+\date{Spring 2026}
+
+\begin{document}
+\maketitle
+
+%%==============================================================
+\section{Introduction}
+%%==============================================================
+
+The introduction of the Statcast tracking system in Major League Baseball (MLB) in 2015 fundamentally changed how teams evaluate pitching performance.
+Every pitch thrown in an MLB game is now measured across dozens of metrics---release speed, spin rate, movement profile, release point, and extension---captured at the millisecond level \citep{statcast2024}.
+This wealth of data has fueled a shift in pitcher development strategy, with front offices increasingly investing in data-driven approaches to maximize the effectiveness of each pitch in a pitcher's arsenal.
+
+At the core of modern pitching analytics lies a central question: \textit{what attributes make a pitch difficult to hit?}
+Intuitively, pitches with higher velocity, greater movement, and longer extension should be harder to contact.
+However, standard logistic regression models that predict swing-and-miss (whiff) probability based solely on these physical characteristics often produce inconclusive results.
+In such models, the probability of a whiff, $p_i = P(Y_i = 1)$, is typically modeled as:
+%
+\begin{equation}\label{eq:baseline}
+    \log\!\left(\frac{p_i}{1 - p_i}\right)
+    = \beta_0
+    + \beta_1 \,\texttt{Speed}_i
+    + \beta_2 \,\texttt{IVB}_i
+    + \beta_3 \,\texttt{HB}_i
+    + \beta_4 \,\texttt{Ext}_i
+    + \beta_5 \,\texttt{Arm}_i
+\end{equation}
+%
+where \texttt{IVB} denotes induced vertical break, \texttt{HB} horizontal break, \texttt{Ext} release extension, and \texttt{Arm} arm angle.
+Previous studies using this framework have found that main effects and simple interactions are often statistically insignificant or fail to explain the observed variation in outcomes.
+
+The fundamental limitation of this approach is that it treats each pitch as an independent, context-free event, ignoring two critical sources of variation: \textbf{sequencing} and \textbf{batter heterogeneity}.
+First, pitches are part of a strategic sequence within a plate appearance.
+A pitch's effectiveness depends not only on its own physical properties but also on the buildup leading to it.
+For example, a slider may induce more whiffs when preceded by a fastball, because the speed differential disrupts the batter's timing---a phenomenon known as pitch tunneling \citep{toporek2017tunneling}.
+Second, batters differ substantially in their baseline contact rates.
+Elite contact hitters rarely swing and miss regardless of pitch quality, while high-strikeout batters may whiff at average pitches.
+Ignoring these batter-specific tendencies introduces unmodeled heterogeneity that weakens inference about the true relationship between pitch quality and outcomes.
+
+To address these limitations, we propose a framework that incorporates both pitch sequencing and batter heterogeneity.
+Specifically, our research question is:
+
+\begin{quote}
+\centering
+\textit{How do pitch sequencing (the type, location, and result of the previous pitch) and batter-specific tendencies jointly influence the probability of a swing-and-miss, beyond the physical characteristics of the pitch itself?}
+\end{quote}
+
+\noindent
+We pursue three objectives:
+\begin{enumerate}[leftmargin=3em, label=\textbf{\arabic*.}]
+    \item \textbf{Pitch Sequence Effects:} Investigate whether the previous pitch type and result significantly affect the whiff probability of the current pitch, and identify which sequence combinations (e.g., Fastball $\rightarrow$ Slider) show the largest effects.
+    \item \textbf{Batter Skill vs.\ Pitch Quality:} Implement a Generalized Linear Mixed Model (GLMM) with batter random effects to separate variance attributable to the pitch from variance attributable to the batter's contact ability \citep{gelman2006data, bolker2009glmm}.
+    \item \textbf{Model Comparison:} Evaluate whether models incorporating sequencing and mixed effects provide better fit and predictive power compared to the baseline physical-characteristics model, using likelihood ratio tests and BIC \citep{mccullagh2019generalized}.
+\end{enumerate}
+
+In this first report, we describe the dataset, outline our data cleaning procedures, and present the results of an exploratory data analysis that motivates the modeling choices above.
+
+%%==============================================================
+\section{Data Description}
+%%==============================================================
+
+\subsection{Data Source and Collection}
+
+Our dataset consists of pitch-level observations from the 2025 MLB regular season, obtained from the Statcast tracking system via the \texttt{pybaseball} Python module \citep{pybaseball}.
+Statcast uses a combination of radar and optical tracking to record high-resolution measurements for every pitch thrown in MLB games.
+We retrieved approximately \totalRaw{} pitch records spanning the full 2025 regular season (March--September).
+
+\subsection{Unit of Observation and Response Variable}
+
+The unit of observation is an individual pitch.
+For each pitch~$i$, we define a binary response variable:
+\[
+   Y_i =
+   \begin{cases}
+   1 & \text{if the batter swings and misses (whiff)}, \\
+   0 & \text{otherwise}.
+   \end{cases}
+\]
+A whiff is identified using the Statcast \texttt{description} field; specifically, we classify a pitch as a whiff when the description is \texttt{swinging\_strike}, \texttt{swinging\_strike\_blocked}, or \texttt{foul\_tip}.
+
+\subsection{Predictor Variables}
+
+We organize predictors into three categories:
+
+\medskip
+\noindent\textbf{(1) Physical Pitch Characteristics.}
+These are the measurable properties of each individual pitch:
+\begin{itemize}[nosep]
+    \item \texttt{release\_speed}: Release velocity (mph)
+    \item \texttt{pfx\_z}: Induced vertical break (inches)
+    \item \texttt{pfx\_x}: Horizontal break (inches)
+    \item \texttt{release\_extension}: Release extension toward home plate (feet)
+\end{itemize}
+
+\medskip
+\noindent\textbf{(2) Sequencing Variables.}
+To capture the strategic context of each pitch, we construct lagged variables within each plate appearance:
+\begin{itemize}[nosep]
+    \item Previous pitch type (e.g., fastball, slider, changeup)
+    \item Previous pitch zone (Statcast zones 1--14)
+    \item Previous pitch outcome (ball, called strike, swinging strike, foul, in-play)
+    \item Interaction between the current and previous pitch types
+\end{itemize}
+Lag variables are constructed strictly within the same plate appearance.
+For the first pitch of an at-bat, previous-pitch fields are coded as a distinct ``None'' category to preserve the observation rather than discard it.
+
+\medskip
+\noindent\textbf{(3) Batter-Specific Effects.}
+To account for heterogeneity in contact ability, batter identity will be incorporated as a random effect in the GLMM stage of modeling.
+
+\subsection{Data Cleaning}
+
+We apply the following filters to ensure data quality:
+\begin{enumerate}[nosep]
+    \item Remove non-competitive events (pitchouts, intentional balls).
+    \item Exclude pitches with missing physical measurements (\texttt{release\_speed}, \texttt{pfx\_x}, \texttt{pfx\_z}, or \texttt{release\_extension}).
+    \item Remove pitches with unrealistic release speeds (below 65 mph or above 105 mph), which indicate tracking errors.
+    \item Restrict to the nine most common pitch types: four-seam fastball (FF), sinker (SI), cutter (FC), slider (SL), sweeper (ST), curveball (CU), knuckle-curve (KC), changeup (CH), and splitter (FS).
+\end{enumerate}
+After cleaning, our working dataset contains \totalPitches{} pitches with an overall whiff rate of \overallWhiff\%.
+
+%%==============================================================
+\section{Exploratory Data Analysis}
+%%==============================================================
+
+Before proceeding to formal modeling, we conduct an exploratory analysis to characterize the key patterns in the data and motivate our modeling choices.
+All analysis and visualization is performed in Python using the \texttt{matplotlib} \citep{matplotlib2007} and \texttt{seaborn} \citep{seaborn2021} libraries.
+
+\subsection{Summary Statistics}
+
+Table~\ref{tab:summary} presents descriptive statistics for the four primary physical pitch characteristics.
+Release speed has a mean of approximately 90 mph with a standard deviation of 5.8 mph, reflecting the mix of fastballs (mid-to-upper 90s) and off-speed pitches (low-to-mid 80s) in a typical MLB game.
+Induced vertical break averages 6.9 inches but spans a wide range ($-$24.0 to 27.5 in.), capturing the contrast between pitches with heavy topspin (negative IVB, such as curveballs) and those with strong backspin (positive IVB, such as four-seam fastballs).
+Horizontal break also exhibits substantial variability (SD = 10.8 in.), reflecting the diversity of arm angles and pitch types in the dataset.
+
+\begin{table}[H]
+\centering
+\begin{tabular}{lrrrr}
+\toprule
+Variable & Mean & SD & Min & Max \\
+\midrule
+Release Speed (mph)           & 89.5 & 5.8 & 65.2 & 104.2 \\
+Induced Vertical Break (in.)  & 6.9 & 8.6 & $-$24.0 & 27.5 \\
+Horizontal Break (in.)        & $-$1.6  & 10.8 & $-$29.4 & 30.5 \\
+Release Extension (ft)        & 6.4  & 0.4 & 3.9 & 9.6 \\
+\bottomrule
+\end{tabular}
+\caption{Summary statistics for key physical pitch characteristics in the cleaned 2025 dataset.}
+\label{tab:summary}
+\end{table}
+
+\subsection{Whiff Rates by Pitch Type}
+
+Not all pitch types are equally effective at generating swing-and-miss outcomes.
+Figure~\ref{fig:whiff_type} displays the whiff rate for each pitch type in the dataset.
+Splitters lead with the highest whiff rate (17.8\%), followed closely by knuckle-curves (16.4\%) and sliders (16.2\%).
+Off-speed and breaking pitches consistently outperform fastball variants: the three highest-whiff-rate pitch types are all non-fastball pitches, while sinkers produce the lowest whiff rate at just 6.3\%.
+This pattern is expected, as off-speed and breaking pitches are designed to deceive the batter through movement and speed differential rather than pure velocity.
+Table~\ref{tab:whiff_type} provides the corresponding counts.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.85\textwidth]{figures/fig_whiff_by_pitch_type.png}
+    \caption{Whiff rate by pitch type in the 2025 MLB regular season. Breaking balls and off-speed pitches consistently show higher whiff rates than fastball variants.}
+    \label{fig:whiff_type}
+\end{figure}
+
+\begin{table}[H]
+\centering
+\begin{tabular}{lrrr}
+\toprule
+Pitch Type & Total Pitches & Whiffs & Whiff Rate (\%) \\
+\midrule
+Splitter      & 23,131  & 4,119  & 17.8 \\
+Knuckle-Curve & 12,081  & 1,983  & 16.4 \\
+Slider        & 104,622 & 16,964 & 16.2 \\
+Changeup      & 72,963  & 11,368 & 15.6 \\
+Sweeper       & 50,918  & 7,284  & 14.3 \\
+Curveball     & 48,248  & 6,176  & 12.8 \\
+Cutter        & 53,896  & 5,903  & 11.0 \\
+4-Seam FB     & 225,957 & 23,830 & 10.5 \\
+Sinker        & 110,568 & 6,952  & 6.3 \\
+\bottomrule
+\end{tabular}
+\caption{Whiff rates by pitch type in the 2025 MLB regular season.}
+\label{tab:whiff_type}
+\end{table}
+
+\subsection{Physical Pitch Characteristic Distributions}
+
+Figure~\ref{fig:phys_dist} compares the distributions of release speed, induced vertical break, horizontal break, and release extension between whiff and non-whiff outcomes.
+Several patterns emerge.
+Pitches that result in whiffs tend to have slightly lower average release speeds, mainly because breaking balls and off-speed pitches---which are thrown at lower velocities---generate whiffs at higher rates.
+The induced vertical break distribution for whiffs is shifted toward lower (and more negative) values compared to non-whiffs, consistent with the prevalence of sliders, sweepers, and curveballs---pitches with downward break---among swing-and-miss outcomes.
+The horizontal break distribution for whiffs shows heavier tails, reflecting the extreme lateral movement of sliders and sweepers.
+Release extension distributions are largely overlapping between the two groups.
+Overall, these distributional differences, while visible, are not dramatic for any single variable in isolation, reinforcing the need for multivariate modeling.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.9\textwidth]{figures/fig_physical_distributions.png}
+    \caption{Density plots of physical pitch characteristics, stratified by outcome (whiff vs.\ no whiff). Differences across individual variables are subtle, motivating multivariate approaches.}
+    \label{fig:phys_dist}
+\end{figure}
+
+\subsection{Pitch Sequencing Patterns}
+
+A central hypothesis of this study is that pitch effectiveness depends on the preceding pitch.
+Figure~\ref{fig:seq_heatmap} presents a heatmap of whiff rates organized by previous pitch type (rows) and current pitch type (columns).
+Several noteworthy patterns are visible.
+Splitters and knuckle-curves thrown after curveballs achieve the highest whiff rates in the heatmap (20.1\% and 19.9\%, respectively), suggesting that batters struggle to adjust to a second consecutive breaking ball with different movement profiles.
+Sequences from sinkers or four-seam fastballs to splitters also produce elevated whiff rates (19.2\% and 16.0\%), consistent with the pitch tunneling hypothesis: when consecutive pitches appear similar out of the pitcher's hand but diverge in trajectory near the plate, the batter's ability to adjust is compromised.
+Conversely, sinkers preceded by any pitch type consistently show the lowest column-wise whiff rates (5.7\%--8.5\%), suggesting that batters find sinkers easier to put in play regardless of sequence.
+Fastball variants (four-seam fastballs, cutters) thrown after breaking balls tend to have relatively moderate whiff rates (10--13\%), suggesting that batters may sit on velocity after seeing off-speed pitches.
+These findings strongly motivate the inclusion of sequencing variables and pitch-type interaction terms in the logistic regression model specified in Equation~(\ref{eq:baseline}).
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.85\textwidth]{figures/fig_sequence_heatmap.png}
+    \caption{Heatmap of whiff rates by pitch sequence. Rows represent the previous pitch type; columns represent the current pitch type. Cells with fewer than 100 observations are excluded. Fastball-to-breaking-ball sequences show elevated whiff rates.}
+    \label{fig:seq_heatmap}
+\end{figure}
+
+\subsection{Batter Heterogeneity}
+
+To examine whether batter identity is an important source of variation, we compute per-batter whiff rates for all batters who faced at least 200 pitches during the season (\numBatters{} batters).
+Figure~\ref{fig:batter_dist} shows the distribution of these batter-level whiff rates.
+The distribution is approximately normal with a pronounced spread: batter-level whiff rates range from roughly \batterLow\% to \batterHigh\%, illustrating the large degree of heterogeneity in contact ability across MLB hitters.
+This variability confirms that batter identity is an important grouping factor and justifies the use of batter-level random intercepts in the planned GLMM.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.8\textwidth]{figures/fig_batter_whiff_dist.png}
+    \caption{Distribution of batter-level whiff rates (batters with $\geq 200$ pitches seen). The dashed red line marks the overall league whiff rate. Substantial heterogeneity motivates the use of batter random effects.}
+    \label{fig:batter_dist}
+\end{figure}
+
+\subsection{Predictor Correlations}
+
+Figure~\ref{fig:corr} presents the pairwise correlations among the continuous predictors and the binary whiff outcome.
+The most notable inter-predictor relationship is between release speed and induced vertical break ($r = 0.72$), which is expected because high-velocity fastballs generate strong backspin and thus higher vertical break.
+This substantial correlation warrants monitoring via Variance Inflation Factors (VIFs) in the modeling stage to guard against multicollinearity.
+Release speed and horizontal break are negatively correlated ($r = -0.30$), reflecting the tendency for slower breaking pitches to exhibit greater lateral movement.
+Critically, none of the individual correlations with the whiff outcome exceed $|r| = 0.05$ in magnitude---release speed ($r = -0.05$), IVB ($r = -0.04$), HB ($r = 0.02$), and extension ($r = 0.01$)---confirming that no single physical characteristic is a dominant predictor of swing-and-miss outcomes.
+This reinforces the need for richer models that incorporate sequencing and batter heterogeneity.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.6\textwidth]{figures/fig_correlation_matrix.png}
+    \caption{Correlation matrix of continuous pitch characteristics and the binary whiff outcome. Correlations with whiff are small in magnitude, supporting the need for richer models.}
+    \label{fig:corr}
+\end{figure}
+
+%%==============================================================
+\section{Discussion and Next Steps}
+%%==============================================================
+
+The exploratory analysis reveals several findings that inform our modeling strategy.
+First, whiff rates vary substantially across pitch types, ranging from 6.3\% (sinkers) to 17.8\% (splitters), with off-speed and breaking pitches consistently outperforming fastball variants.
+Second, pitch sequencing appears to matter: certain transitions---such as curveball $\rightarrow$ splitter (20.1\%) and sinker $\rightarrow$ knuckle-curve (19.6\%)---produce whiff rates well above their individual pitch-type averages, consistent with the pitch tunneling hypothesis.
+Third, batter-level whiff rates span a wide range (\batterLow\%--\batterHigh\% among batters with $\geq 200$ pitches faced), confirming that batter identity is an important source of variation that should be accounted for in modeling.
+Fourth, no single physical pitch characteristic is strongly correlated with whiff outcomes (all $|r| \leq 0.05$), underscoring the need for multivariate models that incorporate both pitch-level and context-level information.
+
+In the next phase of this project, we will proceed with the three-model framework outlined in the introduction:
+\begin{enumerate}[nosep]
+    \item A \textbf{baseline logistic regression} using physical pitch characteristics only (Equation~\ref{eq:baseline}),
+    \item A \textbf{sequencing model} that adds lagged pitch variables and pitch-type interactions, and
+    \item A \textbf{GLMM} that incorporates batter random intercepts.
+\end{enumerate}
+We will compare these models using likelihood ratio tests, BIC, and out-of-sample predictive accuracy to determine whether sequencing and batter heterogeneity provide meaningful improvements over the baseline.
+
+
+%% BIBLIOGRAPHY
+%%==============================================================
+\newpage
+\bibliographystyle{chicago}
+\bibliography{Report1Ref}
+
+\end{document}

@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PickLedger — Daily Sports Picks and Source Records</title>
+<meta name="description" content="PickLedger brings today’s sports picks, source records, consensus signals, and results into one clear daily board.">
+<meta property="og:title" content="PickLedgerPro">
+<meta property="og:description" content="Today’s sports picks, source records, consensus signals, and results in one clear board.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://harsh.bet/pickledger/">
+<link rel="canonical" href="https://harsh.bet/pickledger/">
+<link rel="icon" type="image/svg+xml" href="./favicon.svg">
+<link rel="shortcut icon" href="./favicon.svg">
+<link rel="apple-touch-icon" sizes="180x180" href="./apple-touch-icon.png">
+<meta name="apple-mobile-web-app-title" content="PickLedger">
+<meta name="theme-color" content="#00e5a0">
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500;600&family=Fraunces:opsz,wght@9..144,600;9..144,700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="./src/styles/pickledger.css">
+<link rel="stylesheet" href="./ipl/ipl_styles.css">
+</head>
+<body>
+
+<div class="container">
+
+  <header>
+    <a class="brand-home" href="#home" onclick="goHome(event)" aria-label="Go to PickLedger Home">
+      <span class="logo-title">PICKLEDGER</span>
+      <span class="logo-sub">PICKS, SOURCES &amp; RESULTS</span>
+    </a>
+    <div class="header-right">
+      <div class="header-controls">
+        <button class="theme-toggle" onclick="toggleTheme()" aria-label="Toggle theme">
+          <span class="toggle-icon">&#127769;</span>
+          <div class="toggle-track"><div class="toggle-thumb"></div></div>
+          <span class="toggle-icon">&#9728;&#65039;</span>
+          <span class="toggle-label" id="theme-label">DARK</span>
+        </button>
+        <div class="pick-mode-segment" role="group" aria-label="Pick type">
+          <button type="button" class="pick-mode-btn active" data-pick-mode="team" aria-pressed="true" onclick="setPickMode('team')">Team</button>
+          <button type="button" class="pick-mode-btn" data-pick-mode="player" aria-pressed="false" onclick="setPickMode('player')">Player</button>
+        </div>
+        <button id="mobile-mode-toggle" class="mobile-mode-toggle" onclick="toggleMobileMode()" aria-label="Toggle mobile app view" aria-pressed="false" title="Mobile app view">
+          <svg class="mobile-phone-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <rect x="7" y="2.75" width="10" height="18.5" rx="2.4" stroke="currentColor" stroke-width="1.7"></rect>
+            <path d="M10 5.2h4M11 18.2h2" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"></path>
+          </svg>
+          <div class="mobile-toggle-track"><div class="mobile-toggle-thumb"></div></div>
+          <span class="toggle-label" id="mobile-mode-label">DESK</span>
+        </button>
+        <button id="refresh-btn" class="refresh-btn" onclick="refreshAutoGrades()" aria-label="Check for new picks and final scores">CHECK SCORES</button>
+        <span id="sync-status" class="sync-status">Finding the latest picks...</span>
+
+      </div>
+      <div id="refresh-status" class="refresh-status">Scores are checked automatically every 15 minutes</div>
+      <div class="automated-picks-badge">
+        Models refresh each morning and again around 3:30 PM CT
+      </div>
+    </div>
+  </header>
+
+  <div class="tabs">
+    <button class="tab active" onclick="switchTab('home')">HOME</button>
+    <button class="tab" onclick="switchTab('search')">FIND PICKS</button>
+    <button class="tab" onclick="switchTab('rankings')">RANKINGS</button>
+    <button class="tab" onclick="switchTab('daily')">BEST BETS</button>
+    <button class="tab" onclick="switchTab('parlays')">PARLAYS</button>
+    <button class="tab" onclick="switchTab('profit')">PROFIT DESK</button>
+
+  </div>
+
+  <!-- HOME TAB -->
+  <div id="tab-home" class="tab-content active">
+    <div class="home-shell">
+      <div class="home-hero">
+        <div class="home-hero-row">
+          <div class="home-hero-copy">
+            <div class="home-eyebrow" id="home-eyebrow">TODAY&rsquo;S PICKS</div>
+            <div class="home-title" id="home-title">Today&rsquo;s picks, cleaned up</div>
+            <div class="home-sub" id="home-sub">Browse open picks and finished results by matchup, sport, source, or date.</div>
+          </div>
+          <div class="home-hero-actions">
+            <div class="home-hero-chips">
+              <span class="home-hero-chip" id="home-mode-chip">OPEN PICKS</span>
+              <span class="home-hero-chip date" id="home-date-chip">APR 19</span>
+              <span class="home-hero-chip muted" id="home-filter-chip">ALL SOURCES</span>
+            </div>
+            <div class="home-mode-segment" id="home-mode-segment" aria-label="Home result mode">
+              <button type="button" class="home-mode-btn active" data-home-mode="pending" onclick="setHomeResultMode('pending')">Open</button>
+              <button type="button" class="home-mode-btn" data-home-mode="all" onclick="setHomeResultMode('all')">All</button>
+              <button type="button" class="home-mode-btn" data-home-mode="settled" onclick="setHomeResultMode('settled')">Results</button>
+            </div>
+          </div>
+        </div>
+        <div class="home-summary-grid" id="home-summary-grid"></div>
+      </div>
+
+      <div id="home-board-notice"></div>
+
+      <div class="home-filter-shell">
+        <div class="home-filter-head">
+          <div>
+            <div class="home-filter-title">Explore The Board</div>
+            <div class="home-filter-sub">Choose a date, then select one or more sport/source tags.</div>
+          </div>
+          <div class="home-date-wrap" id="home-date-wrap">
+            <button
+              id="home-date-trigger"
+              class="home-date-trigger"
+              type="button"
+              onclick="toggleHomeDatePicker(event)"
+              aria-haspopup="dialog"
+              aria-expanded="false"
+            >
+              <span class="home-date-trigger-copy">
+                <span class="home-date-trigger-label">Pick Date</span>
+                <span class="home-date-trigger-value" id="home-date-trigger-value">April 19</span>
+              </span>
+              <span class="home-date-trigger-meta" id="home-date-trigger-meta">Today</span>
+              <span class="home-date-trigger-caret">&#9662;</span>
+            </button>
+            <div id="home-date-popover" class="home-date-popover" role="dialog" aria-label="Select board date"></div>
+          </div>
+        </div>
+        <div class="filter-bar" id="filter-bar"></div>
+      </div>
+
+      <div class="panel home-feed-panel">
+        <div id="pick-feed" class="pick-feed"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SEARCH TAB -->
+  <div id="tab-search" class="tab-content">
+    <div class="search-wrap">
+      <span class="search-icon">&#128269;</span>
+      <input type="text" class="search-input" id="search-input" placeholder="Find a team, matchup, or source in the selected date’s open picks..." autocomplete="off" oninput="renderSearch()">
+    </div>
+    <div class="search-meta" id="search-meta"></div>
+    <div class="search-results" id="search-results">
+      <div class="empty-state">Search for a team, matchup, or source in the selected date’s open picks</div>
+    </div>
+  </div>
+
+  <!-- RANKINGS TAB -->
+  <div id="tab-rankings" class="tab-content">
+    <div class="section-title clean-title">Overall Stats</div>
+    <div class="stats-grid">
+      <div class="stat-box"><div class="stat-box-val" id="stat-picks">0</div><div class="stat-box-label">TOTAL PICKS</div></div>
+      <div class="stat-box"><div class="stat-box-val positive" id="stat-wins">0</div><div class="stat-box-label">WINS</div></div>
+      <div class="stat-box"><div class="stat-box-val negative" id="stat-losses">0</div><div class="stat-box-label">LOSSES</div></div>
+      <div class="stat-box"><div class="stat-box-val neutral" id="stat-pushes">0</div><div class="stat-box-label">PUSHES</div></div>
+      <div class="stat-box"><div class="stat-box-val" id="stat-pending" style="color:var(--accent3)">0</div><div class="stat-box-label">OPEN</div></div>
+      <div class="stat-box"><div class="stat-box-val" id="stat-acc">&mdash;</div><div class="stat-box-label">WIN RATE</div></div>
+      <div class="stat-box"><div class="stat-box-val" id="stat-units">&mdash;</div><div class="stat-box-label">NET UNITS</div></div>
+      <div class="stat-box"><div class="stat-box-val" id="stat-roi">&mdash;</div><div class="stat-box-label">ROI</div></div>
+    </div>
+    <div class="section-title clean-title">Sport Profitability</div>
+    <div class="section-subtitle">Units and ROI count only picks settled at verified sportsbook prices. Sports still show their full win-loss record, but P/L stays untracked until verified-price picks settle.</div>
+    <div class="sport-board" id="sport-board"><div class="empty-state" style="grid-column:1/-1">No decided picks yet</div></div>
+    <div class="rankings-section-bar">
+      <div>
+        <div class="section-title clean-title" id="source-rankings-title">Source Rankings</div>
+        <div class="section-subtitle" id="source-rankings-subtitle">See how every source has performed across the picks and results collected here. Select a source for today, yesterday, last 7 days, and all-time records.</div>
+      </div>
+    </div>
+    <div class="leaderboard" id="leaderboard"><div class="empty-state" style="grid-column:1/-1">Waiting for results...</div></div>
+    <section id="day-of-week-section">
+      <h2 class="section-title">Performance By Day of Week</h2>
+      <p class="dow-subtitle" id="dow-subtitle">Source win rates by weekday. Green cells have at least three decided picks and a 55%+ win rate.</p>
+      <div id="dow-model-breakdown"></div>
+    </section>
+    <section id="profit-qualification-section">
+      <h2 class="section-title">Profit Desk Qualification</h2>
+      <p class="dow-subtitle">Every source earns its way onto the Profit Desk card by clearing five evidence gates at real posted prices. This board shows exactly how close each one is.</p>
+      <div id="profit-qualification-board"></div>
+    </section>
+  </div>
+
+  <div id="tab-daily" class="tab-content">
+    <div id="daily-container"></div>
+  </div>
+
+  <div id="tab-parlays" class="tab-content">
+    <div id="parlays-container"></div>
+  </div>
+
+  <div id="tab-profit" class="tab-content">
+    <div id="profit-container"></div>
+  </div>
+
+
+
+
+</div>
+
+
+<script type="module" src="./src/main.ts"></script>
+
+</body>
+</html>

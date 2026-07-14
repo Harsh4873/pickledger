@@ -1,0 +1,126 @@
+name: External Feed Refresh
+
+# Runs the SportyTrader and SportsGambler scrapers on a daily schedule and
+# publishes their results into data/model_cache so GitHub Pages can serve them
+# without waiting on the cloud backend.
+
+on:
+  schedule:
+    - cron: "10,40 14 * * *"
+    - cron: "10 20 * * *"
+    # 14:10 UTC = 09:10 CT during daylight time, shortly after lines usually post.
+    # 14:40 UTC = 09:40 CT during daylight time, backup for delayed matchups/lines.
+    # 20:10 UTC = 15:10 CT during daylight time, safety-net refresh before later games.
+  workflow_dispatch:
+    inputs:
+      date:
+        description: "Optional target date (YYYY-MM-DD or MM/DD/YYYY)"
+        required: false
+        default: ""
+      feeds:
+        description: "Comma-separated feeds, or all"
+        required: false
+        default: "sportytrader,sportsgambler"
+
+permissions:
+  contents: write
+  actions: write
+
+concurrency:
+  group: pick-cache-writer
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      PICKLEDGER_MLB_TIMEZONE: America/Chicago
+      PICKLEDGER_PLAYWRIGHT_RUNTIME_INSTALL: true
+      PLAYWRIGHT_BROWSERS_PATH: /home/runner/.cache/ms-playwright
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Sync latest main
+        run: |
+          git fetch origin main
+          git reset --hard origin/main
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          python -m playwright install chromium chromium-headless-shell
+
+      - name: Refresh external feeds
+        run: |
+          python scripts/refresh_external_feeds.py \
+            --date "${{ github.event.inputs.date || '' }}" \
+            --feeds "${{ github.event.inputs.feeds || 'sportytrader,sportsgambler' }}" \
+            --sports "nba,mlb,wnba,fifa_world_cup" \
+            --skip-firestore
+
+      - name: Commit feed cache JSON if changed
+        id: commit-feeds
+        run: |
+          ACTOR_EMAIL="${GITHUB_ACTOR_ID:-41898282}+${GITHUB_ACTOR}@users.noreply.github.com"
+          git config user.name  "${GITHUB_ACTOR}"
+          git config user.email "${ACTOR_EMAIL}"
+          BRANCH="${GITHUB_REF_NAME:-main}"
+          if [ -z "$(git status --porcelain -- data/model_cache)" ]; then
+            echo "No change in data/model_cache — skipping commit."
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            echo "deployable=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          GENERATED_CACHE="${RUNNER_TEMP}/external-feed-cache-latest.json"
+          cp data/model_cache/latest.json "$GENERATED_CACHE"
+          for attempt in 1 2 3; do
+            git fetch origin "$BRANCH"
+            git reset --hard "origin/${BRANCH}"
+            MERGE_RESULT=$(python scripts/merge_external_feed_cache_payload.py "$GENERATED_CACHE")
+            echo "$MERGE_RESULT"
+            DEPLOYABLE=$(python -c 'import json,sys; print(str(json.load(sys.stdin)["latestUpdated"]).lower())' <<< "$MERGE_RESULT")
+            git add data/model_cache
+            if git diff --cached --quiet; then
+              echo "No staged feed cache change after merge — skipping commit."
+              echo "changed=false" >> "$GITHUB_OUTPUT"
+              echo "deployable=false" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+            CACHE_DATE=$(python -c 'import json,sys; print(json.load(open(sys.argv[1]))["date"])' "$GENERATED_CACHE")
+            if [ "$DEPLOYABLE" = "true" ]; then
+              python scripts/build_parlay_cards.py --date "$CACHE_DATE"
+              python scripts/build_profit_desk.py --date "$CACHE_DATE"
+              git add data/parlay_cards data/profit_desk
+            fi
+            git commit -m "chore(feeds): refresh external feeds for ${CACHE_DATE}"
+            if git push origin "HEAD:${BRANCH}"; then
+              echo "changed=true" >> "$GITHUB_OUTPUT"
+              echo "deployable=${DEPLOYABLE}" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+            echo "Push failed on attempt ${attempt}; retrying merge on latest origin/${BRANCH}."
+          done
+          echo "Unable to publish external feed cache after retrying latest origin/${BRANCH}."
+          exit 1
+
+      - name: Deploy updated external feeds
+        if: steps.commit-feeds.outputs.changed == 'true' && steps.commit-feeds.outputs.deployable == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run deploy-pages.yml --ref main
+
+      - name: Notify Profit Desk
+        # Pushes made with GITHUB_TOKEN never emit push events, so the
+        # profit-desk-notify push trigger cannot fire on its own.
+        if: steps.commit-feeds.outputs.changed == 'true' && steps.commit-feeds.outputs.deployable == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run profit-desk-notify.yml --ref main

@@ -1,0 +1,118 @@
+name: Auto-Grade Picks
+
+on:
+  schedule:
+    - cron: '*/15 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  actions: write
+
+concurrency:
+  group: pick-cache-writer
+  cancel-in-progress: false
+
+jobs:
+  auto-grade:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Sync latest main
+        run: |
+          git fetch origin main
+          git reset --hard origin/main
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+
+      - name: Run Auto-Grader
+        run: |
+          python3 scripts/auto_grade_picks.py
+
+      - name: Check calibration threshold
+        id: calibration-due
+        run: |
+          python3 - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          calibration = Path("data/calibration")
+          ledger = json.loads((calibration / "outcome_ledger.json").read_text())
+          state_path = calibration / "state.json"
+          state = json.loads(state_path.read_text()) if state_path.exists() else {}
+          decided = int(ledger.get("summary", {}).get("decided_picks") or 0)
+          last = int(state.get("last_evaluated_decided_count") or 0)
+          due = decided - last >= 100
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:
+              output.write(f"due={'true' if due else 'false'}\n")
+          print(f"Calibration due: {due} ({decided - last} new decisions)")
+          PY
+
+      - name: Commit and Push Changes
+        id: commit-grades
+        run: |
+          ACTOR_EMAIL="${GITHUB_ACTOR_ID:-41898282}+${GITHUB_ACTOR}@users.noreply.github.com"
+          git config user.name  "${GITHUB_ACTOR}"
+          git config user.email "${ACTOR_EMAIL}"
+          BRANCH="${GITHUB_REF_NAME:-main}"
+          if [ -z "$(git status --porcelain -- data/)" ]; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          # Publish is retried against the latest origin/${BRANCH}: another pusher
+          # (a sibling workflow or a manual push to main) can advance the ref between
+          # our checkout and push, rejecting a plain push as non-fast-forward. On
+          # rejection we resync to the latest ref and re-run the grader, because the
+          # grader also rebuilds derived parlay-card and Profit Desk artifacts that
+          # other cache writers rebuild too — re-running re-grades against the newest
+          # state instead of clobbering a concurrent build.
+          for attempt in 1 2 3 4 5; do
+            git add data/
+            if git diff --cached --quiet; then
+              echo "No staged grade change after resyncing latest origin/${BRANCH}; nothing to publish."
+              echo "changed=false" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+            git commit -m "chore(grade): update committed pick results"
+            if git push origin "HEAD:${BRANCH}"; then
+              echo "changed=true" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+            echo "Push rejected on attempt ${attempt} (origin/${BRANCH} advanced); resyncing and re-grading."
+            git fetch origin "$BRANCH"
+            git reset --hard "origin/${BRANCH}"
+            python3 scripts/auto_grade_picks.py
+          done
+          echo "::error::Unable to publish grades after 5 attempts due to persistent push contention on ${BRANCH}."
+          exit 1
+
+      - name: Deploy updated grades
+        if: steps.commit-grades.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run deploy-pages.yml --ref main
+
+      - name: Notify Profit Desk
+        # Pushes made with GITHUB_TOKEN never emit push events, so the
+        # profit-desk-notify push trigger cannot fire on its own.
+        if: steps.commit-grades.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run profit-desk-notify.yml --ref main
+
+      - name: Check 100-decision calibration trigger
+        if: steps.calibration-due.outputs.due == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run calibration-refresh.yml --ref main

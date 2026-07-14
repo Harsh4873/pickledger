@@ -1,0 +1,91 @@
+{
+  "activation_requirements": {
+    "maximum_calibration_gap": 0.08,
+    "minimum_training_samples": 100,
+    "minimum_validation_dates": 2,
+    "minimum_validation_samples": 40,
+    "must_beat_baseline_brier": true,
+    "must_beat_market_brier": true
+  },
+  "active": false,
+  "bootstrap_samples": 0,
+  "feature_names": [
+    "line",
+    "odds_implied",
+    "baseline_probability",
+    "baseline_projection",
+    "projection_over_line",
+    "selection_over",
+    "market_priced",
+    "family::3pm",
+    "family::assists",
+    "family::batter_strikeouts",
+    "family::batter_walks",
+    "family::blocks",
+    "family::doubles",
+    "family::hits",
+    "family::home_runs",
+    "family::hrr",
+    "family::pa",
+    "family::pitcher_earned_runs_allowed",
+    "family::pitcher_hits_allowed",
+    "family::pitcher_outs_recorded",
+    "family::pitcher_walks_allowed",
+    "family::points",
+    "family::pr",
+    "family::pra",
+    "family::rbis",
+    "family::rebounds",
+    "family::runs",
+    "family::singles",
+    "family::steals",
+    "family::stocks",
+    "family::stolen_bases",
+    "family::strikeouts",
+    "family::total_bases",
+    "family::triples"
+  ],
+  "ledger_samples": 71,
+  "market_families": [
+    "points",
+    "rebounds",
+    "assists",
+    "pr",
+    "pa",
+    "pra",
+    "3pm",
+    "steals",
+    "blocks",
+    "stocks"
+  ],
+  "model_type": "StandardScaler+LogisticRegression",
+  "positive_rate": 0.4084507042253521,
+  "probability_mode": "market_anchor_validation_gate",
+  "sport": "WNBA",
+  "training_dates": [
+    "2026-06-16",
+    "2026-06-17",
+    "2026-06-18",
+    "2026-06-19"
+  ],
+  "training_fingerprint": "ce391681eb181912fbdb57a29dd3c8622a8224b773805496e6ad8218548fd68c",
+  "training_season": 2026,
+  "training_sources": [
+    "current_season_projection_features",
+    "current_season_pickledger_outcome_ledger"
+  ],
+  "validation": {
+    "actual_rate": 0.3333333333333333,
+    "baseline_brier": 0.3487497195116666,
+    "calibration_gap": 0.2696358272789792,
+    "dates": [
+      "2026-06-18",
+      "2026-06-19"
+    ],
+    "market_brier": 0.25609290333333334,
+    "model_brier": 0.37371676283725713,
+    "predicted_rate": 0.6029691606123125,
+    "samples": 15
+  },
+  "version": "player_props_ml_v1.1.0"
+}

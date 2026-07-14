@@ -1,0 +1,153 @@
+name: Player Props Refresh
+
+on:
+  schedule:
+    - cron: "0 13 * * *"
+    - cron: "20 14 * * *"
+    - cron: "50 15 * * *"
+    - cron: "50 20 * * *"
+  workflow_dispatch:
+    inputs:
+      date:
+        description: "Optional target date (YYYY-MM-DD)"
+        required: false
+        default: ""
+
+permissions:
+  contents: write
+  actions: write
+
+concurrency:
+  group: pick-cache-writer
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      PICKLEDGER_MLB_TIMEZONE: America/Chicago
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Sync latest main
+        run: |
+          git fetch origin main
+          git reset --hard origin/main
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Rebuild player-prop outcome ledger
+        run: python scripts/rebuild_pick_outcome_ledger.py
+
+      - name: Extend immutable posted-market history
+        run: |
+          python scripts/build_player_prop_market_history.py \
+            --start "$(date -u -d '14 days ago' +%F)" \
+            --end "$(date -u -d 'yesterday' +%F)" \
+            --sports MLB,WNBA
+
+      - name: Refresh roster-aware player outcome history
+        run: |
+          python scripts/build_player_prop_outcome_history.py \
+            --seasons 2024,2025,2026 \
+            --refresh \
+            --max-workers 20
+
+      - name: Train or verify player-prop ML artifacts
+        run: python scripts/train_player_prop_ml.py
+
+      - name: Train and validate four-model consensus
+        run: python scripts/train_player_prop_consensus_ml.py
+
+      - name: Refresh in-house player props
+        run: python scripts/refresh_player_props.py --date "${{ github.event.inputs.date || '' }}"
+
+      - name: Archive immutable published snapshot
+        run: python scripts/archive_player_prop_snapshot.py
+
+      - name: Rebuild parlay cards
+        run: python scripts/build_parlay_cards.py --date "${{ github.event.inputs.date || '' }}"
+
+      - name: Rebuild Profit Desk
+        run: python scripts/build_profit_desk.py --date "${{ github.event.inputs.date || '' }}"
+
+      - name: Commit player-props cache if changed
+        id: commit-props
+        run: |
+          ACTOR_EMAIL="${GITHUB_ACTOR_ID:-41898282}+${GITHUB_ACTOR}@users.noreply.github.com"
+          git config user.name  "${GITHUB_ACTOR}"
+          git config user.email "${ACTOR_EMAIL}"
+          BRANCH="${GITHUB_REF_NAME:-main}"
+          if [ -z "$(git status --porcelain -- data/player_props_cache data/player_props_snapshots data/player_props_training data/calibration/outcome_ledger.json data/parlay_cards data/profit_desk player_props/artifacts)" ]; then
+            echo "No player-props cache, parlay-card, Profit Desk, or ML artifact change; skipping commit."
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          GENERATED_CACHE="${RUNNER_TEMP}/player-props-latest.json"
+          GENERATED_LEDGER="${RUNNER_TEMP}/player-props-outcome-ledger.json"
+          GENERATED_HISTORY="${RUNNER_TEMP}/player-props-market-history.jsonl"
+          GENERATED_OUTCOMES="${RUNNER_TEMP}/player-props-outcome-history.jsonl.gz"
+          GENERATED_SNAPSHOTS="${RUNNER_TEMP}/player-props-snapshots"
+          GENERATED_ARTIFACTS="${RUNNER_TEMP}/player-props-artifacts"
+          cp data/player_props_cache/latest.json "$GENERATED_CACHE"
+          cp data/calibration/outcome_ledger.json "$GENERATED_LEDGER"
+          cp data/player_props_training/market_history_2026.jsonl "$GENERATED_HISTORY"
+          cp data/player_props_training/outcome_history_2022_2026.jsonl.gz "$GENERATED_OUTCOMES"
+          mkdir -p "$GENERATED_SNAPSHOTS"
+          if [ -d data/player_props_snapshots ]; then
+            cp -R data/player_props_snapshots/. "$GENERATED_SNAPSHOTS"/
+          fi
+          mkdir -p "$GENERATED_ARTIFACTS"
+          cp -R player_props/artifacts/. "$GENERATED_ARTIFACTS"/
+          for attempt in 1 2 3; do
+            git fetch origin "$BRANCH"
+            git reset --hard "origin/${BRANCH}"
+            python scripts/merge_player_props_cache_payload.py "$GENERATED_CACHE"
+            mkdir -p player_props/artifacts data/calibration data/player_props_training data/player_props_snapshots
+            cp "$GENERATED_LEDGER" data/calibration/outcome_ledger.json
+            cp "$GENERATED_HISTORY" data/player_props_training/market_history_2026.jsonl
+            cp "$GENERATED_OUTCOMES" data/player_props_training/outcome_history_2022_2026.jsonl.gz
+            cp -R "$GENERATED_SNAPSHOTS"/. data/player_props_snapshots/
+            cp -R "$GENERATED_ARTIFACTS"/. player_props/artifacts/
+            CACHE_DATE=$(python -c "import json; print(json.load(open('data/player_props_cache/latest.json'))['date'])")
+            python scripts/build_parlay_cards.py --date "$CACHE_DATE"
+            python scripts/build_profit_desk.py --date "$CACHE_DATE"
+            git add data/player_props_cache data/player_props_snapshots data/player_props_training data/calibration/outcome_ledger.json data/parlay_cards data/profit_desk player_props/artifacts
+            if git diff --cached --quiet; then
+              echo "No staged player-props change after merge; skipping commit."
+              echo "changed=false" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+            git commit -m "chore(props): refresh ML player props for ${CACHE_DATE}"
+            if git push origin "HEAD:${BRANCH}"; then
+              echo "changed=true" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+            echo "Push failed on attempt ${attempt}; retrying merge on latest origin/${BRANCH}."
+          done
+          exit 1
+
+      - name: Deploy updated player props
+        if: steps.commit-props.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run deploy-pages.yml --ref main
+
+      - name: Notify Profit Desk
+        # Pushes made with GITHUB_TOKEN never emit push events, so the
+        # profit-desk-notify push trigger cannot fire on its own.
+        if: steps.commit-props.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run profit-desk-notify.yml --ref main

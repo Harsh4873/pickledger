@@ -1,0 +1,106 @@
+name: Pick Calibration Refresh
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  actions: write
+
+concurrency:
+  group: pick-cache-writer
+  cancel-in-progress: false
+
+jobs:
+  calibrate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Sync latest main
+        run: |
+          git fetch origin main
+          git reset --hard origin/main
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Rebuild universal outcome ledger
+        run: python scripts/rebuild_pick_outcome_ledger.py
+
+      - name: Evaluate calibration challenger
+        id: calibration
+        run: |
+          python scripts/train_pick_calibration.py
+          if [ -n "$(git status --porcelain -- data/calibration/active.json)" ]; then
+            echo "active_changed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "active_changed=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Commit calibration artifacts if changed
+        id: commit-calibration
+        run: |
+          ACTOR_EMAIL="${GITHUB_ACTOR_ID:-41898282}+${GITHUB_ACTOR}@users.noreply.github.com"
+          git config user.name  "${GITHUB_ACTOR}"
+          git config user.email "${ACTOR_EMAIL}"
+          BRANCH="${GITHUB_REF_NAME:-main}"
+          if [ -z "$(git status --porcelain -- data/calibration)" ]; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          # Publish is retried against the latest origin/${BRANCH}: another pusher
+          # (a sibling workflow or a manual push to main) can advance the ref between
+          # our checkout and push, rejecting a plain push as non-fast-forward. The
+          # calibration artifacts are training output, so on rejection we resync to
+          # the latest ref and re-apply the already-computed artifacts (rather than
+          # re-training, which would risk the job timeout and could flip the
+          # active_changed result evaluated above).
+          GENERATED_CALIBRATION="${RUNNER_TEMP}/calibration-artifacts"
+          rm -rf "$GENERATED_CALIBRATION"
+          mkdir -p "$GENERATED_CALIBRATION"
+          cp -R data/calibration/. "$GENERATED_CALIBRATION"/
+          for attempt in 1 2 3 4 5; do
+            git add data/calibration
+            if git diff --cached --quiet; then
+              echo "No staged calibration change after resyncing latest origin/${BRANCH}; nothing to publish."
+              echo "changed=false" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+            git commit -m "chore(calibration): evaluate pick reliability layer"
+            if git push origin "HEAD:${BRANCH}"; then
+              echo "changed=true" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+            echo "Push rejected on attempt ${attempt} (origin/${BRANCH} advanced); re-applying calibration artifacts onto latest."
+            git fetch origin "$BRANCH"
+            git reset --hard "origin/${BRANCH}"
+            mkdir -p data/calibration
+            cp -R "$GENERATED_CALIBRATION"/. data/calibration/
+          done
+          echo "::error::Unable to publish calibration artifacts after 5 attempts due to persistent push contention on ${BRANCH}."
+          exit 1
+
+      - name: Refresh models with promoted calibration
+        if: steps.calibration.outputs.active_changed == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh workflow run model-cache-refresh.yml --ref main
+          gh workflow run player-props-refresh.yml --ref main
+
+      - name: Deploy updated calibration data
+        if: steps.commit-calibration.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run deploy-pages.yml --ref main

@@ -1,0 +1,143 @@
+name: Model Cache Freshness Guard
+
+on:
+  schedule:
+    # Cheap morning stale-cache guard. GitHub schedules can be delayed, so run
+    # every 15 minutes and dispatch the heavy refresh only when today's cache is
+    # still missing.
+    - cron: "12,27,42,57 12-16 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: write
+
+concurrency:
+  group: model-cache-freshness-guard
+  cancel-in-progress: false
+
+jobs:
+  guard:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Check committed cache date
+        id: cache
+        run: |
+          TARGET_DATE="$(TZ=America/Chicago date +%F)"
+          CACHE_DATE="$(python - <<'PY'
+          import json
+          from pathlib import Path
+
+          path = Path("data/model_cache/latest.json")
+          try:
+              payload = json.loads(path.read_text(encoding="utf-8"))
+          except Exception:
+              payload = {}
+          print(str(payload.get("date") or ""))
+          PY
+          )"
+          CACHE_HEALTHY="$(python - <<'PY'
+          import json
+          from pathlib import Path
+
+          required = {"mlb_new", "mlb_inning", "mlb_first_five", "wnba", "nba", "nba_playoffs", "nba_summer", "fifa_world_cup"}
+          try:
+              payload = json.loads(Path("data/model_cache/latest.json").read_text(encoding="utf-8"))
+          except Exception:
+              payload = {}
+          models = payload.get("models") if isinstance(payload.get("models"), dict) else {}
+          healthy = all(isinstance(models.get(key), dict) and models[key].get("ok") is True for key in required)
+          print("true" if healthy else "false")
+          PY
+          )"
+          PLAYER_CACHE_DATE="$(python - <<'PY'
+          import json
+          from pathlib import Path
+
+          path = Path("data/player_props_cache/latest.json")
+          try:
+              payload = json.loads(path.read_text(encoding="utf-8"))
+          except Exception:
+              payload = {}
+          print(str(payload.get("date") or ""))
+          PY
+          )"
+          PLAYER_CACHE_HEALTHY="$(python - <<'PY'
+          import json
+          from pathlib import Path
+
+          required = {
+              "mlb_player_props",
+              "wnba_player_props",
+          }
+          try:
+              payload = json.loads(Path("data/player_props_cache/latest.json").read_text(encoding="utf-8"))
+          except Exception:
+              payload = {}
+          models = payload.get("models") if isinstance(payload.get("models"), dict) else {}
+          healthy = all(isinstance(models.get(key), dict) and models[key].get("ok") is True for key in required)
+          for key in required:
+              bucket = models.get(key) if isinstance(models.get(key), dict) else {}
+              if key in required:
+                  if int(bucket.get("games") or 0) > 0 and not (bucket.get("picks") or []) and bucket.get("abstained") is not True:
+                      healthy = False
+          print("true" if healthy else "false")
+          PY
+          )"
+          echo "target_date=${TARGET_DATE}" >> "$GITHUB_OUTPUT"
+          echo "cache_date=${CACHE_DATE}" >> "$GITHUB_OUTPUT"
+          echo "player_cache_date=${PLAYER_CACHE_DATE}" >> "$GITHUB_OUTPUT"
+          if [ "$CACHE_DATE" = "$TARGET_DATE" ] && [ "$CACHE_HEALTHY" = "true" ]; then
+            echo "fresh=true" >> "$GITHUB_OUTPUT"
+            echo "Model cache is fresh for ${TARGET_DATE}."
+          else
+            echo "fresh=false" >> "$GITHUB_OUTPUT"
+            echo "Model cache is stale or unhealthy: cache=${CACHE_DATE:-missing}, target=${TARGET_DATE}, healthy=${CACHE_HEALTHY}."
+          fi
+          if [ "$PLAYER_CACHE_DATE" = "$TARGET_DATE" ] && [ "$PLAYER_CACHE_HEALTHY" = "true" ]; then
+            echo "player_fresh=true" >> "$GITHUB_OUTPUT"
+            echo "Player-props cache is fresh for ${TARGET_DATE}."
+          else
+            echo "player_fresh=false" >> "$GITHUB_OUTPUT"
+            echo "Player-props cache is stale or unhealthy: cache=${PLAYER_CACHE_DATE:-missing}, target=${TARGET_DATE}, healthy=${PLAYER_CACHE_HEALTHY}."
+          fi
+
+      - name: Dispatch model cache refresh if stale
+        if: steps.cache.outputs.fresh != 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TARGET_DATE: ${{ steps.cache.outputs.target_date }}
+        run: |
+          ACTIVE_RUNS="$(gh run list \
+            --workflow model-cache-refresh.yml \
+            --branch main \
+            --limit 20 \
+            --json status \
+            --jq '[.[] | select(.status == "queued" or .status == "in_progress" or .status == "waiting" or .status == "pending" or .status == "requested")] | length')"
+          if [ "${ACTIVE_RUNS:-0}" -gt 0 ]; then
+            echo "Model cache refresh already queued or running; not dispatching another one."
+            exit 0
+          fi
+          gh workflow run model-cache-refresh.yml --ref main -f date="$TARGET_DATE"
+
+      - name: Dispatch player-props refresh if stale
+        if: steps.cache.outputs.player_fresh != 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TARGET_DATE: ${{ steps.cache.outputs.target_date }}
+        run: |
+          ACTIVE_RUNS="$(gh run list \
+            --workflow player-props-refresh.yml \
+            --branch main \
+            --limit 20 \
+            --json status \
+            --jq '[.[] | select(.status == "queued" or .status == "in_progress" or .status == "waiting" or .status == "pending" or .status == "requested")] | length')"
+          if [ "${ACTIVE_RUNS:-0}" -gt 0 ]; then
+            echo "Player-props refresh already queued or running; not dispatching another one."
+            exit 0
+          fi
+          gh workflow run player-props-refresh.yml --ref main -f date="$TARGET_DATE"

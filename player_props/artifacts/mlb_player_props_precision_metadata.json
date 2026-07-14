@@ -1,0 +1,109 @@
+{
+  "activation_requirements": {
+    "chronological_split_required": true,
+    "minimum_accuracy": 0.7,
+    "minimum_combined_roi": 0.0,
+    "minimum_holdout_picks": 30,
+    "minimum_validation_picks": 100,
+    "one_pick_per_game": true
+  },
+  "active": true,
+  "categorical_features": [
+    "stat_key",
+    "market_format"
+  ],
+  "combined_out_of_sample": {
+    "accuracy": 0.7608695652173914,
+    "average_edge": 0.004815626601090065,
+    "average_probability": 0.7489280396445683,
+    "losses": 44,
+    "roi": 0.021832379663726382,
+    "samples": 184,
+    "wins": 140
+  },
+  "feature_rows": 77114,
+  "holdout": {
+    "accuracy": 0.7096774193548387,
+    "average_edge": 0.006781592924581448,
+    "average_probability": 0.751211818731033,
+    "losses": 9,
+    "roi": -0.04575787174449637,
+    "samples": 31,
+    "wins": 22
+  },
+  "holdout_window": {
+    "end": "2026-06-19",
+    "start": "2026-06-11"
+  },
+  "market_rows": 92650,
+  "model_type": "StandardScaler+OneHotEncoder+LogisticRegression with selective precision gate",
+  "numeric_features": [
+    "line",
+    "over_implied",
+    "under_implied",
+    "no_vig_over",
+    "history_count",
+    "mean3",
+    "mean5",
+    "mean10",
+    "mean20",
+    "season_mean",
+    "std5",
+    "std10",
+    "season_std",
+    "last_actual",
+    "over_rate",
+    "over_rate5",
+    "over_rate10",
+    "delta3",
+    "delta5",
+    "delta10",
+    "delta_season",
+    "z5",
+    "z10"
+  ],
+  "policy": {
+    "maximum_picks_per_game": 1,
+    "maximum_under_odds": -251,
+    "minimum_history": 5,
+    "minimum_model_edge": 0.0,
+    "minimum_under_history_rate": 0.6,
+    "minimum_under_last5_rate": 0.7,
+    "minimum_under_odds": -350,
+    "require_market_favorite": true,
+    "require_mean10_below_line": true,
+    "require_model_under": true,
+    "selection": "Under",
+    "sport": "MLB",
+    "stake_units": 0.25,
+    "stat_key": "batter_walks"
+  },
+  "supported_sports": [
+    "MLB"
+  ],
+  "target_accuracy": 0.7,
+  "training_end_date": "2026-06-19",
+  "training_fingerprint": "049a26f61bd4d71757b0ba85a8beba22fa5e7030772124e1a4cc98477e5bbae4",
+  "training_season": 2026,
+  "training_window": {
+    "end": "2026-05-20"
+  },
+  "validation": {
+    "accuracy": 0.7712418300653595,
+    "average_edge": 0.004417293555153903,
+    "average_probability": 0.748465313162997,
+    "losses": 35,
+    "roi": 0.03552713648500027,
+    "samples": 153,
+    "wins": 118
+  },
+  "validation_window": {
+    "end": "2026-06-10",
+    "start": "2026-05-21"
+  },
+  "version": "player_props_precision_v1.0.0",
+  "wnba": {
+    "active": false,
+    "reason": "No WNBA policy reached 70% on both chronological validation and holdout."
+  }
+}

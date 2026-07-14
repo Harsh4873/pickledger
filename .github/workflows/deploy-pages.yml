@@ -1,0 +1,95 @@
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  readiness:
+    runs-on: ubuntu-latest
+    outputs:
+      ready: ${{ steps.daily-data.outputs.ready }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Check daily data readiness
+        id: daily-data
+        run: |
+          if python scripts/site_upcheck.py --data-only; then
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::Daily model data is not ready. Deployment was deferred without failing."
+          fi
+
+  deploy:
+    needs: readiness
+    if: needs.readiness.outputs.ready == 'true'
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
+
+      - name: Setup Node
+        uses: actions/setup-node@v5
+        with:
+          node-version: "22"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build PickLedger
+        run: |
+          npm run build
+          mkdir -p dist/ipl dist/data
+          cp .nojekyll dist/
+          cp ipl/ipl_styles.css dist/ipl/
+          cp ipl/ipl_frontend.js dist/ipl/
+          cp -R data/model_cache dist/data/
+          cp -R data/player_props_cache dist/data/
+          cp -R data/parlay_cards dist/data/
+          cp -R data/profit_desk dist/data/
+
+      - name: Verify styled Pages artifact
+        run: |
+          grep -q 'rel="stylesheet"' dist/index.html
+          grep -q 'type="module"' dist/index.html
+          ! grep -q 'src/main.ts' dist/index.html
+          test -n "$(find dist/assets -maxdepth 1 -name '*.css' -print -quit)"
+          test -n "$(find dist/assets -maxdepth 1 -name '*.js' -print -quit)"
+          test -n "$(find dist/assets -maxdepth 1 -name 'apple-touch-icon-*.png' -print -quit)"
+          test -n "$(find dist/assets -maxdepth 1 -name 'favicon-*.svg' -print -quit)"
+          test -f dist/ipl/ipl_styles.css
+          test -f dist/ipl/ipl_frontend.js
+          for directory in model_cache player_props_cache parlay_cards profit_desk; do
+            test -f "dist/data/${directory}/index.json"
+            test -f "dist/data/${directory}/latest.json"
+          done
+          python scripts/site_upcheck.py
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

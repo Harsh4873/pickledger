@@ -1,0 +1,57 @@
+{
+  "decided_count": 1850,
+  "evaluated_at": "2026-07-11T14:51:45.309847Z",
+  "global": {
+    "intercept": -0.16952679,
+    "samples": 128,
+    "shrinkage_prior_samples": 120.0,
+    "slope": 0.83643649
+  },
+  "groups": {
+    "model:wnba|source:wnba model|sport:wnba|bet:spread": {
+      "intercept": -0.29088279,
+      "samples": 32,
+      "shrinkage_prior_samples": 80.0,
+      "slope": 0.71375903
+    },
+    "model:wnba|source:wnba model|sport:wnba|bet:totals": {
+      "intercept": -0.26792374,
+      "samples": 47,
+      "shrinkage_prior_samples": 80.0,
+      "slope": 0.7446934
+    }
+  },
+  "holdout": {
+    "challenger": {
+      "brier_score": 0.21542419,
+      "calibration_error": 0.11111462,
+      "log_loss": 0.62103608,
+      "qualified_bets": 22,
+      "roi": 0.37979094,
+      "samples": 25
+    },
+    "champion": {
+      "brier_score": 0.22131736,
+      "calibration_error": 0.113624,
+      "log_loss": 0.63310742,
+      "qualified_bets": 25,
+      "roi": 0.3855658,
+      "samples": 25
+    }
+  },
+  "minimum_group_samples": 30,
+  "promoted_at": "2026-07-11T14:51:45.309847Z",
+  "promotion": {
+    "approved": true,
+    "reasons": [
+      "brier_improved=True",
+      "calibration_improved=False",
+      "log_loss_safe=True",
+      "roi_safe=True"
+    ]
+  },
+  "schema_version": 1,
+  "trainable_decided_count": 128,
+  "training_contract_version": 2,
+  "version": "cal-v2-1850-2026-07-11"
+}
