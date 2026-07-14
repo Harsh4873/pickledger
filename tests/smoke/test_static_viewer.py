@@ -749,6 +749,46 @@ def test_model_cache_merge_seeds_external_feeds_on_new_slate_day(tmp_path):
     assert merged["external_feeds"]["scores24_wnba"]["picks"][0]["pick"] == "S24"
 
 
+def test_model_cache_merge_keeps_newer_committed_external_feed_bucket(tmp_path):
+    module = _load_module("merge_model_cache_payload_external_race", ROOT / "scripts" / "merge_model_cache_payload.py")
+    cache_dir = tmp_path / "data" / "model_cache"
+    cache_dir.mkdir(parents=True)
+    current = {
+        "date": "2026-07-14",
+        "models": {
+            "scores24_wnba": {
+                "ok": True,
+                "date": "2026-07-14",
+                "generatedBy": "local:external-feed-refresh",
+                "meta": {"from": "local"},
+                "picks": [{"pick": "Current local pick"}],
+            }
+        },
+    }
+    generated = {
+        "date": "2026-07-14",
+        "models": {
+            "wnba": {"ok": True, "picks": [{"pick": "Fresh team pick"}]},
+            "scores24_wnba": {
+                "ok": True,
+                "date": "2026-07-14",
+                "generatedBy": "github-actions:external-feed-refresh",
+                "meta": {"from": "github-actions"},
+                "picks": [{"pick": "Stale starting-snapshot pick"}],
+            },
+        },
+    }
+    (cache_dir / "2026-07-14.json").write_text(json.dumps(current), encoding="utf-8")
+
+    merged = module.merge_payload(generated, cache_dir)
+
+    assert merged["models"]["wnba"]["picks"][0]["pick"] == "Fresh team pick"
+    scores = merged["models"]["scores24_wnba"]
+    assert scores["generatedBy"] == "local:external-feed-refresh"
+    assert scores["meta"]["from"] == "local"
+    assert scores["picks"][0]["pick"] == "Current local pick"
+
+
 def test_model_cache_merge_preserves_other_deployed_buckets(tmp_path):
     module = _load_module("merge_model_cache_payload", ROOT / "scripts" / "merge_model_cache_payload.py")
     cache_dir = tmp_path / "data" / "model_cache"

@@ -169,6 +169,12 @@ def _merged_models(current: dict[str, Any], generated: dict[str, Any]) -> dict[s
         if key in current_models
     }
     for key, bucket in generated_models.items():
+        if key in EXTERNAL_FEED_MODEL_KEYS and (key in current_models or key in external_feeds):
+            # A model refresh can run for several minutes while the local Scores24
+            # publisher or another feed writer lands newer data. The latest checked-
+            # out external bucket is authoritative; never overwrite it with the
+            # refresh job's stale starting snapshot during the push-retry merge.
+            continue
         merged[key] = _preserve_pick_metadata(current_models.get(key), bucket)
     return merged
 
