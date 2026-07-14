@@ -1363,8 +1363,16 @@ function trendMarketScope(pick: Pick, selection: string): string {
   return 'full-game';
 }
 
+function canonicalTrendLine(value: string): string {
+  const normalized = value.replace(',', '.');
+  const numeric = Number(normalized);
+  return Number.isFinite(numeric) ? String(numeric) : normalized;
+}
+
 function canonicalTrendSignal(pick: Pick): { key: string; label: string; pass: boolean } {
-  const selection = pick.pick.split('(', 1)[0].trim();
+  const selection = pick.pick
+    .replace(/\s+\([^()]*(?:@|vs\.?)\s+[^()]*\)\s*$/i, '')
+    .trim();
   const pass = String(pick.decision || '').trim().toUpperCase() === 'PASS';
   const scope = trendMarketScope(pick, selection);
   const total = selection.match(/^(over|under)\s+(\d+(?:\.\d+)?)(?:\s+(?:points?|runs?|goals?))?$/i);
@@ -1373,11 +1381,26 @@ function canonicalTrendSignal(pick: Pick): { key: string; label: string; pass: b
   const noRun = selection.match(/\binning\s*(\d+).*?\bno runs?\b|\bno runs?\b.*?\binning\s*(\d+)/i);
   if (noRun) return { key: `inning:no-run:${noRun[1] || noRun[2]}`, label: selection, pass };
 
-  const asian = selection.match(/^(.*?)\s+asian\s+(?:hcp|handicap)\s*([+-]\d+(?:\.\d+)?)$/i);
-  if (asian) return { key: `${scope}:asian-handicap:${canonicalTeamForPick(pick, asian[1])}:${asian[2]}`, label: selection, pass };
+  const namedHandicap = selection.match(
+    /^(.*?)\s+(?:(asian)\s+)?(?:hcp|handicap)\s*\(\s*([+-]?\d+(?:[.,]\d+)?)\s*\)$/i,
+  );
+  if (namedHandicap) {
+    const soccerHandicap = namedHandicap[2]
+      || String(pick.sport || '').trim().toUpperCase() === 'FIFA WC'
+      || String(pick.market_type || '').trim() === 'soccer_asian_handicap';
+    const family = soccerHandicap ? 'asian-handicap' : 'spread';
+    return {
+      key: `${scope}:${family}:${canonicalTeamForPick(pick, namedHandicap[1])}:${canonicalTrendLine(namedHandicap[3])}`,
+      label: selection,
+      pass,
+    };
+  }
 
-  const spread = selection.match(/^(.*?)\s+([+-]\d+(?:\.\d+)?)$/);
-  if (spread) return { key: `${scope}:spread:${canonicalTeamForPick(pick, spread[1])}:${spread[2]}`, label: selection, pass };
+  const asian = selection.match(/^(.*?)\s+asian\s+(?:hcp|handicap)\s*([+-]?\d+(?:[.,]\d+)?)$/i);
+  if (asian) return { key: `${scope}:asian-handicap:${canonicalTeamForPick(pick, asian[1])}:${canonicalTrendLine(asian[2])}`, label: selection, pass };
+
+  const spread = selection.match(/^(.*?)\s+([+-]\d+(?:[.,]\d+)?)$/);
+  if (spread) return { key: `${scope}:spread:${canonicalTeamForPick(pick, spread[1])}:${canonicalTrendLine(spread[2])}`, label: selection, pass };
 
   const moneyline = selection.match(/^(.*?)\s+(?:ML|moneyline|to win|wins?)$/i);
   if (moneyline) return { key: `${scope}:side:${canonicalTeamForPick(pick, moneyline[1])}`, label: selection, pass };

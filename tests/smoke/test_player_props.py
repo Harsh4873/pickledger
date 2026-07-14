@@ -10,12 +10,38 @@ from player_props.basketball import generate_basketball_model
 from player_props.ml import select_top_props
 from player_props.mlb import generate_mlb_model
 from player_props.schema import decision_and_stake
+from scripts.refresh_player_props import _publication_contract_errors
 
 
 ROOT = Path(__file__).resolve().parents[2]
 DATE = "2026-06-12"
 STAMP = "2026-06-12T12:00:00Z"
 PLAYER_PROP_MODEL_KEYS = {"nba_player_props", "wnba_player_props", "wnba_3pm", "mlb_player_props"}
+
+
+def _public_prop_buckets() -> dict:
+    return {
+        key: {"ok": True, "games": 0, "picks": []}
+        for key in ("nba_player_props", "mlb_player_props", "wnba_player_props")
+    }
+
+
+def test_refresh_publication_contract_requires_every_public_bucket():
+    models = _public_prop_buckets()
+    models.pop("nba_player_props")
+
+    assert _publication_contract_errors(models, official_mlb_games=0) == [
+        "required bucket nba_player_props is missing"
+    ]
+
+
+def test_refresh_publication_contract_uses_independent_mlb_slate():
+    models = _public_prop_buckets()
+    models["mlb_player_props"].update({"games": 0, "abstained": True})
+
+    assert _publication_contract_errors(models, official_mlb_games=1) == [
+        "scheduled MLB games (1) have zero published picks"
+    ]
 
 
 @pytest.fixture(autouse=True)
@@ -1020,3 +1046,50 @@ def test_ml_selection_caps_board_and_rejects_weak_or_extreme_props():
         reverse=True,
     )
     assert all(pick["odds"] <= 250 and pick["ml_probability"] >= 0.52 for pick in selected)
+
+
+def test_variant_selection_caps_each_game_instead_of_the_entire_sport():
+    import player_props.variants as variants
+
+    candidates = []
+    for game_index, game_id in enumerate(("game-a", "game-b")):
+        for player_index in range(10):
+            candidates.append(
+                {
+                    "id": f"{game_id}-{player_index}_season",
+                    "sport": "MLB",
+                    "date": DATE,
+                    "game_id": game_id,
+                    "matchup": f"Away {game_index} @ Home {game_index}",
+                    "player_id": f"{game_id}-player-{player_index}",
+                    "player_name": f"{game_id} Player {player_index}",
+                    "stat_key": "hits",
+                    "selection": "Over",
+                    "line": 0.5,
+                    "market_priced": True,
+                    "decision": "BET",
+                    "odds": 100,
+                    "ml_probability": 0.70,
+                    "ml_edge": 0.20,
+                    "ml_expected_value": 0.40 - player_index * 0.01 - game_index * 0.001,
+                    "model_variant": "season",
+                    "model_variant_label": "Season",
+                }
+            )
+
+    variant_picks = variants._select_variant(candidates, "season")
+    published = variants._rank_sport_picks({"season": variant_picks}, "MLB")
+
+    assert len(variant_picks) == 16
+    assert len(published) == 16
+    for game_id in ("game-a", "game-b"):
+        game_picks = [pick for pick in published if pick["game_id"] == game_id]
+        assert len(game_picks) == 8
+        assert {pick["player_id"] for pick in game_picks} == {
+            f"{game_id}-player-{index}" for index in range(8)
+        }
+    assert len({pick["player_id"] for pick in published}) == len(published)
+    assert [pick["ml_expected_value"] for pick in published] == sorted(
+        (pick["ml_expected_value"] for pick in published),
+        reverse=True,
+    )

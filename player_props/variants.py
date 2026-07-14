@@ -24,6 +24,7 @@ from .schema import american_implied_probability, decision_and_stake, normal_pro
 
 VARIANT_VERSION = "player_props_variant_v1.0.0"
 MAX_VARIANT_PICKS = 8
+MAX_VARIANT_PICKS_PER_GAME = 8
 MAX_PER_PLAYER = 1
 MIN_VARIANT_EDGE = 0.025
 MIN_VARIANT_EV = 0.015
@@ -654,6 +655,17 @@ def _market_identity(pick: dict[str, Any]) -> tuple[str, str, str, str, str, str
     )
 
 
+def _game_identity(pick: dict[str, Any]) -> tuple[str, str, str]:
+    game = str(
+        pick.get("game_id") or pick.get("event_id") or pick.get("matchup") or ""
+    ).strip().lower()
+    return (
+        str(pick.get("sport") or "").strip().upper(),
+        str(pick.get("date") or "").strip(),
+        game or "unknown-game",
+    )
+
+
 def _select_variant(scored: list[dict[str, Any]], variant: str) -> list[dict[str, Any]]:
     filtered = [
         pick for pick in scored
@@ -670,14 +682,17 @@ def _select_variant(scored: list[dict[str, Any]], variant: str) -> list[dict[str
         filtered = [pick for pick in filtered if safe_float(pick.get("hot_l10_hit_rate")) >= 0.50]
     selected: list[dict[str, Any]] = []
     per_player: dict[str, int] = {}
+    per_game: dict[tuple[str, str, str], int] = {}
     for pick in sorted(filtered, key=_score_sort_key):
         player_id = str(pick.get("player_id") or pick.get("player_name") or "")
+        game_id = _game_identity(pick)
         if per_player.get(player_id, 0) >= MAX_PER_PLAYER:
+            continue
+        if per_game.get(game_id, 0) >= MAX_VARIANT_PICKS_PER_GAME:
             continue
         selected.append(pick)
         per_player[player_id] = per_player.get(player_id, 0) + 1
-        if len(selected) >= MAX_VARIANT_PICKS:
-            break
+        per_game[game_id] = per_game.get(game_id, 0) + 1
     for index, pick in enumerate(selected, start=1):
         pick["ml_rank"] = index
         pick["model_rank"] = index
@@ -728,13 +743,17 @@ def _rank_sport_picks(selected_by_variant: dict[str, list[dict[str, Any]]], spor
 
     selected: list[dict[str, Any]] = []
     per_player: dict[str, int] = {}
+    per_game: dict[tuple[str, str, str], int] = {}
     model_key = player_prop_sport_key(sport)
     source = player_prop_sport_source(sport)
     fingerprint = _variant_fingerprint()
     rank_epoch = f"{sport}:player_props_consensus_v2.0.0:published:{fingerprint}"
     for pick in sorted(winners.values(), key=_score_sort_key):
         player_id = str(pick.get("player_id") or pick.get("player_name") or "")
+        game_id = _game_identity(pick)
         if per_player.get(player_id, 0) >= MAX_PER_PLAYER:
+            continue
+        if per_game.get(game_id, 0) >= MAX_VARIANT_PICKS_PER_GAME:
             continue
         finalized = copy.deepcopy(pick)
         finalized.update(
@@ -753,8 +772,7 @@ def _rank_sport_picks(selected_by_variant: dict[str, list[dict[str, Any]]], spor
         )
         selected.append(finalized)
         per_player[player_id] = per_player.get(player_id, 0) + 1
-        if len(selected) >= MAX_VARIANT_PICKS:
-            break
+        per_game[game_id] = per_game.get(game_id, 0) + 1
     for index, pick in enumerate(selected, start=1):
         pick["ml_rank"] = index
         pick["model_rank"] = index

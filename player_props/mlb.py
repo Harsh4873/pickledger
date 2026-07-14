@@ -75,8 +75,10 @@ MLB_MARKET_TYPES = {
     "totalhits": ("hits", "Hits", "batter", True),
     "hits": ("hits", "Hits", "batter", True),
     "hitmilestones": ("hits", "Hits", "batter", True),
+    "hitsmilestones": ("hits", "Hits", "batter", True),
     "totalhitsrunsrbis": ("hits_runs_rbis", "Hits + Runs + RBIs", "batter", True),
     "hitsrunsrbis": ("hits_runs_rbis", "Hits + Runs + RBIs", "batter", True),
+    "hitsrunsrbismilestones": ("hits_runs_rbis", "Hits + Runs + RBIs", "batter", True),
     "hrr": ("hits_runs_rbis", "Hits + Runs + RBIs", "batter", True),
     "totalruns": ("runs", "Runs", "batter", True),
     "runs": ("runs", "Runs", "batter", True),
@@ -84,6 +86,7 @@ MLB_MARKET_TYPES = {
     "totalrbis": ("rbis", "RBIs", "batter", True),
     "rbis": ("rbis", "RBIs", "batter", True),
     "rbimilestones": ("rbis", "RBIs", "batter", True),
+    "rbismilestones": ("rbis", "RBIs", "batter", True),
     "totalwalksbatter": ("batter_walks", "Walks", "batter", True),
     "batterwalks": ("batter_walks", "Walks", "batter", True),
     "walksbatter": ("batter_walks", "Walks", "batter", True),
@@ -92,20 +95,25 @@ MLB_MARKET_TYPES = {
     "strikeoutsbatter": ("batter_strikeouts", "Batter Strikeouts", "batter", True),
     "totaltotalbases": ("total_bases", "Total Bases", "batter", True),
     "totalbases": ("total_bases", "Total Bases", "batter", True),
+    "totalbasesmilestones": ("total_bases", "Total Bases", "batter", True),
     "singles": ("singles", "Singles", "batter", True),
     "totalsingles": ("singles", "Singles", "batter", True),
+    "singlesmilestones": ("singles", "Singles", "batter", True),
     "doubles": ("doubles", "Doubles", "batter", True),
     "totaldoubles": ("doubles", "Doubles", "batter", True),
+    "doublesmilestones": ("doubles", "Doubles", "batter", True),
     "triples": ("triples", "Triples", "batter", True),
     "totaltriples": ("triples", "Triples", "batter", True),
     "homeruns": ("home_runs", "Home Runs", "batter", True),
     "totalhomeruns": ("home_runs", "Home Runs", "batter", True),
     "homerunmilestones": ("home_runs", "Home Runs", "batter", True),
+    "homerunsmilestones": ("home_runs", "Home Runs", "batter", True),
     "stolenbases": ("stolen_bases", "Stolen Bases", "batter", True),
     "totalstolenbases": ("stolen_bases", "Stolen Bases", "batter", True),
     "totalstrikeouts": ("strikeouts", "Strikeouts", "pitcher", True),
     "pitcherstrikeouts": ("strikeouts", "Strikeouts", "pitcher", True),
     "strikeouts": ("strikeouts", "Strikeouts", "pitcher", True),
+    "strikeoutsthrownmilestones": ("strikeouts", "Strikeouts", "pitcher", True),
     "totalwalksallowed": ("pitcher_walks_allowed", "Walks Allowed", "pitcher", True),
     "pitcherwalks": ("pitcher_walks_allowed", "Walks Allowed", "pitcher", True),
     "pitcherwalksallowed": ("pitcher_walks_allowed", "Walks Allowed", "pitcher", True),
@@ -118,6 +126,15 @@ MLB_MARKET_TYPES = {
     "pitcherearnedruns": ("pitcher_earned_runs_allowed", "Earned Runs Allowed", "pitcher", True),
     "pitcherearnedrunsallowed": ("pitcher_earned_runs_allowed", "Earned Runs Allowed", "pitcher", True),
     "pitchertorecordwin": ("pitcher_win", "Pitcher To Record Win", "pitcher", False),
+}
+
+_MLB_TEAM_NAME_ALIASES = {
+    "alallstars": "americanleagueallstars",
+    "americanallstars": "americanleagueallstars",
+    "americanleagueallstars": "americanleagueallstars",
+    "nlallstars": "nationalleagueallstars",
+    "nationalallstars": "nationalleagueallstars",
+    "nationalleagueallstars": "nationalleagueallstars",
 }
 
 MLB_TEAM_ABBREVIATIONS = {
@@ -408,6 +425,11 @@ def _canonical_market_name(value: str) -> str:
     return "".join(ch for ch in str(value or "").lower() if ch.isalnum())
 
 
+def _canonical_team_name(value: str) -> str:
+    normalized = normalize_name(value)
+    return _MLB_TEAM_NAME_ALIASES.get(normalized, normalized)
+
+
 def _is_milestone_market(type_name: str, display: str) -> bool:
     return "milestone" in str(type_name or "").lower() or "+" in str(display or "")
 
@@ -416,16 +438,16 @@ def _espn_event_market(
     scoreboard: dict[str, Any],
     game: dict[str, Any],
 ) -> tuple[str, str, str] | None:
-    away_target = normalize_name(game["away_team"])
-    home_target = normalize_name(game["home_team"])
+    away_target = _canonical_team_name(game["away_team"])
+    home_target = _canonical_team_name(game["home_team"])
     for event in scoreboard.get("events") or []:
         competition = (event.get("competitions") or [{}])[0]
         competitors = competition.get("competitors") or []
         away = next((row for row in competitors if row.get("homeAway") == "away"), {})
         home = next((row for row in competitors if row.get("homeAway") == "home"), {})
-        if normalize_name((away.get("team") or {}).get("displayName")) != away_target:
+        if _canonical_team_name((away.get("team") or {}).get("displayName")) != away_target:
             continue
-        if normalize_name((home.get("team") or {}).get("displayName")) != home_target:
+        if _canonical_team_name((home.get("team") or {}).get("displayName")) != home_target:
             continue
         odds_rows = competition.get("odds") or []
         odds = odds_rows[0] if odds_rows else {}

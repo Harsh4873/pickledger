@@ -37,6 +37,16 @@ REQUIRED_PLAYER_PROP_KEYS = {
     "mlb_player_props",
     "wnba_player_props",
 }
+ML_PLAYER_PROP_KEYS = {"mlb_player_props", "wnba_player_props"}
+REQUIRED_ML_PLAYER_PROP_FIELDS = (
+    "ml_probability",
+    "ml_edge",
+    "ml_expected_value",
+    "ml_model_version",
+    "ml_market_family",
+    "ml_rank",
+    "baseline_projection",
+)
 REQUIRED_SCORES24_FEED_KEYS = {
     "scores24_fifa_world_cup",
     "scores24_mlb",
@@ -163,6 +173,48 @@ def _visible_player_picks(bucket: Any) -> list[dict[str, Any]]:
         and _decision(pick) in PLAYER_VISIBLE_DECISIONS
         and str(pick.get("scope") or "").strip().lower() == "player"
     ]
+
+
+def _scheduled_game_count(bucket: dict[str, Any]) -> int:
+    games = bucket.get("games")
+    if isinstance(games, list):
+        return len(games)
+    try:
+        return max(0, int(games or 0))
+    except (TypeError, ValueError):
+        return 0
+
+
+def _official_mlb_scheduled_game_count(models: dict[str, Any]) -> int:
+    """Use independent team-model slates so a broken props parser cannot claim no games."""
+    return max(
+        (
+            _scheduled_game_count(bucket)
+            for key in ("mlb_new", "mlb_inning", "mlb_first_five")
+            if isinstance((bucket := models.get(key)), dict)
+        ),
+        default=0,
+    )
+
+
+def _missing_ml_player_prop_fields(pick: dict[str, Any]) -> list[str]:
+    missing: list[str] = []
+    if str(pick.get("scope") or "").strip().lower() != "player":
+        missing.append("scope")
+    if pick.get("market_priced") is not True:
+        missing.append("market_priced")
+    if str(pick.get("odds_source") or "").strip() != "posted_market":
+        missing.append("odds_source")
+    if pick.get("odds") in (None, ""):
+        missing.append("odds")
+    if str(pick.get("probability_source") or "").strip() != "player_props_ml_v1":
+        missing.append("probability_source")
+    for field in REQUIRED_ML_PLAYER_PROP_FIELDS:
+        if field not in pick or pick.get(field) is None or (
+            isinstance(pick.get(field), str) and not str(pick.get(field)).strip()
+        ):
+            missing.append(field)
+    return missing
 
 
 def _cache_contract_messages(cache_dir: Path, *, player_props: bool, today: str) -> tuple[list[str], list[str]]:
@@ -300,21 +352,25 @@ def main() -> int:
                 "latest player-props cache reintroduced legacy public bucket(s): "
                 + ", ".join(legacy_public_models)
             )
+    official_mlb_scheduled_games = _official_mlb_scheduled_game_count(models)
     for key in sorted(REQUIRED_PLAYER_PROP_KEYS):
         bucket = player_models.get(key)
         if not isinstance(bucket, dict):
             failures.append(f"player-props bucket {key} is missing")
-        elif bucket.get("ok") is not True:
+            continue
+
+        picks = _bucket_picks(bucket)
+        scheduled_games = _scheduled_game_count(bucket)
+        if key == "mlb_player_props":
+            scheduled_games = max(scheduled_games, official_mlb_scheduled_games)
+        if bucket.get("ok") is not True:
             failures.append(f"player-props bucket {key} failed: {bucket.get('error') or 'unknown error'}")
-        elif (
-            key in REQUIRED_PLAYER_PROP_KEYS
-            and int(bucket.get("games") or 0) > 0
-            and not (bucket.get("picks") or [])
-            and bucket.get("abstained") is not True
+        if scheduled_games > 0 and not picks and (
+            key == "mlb_player_props" or bucket.get("abstained") is not True
         ):
             failures.append(f"player-props bucket {key} has scheduled games but zero picks")
-        else:
-            picks = bucket.get("picks") or []
+
+        if picks:
             if key in REQUIRED_PLAYER_PROP_KEYS:
                 ranks = [
                     int(pick.get("ml_rank") or 0)
@@ -323,13 +379,28 @@ def main() -> int:
                 ]
                 if ranks and ranks != list(range(1, len(ranks) + 1)):
                     failures.append(f"player-props bucket {key} has non-contiguous ML ranks: {ranks}")
-                if any(isinstance(pick, dict) and pick.get("carried_forward") for pick in picks):
-                    failures.append(f"player-props bucket {key} includes carried-forward snapshot props in latest board")
+                if any(
+                    isinstance(pick, dict)
+                    and (pick.get("carried_forward") or pick.get("preserved_from_prior_refresh"))
+                    for pick in picks
+                ):
+                    failures.append(f"player-props bucket {key} includes prior-refresh props in latest board")
+            if key in ML_PLAYER_PROP_KEYS:
+                for position, pick in enumerate(picks, start=1):
+                    missing_fields = _missing_ml_player_prop_fields(pick)
+                    if missing_fields:
+                        failures.append(
+                            f"player-props bucket {key} published pick {position} is missing "
+                            f"player_props_ml_v1 fields: {', '.join(missing_fields)}"
+                        )
             market_picks = [pick for pick in picks if isinstance(pick, dict) and pick.get("market_priced") is True]
-            if market_picks and any(str(pick.get("probability_source") or "") != "player_props_ml_v1" for pick in market_picks):
+            if key not in ML_PLAYER_PROP_KEYS and market_picks and any(
+                str(pick.get("probability_source") or "") != "player_props_ml_v1"
+                for pick in market_picks
+            ):
                 failures.append(f"player-props bucket {key} has market-priced picks without player_props_ml_v1 probability")
             public_picks = [
-                pick for pick in market_picks
+                pick for pick in picks
                 if str(pick.get("decision") or "").strip().upper() in {"BET", "LEAN"}
             ]
             if any(not _consensus_qualified_player_prop(pick) for pick in public_picks):

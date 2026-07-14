@@ -4,7 +4,6 @@ from __future__ import annotations
 import argparse, json, re, sys, unicodedata
 from datetime import date, datetime
 from typing import Any
-from zoneinfo import ZoneInfo
 import requests
 from bs4 import BeautifulSoup
 
@@ -17,7 +16,6 @@ NBA_URL = "https://www.sportsgambler.com/betting-tips/basketball/nba-predictions
 WNBA_URL = "https://www.sportsgambler.com/betting-tips/basketball/wnba-predictions/"
 MLB_URL = "https://www.sportsgambler.com/betting-tips/baseball/"
 FIFA_WORLD_CUP_URL = "https://www.sportsgambler.com/betting-tips/football/fifa-world-cup-predictions/"
-SLATE_TIME_ZONE = ZoneInfo("America/Chicago")
 
 def _norm(s: str) -> str:
     return re.sub(r"\s+", " ", str(s or "")).strip()
@@ -54,16 +52,6 @@ def _iter_nodes(v: Any):
         for item in v:
             yield from _iter_nodes(item)
 
-def _slate_date(raw: str) -> date | None:
-    compact = _norm(raw)
-    try:
-        parsed = datetime.fromisoformat(compact.replace("Z", "+00:00"))
-    except ValueError:
-        return None
-    if parsed.tzinfo is None:
-        return parsed.date()
-    return parsed.astimezone(SLATE_TIME_ZONE).date()
-
 def _matchup_from_node(node: dict) -> str:
     name = _norm(node.get("name", ""))
     if name:
@@ -89,20 +77,28 @@ def _matchup_key(raw: str) -> tuple[str, str] | None:
     normalized.sort()
     return (normalized[0], normalized[1]) if all(normalized) else None
 
+def _expected_matchup_whitelist(expected_matchups: list[str] | None) -> dict[tuple[str, str], str]:
+    raw_matchups = [_norm(matchup) for matchup in expected_matchups or [] if _norm(matchup)]
+    if not raw_matchups:
+        raise ValueError("a valid official matchup whitelist is required")
+    expected: dict[tuple[str, str], str] = {}
+    for matchup in raw_matchups:
+        key = _matchup_key(matchup)
+        if not key:
+            raise ValueError(f"invalid official matchup whitelist entry: {matchup}")
+        expected[key] = matchup
+    return expected
+
 def scrape_basketball(
     target: date | None,
     url: str,
     league: str,
     expected_matchups: list[str] | None = None,
 ) -> list[dict]:
+    expected = _expected_matchup_whitelist(expected_matchups)
     html = requests.get(url, headers=HEADERS, timeout=30).text
     soup = BeautifulSoup(html, "html.parser")
     articles, seen = [], set()
-    expected = {
-        key: matchup
-        for matchup in expected_matchups or []
-        if (key := _matchup_key(matchup))
-    }
     for obj in _json_ld(soup):
         for node in _iter_nodes(obj):
             item = node.get("item")
@@ -110,13 +106,10 @@ def scrape_basketball(
                 continue
             url = _norm(item.get("url", ""))
             matchup = _matchup_from_node(item)
-            event_date = _slate_date(_norm(item.get("startDate", "")))
             if not url or not matchup or url in seen:
                 continue
             matchup_key = _matchup_key(matchup)
-            if expected and matchup_key not in expected:
-                continue
-            if not expected and target and event_date and event_date != target:
+            if matchup_key not in expected:
                 continue
             seen.add(url)
             articles.append({"url": url, "matchup": matchup, "date": item.get("startDate", "")})
@@ -166,14 +159,10 @@ def scrape_fifa_world_cup(target: date | None, expected_matchups: list[str] | No
     return scrape_basketball(target, FIFA_WORLD_CUP_URL, "FIFA WC", expected_matchups)
 
 def scrape_mlb(target: date | None, expected_matchups: list[str] | None = None) -> list[dict]:
+    expected = _expected_matchup_whitelist(expected_matchups)
     html = requests.get(MLB_URL, headers=HEADERS, timeout=30).text
     soup = BeautifulSoup(html, "html.parser")
     rows, seen = [], set()
-    expected = {
-        key: matchup
-        for matchup in expected_matchups or []
-        if (key := _matchup_key(matchup))
-    }
     for item in soup.select("div.tipbox_item"):
         title_spans = item.select(".tipsbox_title h3 > span")
         matchup = _norm(title_spans[0].get_text(" ", strip=True)) if title_spans else ""
@@ -187,7 +176,7 @@ def scrape_mlb(target: date | None, expected_matchups: list[str] | None = None) 
         tip, odds = _split_tip_odds(prediction)
         if not matchup or not tip:
             continue
-        if expected and _matchup_key(matchup) not in expected:
+        if _matchup_key(matchup) not in expected:
             continue
         key = (matchup, tip)
         if key in seen:
@@ -204,17 +193,25 @@ def main() -> None:
     ap.add_argument("--date", "-d", default=None)
     ap.add_argument("--expected-matchup", action="append", default=[])
     args = ap.parse_args()
+    expected_matchups = [
+        _norm(matchup)
+        for matchup in args.expected_matchup
+        if _matchup_key(matchup)
+    ]
+    if not expected_matchups or len(expected_matchups) != len(args.expected_matchup):
+        print("Error: SportsGambler requires a valid official matchup whitelist.", file=sys.stderr)
+        sys.exit(1)
     sport = args.sport.strip().lower()
     target = _parse_date(args.date) if args.date else None
     try:
         if sport in ("nba", "basketball"):
-            rows = scrape_nba(target, args.expected_matchup)
+            rows = scrape_nba(target, expected_matchups)
         elif sport == "wnba":
-            rows = scrape_wnba(target, args.expected_matchup)
+            rows = scrape_wnba(target, expected_matchups)
         elif sport in ("mlb", "baseball"):
-            rows = scrape_mlb(target, args.expected_matchup)
+            rows = scrape_mlb(target, expected_matchups)
         elif sport in ("fifa", "fifa_world_cup", "football", "soccer", "world_cup"):
-            rows = scrape_fifa_world_cup(target, args.expected_matchup)
+            rows = scrape_fifa_world_cup(target, expected_matchups)
         else:
             raise ValueError("supported sports: nba/basketball, wnba, mlb/baseball, fifa_world_cup/soccer")
     except Exception as exc:

@@ -1,4 +1,5 @@
 name: Player Props Refresh
+run-name: Player Props Refresh ${{ github.event.inputs.date || 'today' }}
 
 on:
   schedule:
@@ -71,6 +72,8 @@ jobs:
         run: python scripts/train_player_prop_consensus_ml.py
 
       - name: Refresh in-house player props
+        id: refresh-props
+        continue-on-error: true
         run: python scripts/refresh_player_props.py --date "${{ github.event.inputs.date || '' }}"
 
       - name: Archive immutable published snapshot
@@ -136,6 +139,12 @@ jobs:
             fi
             echo "Push failed on attempt ${attempt}; retrying merge on latest origin/${BRANCH}."
           done
+          exit 1
+
+      - name: Enforce player-props publication contract
+        if: steps.refresh-props.outcome == 'failure'
+        run: |
+          echo "::error::Player-props refresh failed its publication contract; generated diagnostics were preserved."
           exit 1
 
       - name: Deploy updated player props

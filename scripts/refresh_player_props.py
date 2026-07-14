@@ -48,6 +48,55 @@ def _write_json(path: Path, payload: Any) -> None:
     temp.replace(path)
 
 
+def _read_json(path: Path) -> dict[str, Any]:
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return {}
+    return payload if isinstance(payload, dict) else {}
+
+
+def _scheduled_game_count(bucket: Any) -> int:
+    if not isinstance(bucket, dict):
+        return 0
+    games = bucket.get("games")
+    if isinstance(games, list):
+        return len(games)
+    try:
+        return max(0, int(games or 0))
+    except (TypeError, ValueError):
+        return 0
+
+
+def _official_mlb_scheduled_games(target_date: str) -> int:
+    dated = _read_json(REPO_ROOT / "data" / "model_cache" / f"{target_date}.json")
+    latest = _read_json(REPO_ROOT / "data" / "model_cache" / "latest.json")
+    payload = dated if str(dated.get("date") or "") == target_date else latest
+    if str(payload.get("date") or "") != target_date:
+        return 0
+    models = payload.get("models") if isinstance(payload.get("models"), dict) else {}
+    return max(
+        (_scheduled_game_count(models.get(key)) for key in ("mlb_new", "mlb_inning", "mlb_first_five")),
+        default=0,
+    )
+
+
+def _publication_contract_errors(models: dict[str, Any], *, official_mlb_games: int) -> list[str]:
+    errors: list[str] = []
+    for model_name in sorted(PUBLIC_PLAYER_PROP_MODEL_KEYS):
+        model = models.get(model_name)
+        if not isinstance(model, dict):
+            errors.append(f"required bucket {model_name} is missing")
+            continue
+        if model.get("ok") is not True:
+            errors.append(f"required bucket {model_name} is not ok")
+    mlb = models.get("mlb_player_props") if isinstance(models.get("mlb_player_props"), dict) else {}
+    scheduled_games = max(_scheduled_game_count(mlb), official_mlb_games)
+    if scheduled_games > 0 and not (mlb.get("picks") or []):
+        errors.append(f"scheduled MLB games ({scheduled_games}) have zero published picks")
+    return errors
+
+
 def main() -> int:
     args = _parse_args()
     target_date = _target_date(args.date)
@@ -67,17 +116,23 @@ def main() -> int:
     files = sorted(path.name for path in output_dir.glob("20??-??-??.json"))
     _write_json(output_dir / "index.json", {"files": files})
 
-    failed = False
+    contract_errors = _publication_contract_errors(
+        payload["models"],
+        official_mlb_games=_official_mlb_scheduled_games(target_date),
+    )
     for model_name, model in payload["models"].items():
+        if not isinstance(model, dict):
+            continue
         picks = model.get("picks") or []
         ok = bool(model.get("ok"))
-        failed = failed or not ok
         print(f"[player-props] {model_name}: {'ok' if ok else 'error'} ({len(picks)} pick(s))")
         for error in model.get("errors") or []:
             print(f"[player-props] {model_name} warning: {error}")
+    for error in contract_errors:
+        print(f"[player-props] publication contract error: {error}")
     print(f"[player-props] wrote {output_dir / f'{target_date}.json'}")
     print(f"[player-props] wrote {output_dir / 'latest.json'}")
-    return 1 if failed else 0
+    return 1 if contract_errors else 0
 
 
 if __name__ == "__main__":

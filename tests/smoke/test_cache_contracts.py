@@ -44,7 +44,7 @@ def test_committed_cache_ids_are_unique_within_each_date():
             assert not duplicates, f"{cache_dir.name}/{path.name} duplicate ids for {date}: {duplicates[:5]}"
 
 
-def test_latest_player_props_cache_contains_snapshot_market_union():
+def test_latest_player_props_cache_is_preserved_in_snapshot_archive():
     latest = _read_json(ROOT / "data" / "player_props_cache" / "latest.json")
     latest_date = str(latest.get("date") or "")
 
@@ -54,7 +54,9 @@ def test_latest_player_props_cache_contains_snapshot_market_union():
 
     if not snapshot_keys:
         return
-    assert not (snapshot_keys - latest_keys)
+    # Snapshots are the immutable reliability archive. The latest board is a capped,
+    # EV-ranked public subset and must not be forced to carry every prior snapshot row.
+    assert not (latest_keys - snapshot_keys)
 
 
 def test_latest_player_prop_records_use_one_bucket_per_sport():

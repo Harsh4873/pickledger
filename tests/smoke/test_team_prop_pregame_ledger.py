@@ -11,7 +11,12 @@ from scripts.team_prop_pregame_ledger import (
 )
 
 
-def _payload(*, probability: float = 0.62, pricing_type: str = "market") -> dict:
+def _payload(
+    *,
+    probability: float = 0.62,
+    pricing_type: str = "market",
+    decision: str = "BET",
+) -> dict:
     assumed = pricing_type != "market"
     pick = {
         "source": "MLB Model",
@@ -26,7 +31,7 @@ def _payload(*, probability: float = 0.62, pricing_type: str = "market") -> dict
         "team": "Home",
         "pick": "Home ML (Away @ Home)",
         "probability": probability,
-        "decision": "BET",
+        "decision": decision,
         "units": 1.0,
         "odds": -110,
         "market_pick_prob": 0.52381,
@@ -76,6 +81,17 @@ def test_capture_certifies_first_publication_and_appends_material_revision(tmp_p
     assert [item["revision"] for item in records] == [1, 2]
     assert records[1]["supersedes_id"] == records[0]["id"]
     assert records[0]["snapshot_hash"] != records[1]["snapshot_hash"]
+
+
+def test_capture_leaves_pass_only_in_raw_team_cache_diagnostics(tmp_path):
+    payload = _payload(decision="PASS")
+    assert stamp_team_prop_pregame_timing(payload) == 1
+
+    summary = capture_team_prop_pregame_snapshots(payload, repo_root=tmp_path)
+
+    assert summary == {"added": 0, "unchanged": 0, "team_picks": 0}
+    assert payload["models"]["mlb_new"]["picks"][0]["decision"] == "PASS"
+    assert load_team_prop_pregame_ledger(tmp_path)["records"] == []
 
 
 def test_assumed_and_untrusted_rows_never_become_financial_or_calibration_evidence(tmp_path):

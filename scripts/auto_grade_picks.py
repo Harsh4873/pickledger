@@ -158,7 +158,7 @@ def _certified_team_prop_record(record: Any) -> bool:
 
 
 def _pending_certified_team_prop_candidate(record: dict[str, Any]) -> tuple[str, dict[str, Any]] | None:
-    """Build an immutable-snapshot grading candidate for a certified ledger record."""
+    """Build a BET/LEAN grading candidate for a certified ledger record."""
     if not _certified_team_prop_record(record):
         return None
     if str(record.get("result") or "pending").strip().lower() != "pending":
@@ -170,9 +170,19 @@ def _pending_certified_team_prop_candidate(record: dict[str, Any]) -> tuple[str,
     if not isinstance(snapshot, dict):
         return None
 
-    decision = str(snapshot.get("decision") or record.get("decision") or "").strip().upper()
-    if decision not in {"BET", "LEAN", "PASS"}:
+    decision_markers = {
+        str(value).strip().upper()
+        for value in (record.get("decision"), record.get("raw_decision"), snapshot.get("decision"))
+        if str(value or "").strip()
+    }
+    # Historical ledgers may already contain PASS snapshots (including a
+    # calibrated PASS whose raw snapshot still says BET). Never send any such
+    # row to the grader: only actual BET/LEAN publications are tracked picks.
+    if not decision_markers or "PASS" in decision_markers or not decision_markers <= {"BET", "LEAN"}:
         return None
+    decision = str(
+        record.get("decision") or snapshot.get("decision") or record.get("raw_decision") or ""
+    ).strip().upper()
 
     record_id = str(record.get("id") or record.get("snapshot_id") or "").strip()
     if not record_id:
@@ -208,11 +218,11 @@ def _pending_certified_team_prop_candidate(record: dict[str, Any]) -> tuple[str,
 
 
 def grade_certified_team_prop_snapshots(repo_root: Path = REPO_ROOT) -> dict[str, Any]:
-    """Grade certified team-prop snapshots, including intentional PASS forecasts.
+    """Grade certified BET/LEAN team-prop snapshots.
 
     This is intentionally separate from ``grade_payload``: existing cache files
     keep their historical BET/LEAN-only grading contract, while the immutable
-    ledger supplies the explicit certification required for PASS evaluation.
+    ledger supplies the explicit pregame certification required for grading.
     """
     storage = _team_prop_ledger_storage()
     if storage is None:

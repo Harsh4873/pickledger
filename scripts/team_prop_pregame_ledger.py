@@ -41,6 +41,7 @@ TEAM_PROP_MODEL_KEYS = {
     "fifa_world_cup",
 }
 FIFA_MODEL_KEYS = {"fifa_world_cup"}
+TRACKED_TEAM_DECISIONS = {"BET", "LEAN"}
 
 _TIMESTAMP_FIELDS = (
     "game_start_time",
@@ -274,6 +275,14 @@ def _pregame_snapshot(pick: Mapping[str, Any]) -> dict[str, Any]:
         for key, value in pick.items()
         if key not in _SNAPSHOT_EXCLUDED_FIELDS and key != TIMING_FIELD
     }
+
+
+def _tracked_team_decision(pick: Mapping[str, Any]) -> str:
+    """Return the current tracked decision, falling back to the raw snapshot."""
+
+    snapshot = pick.get("pregame_snapshot")
+    snapshot = snapshot if isinstance(snapshot, Mapping) else {}
+    return _text(_first_value(pick.get("decision"), snapshot.get("decision"))).upper()
 
 
 def _feature_context(pick: Mapping[str, Any], game: Mapping[str, Any]) -> tuple[dict[str, Any], str]:
@@ -642,6 +651,11 @@ def capture_team_prop_pregame_snapshots(
         picks = bucket.get("picks") if isinstance(bucket.get("picks"), list) else []
         for pick in picks:
             if not isinstance(pick, dict):
+                continue
+            # PASS rows remain in the raw model cache for diagnostics, but they
+            # were never tracked wagers and therefore cannot enter the
+            # certified snapshot/grading/calibration pipeline.
+            if _tracked_team_decision(pick) not in TRACKED_TEAM_DECISIONS:
                 continue
             team_picks += 1
             record = _snapshot_record(

@@ -8,6 +8,10 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
+import pytest
+
+from scripts.site_upcheck import _missing_ml_player_prop_fields
+
 
 ROOT = Path(__file__).resolve().parents[2]
 MODEL_KEYS = {
@@ -31,6 +35,27 @@ SCORES24_KEYS = {"scores24_fifa_world_cup", "scores24_mlb", "scores24_wnba"}
 def _write_json(path: Path, payload: dict) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(payload), encoding="utf-8")
+
+
+def _market_priced_ml_prop(date: str, sport: str) -> dict:
+    return {
+        "date": date,
+        "scope": "player",
+        "sport": sport,
+        "pick": f"Test {sport} player prop",
+        "decision": "PASS",
+        "market_priced": True,
+        "odds": -110,
+        "odds_source": "posted_market",
+        "probability_source": "player_props_ml_v1",
+        "ml_probability": 0.61,
+        "ml_edge": 0.07,
+        "ml_expected_value": 0.11,
+        "ml_model_version": "player_props_ml_v1.1.0",
+        "ml_market_family": "hits" if sport == "MLB" else "points",
+        "ml_rank": 1,
+        "baseline_projection": 2.4,
+    }
 
 
 def _upcheck_repo(tmp_path: Path, date: str) -> Path:
@@ -114,6 +139,129 @@ def test_data_only_readiness_passes_without_build_or_cannon(tmp_path: Path):
     assert "daily data is ready" in result.stdout
     assert not (tmp_path / "dist").exists()
     assert "Cannon" not in result.stdout
+
+
+def test_data_only_readiness_allows_truly_empty_mlb_player_prop_slate(tmp_path: Path):
+    today = datetime.now(ZoneInfo("America/Chicago")).strftime("%Y-%m-%d")
+    script = _upcheck_repo(tmp_path, today)
+    cache_path = tmp_path / "data" / "player_props_cache" / "latest.json"
+    payload = json.loads(cache_path.read_text(encoding="utf-8"))
+    payload["models"]["mlb_player_props"].update({"games": 0, "picks": [], "abstained": True})
+    _write_json(cache_path, payload)
+
+    result = subprocess.run(
+        [sys.executable, str(script), "--data-only"],
+        cwd=tmp_path,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0
+    assert "daily data is ready" in result.stdout
+
+
+def test_data_only_readiness_rejects_zero_mlb_props_when_official_games_exist(tmp_path: Path):
+    today = datetime.now(ZoneInfo("America/Chicago")).strftime("%Y-%m-%d")
+    yesterday = (datetime.now(ZoneInfo("America/Chicago")) - timedelta(days=1)).strftime("%Y-%m-%d")
+    script = _upcheck_repo(tmp_path, today)
+    cache_path = tmp_path / "data" / "player_props_cache" / "latest.json"
+    payload = json.loads(cache_path.read_text(encoding="utf-8"))
+    payload["models"]["mlb_player_props"].update(
+        {"ok": False, "date": yesterday, "games": 1, "picks": [], "abstained": True}
+    )
+    _write_json(cache_path, payload)
+
+    result = subprocess.run(
+        [sys.executable, str(script), "--data-only"],
+        cwd=tmp_path,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 1
+    assert "mlb_player_props has scheduled games but zero picks" in result.stdout
+
+
+def test_data_only_readiness_uses_independent_mlb_team_slate(tmp_path: Path):
+    today = datetime.now(ZoneInfo("America/Chicago")).strftime("%Y-%m-%d")
+    script = _upcheck_repo(tmp_path, today)
+    model_path = tmp_path / "data" / "model_cache" / "latest.json"
+    model_payload = json.loads(model_path.read_text(encoding="utf-8"))
+    model_payload["models"]["mlb_inning"]["games"] = [{"game_id": "all-star"}]
+    _write_json(model_path, model_payload)
+    props_path = tmp_path / "data" / "player_props_cache" / "latest.json"
+    props_payload = json.loads(props_path.read_text(encoding="utf-8"))
+    props_payload["models"]["mlb_player_props"].update({"games": 0, "picks": [], "abstained": True})
+    _write_json(props_path, props_payload)
+
+    result = subprocess.run(
+        [sys.executable, str(script), "--data-only"],
+        cwd=tmp_path,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 1
+    assert "mlb_player_props has scheduled games but zero picks" in result.stdout
+
+
+@pytest.mark.parametrize(
+    "field",
+    [
+        "scope",
+        "market_priced",
+        "odds",
+        "odds_source",
+        "probability_source",
+        "ml_probability",
+        "ml_edge",
+        "ml_expected_value",
+        "ml_model_version",
+        "ml_market_family",
+        "ml_rank",
+        "baseline_projection",
+    ],
+)
+def test_market_priced_ml_prop_schema_requires_every_field(field: str):
+    prop = _market_priced_ml_prop("2026-07-14", "MLB")
+    assert _missing_ml_player_prop_fields(prop) == []
+
+    prop.pop(field)
+
+    assert field in _missing_ml_player_prop_fields(prop)
+
+
+@pytest.mark.parametrize(("bucket_key", "sport"), [("mlb_player_props", "MLB"), ("wnba_player_props", "WNBA")])
+@pytest.mark.parametrize("missing_field", ["baseline_projection", "market_priced", "odds_source", "scope"])
+def test_data_only_readiness_rejects_incomplete_market_priced_ml_schema(
+    tmp_path: Path,
+    bucket_key: str,
+    sport: str,
+    missing_field: str,
+):
+    today = datetime.now(ZoneInfo("America/Chicago")).strftime("%Y-%m-%d")
+    script = _upcheck_repo(tmp_path, today)
+    cache_path = tmp_path / "data" / "player_props_cache" / "latest.json"
+    payload = json.loads(cache_path.read_text(encoding="utf-8"))
+    prop = _market_priced_ml_prop(today, sport)
+    prop.pop(missing_field)
+    payload["models"][bucket_key].update({"games": 1, "picks": [prop]})
+    _write_json(cache_path, payload)
+
+    result = subprocess.run(
+        [sys.executable, str(script), "--data-only"],
+        cwd=tmp_path,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 1
+    assert f"{bucket_key} published pick 1" in result.stdout
+    assert missing_field in result.stdout
 
 
 def test_data_only_readiness_defers_stale_daily_data(tmp_path: Path):
@@ -305,10 +453,11 @@ def test_upcheck_reports_raw_and_visible_pick_counts(tmp_path: Path):
 
     props_payload_path = tmp_path / "data" / "player_props_cache" / "latest.json"
     props_payload = json.loads(props_payload_path.read_text(encoding="utf-8"))
-    props_payload["models"]["mlb_player_props"]["picks"] = [
-        {"date": today, "scope": "player", "sport": "MLB", "pick": "Visible pass", "decision": "PASS"},
-        {"date": today, "scope": "team", "sport": "MLB", "pick": "Hidden wrong scope", "decision": "BET"},
-    ]
+    visible_pass = _market_priced_ml_prop(today, "MLB")
+    visible_pass["pick"] = "Visible pass"
+    hidden_unknown = _market_priced_ml_prop(today, "MLB")
+    hidden_unknown.update({"pick": "Hidden unknown", "decision": "UNKNOWN", "ml_rank": 2})
+    props_payload["models"]["mlb_player_props"]["picks"] = [visible_pass, hidden_unknown]
     _write_json(props_payload_path, props_payload)
     _write_json(tmp_path / "data" / "player_props_cache" / f"{today}.json", props_payload)
 

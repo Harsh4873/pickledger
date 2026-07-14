@@ -14,7 +14,7 @@ def test_nba_summer_has_an_official_grading_scoreboard_mapping():
     )
 
 
-def test_certified_snapshot_grader_includes_pass_without_changing_legacy_cache(monkeypatch, tmp_path):
+def test_certified_snapshot_grader_never_grades_existing_pass_rows(monkeypatch, tmp_path):
     import scripts.auto_grade_picks as auto_grade_picks
 
     snapshot = {
@@ -22,21 +22,32 @@ def test_certified_snapshot_grader_includes_pass_without_changing_legacy_cache(m
         "sport": "NBA SUMMER",
         "pick": "Utah Jazz ML (Oklahoma City Thunder @ Utah Jazz)",
         "matchup": "Oklahoma City Thunder @ Utah Jazz",
-        "decision": "PASS",
+        "decision": "BET",
     }
     ledger = {
         "records": [
             {
                 "id": "certified-pass",
                 "result": "pending",
+                "decision": "PASS",
                 "certification": {"status": "certified"},
-                "pregame_snapshot": copy.deepcopy(snapshot),
+                "pregame_snapshot": {**snapshot, "decision": "PASS"},
             },
             {
-                "id": "uncertified-pass",
+                "id": "calibrated-pass",
                 "result": "pending",
-                "certification": {"status": "draft"},
-                "pregame_snapshot": {**snapshot, "pick": "Draft PASS"},
+                "decision": "PASS",
+                "raw_decision": "BET",
+                "certification": {"status": "certified"},
+                "pregame_snapshot": {**snapshot, "pick": "Raw BET downgraded to PASS"},
+            },
+            {
+                "id": "certified-bet",
+                "result": "pending",
+                "decision": "BET",
+                "raw_decision": "BET",
+                "certification": {"status": "certified"},
+                "pregame_snapshot": copy.deepcopy(snapshot),
             },
         ]
     }
@@ -61,8 +72,8 @@ def test_certified_snapshot_grader_includes_pass_without_changing_legacy_cache(m
     def auto_grade(candidates, _existing, _year):
         captured.extend(copy.deepcopy(candidates))
         return {
-            "graded": {"certified-pass": "win"},
-            "startTimes": {"certified-pass": "2026-07-09T23:00:00Z"},
+            "graded": {"certified-bet": "win"},
+            "startTimes": {"certified-bet": "2026-07-09T23:00:00Z"},
         }
 
     monkeypatch.setattr(auto_grade_picks.pickgrader_server, "auto_grade", auto_grade)
@@ -76,13 +87,17 @@ def test_certified_snapshot_grader_includes_pass_without_changing_legacy_cache(m
         "start_times": 1,
         "changed": True,
     }
-    assert captured == [{**snapshot, "id": "certified-pass", "result": "pending"}]
-    assert ledger["records"][0]["result"] == "win"
-    assert ledger["records"][0]["start_time"] == "2026-07-09T23:00:00Z"
-    assert ledger["records"][0]["game_start_time"] == "2026-07-09T23:00:00Z"
-    assert ledger["records"][0]["pregame_snapshot"] == snapshot
+    assert captured == [{**snapshot, "id": "certified-bet", "result": "pending"}]
+    assert ledger["records"][0]["result"] == "pending"
+    assert ledger["records"][1]["result"] == "pending"
+    assert ledger["records"][2]["result"] == "win"
+    assert ledger["records"][2]["start_time"] == "2026-07-09T23:00:00Z"
+    assert ledger["records"][2]["game_start_time"] == "2026-07-09T23:00:00Z"
+    assert ledger["records"][2]["pregame_snapshot"] == snapshot
     assert len(writes) == 1
 
-    legacy_payload = {"models": {"nba_summer": {"picks": [{**snapshot, "result": "pending"}]}}}
+    legacy_payload = {
+        "models": {"nba_summer": {"picks": [{**snapshot, "decision": "PASS", "result": "pending"}]}}
+    }
     assert auto_grade_picks.grade_payload(legacy_payload) == 0
     assert legacy_payload["models"]["nba_summer"]["picks"][0]["result"] == "pending"

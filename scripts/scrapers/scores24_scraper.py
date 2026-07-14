@@ -775,17 +775,37 @@ def _clean_pick(tip: str, matchup: dict[str, str]) -> str:
     return f"{market} ({matchup['away']} @ {matchup['home']})"
 
 
+def _team_market_selection(pick: str) -> str:
+    selection = re.sub(
+        r"\s+\([^()]*(?:@|vs\.?)\s+[^()]*\)\s*$",
+        "",
+        str(pick or "").strip(),
+        flags=re.IGNORECASE,
+    ).strip()
+    return re.sub(r"(?<=\d),(?=\d)", ".", selection)
+
+
 def _soccer_market_metadata(pick: str) -> dict[str, Any]:
-    selection = pick.split("(", 1)[0].strip()
+    selection = _team_market_selection(pick)
     lower = selection.lower()
-    asian = re.search(r"\basian\s+(?:hcp|handicap)\s*([+-]\d+(?:\.\d+)?)", lower)
-    spread = asian or re.fullmatch(r".+?\s+([+-]\d+(?:\.\d+)?)", selection)
-    if asian:
-        return {"market_type": "soccer_asian_handicap", "grade_supported": False}
+    named_handicap = re.fullmatch(
+        r".+?\s+(?:asian\s+)?(?:hcp|handicap)\s*\(\s*([+-]?\d+(?:\.\d+)?)\s*\)",
+        selection,
+        flags=re.IGNORECASE,
+    )
+    asian = re.search(r"\basian\s+(?:hcp|handicap)\s*([+-]?\d+(?:\.\d+)?)", lower)
+    if named_handicap or asian:
+        line_match = named_handicap or asian
+        return {
+            "market_type": "soccer_asian_handicap",
+            "line": float(line_match.group(1)),
+            "grade_supported": False,
+        }
+    spread = re.fullmatch(r".+?\s+([+-]\d+(?:\.\d+)?)", selection)
     if spread:
         line = float(spread.group(1))
         quarter_line = abs((line * 4) - round(line * 4)) < 1e-9 and abs((line * 2) - round(line * 2)) > 1e-9
-        return {"market_type": "soccer_handicap", "grade_supported": not quarter_line}
+        return {"market_type": "soccer_handicap", "line": line, "grade_supported": not quarter_line}
     if re.fullmatch(r"(?:over|under)\s+\d+(?:\.\d+)?", lower):
         return {"market_type": "soccer_total", "grade_supported": True}
     if re.fullmatch(r".+?\s+(?:ml|moneyline|to win|wins?)", lower):

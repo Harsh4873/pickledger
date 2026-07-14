@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
@@ -49,6 +50,10 @@ SPLIT_PROVIDER_MODEL_KEYS = {
         "sportsgambler_fifa_world_cup",
     ),
 }
+
+
+def _runtime_origin() -> str:
+    return "github-actions" if os.environ.get("GITHUB_ACTIONS", "").strip().lower() == "true" else "local"
 
 
 def _parse_args() -> argparse.Namespace:
@@ -119,13 +124,14 @@ def _normalize_feed_result(
     normalized["date"] = str(normalized.get("date") or date_iso)
     normalized["updatedAt"] = now_iso
     normalized["generatedAt"] = now_iso
-    normalized["generatedBy"] = "github-actions:external-feed-refresh"
+    origin = _runtime_origin()
+    normalized["generatedBy"] = f"{origin}:external-feed-refresh"
     normalized["picks"] = picks
     normalized["meta"] = {
         **meta,
         "updatedAt": now_iso,
         "date": date_iso,
-        "from": "github-actions",
+        "from": origin,
         "leagues": ",".join(sports),
         "feed": feed_key,
     }
@@ -143,18 +149,19 @@ def _empty_split_bucket(
     now_iso: str,
 ) -> dict[str, Any]:
     meta = result.get("meta") if isinstance(result.get("meta"), dict) else {}
+    origin = _runtime_origin()
     return {
         **result,
         "picks": [],
         "date": str(result.get("date") or date_iso),
         "updatedAt": now_iso,
         "generatedAt": now_iso,
-        "generatedBy": "github-actions:external-feed-refresh",
+        "generatedBy": f"{origin}:external-feed-refresh",
         "meta": {
             **meta,
             "updatedAt": now_iso,
             "date": date_iso,
-            "from": "github-actions",
+            "from": origin,
             "leagues": ",".join(sports),
             "feed": split_key,
             "provider": feed_key,

@@ -360,7 +360,11 @@ def test_soccer_consensus_keeps_lines_and_specialty_markets_distinct():
     main = (ROOT / "src" / "main.ts").read_text(encoding="utf-8")
     signals = main[main.index("function canonicalTrendSignal("):main.index("function trendSignalGroups(")]
     assert "asian-handicap" in signals
-    assert "spread:${canonicalTeamForPick(pick, spread[1])}:${spread[2]}" in signals
+    assert "function canonicalTrendLine(" in main
+    assert "canonicalTrendLine(namedHandicap[3])" in signals
+    assert "canonicalTrendLine(asian[2])" in signals
+    assert "spread:${canonicalTeamForPick(pick, spread[1])}:${canonicalTrendLine(spread[2])}" in signals
+    assert "(?:[.,]\\d+)?" in signals
     assert "total:${total[1].toLowerCase()}:${total[2]}" in signals
     assert "(?:ML|moneyline|to win|wins?)$/i" in signals
 
@@ -689,10 +693,20 @@ def test_refresh_timing_and_pages_deploy_are_deterministic():
     assert 'CACHE_HEALTHY="$(python - <<\'PY\'' in guard
     assert 'models[key].get("ok") is True for key in required' in guard
     assert 'PLAYER_CACHE_HEALTHY="$(python - <<\'PY\'' in guard
+    assert '"nba_player_props"' in guard
     assert '"mlb_player_props"' in guard
     assert '"wnba_player_props"' in guard
-    assert 'key in required' in guard
-    assert 'int(bucket.get("games") or 0) > 0 and not (bucket.get("picks") or [])' in guard
+    assert 'official_mlb_games = max(' in guard
+    assert 'str(pick.get("probability_source") or "").strip() != "player_props_ml_v1"' in guard
+    assert 'pick.get("preserved_from_prior_refresh")' in guard
+    assert 'key == "mlb_player_props" or bucket.get("abstained") is not True' in guard
+    assert 'DISPATCHES_TODAY="$(gh run list' in guard
+    assert '--json createdAt,displayTitle,event' in guard
+    assert '"Player Props Refresh $TARGET_DATE"' in guard
+    assert 'morning automation owns any bounded post-fix rerun' in guard
+    assert "run-name: Player Props Refresh ${{ github.event.inputs.date || 'today' }}" in props
+    assert "continue-on-error: true" in props
+    assert "Enforce player-props publication contract" in props
 
 
 def test_refresh_workflows_commit_as_triggering_actor():
@@ -1062,7 +1076,7 @@ def test_player_prop_merge_does_not_carry_results_across_rank_epochs(tmp_path):
     assert merged["models"]["mlb_player_props"]["picks"][0]["result"] == "pending"
 
 
-def test_player_prop_merge_preserves_same_day_snapshot_props_in_latest_board(tmp_path):
+def test_player_prop_merge_keeps_snapshot_only_props_out_of_latest_board(tmp_path):
     module = _load_module("merge_player_props_cache_payload_current_board", ROOT / "scripts" / "merge_player_props_cache_payload.py")
     cache_dir = tmp_path / "data" / "player_props_cache"
     snapshot_dir = tmp_path / "data" / "player_props_snapshots"
@@ -1136,13 +1150,13 @@ def test_player_prop_merge_preserves_same_day_snapshot_props_in_latest_board(tmp
     merged = module.merge_payload(generated, cache_dir, snapshot_dir)
     picks = merged["models"]["mlb_player_props"]["picks"]
 
-    assert {pick["id"] for pick in picks} == {"new", "old"}
+    assert {pick["id"] for pick in picks} == {"new"}
     assert {pick["source"] for pick in picks} == {"MLBPlayerProps"}
     assert {pick["model_key"] for pick in picks} == {"mlb_player_props"}
     assert all("carried_forward" not in pick for pick in picks)
 
 
-def test_player_prop_merge_migrates_legacy_variant_snapshots_into_sport_bucket(tmp_path):
+def test_player_prop_merge_keeps_legacy_variant_snapshots_archive_only(tmp_path):
     module = _load_module("merge_player_props_cache_payload_legacy_variants", ROOT / "scripts" / "merge_player_props_cache_payload.py")
     cache_dir = tmp_path / "data" / "player_props_cache"
     snapshot_dir = tmp_path / "data" / "player_props_snapshots"
@@ -1196,12 +1210,7 @@ def test_player_prop_merge_migrates_legacy_variant_snapshots_into_sport_bucket(t
     merged = module.merge_payload(generated, cache_dir, snapshot_dir)
     picks = merged["models"]["wnba_player_props"]["picks"]
 
-    assert len(picks) == 1
-    assert picks[0]["id"] == "pp_michaela_consensus"
-    assert picks[0]["source"] == "WNBAPlayerProps"
-    assert picks[0]["model_key"] == "wnba_player_props"
-    assert picks[0]["supporting_variant"] == "all_time"
-    assert picks[0]["ml_rank_epoch"] == "WNBA:player_props_consensus_v2.0.0:published:test"
+    assert picks == []
 
 
 def test_external_feed_merge_does_not_promote_partial_cache_to_latest(tmp_path):

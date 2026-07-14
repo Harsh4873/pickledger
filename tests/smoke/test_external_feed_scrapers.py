@@ -71,6 +71,32 @@ def test_sportytrader_fifa_world_cup_config_and_known_matchup_alias():
     assert rows[0]["tip"] == "Turkey to Win & Under 3.5 Goals"
 
 
+def test_provider_scraper_clis_require_an_official_matchup_whitelist(monkeypatch):
+    modules = (
+        _load_module(
+            "sportytrader_cli_whitelist_test",
+            ROOT / "scripts" / "scrapers" / "sportytrader_scraper.py",
+        ),
+        _load_module(
+            "sportsgambler_cli_whitelist_test",
+            ROOT / "scripts" / "scrapers" / "sportsgambler_scraper.py",
+        ),
+    )
+
+    for module in modules:
+        monkeypatch.setattr(
+            module.sys,
+            "argv",
+            ["scraper", "--sport", "wnba", "--date", "2026-06-29"],
+        )
+        try:
+            module.main()
+        except SystemExit as exc:
+            assert exc.code == 1
+        else:
+            raise AssertionError("provider CLI must reject an empty official matchup whitelist")
+
+
 def test_sportsgambler_wnba_listing_and_detail(monkeypatch):
     module = _load_module(
         "sportsgambler_scraper_test",
@@ -168,7 +194,7 @@ def test_sportsgambler_rejects_partial_basketball_feed(monkeypatch):
     )
 
     try:
-        module.scrape_wnba(date(2026, 6, 11))
+        module.scrape_wnba(date(2026, 6, 11), ["Example Away @ Example Home"])
     except RuntimeError as exc:
         assert "partial WNBA scrape: parsed 0 of 1" in str(exc)
     else:
@@ -345,6 +371,89 @@ def test_server_passes_known_matchups_to_sportsgambler(monkeypatch):
     assert result["picks"][0]["source"] == "SportsGamblerWNBA"
 
 
+def test_external_provider_scrapers_return_confirmed_zero_slate_without_launching(monkeypatch):
+    import pickgrader_server as server
+
+    monkeypatch.setattr(server, "_known_external_slate_matchups", lambda *_args: [])
+    monkeypatch.setattr(server, "_espn_event_count_for_date", lambda *_args: 0)
+    monkeypatch.setattr(
+        server,
+        "_subprocess_run",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(AssertionError("provider scraper must not run")),
+    )
+    monkeypatch.setattr(server, "_save_admin_picks_doc", lambda *_args, **_kwargs: None)
+
+    for runner in (server.run_sportytrader_scraper, server.run_sportsgambler_scraper):
+        result = runner("2026-06-29", ["wnba"])
+        assert result["ok"] is True
+        assert result["picks"] == []
+        assert result["meta"]["zeroSlateSports"] == ["wnba"]
+        assert result["meta"]["officialMatchupCounts"] == {}
+        assert result["note"] == "No official matchups for selected sports on 2026-06-29."
+
+
+def test_external_provider_scrapers_fail_closed_when_official_slate_is_unresolved(monkeypatch):
+    import pickgrader_server as server
+
+    monkeypatch.setattr(server, "_known_external_slate_matchups", lambda *_args: [])
+    monkeypatch.setattr(server, "_espn_event_count_for_date", lambda *_args: None)
+    monkeypatch.setattr(
+        server,
+        "_subprocess_run",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(AssertionError("provider scraper must not run")),
+    )
+
+    for runner in (server.run_sportytrader_scraper, server.run_sportsgambler_scraper):
+        result = runner("2026-06-29", ["wnba"])
+        assert result["ok"] is False
+        assert result["picks"] == []
+        assert "could not resolve an official 2026-06-29 slate" in result["error"]
+        assert "no provider scraper was run" in result["error"]
+
+
+def test_external_slate_whitelists_preserve_every_supported_nonempty_sport(monkeypatch):
+    import pickgrader_server as server
+
+    matchups = {
+        "nba": ["Boston Celtics @ New York Knicks"],
+        "wnba": ["Chicago Sky @ Indiana Fever"],
+        "mlb": ["St. Louis Cardinals @ Chicago Cubs"],
+        "fifa_world_cup": ["Switzerland @ Qatar"],
+    }
+    monkeypatch.setattr(server, "_known_external_slate_matchups", lambda _date, sport: matchups[sport])
+    monkeypatch.setattr(
+        server,
+        "_espn_event_count_for_date",
+        lambda *_args: (_ for _ in ()).throw(AssertionError("nonempty slates need no fallback check")),
+    )
+
+    expected, zero_slate_sports, errors = server._external_feed_slate_whitelists(
+        "2026-06-13",
+        list(matchups),
+    )
+    assert expected == matchups
+    assert zero_slate_sports == []
+    assert errors == []
+
+
+def test_external_slate_whitelist_reports_official_events_it_cannot_resolve(monkeypatch):
+    import pickgrader_server as server
+
+    monkeypatch.setattr(server, "_known_external_slate_matchups", lambda *_args: [])
+    monkeypatch.setattr(server, "_espn_event_count_for_date", lambda *_args: 2)
+
+    expected, zero_slate_sports, errors = server._external_feed_slate_whitelists(
+        "2026-06-13",
+        ["fifa_world_cup"],
+    )
+    assert expected == {}
+    assert zero_slate_sports == []
+    assert errors == [
+        "fifa_world_cup: official 2026-06-13 slate reports 2 event(s), "
+        "but no matchup whitelist could be resolved; no provider scraper was run"
+    ]
+
+
 def test_server_preserves_fifa_asian_handicap_without_auto_grading(monkeypatch):
     import pickgrader_server as server
 
@@ -380,8 +489,29 @@ def test_server_preserves_fifa_asian_handicap_without_auto_grading(monkeypatch):
     assert result["picks"][0]["source"] == "SportsGamblerFIFAWorldCup"
     assert result["picks"][0]["pick"] == "Switzerland Asian Hcp -1.75 (Qatar vs Switzerland)"
     assert result["picks"][0]["market_type"] == "soccer_asian_handicap"
+    assert result["picks"][0]["line"] == -1.75
     assert result["picks"][0]["grade_supported"] is False
     assert result["picks"][0]["calibration_excluded"] is True
+
+
+def test_server_normalizes_parenthesized_comma_decimal_soccer_handicap_metadata():
+    import pickgrader_server as server
+
+    pick = {
+        "source": "Scores24FIFAWorldCup",
+        "sport": "FIFA WC",
+        "pick": "Senegal Handicap (-1,5) (Iraq @ Senegal)",
+        "decision": "BET",
+        "result": "win",
+    }
+
+    server.apply_external_pick_metadata(pick)
+
+    assert pick["pick"] == "Senegal Handicap (-1,5) (Iraq @ Senegal)"
+    assert pick["market_type"] == "soccer_asian_handicap"
+    assert pick["line"] == -1.5
+    assert pick["grade_supported"] is False
+    assert pick["result"] == "pending"
 
 
 def test_server_routes_external_player_prop_out_of_team_markets(monkeypatch):
@@ -503,6 +633,30 @@ def test_external_feed_refresh_splits_provider_buckets_by_sport():
     assert split["sportytrader_mlb"]["picks"][0]["source"] == "SportyTraderMLB"
     assert split["sportytrader_wnba"]["picks"][0]["source"] == "SportyTraderWNBA"
     assert split["sportytrader_fifa_world_cup"]["picks"][0]["source"] == "SportyTraderFIFAWorldCup"
+
+
+def test_external_feed_refresh_records_runtime_provenance(monkeypatch):
+    module = _load_module(
+        "refresh_external_feeds_provenance_test",
+        ROOT / "scripts" / "refresh_external_feeds.py",
+    )
+    args = (
+        "scores24_wnba",
+        {"ok": True, "date": "2026-07-14", "picks": []},
+        "2026-07-14",
+        ["wnba"],
+        "2026-07-14T13:00:00Z",
+    )
+
+    monkeypatch.delenv("GITHUB_ACTIONS", raising=False)
+    local = module._normalize_feed_result(*args)
+    assert local["generatedBy"] == "local:external-feed-refresh"
+    assert local["meta"]["from"] == "local"
+
+    monkeypatch.setenv("GITHUB_ACTIONS", "true")
+    actions = module._normalize_feed_result(*args)
+    assert actions["generatedBy"] == "github-actions:external-feed-refresh"
+    assert actions["meta"]["from"] == "github-actions"
 
 
 def test_known_fifa_slate_uses_in_house_cache_before_external_scrapers(monkeypatch, tmp_path):
@@ -726,6 +880,26 @@ def test_scores24_fifa_world_cup_keeps_specialty_market_ungraded():
     assert payload["market_type"] == "external_player_prop"
     assert payload["grade_supported"] is False
     assert payload["calibration_excluded"] is True
+
+
+def test_scores24_fifa_world_cup_preserves_comma_decimal_handicap_identity():
+    module = _load_module(
+        "scores24_fifa_handicap_test",
+        ROOT / "scripts" / "scrapers" / "scores24_scraper.py",
+    )
+    payload = module._pick_payload(
+        module.SPORT_CONFIG["fifa_world_cup"],
+        "2026-06-26",
+        {"away": "Iraq", "home": "Senegal", "start_time": "2026-06-26T19:00:00Z"},
+        "https://scores24.live/en/soccer/senegal-iraq-prediction",
+        "Senegal Handicap (-1,5)",
+        -152,
+    )
+
+    assert payload["pick"] == "Senegal Handicap (-1,5) (Iraq @ Senegal)"
+    assert payload["market_type"] == "soccer_asian_handicap"
+    assert payload["line"] == -1.5
+    assert payload["grade_supported"] is False
 
 
 def test_scores24_fifa_world_cup_supports_czech_republic_alias():

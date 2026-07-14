@@ -71,6 +71,7 @@ jobs:
           from pathlib import Path
 
           required = {
+              "nba_player_props",
               "mlb_player_props",
               "wnba_player_props",
           }
@@ -79,12 +80,76 @@ jobs:
           except Exception:
               payload = {}
           models = payload.get("models") if isinstance(payload.get("models"), dict) else {}
+          team_models = {}
+          try:
+              team_payload = json.loads(Path("data/model_cache/latest.json").read_text(encoding="utf-8"))
+              team_models = team_payload.get("models") if isinstance(team_payload.get("models"), dict) else {}
+          except Exception:
+              team_models = {}
+
+          def scheduled_games(bucket):
+              games = bucket.get("games") if isinstance(bucket, dict) else 0
+              if isinstance(games, list):
+                  return len(games)
+              try:
+                  return max(0, int(games or 0))
+              except (TypeError, ValueError):
+                  return 0
+
+          official_mlb_games = max(
+              (scheduled_games(team_models.get(key)) for key in ("mlb_new", "mlb_inning", "mlb_first_five")),
+              default=0,
+          )
+          required_ml_fields = {
+              "ml_probability",
+              "ml_edge",
+              "ml_expected_value",
+              "ml_model_version",
+              "ml_market_family",
+              "ml_rank",
+              "baseline_projection",
+          }
+
+          def valid_ml_pick(pick):
+              if not isinstance(pick, dict):
+                  return False
+              if str(pick.get("scope") or "").strip().lower() != "player":
+                  return False
+              if pick.get("market_priced") is not True or pick.get("odds") in (None, ""):
+                  return False
+              if str(pick.get("odds_source") or "").strip() != "posted_market":
+                  return False
+              if str(pick.get("probability_source") or "").strip() != "player_props_ml_v1":
+                  return False
+              if any(field not in pick or pick.get(field) in (None, "") for field in required_ml_fields):
+                  return False
+              if pick.get("carried_forward") or pick.get("preserved_from_prior_refresh"):
+                  return False
+              if str(pick.get("decision") or "").strip().upper() in {"BET", "LEAN"}:
+                  mode = str(pick.get("ml_probability_mode") or "").strip()
+                  if not (
+                      pick.get("consensus_qualified") is True
+                      or pick.get("precision_qualified") is True
+                      or mode == "four_model_consensus_gate"
+                  ):
+                      return False
+              return True
+
           healthy = all(isinstance(models.get(key), dict) and models[key].get("ok") is True for key in required)
           for key in required:
               bucket = models.get(key) if isinstance(models.get(key), dict) else {}
-              if key in required:
-                  if int(bucket.get("games") or 0) > 0 and not (bucket.get("picks") or []) and bucket.get("abstained") is not True:
-                      healthy = False
+              picks = bucket.get("picks") or []
+              games = scheduled_games(bucket)
+              if key == "mlb_player_props":
+                  games = max(games, official_mlb_games)
+              if key in {"mlb_player_props", "wnba_player_props"} and any(
+                  not valid_ml_pick(pick) for pick in picks
+              ):
+                  healthy = False
+              if games > 0 and not picks and (
+                  key == "mlb_player_props" or bucket.get("abstained") is not True
+              ):
+                  healthy = False
           print("true" if healthy else "false")
           PY
           )"
@@ -130,6 +195,16 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           TARGET_DATE: ${{ steps.cache.outputs.target_date }}
         run: |
+          DAY_START_UTC="$(python - "$TARGET_DATE" <<'PY'
+          from datetime import date, datetime, time, timezone
+          import sys
+          from zoneinfo import ZoneInfo
+
+          target = date.fromisoformat(sys.argv[1])
+          start = datetime.combine(target, time.min, tzinfo=ZoneInfo("America/Chicago"))
+          print(start.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"))
+          PY
+          )"
           ACTIVE_RUNS="$(gh run list \
             --workflow player-props-refresh.yml \
             --branch main \
@@ -138,6 +213,22 @@ jobs:
             --jq '[.[] | select(.status == "queued" or .status == "in_progress" or .status == "waiting" or .status == "pending" or .status == "requested")] | length')"
           if [ "${ACTIVE_RUNS:-0}" -gt 0 ]; then
             echo "Player-props refresh already queued or running; not dispatching another one."
+            exit 0
+          fi
+          DISPATCHES_TODAY="$(gh run list \
+            --workflow player-props-refresh.yml \
+            --branch main \
+            --limit 100 \
+            --json createdAt,displayTitle,event | \
+            jq --arg cutoff "$DAY_START_UTC" \
+               --arg target_title "Player Props Refresh $TARGET_DATE" \
+              '[.[] | select(
+                .event == "workflow_dispatch"
+                and .createdAt >= $cutoff
+                and (.displayTitle == $target_title or .displayTitle == "Player Props Refresh today")
+              )] | length')"
+          if [ "${DISPATCHES_TODAY:-0}" -gt 0 ]; then
+            echo "A manual/guard player-props refresh already ran for ${TARGET_DATE}; the morning automation owns any bounded post-fix rerun."
             exit 0
           fi
           gh workflow run player-props-refresh.yml --ref main -f date="$TARGET_DATE"

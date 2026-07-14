@@ -285,6 +285,15 @@ def main() -> None:
     ap.add_argument("--expected-matchup", action="append", default=[])
     args = ap.parse_args()
 
+    expected_matchups = [
+        _normalize_line(matchup)
+        for matchup in args.expected_matchup
+        if _matchup_key(matchup)
+    ]
+    if not expected_matchups or len(expected_matchups) != len(args.expected_matchup):
+        print("Error: SportyTrader requires a valid official matchup whitelist.")
+        sys.exit(1)
+
     sport_key = _normalize_sport(args.sport or "")
     if not sport_key:
         print("Error: SportyTrader scraper supports NBA/basketball, WNBA, MLB/baseball, and FIFA World Cup/soccer.")
@@ -315,7 +324,7 @@ def main() -> None:
         sys.exit(1)
 
     try:
-        rows = _extract_rows(cards, target_date, sport_key, args.expected_matchup)
+        rows = _extract_rows(cards, target_date, sport_key, expected_matchups)
     except RuntimeError as exc:
         print(f"Error: {exc}")
         sys.exit(1)

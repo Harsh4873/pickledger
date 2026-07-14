@@ -24,6 +24,8 @@ PUBLIC_PLAYER_PROP_MODEL_KEYS = {
 }
 PICK_METADATA_FIELDS = {"result", "start_time", "game_start_time", "pregame_snapshot"}
 MARKET_METADATA_FIELDS = {"start_time", "game_start_time", "pregame_snapshot"}
+MAX_PUBLISHED_PROPS_PER_GAME = 8
+MAX_PUBLISHED_PROPS_PER_PLAYER = 1
 _CONSENSUS_MODELS: list[str] | None = None
 
 
@@ -104,6 +106,15 @@ def _market_key(pick: dict[str, Any]) -> tuple[str, ...]:
     )
 
 
+def _rank_epoch(pick: dict[str, Any]) -> str:
+    return str(
+        pick.get("ml_rank_epoch")
+        or pick.get("ranking_epoch")
+        or pick.get("model_epoch")
+        or ""
+    ).strip()
+
+
 def _sport_from_model_key(model_key: str) -> str:
     value = str(model_key or "").strip().lower()
     if value == "wnba_3pm":
@@ -117,20 +128,6 @@ def _sport_from_model_key(model_key: str) -> str:
     return ""
 
 
-def _sport_model_key(sport: str) -> str:
-    return f"{str(sport or '').strip().lower()}_player_props"
-
-
-def _sport_source(sport: str) -> str:
-    return f"{str(sport or '').strip().upper()}PlayerProps"
-
-
-def _model_source(model_key: str, sport: str) -> str:
-    if str(model_key or "").strip().lower() == "wnba_3pm":
-        return "WNBA3PM"
-    return _sport_source(sport)
-
-
 def _same_sport_model_bucket(model_key: str, bucket_key: str) -> bool:
     if "wnba_3pm" in {
         str(model_key or "").strip().lower(),
@@ -139,35 +136,6 @@ def _same_sport_model_bucket(model_key: str, bucket_key: str) -> bool:
         return str(model_key or "").strip().lower() == str(bucket_key or "").strip().lower()
     sport = _sport_from_model_key(model_key)
     return bool(sport and _sport_from_model_key(bucket_key) == sport)
-
-
-def _consensus_qualified_player_prop(pick: dict[str, Any]) -> bool:
-    mode = str(pick.get("ml_probability_mode") or "").strip()
-    return (
-        pick.get("consensus_qualified") is True
-        or pick.get("precision_qualified") is True
-        or mode == "four_model_consensus_gate"
-    )
-
-
-def _tracked_decision(pick: dict[str, Any]) -> bool:
-    return str(pick.get("decision") or "").strip().upper() in {"BET", "LEAN"}
-
-
-def _carry_forward_allowed(pick: Any, date_iso: str) -> bool:
-    if not isinstance(pick, dict):
-        return False
-    if str(pick.get("date") or "").strip() != date_iso:
-        return False
-    if str(pick.get("scope") or "").strip().lower() != "player":
-        return False
-    return bool(
-        pick.get("market_priced") is True
-        and str(pick.get("probability_source") or "").strip() == "player_props_ml_v1"
-        and str(pick.get("pick") or "").strip()
-        and _tracked_decision(pick)
-        and _consensus_qualified_player_prop(pick)
-    )
 
 
 def _snapshot_buckets(date_iso: str, model_key: str, snapshot_dir: Path) -> list[dict[str, Any]]:
@@ -179,13 +147,7 @@ def _snapshot_buckets(date_iso: str, model_key: str, snapshot_dir: Path) -> list
         models = snapshot.get("models") if isinstance(snapshot.get("models"), dict) else {}
         for bucket_key, bucket in models.items():
             if isinstance(bucket, dict) and _same_sport_model_bucket(model_key, str(bucket_key)):
-                count = sum(
-                    1
-                    for pick in bucket.get("picks") or []
-                    if _carry_forward_allowed(pick, date_iso)
-                )
-                if count:
-                    buckets.append(bucket)
+                buckets.append(bucket)
     return buckets
 
 
@@ -197,98 +159,79 @@ def _current_buckets(current_models: dict[str, Any], model_key: str) -> list[dic
     ]
 
 
-def _normalized_player_prop_id(pick: dict[str, Any]) -> str:
-    existing = str(pick.get("id") or "").strip()
-    for suffix in ("_season", "_all_time", "_hot_l10", "_matchup_h2h"):
-        if existing.endswith(suffix):
-            return f"{existing[:-len(suffix)]}_consensus"
-    return existing or "_".join(_market_key(pick))
-
-
-def _normalize_carried_pick(pick: dict[str, Any], generated_bucket: dict[str, Any]) -> dict[str, Any]:
-    generated_model_key = str(generated_bucket.get("model_key") or "").strip()
-    sport = str(pick.get("sport") or _sport_from_model_key(generated_model_key)).strip().upper()
-    model_key = generated_model_key or _sport_model_key(sport)
-    source = _model_source(model_key, sport)
-    rank_epoch = str(generated_bucket.get("ranking_epoch") or pick.get("ml_rank_epoch") or pick.get("ranking_epoch") or "")
-    normalized = _ensure_consensus_fields(dict(pick))
-    if "supporting_variant" not in normalized and normalized.get("model_variant"):
-        normalized["supporting_variant"] = normalized.get("model_variant")
-    if "supporting_variant_label" not in normalized and normalized.get("model_variant_label"):
-        normalized["supporting_variant_label"] = normalized.get("model_variant_label")
-    normalized.update(
-        {
-            "id": _normalized_player_prop_id(normalized),
-            "source": source,
-            "model_key": model_key,
-            "ranking_model": source,
-            "published_model": source,
-            "ml_rank_epoch": rank_epoch,
-            "ranking_epoch": rank_epoch,
-            "model_epoch": rank_epoch,
-            "preserved_from_prior_refresh": True,
-        }
+def _ml_owned_market_pick(pick: dict[str, Any]) -> bool:
+    return bool(
+        pick.get("market_priced") is True
+        and str(pick.get("probability_source") or "").strip() == "player_props_ml_v1"
     )
-    return normalized
 
 
-def _rank_pick_sort_key(pick: dict[str, Any]) -> tuple[int, float, float, float, int, str]:
+def _rank_pick_sort_key(
+    pick: dict[str, Any],
+) -> tuple[int, float, float, float, float, int, str, str]:
     decision_rank = {"BET": 0, "LEAN": 1}
+    decision = decision_rank.get(str(pick.get("decision") or "").strip().upper(), 2)
+    expected_value = -float(pick.get("ml_expected_value") or 0.0)
+    if _ml_owned_market_pick(pick):
+        primary_rank = expected_value
+        secondary_rank = float(decision)
+    else:
+        primary_rank = float(decision)
+        secondary_rank = expected_value
     return (
-        decision_rank.get(str(pick.get("decision") or "").strip().upper(), 2),
-        -float(pick.get("ml_expected_value") or 0.0),
+        0 if _ml_owned_market_pick(pick) else 1,
+        primary_rank,
+        secondary_rank,
         -float(pick.get("ml_edge") or 0.0),
         -float(pick.get("ml_probability") or pick.get("probability") or 0.0),
         int(pick.get("ml_rank") or pick.get("rank") or 9999),
         str(pick.get("id") or ""),
+        "|".join(_market_key(pick)),
     )
 
 
-def _snapshot_market_keys(date_iso: str, model_key: str, snapshot_dir: Path) -> set[tuple[str, ...]]:
-    snapshot_keys: set[tuple[str, ...]] = set()
-    for path in sorted((snapshot_dir / date_iso).glob("*.json")):
-        snapshot = _read_json(path)
-        if not snapshot or str(snapshot.get("date") or "").strip() != date_iso:
+def _game_key(pick: dict[str, Any]) -> tuple[str, str, str]:
+    game = str(
+        pick.get("game_id") or pick.get("event_id") or pick.get("matchup") or ""
+    ).strip().lower()
+    return (
+        str(pick.get("sport") or "").strip().upper(),
+        str(pick.get("date") or "").strip(),
+        game or "unknown-game",
+    )
+
+
+def _player_key(pick: dict[str, Any]) -> tuple[str, str]:
+    player = str(
+        pick.get("player_id")
+        or pick.get("market_athlete_id")
+        or pick.get("player_name")
+        or ""
+    ).strip().lower()
+    if not player:
+        player = "|".join(_market_key(pick))
+    return str(pick.get("sport") or "").strip().upper(), player
+
+
+def _rank_published_picks(fresh: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    best_by_market: dict[tuple[str, ...], dict[str, Any]] = {}
+    for pick in sorted(fresh, key=_rank_pick_sort_key):
+        best_by_market.setdefault(_market_key(pick), pick)
+
+    ranked: list[dict[str, Any]] = []
+    per_player: dict[tuple[str, str], int] = {}
+    per_game: dict[tuple[str, str, str], int] = {}
+    for pick in sorted(best_by_market.values(), key=_rank_pick_sort_key):
+        player_key = _player_key(pick)
+        game_key = _game_key(pick)
+        if per_player.get(player_key, 0) >= MAX_PUBLISHED_PROPS_PER_PLAYER:
             continue
-        models = snapshot.get("models") if isinstance(snapshot.get("models"), dict) else {}
-        for bucket_key, bucket in models.items():
-            if not isinstance(bucket, dict) or not _same_sport_model_bucket(model_key, str(bucket_key)):
-                continue
-            for pick in bucket.get("picks") or []:
-                if isinstance(pick, dict) and _carry_forward_allowed(pick, date_iso):
-                    snapshot_keys.add(_market_key(pick))
-    return snapshot_keys
-
-
-def _rank_merged_picks(
-    pinned: list[dict[str, Any]],
-    fresh: list[dict[str, Any]],
-    *,
-    required_market_keys: set[tuple[str, ...]] | None = None,
-) -> list[dict[str, Any]]:
-    required_market_keys = required_market_keys or set()
-    pinned_sorted = sorted(pinned, key=_rank_pick_sort_key)
-    fresh_sorted = sorted(fresh, key=_rank_pick_sort_key)
-    selected: list[dict[str, Any]] = []
-    known_markets: set[tuple[str, ...]] = set()
-
-    for pick in pinned_sorted:
-        key = _market_key(pick)
-        if key in known_markets:
+        if per_game.get(game_key, 0) >= MAX_PUBLISHED_PROPS_PER_GAME:
             continue
-        if required_market_keys and key in required_market_keys:
-            selected.append(pick)
-            known_markets.add(key)
+        ranked.append(pick)
+        per_player[player_key] = per_player.get(player_key, 0) + 1
+        per_game[game_key] = per_game.get(game_key, 0) + 1
 
-    for picks in (pinned_sorted, fresh_sorted):
-        for pick in picks:
-            key = _market_key(pick)
-            if key in known_markets:
-                continue
-            selected.append(pick)
-            known_markets.add(key)
-
-    ranked = sorted(selected, key=_rank_pick_sort_key)
     for index, pick in enumerate(ranked, start=1):
         pick["ml_rank"] = index
         pick["model_rank"] = index
@@ -299,16 +242,12 @@ def _rank_merged_picks(
 def _preserve_pick_metadata(
     source_buckets: list[Any],
     generated_bucket: Any,
-    date_iso: str,
-    *,
-    snapshot_dir: Path = PLAYER_PROPS_SNAPSHOT_DIR,
 ) -> Any:
     if not isinstance(generated_bucket, dict):
         return generated_bucket
     generated_picks = generated_bucket.get("picks")
     if not isinstance(generated_picks, list):
         return generated_bucket
-    model_key = str(generated_bucket.get("model_key") or "")
     source_picks = [
         pick
         for bucket in source_buckets
@@ -324,37 +263,31 @@ def _preserve_pick_metadata(
         _market_key(pick): {field: pick[field] for field in MARKET_METADATA_FIELDS if field in pick}
         for pick in source_picks
     }
+    result_by_market_epoch: dict[tuple[tuple[str, ...], str], dict[str, Any]] = {}
+    for pick in source_picks:
+        if "result" not in pick:
+            continue
+        key = (_market_key(pick), _rank_epoch(pick))
+        candidate = str(pick.get("result") or "").strip().lower()
+        current = str((result_by_market_epoch.get(key) or {}).get("result") or "").strip().lower()
+        if candidate not in {"", "pending"} or not current:
+            result_by_market_epoch[key] = {"result": pick["result"]}
     merged = dict(generated_bucket)
     generated_with_metadata = [
         _ensure_consensus_fields({
             **pick,
             **metadata_by_market.get(_market_key(pick), {}),
+            **result_by_market_epoch.get((_market_key(pick), _rank_epoch(pick)), {}),
             **metadata.get(_pick_key(pick), {}),
         }) if isinstance(pick, dict) else pick
         for pick in generated_picks
     ]
-    fresh_picks: list[dict[str, Any]] = [
+    fresh_picks = [
         pick
         for pick in generated_with_metadata
         if isinstance(pick, dict)
     ]
-    pinned_picks: list[dict[str, Any]] = []
-    pinned_markets: set[tuple[str, ...]] = set()
-    for pick in source_picks:
-        if not _carry_forward_allowed(pick, date_iso):
-            continue
-        key = _market_key(pick)
-        if key in pinned_markets:
-            continue
-        pinned_picks.append(_normalize_carried_pick(pick, merged))
-        pinned_markets.add(key)
-    fresh_only = [pick for pick in fresh_picks if _market_key(pick) not in pinned_markets]
-    required_market_keys = _snapshot_market_keys(date_iso, model_key, snapshot_dir)
-    merged["picks"] = _rank_merged_picks(
-        pinned_picks,
-        fresh_only,
-        required_market_keys=required_market_keys,
-    )
+    merged["picks"] = _rank_published_picks(fresh_picks)
     return merged
 
 
@@ -380,10 +313,9 @@ def merge_payload(
     merged = dict(generated)
     merged["models"] = {
         key: _preserve_pick_metadata(
-            (_current_buckets(current_models, key) if include_current else []) + _snapshot_buckets(date_iso, key, snapshot_dir),
+            _snapshot_buckets(date_iso, key, snapshot_dir)
+            + (_current_buckets(current_models, key) if include_current else []),
             bucket,
-            date_iso,
-            snapshot_dir=snapshot_dir,
         )
         for key, bucket in public_generated_models.items()
     }

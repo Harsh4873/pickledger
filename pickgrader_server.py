@@ -5558,17 +5558,75 @@ def _known_basketball_slate_matchups(target_date: str, sport_code: str) -> list[
     return _known_external_slate_matchups(target_date, sport_code)
 
 
+def _external_feed_slate_whitelists(
+    target_date: str,
+    sport_codes: list[str],
+) -> tuple[dict[str, list[str]], list[str], list[str]]:
+    """Resolve provider-safe matchup whitelists without failing open.
+
+    A successful official scoreboard with zero events is an evidenced off-day.
+    Any other empty matchup list is an error: provider scrapers must never be
+    launched without at least one official matchup to constrain their output.
+    """
+    expected_by_sport: dict[str, list[str]] = {}
+    zero_slate_sports: list[str] = []
+    errors: list[str] = []
+    for sport_code in sport_codes:
+        matchups = _known_external_slate_matchups(target_date, sport_code)
+        if matchups:
+            expected_by_sport[sport_code] = matchups
+            continue
+
+        config = _EXTERNAL_FEED_SPORT_CONFIG.get(sport_code)
+        sport_label = str(config["label"]) if config else sport_code.upper()
+        official_event_count = _espn_event_count_for_date(sport_label, target_date)
+        if official_event_count == 0:
+            zero_slate_sports.append(sport_code)
+        elif official_event_count is None:
+            errors.append(
+                f"{sport_code}: could not resolve an official {target_date} slate; "
+                "no provider scraper was run"
+            )
+        else:
+            errors.append(
+                f"{sport_code}: official {target_date} slate reports {official_event_count} event(s), "
+                "but no matchup whitelist could be resolved; no provider scraper was run"
+            )
+    return expected_by_sport, zero_slate_sports, errors
+
+
+def _external_team_market_selection(pick_text: str) -> str:
+    """Return a market selection while retaining parenthesized market lines."""
+    selection = re.sub(
+        r"\s+\([^()]*(?:@|vs\.?)\s+[^()]*\)\s*$",
+        "",
+        str(pick_text or "").strip(),
+        flags=re.IGNORECASE,
+    ).strip()
+    return re.sub(r"(?<=\d),(?=\d)", ".", selection)
+
+
 def _soccer_external_market_metadata(pick_text: str) -> dict[str, Any]:
-    selection = str(pick_text or "").split("(", 1)[0].strip()
+    selection = _external_team_market_selection(pick_text)
     lower = selection.lower()
-    asian = re.search(r"\basian\s+(?:hcp|handicap)\s*([+-]\d+(?:\.\d+)?)", lower)
-    spread = asian or re.fullmatch(r".+?\s+([+-]\d+(?:\.\d+)?)", selection)
-    if asian:
-        return {"market_type": "soccer_asian_handicap", "grade_supported": False}
+    named_handicap = re.fullmatch(
+        r".+?\s+(?:asian\s+)?(?:hcp|handicap)\s*\(\s*([+-]?\d+(?:\.\d+)?)\s*\)",
+        selection,
+        flags=re.IGNORECASE,
+    )
+    asian = re.search(r"\basian\s+(?:hcp|handicap)\s*([+-]?\d+(?:\.\d+)?)", lower)
+    if named_handicap or asian:
+        line_match = named_handicap or asian
+        return {
+            "market_type": "soccer_asian_handicap",
+            "line": float(line_match.group(1)),
+            "grade_supported": False,
+        }
+    spread = re.fullmatch(r".+?\s+([+-]\d+(?:\.\d+)?)", selection)
     if spread:
         line = float(spread.group(1))
         quarter_line = abs((line * 4) - round(line * 4)) < 1e-9 and abs((line * 2) - round(line * 2)) > 1e-9
-        return {"market_type": "soccer_handicap", "grade_supported": not quarter_line}
+        return {"market_type": "soccer_handicap", "line": line, "grade_supported": not quarter_line}
     if re.fullmatch(r"(?:over|under)\s+\d+(?:\.\d+)?(?:\s+goals?)?", lower):
         return {"market_type": "soccer_total", "grade_supported": True}
     if re.fullmatch(r".+?\s+(?:ml|moneyline|to win|wins?)", lower):
@@ -5598,7 +5656,7 @@ def _external_player_market_metadata(pick_text: str) -> dict[str, Any] | None:
 
 
 def _external_team_selection_mismatch(pick_text: str) -> bool:
-    selection = str(pick_text or "").split("(", 1)[0].strip()
+    selection = _external_team_market_selection(pick_text)
     lower = selection.lower()
     if not re.search(r"\b(?:ml|moneyline|to win|wins?)\b|[+-]\d+(?:\.\d+)?", lower):
         return False
@@ -5720,9 +5778,16 @@ def run_sportytrader_scraper(
     if not selected:
         selected = default_sports
 
-    expected_by_sport = {
-        sport_code: _known_external_slate_matchups(target_date, sport_code)
-        for sport_code in selected
+    expected_by_sport, zero_slate_sports, slate_errors = _external_feed_slate_whitelists(
+        target_date,
+        selected,
+    )
+    slate_meta = {
+        "zeroSlateSports": zero_slate_sports,
+        "officialMatchupCounts": {
+            sport_code: len(matchups)
+            for sport_code, matchups in expected_by_sport.items()
+        },
     }
 
     def _invoke(sport_code: str) -> subprocess.CompletedProcess[str]:
@@ -5740,9 +5805,11 @@ def run_sportytrader_scraper(
 
     try:
         all_picks: list[dict[str, Any]] = []
-        errors: list[str] = []
+        errors: list[str] = list(slate_errors)
 
         for sport_code in selected:
+            if sport_code not in expected_by_sport:
+                continue
             try:
                 result = _invoke(sport_code)
             except subprocess.TimeoutExpired:
@@ -5813,9 +5880,23 @@ def run_sportytrader_scraper(
             all_picks.extend(picks)
 
         if errors:
-            return {"ok": False, "error": "; ".join(errors[:4]), "picks": all_picks, "date": target_date}
+            return {
+                "ok": False,
+                "error": "; ".join(errors[:4]),
+                "picks": all_picks,
+                "date": target_date,
+                "meta": slate_meta,
+            }
 
-        result = {"ok": True, "picks": all_picks, "errors": errors, "date": target_date}
+        result = {
+            "ok": True,
+            "picks": all_picks,
+            "errors": errors,
+            "date": target_date,
+            "meta": slate_meta,
+        }
+        if zero_slate_sports and not expected_by_sport:
+            result["note"] = f"No official matchups for selected sports on {target_date}."
         _save_external_feed_admin_docs("sportytrader", result, target_date)
         return result
     except subprocess.TimeoutExpired:
@@ -5854,9 +5935,16 @@ def run_sportsgambler_scraper(
     if not selected:
         selected = default_sports
 
-    expected_by_sport = {
-        sport_code: _known_external_slate_matchups(target_date, sport_code)
-        for sport_code in selected
+    expected_by_sport, zero_slate_sports, slate_errors = _external_feed_slate_whitelists(
+        target_date,
+        selected,
+    )
+    slate_meta = {
+        "zeroSlateSports": zero_slate_sports,
+        "officialMatchupCounts": {
+            sport_code: len(matchups)
+            for sport_code, matchups in expected_by_sport.items()
+        },
     }
 
     def _invoke(sport_code: str) -> subprocess.CompletedProcess[str]:
@@ -5873,9 +5961,11 @@ def run_sportsgambler_scraper(
 
     try:
         all_picks: list[dict[str, Any]] = []
-        errors: list[str] = []
+        errors: list[str] = list(slate_errors)
 
         for sport_code in selected:
+            if sport_code not in expected_by_sport:
+                continue
             result = _invoke(sport_code)
             output = (result.stdout or "") + (result.stderr or "")
 
@@ -5933,9 +6023,23 @@ def run_sportsgambler_scraper(
             all_picks.extend(picks)
 
         if errors:
-            return {"ok": False, "error": "; ".join(errors[:4]), "picks": all_picks, "date": target_date}
+            return {
+                "ok": False,
+                "error": "; ".join(errors[:4]),
+                "picks": all_picks,
+                "date": target_date,
+                "meta": slate_meta,
+            }
 
-        result = {"ok": True, "picks": all_picks, "errors": errors, "date": target_date}
+        result = {
+            "ok": True,
+            "picks": all_picks,
+            "errors": errors,
+            "date": target_date,
+            "meta": slate_meta,
+        }
+        if zero_slate_sports and not expected_by_sport:
+            result["note"] = f"No official matchups for selected sports on {target_date}."
         _save_external_feed_admin_docs("sportsgambler", result, target_date)
         return result
     except subprocess.TimeoutExpired:
