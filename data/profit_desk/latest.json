@@ -132,7 +132,7 @@
         "quality": "verified_no_vig",
         "source": "espn_scoreboard:DraftKings",
         "sourceField": "pick.price_source",
-        "startTime": "2026-07-15T19:30:00Z",
+        "startTime": "2026-07-15T19:30Z",
         "tier": "A",
         "tierLabel": "certified_executable",
         "timestamp": "2026-07-15T14:12:42.016086Z",
@@ -282,7 +282,7 @@
         "quality": "verified_no_vig",
         "source": "espn_scoreboard:DraftKings",
         "sourceField": "pick.price_source",
-        "startTime": "2026-07-15T22:00:00Z",
+        "startTime": "2026-07-15T22:00Z",
         "tier": "A",
         "tierLabel": "certified_executable",
         "timestamp": "2026-07-15T14:12:42.016086Z",
@@ -432,7 +432,7 @@
         "quality": "verified_no_vig",
         "source": "espn_scoreboard:DraftKings",
         "sourceField": "pick.price_source",
-        "startTime": "2026-07-16T02:30:00Z",
+        "startTime": "2026-07-16T02:30Z",
         "tier": "A",
         "tierLabel": "certified_executable",
         "timestamp": "2026-07-15T14:12:42.016086Z",
@@ -582,7 +582,7 @@
         "quality": "verified_no_vig",
         "source": "espn_scoreboard:DraftKings",
         "sourceField": "pick.price_source",
-        "startTime": "2026-07-16T00:00:00Z",
+        "startTime": "2026-07-16T00:00Z",
         "tier": "A",
         "tierLabel": "certified_executable",
         "timestamp": "2026-07-15T14:12:42.016086Z",
@@ -1024,7 +1024,7 @@
         "quality": "verified_no_vig",
         "source": "espn_scoreboard:DraftKings",
         "sourceField": "pick.price_source",
-        "startTime": "2026-07-15T23:30:00Z",
+        "startTime": "2026-07-15T23:30Z",
         "tier": "A",
         "tierLabel": "certified_executable",
         "timestamp": "2026-07-15T14:12:42.016086Z",
@@ -1044,7 +1044,6 @@
     },
     {
       "blockers": [
-        "missing_or_invalid_game_start_time",
         "edge_insufficient_source_samples",
         "edge_insufficient_segment_samples",
         "edge_insufficient_distinct_prior_dates",
@@ -1136,9 +1135,7 @@
           "edge_conservative_probability_margin_below_0.02",
           "edge_non_positive_conservative_ev"
         ],
-        "structural": [
-          "missing_or_invalid_game_start_time"
-        ],
+        "structural": [],
         "value": [
           "value_insufficient_source_samples",
           "value_insufficient_distinct_prior_dates",
@@ -1159,12 +1156,12 @@
       "player": null,
       "policyVersion": "profit_desk_policy_v2",
       "price": {
-        "ageHours": null,
+        "ageHours": 2.45,
         "breakEvenProbability": 0.519231,
         "decimalOdds": 1.925926,
         "eligibleForAlphaEstimate": true,
-        "fresh": false,
-        "freshPregame": false,
+        "fresh": true,
+        "freshPregame": true,
         "maxAgeHours": 24.0,
         "noVigInputs": {
           "hold": 1.047533,
@@ -1179,7 +1176,7 @@
         "quality": "verified_two_sided",
         "source": "espn_scoreboard:DraftKings",
         "sourceField": "pick.price_source",
-        "startTime": null,
+        "startTime": "2026-07-15T17:00Z",
         "tier": "B",
         "tierLabel": "posted_two_sided",
         "timestamp": "2026-07-15T14:33:00.126498Z",
@@ -1194,13 +1191,12 @@
       "sourceKey": "wnba",
       "sport": "WNBA",
       "stakeUnits": 0.0,
-      "tier": "avoid",
+      "tier": "watch",
       "valueQualified": false
     },
     {
       "blockers": [
         "unverified_price_provenance",
-        "missing_or_invalid_game_start_time",
         "edge_no_usable_price_baseline",
         "value_no_usable_price_baseline"
       ],
@@ -1255,8 +1251,7 @@
           "edge_no_usable_price_baseline"
         ],
         "structural": [
-          "unverified_price_provenance",
-          "missing_or_invalid_game_start_time"
+          "unverified_price_provenance"
         ],
         "value": [
           "value_no_usable_price_baseline"
@@ -1274,12 +1269,12 @@
       "player": null,
       "policyVersion": "profit_desk_policy_v2",
       "price": {
-        "ageHours": null,
+        "ageHours": 2.45,
         "breakEvenProbability": 0.52381,
         "decimalOdds": 1.909091,
         "eligibleForAlphaEstimate": false,
-        "fresh": false,
-        "freshPregame": false,
+        "fresh": true,
+        "freshPregame": true,
         "maxAgeHours": 24.0,
         "noVigInputs": {},
         "noVigMethod": "unverified_single_side",
@@ -1290,7 +1285,7 @@
         "quality": "assumed",
         "source": "DraftKings via ESPN",
         "sourceField": "pick.market_source",
-        "startTime": null,
+        "startTime": "2026-07-15T17:00Z",
         "tier": "D",
         "tierLabel": "assumed_proxy_or_synthetic",
         "timestamp": "2026-07-15T14:32:59.678252Z",
@@ -2577,7 +2572,7 @@
     }
   ],
   "summary": {
-    "avoid": 2,
+    "avoid": 1,
     "candidateCount": 9,
     "candidatesEvaluated": 9,
     "deduplicatedPicks": 0,
@@ -2630,7 +2625,7 @@
         "watchlist": 0
       },
       "team": {
-        "avoid": 2,
+        "avoid": 1,
         "candidateCount": 9,
         "candidates": 9,
         "candidatesEvaluated": 9,
@@ -2643,7 +2638,7 @@
         "selected": 0,
         "shadowQualified": 0,
         "valueQualified": 0,
-        "watchlist": 7
+        "watchlist": 8
       }
     },
     "observedPriceCandidates": 8,
@@ -2678,6 +2673,6 @@
     },
     "sourcesTracked": 26,
     "valueQualified": 0,
-    "watchlist": 7
+    "watchlist": 8
   }
 }
