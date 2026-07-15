@@ -7,7 +7,7 @@ import argparse
 import json
 import os
 import sys
-from datetime import datetime
+from datetime import date, datetime
 from pathlib import Path
 from typing import Any
 from zoneinfo import ZoneInfo
@@ -56,12 +56,38 @@ def _read_json(path: Path) -> dict[str, Any]:
     return payload if isinstance(payload, dict) else {}
 
 
-def _scheduled_game_count(bucket: Any) -> int:
+CENTRAL_TZ = ZoneInfo("America/Chicago")
+
+
+def _central_date(value: Any) -> date | None:
+    text = str(value or "").strip()
+    if not text:
+        return None
+    try:
+        parsed = datetime.fromisoformat(text.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    if parsed.tzinfo is None:
+        return parsed.date()
+    return parsed.astimezone(CENTRAL_TZ).date()
+
+
+def _row_matches_target_date(row: dict[str, Any], target_date: str | None) -> bool:
+    if not target_date:
+        return True
+    for key in ("start_time", "game_start_time", "gameDate", "game_date", "date"):
+        central = _central_date(row.get(key))
+        if central is not None:
+            return central.isoformat() == target_date
+    return True
+
+
+def _scheduled_game_count(bucket: Any, *, target_date: str | None = None) -> int:
     if not isinstance(bucket, dict):
         return 0
     games = bucket.get("games")
     if isinstance(games, list):
-        return len(games)
+        return sum(1 for row in games if isinstance(row, dict) and _row_matches_target_date(row, target_date))
     try:
         return max(0, int(games or 0))
     except (TypeError, ValueError):
@@ -76,12 +102,20 @@ def _official_mlb_scheduled_games(target_date: str) -> int:
         return 0
     models = payload.get("models") if isinstance(payload.get("models"), dict) else {}
     return max(
-        (_scheduled_game_count(models.get(key)) for key in ("mlb_new", "mlb_inning", "mlb_first_five")),
+        (
+            _scheduled_game_count(models.get(key), target_date=target_date)
+            for key in ("mlb_new", "mlb_inning", "mlb_first_five")
+        ),
         default=0,
     )
 
 
-def _publication_contract_errors(models: dict[str, Any], *, official_mlb_games: int) -> list[str]:
+def _publication_contract_errors(
+    models: dict[str, Any],
+    *,
+    official_mlb_games: int,
+    target_date: str | None = None,
+) -> list[str]:
     errors: list[str] = []
     for model_name in sorted(PUBLIC_PLAYER_PROP_MODEL_KEYS):
         model = models.get(model_name)
@@ -91,7 +125,7 @@ def _publication_contract_errors(models: dict[str, Any], *, official_mlb_games: 
         if model.get("ok") is not True:
             errors.append(f"required bucket {model_name} is not ok")
     mlb = models.get("mlb_player_props") if isinstance(models.get("mlb_player_props"), dict) else {}
-    scheduled_games = max(_scheduled_game_count(mlb), official_mlb_games)
+    scheduled_games = max(_scheduled_game_count(mlb, target_date=target_date), official_mlb_games)
     if scheduled_games > 0 and not (mlb.get("picks") or []):
         errors.append(f"scheduled MLB games ({scheduled_games}) have zero published picks")
     return errors
@@ -119,6 +153,7 @@ def main() -> int:
     contract_errors = _publication_contract_errors(
         payload["models"],
         official_mlb_games=_official_mlb_scheduled_games(target_date),
+        target_date=target_date,
     )
     for model_name, model in payload["models"].items():
         if not isinstance(model, dict):

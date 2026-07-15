@@ -33,6 +33,7 @@ from typing import Any, Iterable
 from urllib.error import URLError, HTTPError
 from urllib.parse import urlencode, urlparse
 from urllib.request import Request, urlopen
+from zoneinfo import ZoneInfo
 
 def _env_bool(name: str, default: bool) -> bool:
     raw = os.environ.get(name)
@@ -5492,6 +5493,25 @@ def _known_external_slate_matchups(target_date: str, sport_code: str) -> list[st
         return []
     sport = str(config["label"])
 
+    def _central_date(value: Any) -> str | None:
+        text = str(value or "").strip()
+        if not text:
+            return None
+        try:
+            parsed = datetime.fromisoformat(text.replace("Z", "+00:00"))
+        except ValueError:
+            return None
+        if parsed.tzinfo is None:
+            return parsed.date().isoformat()
+        return parsed.astimezone(ZoneInfo("America/Chicago")).date().isoformat()
+
+    def _row_matches_target(row: dict[str, Any]) -> bool:
+        for date_key in ("start_time", "game_start_time", "gameDate", "game_date", "date"):
+            row_date = _central_date(row.get(date_key))
+            if row_date is not None:
+                return row_date == target_date
+        return True
+
     matchups: dict[tuple[str, str], str] = {}
     cache_paths = [
         os.path.join(BASE_DIR, "data", "model_cache", f"{target_date}.json"),
@@ -5515,6 +5535,8 @@ def _known_external_slate_matchups(target_date: str, sport_code: str) -> list[st
                 for row in rows if isinstance(rows, list) else []:
                     if not isinstance(row, dict):
                         continue
+                    if not _row_matches_target(row):
+                        continue
                     matchup = str(row.get("matchup") or row.get("game") or "").strip()
                     if not matchup:
                         away = str(row.get("away_team") or "").strip()
@@ -5535,8 +5557,13 @@ def _known_external_slate_matchups(target_date: str, sport_code: str) -> list[st
         scoreboard = None
     if isinstance(scoreboard, dict):
         for event in scoreboard.get("events") if isinstance(scoreboard.get("events"), list) else []:
+            if _central_date(event.get("date")) not in {None, target_date}:
+                continue
             competitions = event.get("competitions") if isinstance(event, dict) else []
             competition = competitions[0] if isinstance(competitions, list) and competitions else {}
+            competition_date = _central_date(competition.get("date")) if isinstance(competition, dict) else None
+            if competition_date not in {None, target_date}:
+                continue
             competitors = competition.get("competitors") if isinstance(competition, dict) else []
             away = home = ""
             for competitor in competitors if isinstance(competitors, list) else []:

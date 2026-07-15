@@ -68,7 +68,9 @@ jobs:
           )"
           PLAYER_CACHE_HEALTHY="$(python - <<'PY'
           import json
+          from datetime import datetime
           from pathlib import Path
+          from zoneinfo import ZoneInfo
 
           required = {
               "nba_player_props",
@@ -85,12 +87,35 @@ jobs:
               team_payload = json.loads(Path("data/model_cache/latest.json").read_text(encoding="utf-8"))
               team_models = team_payload.get("models") if isinstance(team_payload.get("models"), dict) else {}
           except Exception:
+              team_payload = {}
               team_models = {}
+          target_date = str(team_payload.get("date") or payload.get("date") or "")
+
+          def central_date(value):
+              text = str(value or "").strip()
+              if not text:
+                  return None
+              try:
+                  parsed = datetime.fromisoformat(text.replace("Z", "+00:00"))
+              except ValueError:
+                  return None
+              if parsed.tzinfo is None:
+                  return parsed.date().isoformat()
+              return parsed.astimezone(ZoneInfo("America/Chicago")).date().isoformat()
+
+          def row_matches_target(row):
+              if not target_date:
+                  return True
+              for date_key in ("start_time", "game_start_time", "gameDate", "game_date", "date"):
+                  row_date = central_date(row.get(date_key))
+                  if row_date is not None:
+                      return row_date == target_date
+              return True
 
           def scheduled_games(bucket):
               games = bucket.get("games") if isinstance(bucket, dict) else 0
               if isinstance(games, list):
-                  return len(games)
+                  return sum(1 for row in games if isinstance(row, dict) and row_matches_target(row))
               try:
                   return max(0, int(games or 0))
               except (TypeError, ValueError):

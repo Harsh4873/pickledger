@@ -13,6 +13,7 @@ from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 from urllib.parse import urljoin
+from zoneinfo import ZoneInfo
 
 import requests
 from bs4 import BeautifulSoup
@@ -144,6 +145,28 @@ def _parse_target_date(raw: str) -> date:
     raise ValueError(f"unsupported date: {raw}")
 
 
+def _central_date(value: Any) -> date | None:
+    text = _norm_space(value)
+    if not text:
+        return None
+    try:
+        parsed = datetime.fromisoformat(text.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    if parsed.tzinfo is None:
+        return parsed.date()
+    return parsed.astimezone(ZoneInfo("America/Chicago")).date()
+
+
+def _row_matches_target_date(row: dict[str, Any], date_iso: str) -> bool:
+    target = _parse_target_date(date_iso)
+    for key in ("start_time", "game_start_time", "gameDate", "game_date", "date"):
+        row_date = _central_date(row.get(key))
+        if row_date is not None:
+            return row_date == target
+    return True
+
+
 def _cache_matchups(sport: str, date_iso: str) -> list[dict[str, str]]:
     config = SPORT_CONFIG[sport]
     for path in (MODEL_CACHE_DIR / f"{date_iso}.json", MODEL_CACHE_DIR / "latest.json"):
@@ -160,6 +183,8 @@ def _cache_matchups(sport: str, date_iso: str) -> list[dict[str, str]]:
             rows = bucket.get("games") if isinstance(bucket.get("games"), list) else bucket.get("picks")
             for row in rows if isinstance(rows, list) else []:
                 if not isinstance(row, dict):
+                    continue
+                if not _row_matches_target_date(row, date_iso):
                     continue
                 away = _norm_space(row.get("away_team"))
                 home = _norm_space(row.get("home_team"))
@@ -209,8 +234,15 @@ def fetch_daily_matchups(
         payload = {}
 
     for event in payload.get("events", []) if isinstance(payload, dict) else []:
+        target = _parse_target_date(date_iso)
+        event_date = _central_date(event.get("date")) if isinstance(event, dict) else None
+        if event_date not in {None, target}:
+            continue
         competitions = event.get("competitions") if isinstance(event, dict) else []
         competition = competitions[0] if isinstance(competitions, list) and competitions else {}
+        competition_date = _central_date(competition.get("date")) if isinstance(competition, dict) else None
+        if competition_date not in {None, target}:
+            continue
         competitors = competition.get("competitors") if isinstance(competition, dict) else []
         away = home = ""
         for competitor in competitors if isinstance(competitors, list) else []:

@@ -10,7 +10,7 @@ from player_props.basketball import generate_basketball_model
 from player_props.ml import select_top_props
 from player_props.mlb import generate_mlb_model
 from player_props.schema import decision_and_stake
-from scripts.refresh_player_props import _publication_contract_errors
+from scripts.refresh_player_props import _publication_contract_errors, _scheduled_game_count
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -42,6 +42,20 @@ def test_refresh_publication_contract_uses_independent_mlb_slate():
     assert _publication_contract_errors(models, official_mlb_games=1) == [
         "scheduled MLB games (1) have zero published picks"
     ]
+
+
+def test_refresh_scheduled_game_count_filters_next_central_date():
+    bucket = {
+        "games": [
+            {
+                "matchup": "New York Mets @ Philadelphia Phillies",
+                "game_start_time": "2026-07-16T23:10:00Z",
+            }
+        ]
+    }
+
+    assert _scheduled_game_count(bucket, target_date="2026-07-15") == 0
+    assert _scheduled_game_count(bucket, target_date="2026-07-16") == 1
 
 
 @pytest.fixture(autouse=True)

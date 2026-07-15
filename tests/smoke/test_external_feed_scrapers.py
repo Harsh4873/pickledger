@@ -861,6 +861,33 @@ def test_scores24_treats_resolved_empty_official_slate_as_ok():
     assert result["meta"]["matchedPicks"] == 0
 
 
+def test_scores24_cache_fallback_filters_next_central_date(tmp_path):
+    module = _load_module(
+        "scores24_cache_date_filter_test",
+        ROOT / "scripts" / "scrapers" / "scores24_scraper.py",
+    )
+    monkeypatch_dir = tmp_path
+    module.MODEL_CACHE_DIR = monkeypatch_dir
+    payload = {
+        "date": "2026-07-15",
+        "models": {
+            "mlb_first_five": {
+                "games": [
+                    {
+                        "away_team": "New York Mets",
+                        "home_team": "Philadelphia Phillies",
+                        "game_start_time": "2026-07-16T23:10:00Z",
+                    }
+                ]
+            }
+        },
+    }
+    (monkeypatch_dir / "2026-07-15.json").write_text(json.dumps(payload), encoding="utf-8")
+
+    assert module._cache_matchups("mlb", "2026-07-15") == []
+    assert module._cache_matchups("mlb", "2026-07-16") == []
+
+
 def test_scores24_fifa_world_cup_keeps_specialty_market_ungraded():
     module = _load_module(
         "scores24_fifa_test",

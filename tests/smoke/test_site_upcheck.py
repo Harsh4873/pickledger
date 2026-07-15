@@ -208,6 +208,33 @@ def test_data_only_readiness_uses_independent_mlb_team_slate(tmp_path: Path):
     assert "mlb_player_props has scheduled games but zero picks" in result.stdout
 
 
+def test_data_only_readiness_ignores_next_central_date_mlb_team_game(tmp_path: Path):
+    today_dt = datetime.now(ZoneInfo("America/Chicago"))
+    today = today_dt.strftime("%Y-%m-%d")
+    tomorrow = (today_dt + timedelta(days=1)).strftime("%Y-%m-%d")
+    script = _upcheck_repo(tmp_path, today)
+    model_path = tmp_path / "data" / "model_cache" / "latest.json"
+    model_payload = json.loads(model_path.read_text(encoding="utf-8"))
+    model_payload["models"]["mlb_first_five"]["games"] = [
+        {
+            "matchup": "New York Mets @ Philadelphia Phillies",
+            "game_start_time": f"{tomorrow}T23:10:00Z",
+        }
+    ]
+    _write_json(model_path, model_payload)
+
+    result = subprocess.run(
+        [sys.executable, str(script), "--data-only"],
+        cwd=tmp_path,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0
+    assert "daily data is ready" in result.stdout
+
+
 def test_data_only_readiness_allows_documented_mlb_props_gate_abstention(tmp_path: Path):
     today = datetime.now(ZoneInfo("America/Chicago")).strftime("%Y-%m-%d")
     script = _upcheck_repo(tmp_path, today)

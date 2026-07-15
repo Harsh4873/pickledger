@@ -7,7 +7,7 @@ import argparse
 import json
 import re
 import sys
-from datetime import datetime
+from datetime import date, datetime
 from pathlib import Path
 from typing import Any
 from zoneinfo import ZoneInfo
@@ -203,21 +203,47 @@ def _mlb_player_props_documented_abstention(bucket: dict[str, Any]) -> bool:
     return evaluated > 0 or has_reasons
 
 
-def _scheduled_game_count(bucket: dict[str, Any]) -> int:
+CENTRAL_TZ = ZoneInfo("America/Chicago")
+
+
+def _central_date(value: Any) -> date | None:
+    text = str(value or "").strip()
+    if not text:
+        return None
+    try:
+        parsed = datetime.fromisoformat(text.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    if parsed.tzinfo is None:
+        return parsed.date()
+    return parsed.astimezone(CENTRAL_TZ).date()
+
+
+def _row_matches_target_date(row: dict[str, Any], target_date: str | None) -> bool:
+    if not target_date:
+        return True
+    for key in ("start_time", "game_start_time", "gameDate", "game_date", "date"):
+        central = _central_date(row.get(key))
+        if central is not None:
+            return central.isoformat() == target_date
+    return True
+
+
+def _scheduled_game_count(bucket: dict[str, Any], *, target_date: str | None = None) -> int:
     games = bucket.get("games")
     if isinstance(games, list):
-        return len(games)
+        return sum(1 for row in games if isinstance(row, dict) and _row_matches_target_date(row, target_date))
     try:
         return max(0, int(games or 0))
     except (TypeError, ValueError):
         return 0
 
 
-def _official_mlb_scheduled_game_count(models: dict[str, Any]) -> int:
+def _official_mlb_scheduled_game_count(models: dict[str, Any], *, target_date: str | None = None) -> int:
     """Use independent team-model slates so a broken props parser cannot claim no games."""
     return max(
         (
-            _scheduled_game_count(bucket)
+            _scheduled_game_count(bucket, target_date=target_date)
             for key in ("mlb_new", "mlb_inning", "mlb_first_five")
             if isinstance((bucket := models.get(key)), dict)
         ),
@@ -380,7 +406,7 @@ def main() -> int:
                 "latest player-props cache reintroduced legacy public bucket(s): "
                 + ", ".join(legacy_public_models)
             )
-    official_mlb_scheduled_games = _official_mlb_scheduled_game_count(models)
+    official_mlb_scheduled_games = _official_mlb_scheduled_game_count(models, target_date=today)
     for key in sorted(REQUIRED_PLAYER_PROP_KEYS):
         bucket = player_models.get(key)
         if not isinstance(bucket, dict):
@@ -388,7 +414,7 @@ def main() -> int:
             continue
 
         picks = _bucket_picks(bucket)
-        scheduled_games = _scheduled_game_count(bucket)
+        scheduled_games = _scheduled_game_count(bucket, target_date=today)
         if key == "mlb_player_props":
             scheduled_games = max(scheduled_games, official_mlb_scheduled_games)
         if bucket.get("ok") is not True:
