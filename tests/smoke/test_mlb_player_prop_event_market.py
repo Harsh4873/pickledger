@@ -39,7 +39,7 @@ def _all_star_scoreboard() -> dict:
     }
 
 
-def _market_side(odds: int) -> dict:
+def _market_side(odds: int, type_name: str = "Total Hits") -> dict:
     return {
         "athlete": {
             "$ref": (
@@ -47,7 +47,7 @@ def _market_side(odds: int) -> dict:
                 "seasons/2026/athletes/123?lang=en&region=us"
             )
         },
-        "type": {"name": "Total Hits"},
+        "type": {"name": type_name},
         "odds": {
             "american": {"value": f"{odds:+d}"},
             "total": {"value": "0.5"},
@@ -158,7 +158,16 @@ def test_all_star_aliases_do_not_make_ordinary_team_matching_fuzzy():
         ("Home Runs Milestones", "home_runs", "Home Runs", "batter"),
         ("Singles Milestones", "singles", "Singles", "batter"),
         ("Doubles Milestones", "doubles", "Doubles", "batter"),
+        ("Triples Milestones", "triples", "Triples", "batter"),
         ("Runs Milestones", "runs", "Runs", "batter"),
+        ("Stolen Bases Milestones", "stolen_bases", "Stolen Bases", "batter"),
+        ("Walks (Batter) Milestones", "batter_walks", "Walks", "batter"),
+        (
+            "Strikeouts (Batter) Milestones",
+            "batter_strikeouts",
+            "Batter Strikeouts",
+            "batter",
+        ),
         (
             "Hits + Runs + RBIs Milestones",
             "hits_runs_rbis",
@@ -190,3 +199,40 @@ def test_live_all_star_plural_milestone_types_parse_as_posted_markets(
     assert market["line"] == 0.5
     assert market["over_odds"] == -115
     assert "under_odds" not in market
+
+
+@pytest.mark.parametrize(
+    ("type_name", "stat_key", "stat_label", "market_role"),
+    [
+        ("Total Singles Hit", "singles", "Singles", "batter"),
+        ("Total Doubles Hit", "doubles", "Doubles", "batter"),
+        (
+            "Earned Runs Allowed",
+            "pitcher_earned_runs_allowed",
+            "Earned Runs Allowed",
+            "pitcher",
+        ),
+    ],
+)
+def test_live_provider_total_aliases_parse_as_two_sided_markets(
+    type_name: str,
+    stat_key: str,
+    stat_label: str,
+    market_role: str,
+):
+    market_index = _market_index(
+        [_market_side(-120, type_name), _market_side(100, type_name)],
+        {"123": "All Star Hitter"},
+        "DraftKings via ESPN",
+    )
+
+    market = market_index[normalize_name("All Star Hitter")][0]
+    assert market["stat_key"] == stat_key
+    assert market["stat_label"] == stat_label
+    assert market["market_role"] == market_role
+    assert market["grade_supported"] is True
+    assert market["market_format"] == "total"
+    assert market["market_type"] == type_name
+    assert market["line"] == 0.5
+    assert market["over_odds"] == -120
+    assert market["under_odds"] == 100
