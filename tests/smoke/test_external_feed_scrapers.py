@@ -23,7 +23,7 @@ def test_sportytrader_wnba_config_and_card_extraction():
         "sportytrader_scraper_test",
         ROOT / "scripts" / "scrapers" / "sportytrader_scraper.py",
     )
-    assert module.SPORT_CONFIG["wnba"]["url"].endswith("/en/betting-tips/basketball/")
+    assert module.SPORT_CONFIG["wnba"]["url"].endswith("/wnba-58202/")
     rows = module._extract_rows(
         [
             {
@@ -36,7 +36,7 @@ def test_sportytrader_wnba_config_and_card_extraction():
                 "href": "https://www.sportytrader.com/us/picks/chicago-sky-indiana-fever-354049/",
             }
         ],
-        module._parse_target_date("2026-06-12"),
+        module._parse_target_date("2026-06-11"),
         "wnba",
         ["Chicago Sky @ Indiana Fever"],
     )

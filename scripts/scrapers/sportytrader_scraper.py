@@ -13,7 +13,7 @@ import os
 import re
 import sys
 import unicodedata
-from datetime import datetime
+from datetime import datetime, timedelta
 
 
 def _default_playwright_browsers_path() -> str:
@@ -63,7 +63,7 @@ SPORT_CONFIG = {
         "league": "USA - WNBA",
         "league_aliases": {"USA - WNBA"},
         "title": "WNBA",
-        "url": BASKETBALL_LISTING_URL,
+        "url": "https://www.sportytrader.com/us/picks/basketball/usa/wnba-58202/",
     },
     "mlb": {
         "aliases": {"mlb", "baseball"},
@@ -189,6 +189,23 @@ def _parse_english_datetime(text: str) -> datetime | None:
         except ValueError:
             continue
     return None
+
+
+def _matches_target_date(text: str, target_date: datetime | None) -> bool:
+    if not target_date:
+        return True
+    parsed = _parse_english_datetime(text)
+    if not parsed:
+        return False
+    if parsed.date() == target_date.date():
+        return True
+
+    # The legacy US competition pages can label late games after midnight in
+    # their provider timezone. Only admit that narrow rollover; the current
+    # day-first listing must match the requested Chicago slate date exactly.
+    is_legacy_month_first = bool(re.match(r"^[A-Z][a-z]+\s+\d{1,2},", text))
+    next_date = target_date.date() + timedelta(days=1)
+    return is_legacy_month_first and parsed.date() == next_date and parsed.hour < 6
 
 
 def _normalize_sport(raw: str) -> str:
@@ -372,11 +389,10 @@ def _extract_rows(
             continue
         if not row["home"] or not row["away"] or not row["tip"]:
             continue
-        dt = _parse_english_datetime(row["datetime"])
         matchup_key = _matchup_key(f"{row['home']} vs {row['away']}")
         if expected and matchup_key not in expected:
             continue
-        if target_date and (not dt or dt.date() != target_date.date()):
+        if target_date and not _matches_target_date(row["datetime"], target_date):
             continue
         matchup_identity = ":".join(matchup_key or ())
         key = (row["datetime"], matchup_identity, row["tip"].casefold())
