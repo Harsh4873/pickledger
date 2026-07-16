@@ -23,7 +23,7 @@ def test_sportytrader_wnba_config_and_card_extraction():
         "sportytrader_scraper_test",
         ROOT / "scripts" / "scrapers" / "sportytrader_scraper.py",
     )
-    assert module.SPORT_CONFIG["wnba"]["url"].endswith("/wnba-58202/")
+    assert module.SPORT_CONFIG["wnba"]["url"].endswith("/en/betting-tips/basketball/")
     rows = module._extract_rows(
         [
             {
@@ -36,7 +36,7 @@ def test_sportytrader_wnba_config_and_card_extraction():
                 "href": "https://www.sportytrader.com/us/picks/chicago-sky-indiana-fever-354049/",
             }
         ],
-        module._parse_target_date("2026-06-11"),
+        module._parse_target_date("2026-06-12"),
         "wnba",
         ["Chicago Sky @ Indiana Fever"],
     )
@@ -50,22 +50,8 @@ def test_sportytrader_nba_summer_uses_official_matchup_identity():
         ROOT / "scripts" / "scrapers" / "sportytrader_scraper.py",
     )
     config = module.SPORT_CONFIG["nba_summer"]
-    assert config["url"].endswith("/nba-306/")
-    assert "https://www.sportytrader.com/us/picks/basketball/" in config["fallback_urls"]
+    assert config["url"].endswith("/en/betting-tips/basketball/")
     assert "NBA Summer League" in module.SPORTYTRADER_CARDS_JS
-
-    class Page:
-        def evaluate(self, _script):
-            return [
-                "https://www.sportytrader.com/us/picks/basketball/usa/nba-summer-league-1/",
-                "https://www.sportytrader.com/us/picks/basketball/usa/nba-summer-league-1/",
-                "https://example.com/us/picks/basketball/nba-summer-league/",
-                "https://www.sportytrader.com/us/picks/basketball/usa/nba-306/",
-            ]
-
-    assert module._discover_summer_listing_urls(Page()) == [
-        "https://www.sportytrader.com/us/picks/basketball/usa/nba-summer-league-1/"
-    ]
 
     rows = module._extract_rows(
         [
@@ -97,6 +83,154 @@ def test_sportytrader_nba_summer_uses_official_matchup_identity():
     assert len(rows) == 1
     assert rows[0]["league"] == "USA - NBA Summer League"
     assert rows[0]["tip"] == "Oklahoma City Thunder -2.5"
+
+
+def test_sportytrader_current_listing_extracts_target_date_editorial_cards_only():
+    module = _load_module(
+        "sportytrader_current_listing_test",
+        ROOT / "scripts" / "scrapers" / "sportytrader_scraper.py",
+    )
+    body_text = """
+16 Jul 2026, 18:00
+USA - NBA Summer League
+Chicago Bulls
+Chicago Bulls
+-
+Los Angeles Lakers
+Los Angeles Lakers
+Chicago Bulls vs Los Angeles Lakers Prediction
+Los Angeles Lakers wins
+Detail
+16 Jul 2026, 19:00
+USA - NBA Summer League
+New York Knicks
+New York Knicks
+-
+Golden State Warriors
+Golden State Warriors
+New York Knicks vs Golden State Warriors Prediction
+Golden State Warriors -7.5 handicap
+Detail
+16 Jul 2026, 20:00
+USA - NBA Summer League
+Atlanta Hawks
+Atlanta Hawks
+-
+Memphis Grizzlies
+Memphis Grizzlies
+Atlanta Hawks vs Memphis Grizzlies Prediction
+Atlanta Hawks wins
+Detail
+16 Jul 2026, 21:00
+USA - NBA Summer League
+Miami Heat
+Miami Heat
+-
+Toronto Raptors
+Toronto Raptors
+Miami Heat vs Toronto Raptors Prediction
+Toronto Raptors wins
+Detail
+16 Jul 2026, 22:00
+USA - NBA Summer League
+Denver Nuggets
+Denver Nuggets
+-
+Portland Trail Blazers
+Portland Trail Blazers
+Denver Nuggets vs Portland Trail Blazers Prediction
+Over 178.5 points
+Detail
+20 Jul 2026, 20:00
+USA - WNBA
+Dallas Wings
+Dallas Wings
+-
+New York Liberty
+New York Liberty
+Dallas Wings vs New York Liberty Prediction
+Dallas Wings wins
+Detail
+Match Winner predictions model
+16 Jul 2026, 16:00
+Oklahoma City Thunder
+Dallas Mavericks
+Probability of 52%
+BET NOW!
+16 Jul 2026, 16:30
+Houston Rockets
+Brooklyn Nets
+Probability of 54%
+BET NOW!
+"""
+    summer_matchups = [
+        "Dallas Mavericks @ Oklahoma City Thunder",
+        "Brooklyn Nets @ Houston Rockets",
+        "Los Angeles Lakers @ Chicago Bulls",
+        "Golden State Warriors @ New York Knicks",
+        "Memphis Grizzlies @ Atlanta Hawks",
+        "Toronto Raptors @ Miami Heat",
+        "Portland Trail Blazers @ Denver Nuggets",
+    ]
+    cards = module._extract_text_cards(
+        body_text,
+        module.BASKETBALL_LISTING_URL,
+        summer_matchups,
+    )
+    rows = module._extract_rows(
+        cards,
+        module._parse_target_date("2026-07-16"),
+        "nba_summer",
+        summer_matchups,
+    )
+
+    assert module._parse_english_datetime("16 Jul 2026, 18:00").date().isoformat() == "2026-07-16"
+    assert len(rows) == 5
+    assert {row["tip"] for row in rows} == {
+        "Los Angeles Lakers wins",
+        "Golden State Warriors -7.5 handicap",
+        "Atlanta Hawks wins",
+        "Toronto Raptors wins",
+        "Over 178.5 points",
+    }
+
+    wnba_cards = module._extract_text_cards(
+        body_text,
+        module.BASKETBALL_LISTING_URL,
+        ["New York Liberty @ Dallas Wings"],
+    )
+    wnba_rows = module._extract_rows(
+        wnba_cards,
+        module._parse_target_date("2026-07-16"),
+        "wnba",
+        ["New York Liberty @ Dallas Wings"],
+    )
+    assert wnba_rows == []
+
+
+def test_sportytrader_current_basketball_wording_preserves_market_identity():
+    import pickgrader_server as server
+
+    assert server._clean_sportytrader_pick(
+        "Los Angeles Lakers wins",
+        "Chicago Bulls vs Los Angeles Lakers",
+        "NBA SUMMER",
+    ) == "Lakers ML (Bulls vs Lakers)"
+    assert server._clean_sportytrader_pick(
+        "Golden State Warriors \u20137.5 handicap",
+        "New York Knicks vs Golden State Warriors",
+        "NBA SUMMER",
+    ) == "Warriors -7.5 (Knicks vs Warriors)"
+    assert server._clean_sportytrader_pick(
+        "Over 178.5 points",
+        "Denver Nuggets vs Portland Trail Blazers",
+        "NBA SUMMER",
+    ) == "Over 178.5 (Nuggets vs Trail Blazers)"
+    assert server._clean_sportytrader_pick(
+        "Dallas Wings wins",
+        "Dallas Wings vs New York Liberty",
+        "WNBA",
+    ) == "Wings ML (Wings vs Liberty)"
 
 
 def test_sportytrader_fifa_world_cup_config_and_known_matchup_alias():

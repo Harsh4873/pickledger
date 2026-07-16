@@ -33,6 +33,8 @@ if _playwright_browsers_path:
 from playwright.sync_api import TimeoutError as PwTimeout
 from playwright.sync_api import sync_playwright
 
+BASKETBALL_LISTING_URL = "https://www.sportytrader.com/en/betting-tips/basketball/"
+
 SPORT_CONFIG = {
     "nba": {
         "aliases": {"nba", "basketball"},
@@ -44,9 +46,9 @@ SPORT_CONFIG = {
     "nba_summer": {
         "aliases": {"nba_summer", "nba_summer_league", "summer_league"},
         "league": "USA - NBA Summer League",
-        # SportyTrader can group Summer League cards on its NBA and general
-        # basketball listings. The official matchup whitelist below keeps
-        # ordinary NBA cards out of this bucket.
+        # SportyTrader groups Summer League and WNBA editorial cards on its
+        # current basketball listing. The official matchup whitelist below
+        # keeps other competitions out of this bucket.
         "league_aliases": {
             "USA - NBA",
             "USA - NBA Summer League",
@@ -54,15 +56,14 @@ SPORT_CONFIG = {
             "Summer League",
         },
         "title": "NBA Summer League",
-        "url": "https://www.sportytrader.com/us/picks/basketball/usa/nba-306/",
-        "fallback_urls": ("https://www.sportytrader.com/us/picks/basketball/",),
+        "url": BASKETBALL_LISTING_URL,
     },
     "wnba": {
         "aliases": {"wnba"},
         "league": "USA - WNBA",
         "league_aliases": {"USA - WNBA"},
         "title": "WNBA",
-        "url": "https://www.sportytrader.com/us/picks/basketball/usa/wnba-58202/",
+        "url": BASKETBALL_LISTING_URL,
     },
     "mlb": {
         "aliases": {"mlb", "baseball"},
@@ -96,34 +97,55 @@ CLOUDFLARE_SIGNALS = (
 
 SPORTYTRADER_CARDS_JS = r"""
 () => {
-    const cards = Array.from(document.querySelectorAll('.pronostics-wrapper .card'));
+    const cards = Array.from(new Set([
+        ...document.querySelectorAll('.pronostics-wrapper .card'),
+        ...document.querySelectorAll('[data-navigation-url-value]'),
+    ]));
     return cards.map((card) => {
         const text = (value) => (value || '').replace(/\s+/g, ' ').trim();
         const hrefFromCard = card.getAttribute('data-navigation-url-value') || '';
-        const anchors = Array.from(card.querySelectorAll('a[href*="/us/picks/"]'));
-        const pickAnchor = anchors.find((anchor) => /picks$/i.test(text(anchor.textContent))) || anchors[0] || null;
+        const anchors = Array.from(card.querySelectorAll(
+            'a[href*="/us/picks/"], a[href*="/en/betting-tips/"]'
+        ));
+        const pickAnchor = anchors.find((anchor) => /^(?:detail|picks?)$/i.test(text(anchor.textContent))) || anchors[0] || null;
         const href = pickAnchor
             ? pickAnchor.href
-            : (hrefFromCard ? new URL(hrefFromCard, window.location.origin).href : '');
+            : (hrefFromCard ? new URL(hrefFromCard, window.location.origin).href : window.location.href);
 
-        const teams = Array.from(card.querySelectorAll('span.font-semibold'))
+        const heading = Array.from(card.querySelectorAll('h1, h2, h3, h4, p, a'))
+            .map((node) => text(node.textContent))
+            .find((line) => /^.+?\s+vs\.?\s+.+?\s+prediction$/i.test(line)) || '';
+        const headingMatch = heading.match(/^(.+?)\s+vs\.?\s+(.+?)\s+prediction$/i);
+        const spanTeams = Array.from(card.querySelectorAll('span.font-semibold'))
             .map((node) => text(node.textContent))
             .filter(Boolean)
             .filter((team, index, values) => index === 0 || team !== values[index - 1]);
+        const teams = headingMatch ? [headingMatch[1], headingMatch[2]] : spanTeams;
         const paragraphs = Array.from(card.querySelectorAll('p'))
             .map((node) => text(node.textContent))
             .filter(Boolean);
-        const dateText = paragraphs.find((line) => /\b[A-Z][a-z]{2,8}\s+\d{1,2},\s+\d{4},\s+\d{1,2}:\d{2}/.test(line)) || '';
+        const dateText = paragraphs.find((line) => (
+            /\b\d{1,2}\s+[A-Z][a-z]{2,8}\s+\d{4},\s+\d{1,2}:\d{2}\b/.test(line)
+            || /\b[A-Z][a-z]{2,8}\s+\d{1,2},\s+\d{4},\s+\d{1,2}:\d{2}/.test(line)
+        )) || '';
         const league = paragraphs.find((line) => /\b(?:NBA Summer League|Summer League|NBA|WNBA|MLB|World Cup)\b/i.test(line)) || '';
         const tipNode = card.querySelector('.bg-gray-100 p.font-semibold');
-        const tip = text(tipNode ? tipNode.textContent : '');
+        const lines = (card.innerText || '').split(/\n+/).map(text).filter(Boolean);
+        const headingIndex = lines.findIndex((line) => line === heading);
+        const textTip = headingIndex < 0 ? '' : (lines.slice(headingIndex + 1).find((line) => (
+            !/^(?:detail|bet now!?|exclusive offer)$/i.test(line)
+        )) || '');
+        const tip = text(tipNode ? tipNode.textContent : textTip);
 
         let odds = '';
         for (const node of card.querySelectorAll('.bg-gray-100 span')) {
             const value = text(node.textContent);
             if (/^[+-]?\d+(?:\.\d+)?$/.test(value)) {
-                odds = value;
-                break;
+                const numericValue = Number(value);
+                if (numericValue > 1 || numericValue <= -100) {
+                    odds = value;
+                    break;
+                }
             }
         }
 
@@ -138,20 +160,6 @@ SPORTYTRADER_CARDS_JS = r"""
         };
     }).filter((row) => row.home && row.away && row.tip && row.href);
 }
-"""
-
-SPORTYTRADER_SUMMER_LINKS_JS = r"""
-() => Array.from(document.querySelectorAll('a[href]'))
-    .map((anchor) => ({
-        href: anchor.href || '',
-        label: (anchor.textContent || '').replace(/\s+/g, ' ').trim(),
-    }))
-    .filter(({ href, label }) => {
-        const blob = `${href} ${label}`.toLowerCase();
-        return href.startsWith('https://www.sportytrader.com/us/picks/basketball/')
-            && blob.includes('summer');
-    })
-    .map(({ href }) => href)
 """
 
 
@@ -170,7 +178,12 @@ def _parse_target_date(raw: str | None) -> datetime | None:
 
 def _parse_english_datetime(text: str) -> datetime | None:
     compact = _normalize_line(text)
-    for fmt in ("%b %d, %Y, %I:%M %p", "%B %d, %Y, %I:%M %p"):
+    for fmt in (
+        "%d %b %Y, %H:%M",
+        "%d %B %Y, %H:%M",
+        "%b %d, %Y, %I:%M %p",
+        "%B %d, %Y, %I:%M %p",
+    ):
         try:
             return datetime.strptime(compact, fmt)
         except ValueError:
@@ -262,21 +275,78 @@ def _load_cards(page, url: str) -> tuple[list[dict[str, str]], str]:
     return [], last_text
 
 
-def _discover_summer_listing_urls(page) -> list[str]:
-    try:
-        urls = page.evaluate(SPORTYTRADER_SUMMER_LINKS_JS)
-    except Exception:
-        return []
-    if not isinstance(urls, list):
-        return []
-    return list(
-        dict.fromkeys(
-            str(url).strip()
-            for url in urls
-            if str(url).startswith("https://www.sportytrader.com/us/picks/basketball/")
-            and "summer" in str(url).lower()
+def _extract_text_cards(
+    body_text: str,
+    listing_url: str,
+    expected_matchups: list[str],
+) -> list[dict[str, str]]:
+    """Extract editorial cards from the current listing's accessible text."""
+    lines = [_normalize_line(line) for line in body_text.splitlines()]
+    lines = [line for line in lines if line]
+    expected_keys = {
+        key
+        for matchup in expected_matchups
+        if (key := _matchup_key(matchup))
+    }
+    rows: list[dict[str, str]] = []
+
+    for index, line in enumerate(lines):
+        heading = re.fullmatch(
+            r"(.+?)\s+vs\.?\s+(.+?)\s+Prediction",
+            line,
+            flags=re.IGNORECASE,
         )
-    )
+        if not heading:
+            continue
+        home, away = (_normalize_line(value) for value in heading.groups())
+        if _matchup_key(f"{home} vs {away}") not in expected_keys:
+            continue
+
+        tip = ""
+        for candidate in lines[index + 1:index + 5]:
+            if re.fullmatch(
+                r"(?:Detail|BET NOW!?|Exclusive Offer)",
+                candidate,
+                flags=re.IGNORECASE,
+            ):
+                continue
+            tip = candidate
+            break
+        if not tip or tip.lower().startswith("probability of "):
+            continue
+
+        preceding = lines[max(0, index - 16):index]
+        date_text = next(
+            (candidate for candidate in reversed(preceding) if _parse_english_datetime(candidate)),
+            "",
+        )
+        league = next(
+            (
+                candidate
+                for candidate in reversed(preceding)
+                if re.search(
+                    r"\b(?:NBA Summer League|Summer League|NBA|WNBA|MLB|World Cup)\b",
+                    candidate,
+                    flags=re.IGNORECASE,
+                )
+            ),
+            "",
+        )
+        if not date_text or not league:
+            continue
+        rows.append(
+            {
+                "datetime": date_text,
+                "league": league,
+                "home": home,
+                "away": away,
+                "tip": tip,
+                "odds": "",
+                "href": listing_url,
+            }
+        )
+
+    return rows
 
 
 def _extract_rows(
@@ -286,7 +356,7 @@ def _extract_rows(
     expected_matchups: list[str] | None = None,
 ) -> list[dict[str, str]]:
     out: list[dict[str, str]] = []
-    seen: set[tuple[str, str, str, str]] = set()
+    seen: set[tuple[str, str, str]] = set()
     sport_config = SPORT_CONFIG[sport_key]
     sport_league = sport_config["league"]
     league_aliases = sport_config.get("league_aliases", {sport_league})
@@ -306,9 +376,10 @@ def _extract_rows(
         matchup_key = _matchup_key(f"{row['home']} vs {row['away']}")
         if expected and matchup_key not in expected:
             continue
-        if not expected and target_date and dt and dt.date() != target_date.date():
+        if target_date and (not dt or dt.date() != target_date.date()):
             continue
-        key = (row["datetime"], row["home"], row["away"], row["tip"])
+        matchup_identity = ":".join(matchup_key or ())
+        key = (row["datetime"], matchup_identity, row["tip"].casefold())
         if key in seen:
             continue
         seen.add(key)
@@ -394,11 +465,10 @@ def main() -> None:
                     load_errors.append(f"{target_url}: {exc}")
                     continue
                 cards.extend(page_cards)
+                cards.extend(
+                    _extract_text_cards(page_text, target_url, expected_matchups)
+                )
                 page_texts.append(page_text)
-                if sport_key == "nba_summer":
-                    for discovered_url in _discover_summer_listing_urls(page):
-                        if discovered_url not in visited_urls:
-                            target_urls.append(discovered_url)
         finally:
             page.close()
             browser.close()

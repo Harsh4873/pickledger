@@ -4452,6 +4452,7 @@ def _normalize_sportytrader_sport(raw_league: str, fallback: str | None = None) 
 def _clean_sportytrader_pick(tip: str, matchup: str, sport: str = "NBA") -> str:
     """Convert SportyTrader picks into the same pick format used in the UI."""
     tip_clean = re.sub(r"\s+", " ", str(tip or "")).strip().rstrip(".")
+    tip_clean = re.sub(r"[\u2010-\u2015\u2212]", "-", tip_clean)
     teams = matchup.split(" vs ")
     home = teams[0].strip() if len(teams) > 0 else ""
     away = teams[1].strip() if len(teams) > 1 else ""
@@ -4503,13 +4504,21 @@ def _clean_sportytrader_pick(tip: str, matchup: str, sport: str = "NBA") -> str:
         return f"{m.group(1).title()} {m.group(2)} ({matchup_short})"
 
     # English moneyline, e.g. "Milwaukee to win" or "The Reds will win".
-    m = re.match(r"^(?:The\s+)?(.+?)\s+(?:to|will)\s+win$", tip_clean, re.IGNORECASE)
+    m = re.match(
+        r"^(?:The\s+)?(.+?)\s+(?:to\s+win|will\s+win|wins)$",
+        tip_clean,
+        re.IGNORECASE,
+    )
     if m:
         team = _resolve_team_name(m.group(1))
         return f"{team} ML ({matchup_short})"
 
     # English spread/run line, e.g. "The Cubs -1.5 Runs".
-    m = re.match(r"^(?:The\s+)?(.+?)\s+([+-]\d+\.?\d*)\s*(?:points?|runs?)?$", tip_clean, re.IGNORECASE)
+    m = re.match(
+        r"^(?:The\s+)?(.+?)\s+([+-]\d+\.?\d*)\s*(?:points?|runs?|handicap)?$",
+        tip_clean,
+        re.IGNORECASE,
+    )
     if m:
         team = _resolve_team_name(m.group(1))
         return f"{team} {m.group(2)} ({matchup_short})"
