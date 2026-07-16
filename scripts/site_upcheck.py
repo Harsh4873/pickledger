@@ -50,6 +50,7 @@ REQUIRED_ML_PLAYER_PROP_FIELDS = (
 REQUIRED_SCORES24_FEED_KEYS = {
     "scores24_fifa_world_cup",
     "scores24_mlb",
+    "scores24_nba_summer",
     "scores24_wnba",
 }
 TEAM_VISIBLE_DECISIONS = {"BET", "LEAN"}

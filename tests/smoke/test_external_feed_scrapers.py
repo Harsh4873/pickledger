@@ -44,6 +44,61 @@ def test_sportytrader_wnba_config_and_card_extraction():
     assert rows[0]["tip"] == "Indiana Fever -9.5"
 
 
+def test_sportytrader_nba_summer_uses_official_matchup_identity():
+    module = _load_module(
+        "sportytrader_nba_summer_scraper_test",
+        ROOT / "scripts" / "scrapers" / "sportytrader_scraper.py",
+    )
+    config = module.SPORT_CONFIG["nba_summer"]
+    assert config["url"].endswith("/nba-306/")
+    assert "https://www.sportytrader.com/us/picks/basketball/" in config["fallback_urls"]
+    assert "NBA Summer League" in module.SPORTYTRADER_CARDS_JS
+
+    class Page:
+        def evaluate(self, _script):
+            return [
+                "https://www.sportytrader.com/us/picks/basketball/usa/nba-summer-league-1/",
+                "https://www.sportytrader.com/us/picks/basketball/usa/nba-summer-league-1/",
+                "https://example.com/us/picks/basketball/nba-summer-league/",
+                "https://www.sportytrader.com/us/picks/basketball/usa/nba-306/",
+            ]
+
+    assert module._discover_summer_listing_urls(Page()) == [
+        "https://www.sportytrader.com/us/picks/basketball/usa/nba-summer-league-1/"
+    ]
+
+    rows = module._extract_rows(
+        [
+            {
+                "datetime": "Jul 16, 2026, 7:00 PM",
+                # Summer cards may be grouped under the provider's NBA page.
+                "league": "USA - NBA",
+                "home": "Oklahoma City Thunder",
+                "away": "Dallas Mavericks",
+                "tip": "Oklahoma City Thunder -2.5",
+                "odds": "-110",
+                "href": "https://www.sportytrader.com/us/picks/dallas-oklahoma-city-1/",
+            },
+            {
+                "datetime": "Jul 16, 2026, 8:00 PM",
+                "league": "USA - NBA",
+                "home": "Boston Celtics",
+                "away": "New York Knicks",
+                "tip": "Boston Celtics ML",
+                "odds": "-115",
+                "href": "https://www.sportytrader.com/us/picks/new-york-boston-2/",
+            },
+        ],
+        module._parse_target_date("2026-07-16"),
+        "nba_summer",
+        ["Dallas Mavericks @ Oklahoma City Thunder"],
+    )
+
+    assert len(rows) == 1
+    assert rows[0]["league"] == "USA - NBA Summer League"
+    assert rows[0]["tip"] == "Oklahoma City Thunder -2.5"
+
+
 def test_sportytrader_fifa_world_cup_config_and_known_matchup_alias():
     module = _load_module(
         "sportytrader_fifa_scraper_test",
@@ -165,6 +220,100 @@ def test_sportsgambler_wnba_listing_and_detail(monkeypatch):
             "href": late_url,
         },
     ]
+
+
+def test_sportsgambler_nba_summer_reuses_basketball_listings_with_whitelist(monkeypatch):
+    module = _load_module(
+        "sportsgambler_nba_summer_scraper_test",
+        ROOT / "scripts" / "scrapers" / "sportsgambler_scraper.py",
+    )
+    detail_url = (
+        "https://www.sportsgambler.com/betting-tips/basketball/"
+        "dallas-mavericks-vs-oklahoma-city-thunder-prediction-odds-2026-07-16/"
+    )
+    listing = {
+        "@context": "https://schema.org",
+        "mainEntity": {
+            "@type": "ItemList",
+            "itemListElement": [
+                {
+                    "@type": "ListItem",
+                    "item": {
+                        "@type": "SportsEvent",
+                        "name": "Dallas Mavericks vs Oklahoma City Thunder",
+                        "startDate": "2026-07-16T23:00:00Z",
+                        "url": detail_url,
+                    },
+                },
+                {
+                    "@type": "ListItem",
+                    "item": {
+                        "@type": "SportsEvent",
+                        "name": "New York Knicks vs Boston Celtics",
+                        "startDate": "2026-07-16T23:30:00Z",
+                        "url": f"{detail_url}regular-nba/",
+                    },
+                },
+            ],
+        },
+    }
+    listing_html = f'<script type="application/ld+json">{json.dumps(listing)}</script>'
+    detail_html = (
+        '<div class="tpbot_container"><div class="tpbot_title">Our Game Prediction</div>'
+        '<a class="tpbot_tip"><span>Pick</span><span>Thunder -2.5 @ -110</span></a></div>'
+    )
+
+    class Response:
+        def __init__(self, text: str):
+            self.text = text
+
+    monkeypatch.setattr(
+        module.requests,
+        "get",
+        lambda url, **_kwargs: Response(detail_html if url == detail_url else listing_html),
+    )
+    rows = module.scrape_nba_summer(
+        date(2026, 7, 16),
+        ["Dallas Mavericks @ Oklahoma City Thunder"],
+    )
+
+    assert rows == [
+        {
+            "datetime": "2026-07-16T23:00:00Z",
+            "league": "NBA SUMMER",
+            "matchup": "Dallas Mavericks vs Oklahoma City Thunder",
+            "tip": "Thunder -2.5",
+            "odds": "-110",
+            "href": detail_url,
+        }
+    ]
+
+
+def test_sportsgambler_nba_summer_rejects_partial_listing_coverage(monkeypatch):
+    module = _load_module(
+        "sportsgambler_nba_summer_partial_listing_test",
+        ROOT / "scripts" / "scrapers" / "sportsgambler_scraper.py",
+    )
+
+    class Response:
+        status_code = 200
+        text = "<html>No current predictions.</html>"
+
+    def fake_get(url, **_kwargs):
+        if url == module.NBA_URL:
+            raise module.requests.ConnectionError("listing unavailable")
+        return Response()
+
+    monkeypatch.setattr(module.requests, "get", fake_get)
+    try:
+        module.scrape_nba_summer(
+            date(2026, 7, 16),
+            ["Dallas Mavericks @ Oklahoma City Thunder"],
+        )
+    except RuntimeError as exc:
+        assert "incomplete NBA SUMMER listing coverage" in str(exc)
+    else:
+        raise AssertionError("partial SportsGambler listing coverage must not publish a false zero")
 
 
 def test_sportsgambler_rejects_partial_basketball_feed(monkeypatch):
@@ -416,6 +565,7 @@ def test_external_slate_whitelists_preserve_every_supported_nonempty_sport(monke
 
     matchups = {
         "nba": ["Boston Celtics @ New York Knicks"],
+        "nba_summer": ["Dallas Mavericks @ Oklahoma City Thunder"],
         "wnba": ["Chicago Sky @ Indiana Fever"],
         "mlb": ["St. Louis Cardinals @ Chicago Cubs"],
         "fifa_world_cup": ["Switzerland @ Qatar"],
@@ -609,27 +759,30 @@ def test_external_feed_refresh_splits_provider_buckets_by_sport():
             "date": "2026-06-16",
             "picks": [
                 {"source": "SportyTrader", "sport": "MLB", "pick": "Dodgers ML"},
+                {"source": "SportyTrader", "sport": "NBA SUMMER", "pick": "Thunder -2.5"},
                 {"source": "SportyTrader", "sport": "WNBA", "pick": "Fever -4.5"},
                 {"source": "SportyTrader", "sport": "FIFA WC", "pick": "France team total"},
             ],
         },
         "2026-06-16",
-        ["mlb", "wnba", "fifa_world_cup"],
+        ["nba_summer", "mlb", "wnba", "fifa_world_cup"],
         "2026-06-16T12:00:00Z",
     )
     split = module._split_provider_result(
         "sportytrader",
         result,
         "2026-06-16",
-        ["mlb", "wnba", "fifa_world_cup"],
+        ["nba_summer", "mlb", "wnba", "fifa_world_cup"],
         "2026-06-16T12:00:00Z",
     )
 
     assert set(split) == {
+        "sportytrader_nba_summer",
         "sportytrader_mlb",
         "sportytrader_wnba",
         "sportytrader_fifa_world_cup",
     }
+    assert split["sportytrader_nba_summer"]["picks"][0]["source"] == "SportyTraderNBASummer"
     assert split["sportytrader_mlb"]["picks"][0]["source"] == "SportyTraderMLB"
     assert split["sportytrader_wnba"]["picks"][0]["source"] == "SportyTraderWNBA"
     assert split["sportytrader_fifa_world_cup"]["picks"][0]["source"] == "SportyTraderFIFAWorldCup"
@@ -685,12 +838,13 @@ def test_known_fifa_slate_uses_in_house_cache_before_external_scrapers(monkeypat
     assert matchups == ["Switzerland @ Qatar", "Türkiye @ Australia"]
 
 
-def test_external_feed_schedule_requests_wnba_and_fifa_world_cup():
+def test_external_feed_schedule_requests_nba_summer_wnba_and_fifa_world_cup():
     workflow = (ROOT / ".github" / "workflows" / "external-feed-refresh.yml").read_text(encoding="utf-8")
     refresh = (ROOT / "scripts" / "refresh_external_feeds.py").read_text(encoding="utf-8")
     server = (ROOT / "pickgrader_server.py").read_text(encoding="utf-8")
-    assert '--sports "nba,mlb,wnba,fifa_world_cup"' in workflow
-    assert 'default="nba,mlb,wnba,fifa_world_cup"' in refresh
+    assert '--sports "nba,nba_summer,mlb,wnba,fifa_world_cup"' in workflow
+    assert 'default="nba,nba_summer,mlb,wnba,fifa_world_cup"' in refresh
+    assert '"nba_summer": "nba_summer"' in server
     assert '"wnba": "wnba"' in server
     assert '"fifa_world_cup": "fifa_world_cup"' in server
     assert '"fifa_world_cup": {"label": "FIFA WC"' in server
@@ -719,6 +873,129 @@ def test_scores24_extracts_our_choice_and_normalizes_pick():
         tip,
         {"away": "Miami Marlins", "home": "Pittsburgh Pirates"},
     ) == "Pittsburgh Pirates ML (Miami Marlins @ Pittsburgh Pirates)"
+
+
+def test_scores24_nba_summer_config_and_official_matchup_scrape():
+    module = _load_module(
+        "scores24_nba_summer_test",
+        ROOT / "scripts" / "scrapers" / "scores24_scraper.py",
+    )
+    config = module.SPORT_CONFIG["nba_summer"]
+    assert config["espn_league"] == "nba-summer"
+    assert config["cache_keys"] == ("nba_summer",)
+
+    detail_url = (
+        "https://scores24.live/en/basketball/"
+        "m-16-07-2026-dallas-mavericks-oklahoma-city-thunder-prediction"
+    )
+    listing_html = f'<a href="{detail_url}">Dallas Mavericks Oklahoma City Thunder prediction</a>'
+    detail_html = """
+    <html><head><title>Dallas Mavericks vs Oklahoma City Thunder Prediction</title></head>
+    <body><div><div>Our choice</div><div>Oklahoma City Thunder Handicap (-2.5) at odds of -110*</div></div></body>
+    </html>
+    """
+
+    class Client:
+        def get_html(self, url: str, attempts: int = 3):
+            if url == config["listing_url"]:
+                return listing_html, 200, False
+            return detail_html, 200, False
+
+        def close(self):
+            return None
+
+    result = module.scrape_scores24(
+        "nba_summer",
+        "2026-07-16",
+        client=Client(),
+        matchups=[
+            {
+                "away": "Dallas Mavericks",
+                "home": "Oklahoma City Thunder",
+                "start_time": "2026-07-16T23:00:00Z",
+            }
+        ],
+    )
+
+    assert result["ok"] is True
+    assert result["meta"]["matchedPicks"] == 1
+    assert result["picks"][0]["source"] == "Scores24NBASummer"
+    assert result["picks"][0]["sport"] == "NBA SUMMER"
+    assert result["picks"][0]["matchup"] == "Dallas Mavericks @ Oklahoma City Thunder"
+
+
+def test_scores24_nba_summer_transport_failure_cannot_publish_false_zero():
+    module = _load_module(
+        "scores24_nba_summer_transport_test",
+        ROOT / "scripts" / "scrapers" / "scores24_scraper.py",
+    )
+
+    class UnreachableClient:
+        def get_html(self, _url: str, attempts: int = 3):
+            return "", 0, False
+
+        def close(self):
+            return None
+
+    result = module.scrape_scores24(
+        "nba_summer",
+        "2026-07-16",
+        client=UnreachableClient(),
+        matchups=[
+            {
+                "away": "Dallas Mavericks",
+                "home": "Oklahoma City Thunder",
+                "start_time": "2026-07-16T23:00:00Z",
+            }
+        ],
+    )
+
+    assert result["ok"] is False
+    assert "could not reach a Scores24 editorial listing" in result["error"]
+    assert result["meta"]["listingResolved"] is False
+    assert result["meta"]["missingMatchups"] == [
+        "Dallas Mavericks @ Oklahoma City Thunder"
+    ]
+
+
+def test_scores24_nba_summer_reachable_empty_listing_is_valid_abstention():
+    module = _load_module(
+        "scores24_nba_summer_abstention_test",
+        ROOT / "scripts" / "scrapers" / "scores24_scraper.py",
+    )
+    config = module.SPORT_CONFIG["nba_summer"]
+
+    class EmptyListingClient:
+        def get_html(self, url: str, attempts: int = 3):
+            if url in config["listing_urls"]:
+                return "<html><body>No NBA Summer League predictions today.</body></html>", 200, False
+            return "", 404, False
+
+        def close(self):
+            return None
+
+    result = module.scrape_scores24(
+        "nba_summer",
+        "2026-07-16",
+        client=EmptyListingClient(),
+        matchups=[
+            {
+                "away": "Dallas Mavericks",
+                "home": "Oklahoma City Thunder",
+                "start_time": "2026-07-16T23:00:00Z",
+            }
+        ],
+    )
+
+    assert result["ok"] is True
+    assert result["picks"] == []
+    assert result["meta"]["officialMatchups"] == 1
+    assert result["meta"]["expectedMatchups"] == 0
+    assert result["meta"]["matchedPicks"] == 0
+    assert result["meta"]["missingMatchups"] == []
+    assert result["meta"]["unpublishedMatchups"] == [
+        "Dallas Mavericks @ Oklahoma City Thunder"
+    ]
 
 
 def test_scores24_candidate_urls_cover_wrong_dates_and_site_team_aliases():
@@ -1293,14 +1570,21 @@ def test_local_scores24_publisher_registers_separate_models():
     workflow = (ROOT / ".github" / "workflows" / "external-feed-refresh.yml").read_text(encoding="utf-8")
     refresh = (ROOT / "scripts" / "refresh_external_feeds.py").read_text(encoding="utf-8")
     publisher = (ROOT / "scripts" / "scrapers" / "scores24_publish.sh").read_text(encoding="utf-8")
-    for model_key in ("scores24_wnba", "scores24_mlb", "scores24_fifa_world_cup"):
+    for model_key in (
+        "scores24_nba_summer",
+        "scores24_wnba",
+        "scores24_mlb",
+        "scores24_fifa_world_cup",
+    ):
         assert model_key in refresh
         assert model_key in publisher
     for model_key in (
         "sportytrader_mlb",
+        "sportytrader_nba_summer",
         "sportytrader_wnba",
         "sportytrader_fifa_world_cup",
         "sportsgambler_mlb",
+        "sportsgambler_nba_summer",
         "sportsgambler_wnba",
         "sportsgambler_fifa_world_cup",
     ):
@@ -1311,7 +1595,10 @@ def test_local_scores24_publisher_registers_separate_models():
     assert 'GH_BIN="$(command -v gh || true)"' in publisher
     assert "SCORES24_BROWSER_FALLBACK=true" in publisher
     assert "SCORES24_CAMOUFOX_FALLBACK=true" in publisher
-    assert 'PUBLISH_FEEDS="${SCORES24_PUBLISH_FEEDS:-scores24_mlb,scores24_wnba,scores24_fifa_world_cup}"' in publisher
+    assert (
+        'PUBLISH_FEEDS="${SCORES24_PUBLISH_FEEDS:-scores24_mlb,scores24_nba_summer,'
+        'scores24_wnba,scores24_fifa_world_cup}"'
+    ) in publisher
     assert 'SCORES24_REQUEST_INTERVAL_SECONDS="${REQUEST_INTERVAL}"' in publisher
     assert 'SCORES24_REQUEST_ATTEMPTS="${REQUEST_ATTEMPTS}"' in publisher
     assert 'SCORES24_ATTEMPT_RETRY_DELAY_SECONDS="${ATTEMPT_RETRY_DELAY}"' in publisher

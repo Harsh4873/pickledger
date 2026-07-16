@@ -63,7 +63,7 @@ jobs:
           python scripts/refresh_external_feeds.py \
             --date "${{ github.event.inputs.date || '' }}" \
             --feeds "${{ github.event.inputs.feeds || 'sportytrader,sportsgambler' }}" \
-            --sports "nba,mlb,wnba,fifa_world_cup" \
+            --sports "nba,nba_summer,mlb,wnba,fifa_world_cup" \
             --skip-firestore
 
       - name: Commit feed cache JSON if changed

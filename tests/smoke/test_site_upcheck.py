@@ -29,7 +29,12 @@ PLAYER_PROP_KEYS = {
     "mlb_player_props",
     "wnba_player_props",
 }
-SCORES24_KEYS = {"scores24_fifa_world_cup", "scores24_mlb", "scores24_wnba"}
+SCORES24_KEYS = {
+    "scores24_fifa_world_cup",
+    "scores24_mlb",
+    "scores24_nba_summer",
+    "scores24_wnba",
+}
 
 
 def _write_json(path: Path, payload: dict) -> None:

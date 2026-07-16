@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Publish Scores24 WNBA/MLB/FIFA feeds from a non-GitHub-Actions IP (local Mac or Cursor Cloud).
+# Publish Scores24 NBA Summer/WNBA/MLB/FIFA feeds from a non-GitHub-Actions IP.
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -21,8 +21,8 @@ if [[ -z "${GH_BIN}" ]]; then
 fi
 
 DATE_ISO="${SCORES24_DATE:-$(date +%F)}"
-PUBLISH_FEEDS="${SCORES24_PUBLISH_FEEDS:-scores24_mlb,scores24_wnba,scores24_fifa_world_cup}"
-PUBLISH_SPORTS="${SCORES24_PUBLISH_SPORTS:-mlb,wnba,fifa_world_cup}"
+PUBLISH_FEEDS="${SCORES24_PUBLISH_FEEDS:-scores24_mlb,scores24_nba_summer,scores24_wnba,scores24_fifa_world_cup}"
+PUBLISH_SPORTS="${SCORES24_PUBLISH_SPORTS:-mlb,nba_summer,wnba,fifa_world_cup}"
 REQUEST_INTERVAL="${SCORES24_REQUEST_INTERVAL_SECONDS:-12}"
 REQUEST_ATTEMPTS="${SCORES24_REQUEST_ATTEMPTS:-1}"
 ATTEMPT_RETRY_DELAY="${SCORES24_ATTEMPT_RETRY_DELAY_SECONDS:-0}"
@@ -144,7 +144,12 @@ import sys
 from pathlib import Path
 
 date_iso = os.environ["DATE_ISO"]
-required = ("scores24_wnba", "scores24_mlb", "scores24_fifa_world_cup")
+required = (
+    "scores24_nba_summer",
+    "scores24_wnba",
+    "scores24_mlb",
+    "scores24_fifa_world_cup",
+)
 payload = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
 buckets = payload.get("external_feeds") if isinstance(payload.get("external_feeds"), dict) else {}
 failures = []

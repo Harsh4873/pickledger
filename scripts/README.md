@@ -5,7 +5,7 @@ The active production automation uses GitHub Actions plus local Codex morning an
 | Script | Purpose |
 | --- | --- |
 | `refresh_model_cache.py` | Runs selected model directories, including NBA Summer League during the summer slate, and writes dated model-cache JSON. |
-| `refresh_external_feeds.py` | Refreshes sport-specific SportyTrader, SportsGambler, Scores24WNBA, Scores24MLB, and Scores24FIFAWorldCup cache buckets. |
+| `refresh_external_feeds.py` | Refreshes sport-specific SportyTrader, SportsGambler, Scores24NBASummer, Scores24WNBA, Scores24MLB, and Scores24FIFAWorldCup cache buckets. |
 | `merge_model_cache_payload.py` | Merges model output while preserving other buckets and grades. |
 | `merge_external_feed_cache_payload.py` | Merges feed output while preserving model buckets and grades. |
 | `build_player_prop_market_history.py` | Backfills immutable posted player-prop markets and final outcomes for season training. |

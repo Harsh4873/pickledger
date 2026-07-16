@@ -4425,6 +4425,10 @@ _SPORTYTRADER_SPORT_ALIAS = {
     "USA - NBA": "NBA",
     "NBA": "NBA",
     "BASKETBALL": "NBA",
+    "USA - NBA SUMMER LEAGUE": "NBA SUMMER",
+    "NBA SUMMER LEAGUE": "NBA SUMMER",
+    "NBA SUMMER": "NBA SUMMER",
+    "SUMMER LEAGUE": "NBA SUMMER",
     "USA - WNBA": "WNBA",
     "WNBA": "WNBA",
     "USA - MLB": "MLB",
@@ -5385,6 +5389,7 @@ def _matchup_pair_key(raw: str) -> tuple[str, str] | None:
 
 _EXTERNAL_FEED_SPORT_CONFIG = {
     "nba": {"label": "NBA", "model_keys": ("nba", "nba_playoffs")},
+    "nba_summer": {"label": "NBA SUMMER", "model_keys": ("nba_summer",)},
     "wnba": {"label": "WNBA", "model_keys": ("wnba",)},
     "mlb": {"label": "MLB", "model_keys": ("mlb_first_five", "mlb_inning", "mlb_new")},
     "fifa_world_cup": {"label": "FIFA WC", "model_keys": ("fifa_world_cup",)},
@@ -5392,6 +5397,7 @@ _EXTERNAL_FEED_SPORT_CONFIG = {
 
 _EXTERNAL_FEED_SPORT_KEY_BY_LABEL = {
     "NBA": "nba",
+    "NBA SUMMER": "nba_summer",
     "WNBA": "wnba",
     "MLB": "mlb",
     "FIFA WC": "fifa_world_cup",
@@ -5402,6 +5408,7 @@ _EXTERNAL_FEED_SPORT_LABEL_BY_KEY = {
 }
 _EXTERNAL_FEED_SPORT_SOURCE_SUFFIX = {
     "NBA": "NBA",
+    "NBA SUMMER": "NBASummer",
     "WNBA": "WNBA",
     "MLB": "MLB",
     "FIFA WC": "FIFAWorldCup",
@@ -5419,6 +5426,8 @@ def _canonical_external_feed_sport(value: Any) -> str:
     normalized = re.sub(r"[\s-]+", "_", raw.lower())
     aliases = {
         "basketball": "nba",
+        "nba_summer_league": "nba_summer",
+        "summer_league": "nba_summer",
         "baseball": "mlb",
         "football": "fifa_world_cup",
         "soccer": "fifa_world_cup",
@@ -5790,6 +5799,9 @@ def run_sportytrader_scraper(
     sport_map = {
         "nba": "nba",
         "basketball": "nba",
+        "nba_summer": "nba_summer",
+        "nba_summer_league": "nba_summer",
+        "summer_league": "nba_summer",
         "wnba": "wnba",
         "mlb": "mlb",
         "baseball": "mlb",
@@ -5799,7 +5811,7 @@ def run_sportytrader_scraper(
         "soccer": "fifa_world_cup",
         "world_cup": "fifa_world_cup",
     }
-    default_sports = ["nba", "mlb", "wnba", "fifa_world_cup"]
+    default_sports = ["nba", "nba_summer", "mlb", "wnba", "fifa_world_cup"]
     selected = [sport_map.get(str(s).strip().lower(), "") for s in (sports or default_sports)]
     selected = [sport for sport in selected if sport]
     if not selected:
@@ -5947,6 +5959,9 @@ def run_sportsgambler_scraper(
     sport_map = {
         "nba": "nba",
         "basketball": "nba",
+        "nba_summer": "nba_summer",
+        "nba_summer_league": "nba_summer",
+        "summer_league": "nba_summer",
         "wnba": "wnba",
         "mlb": "mlb",
         "baseball": "mlb",
@@ -5956,7 +5971,7 @@ def run_sportsgambler_scraper(
         "soccer": "fifa_world_cup",
         "world_cup": "fifa_world_cup",
     }
-    default_sports = ["nba", "mlb", "wnba", "fifa_world_cup"]
+    default_sports = ["nba", "nba_summer", "mlb", "wnba", "fifa_world_cup"]
     selected = [sport_map.get(str(s).strip().lower(), "") for s in (sports or default_sports)]
     selected = [sport for sport in selected if sport]
     if not selected:
@@ -6014,7 +6029,7 @@ def run_sportsgambler_scraper(
 
                 league = league_m.group(1).strip() if league_m else ""
                 sport = (league or expected_sport).upper()
-                if sport not in {"NBA", "WNBA", "MLB", "FIFA WC"}:
+                if sport not in {"NBA", "NBA SUMMER", "WNBA", "MLB", "FIFA WC"}:
                     sport = expected_sport
 
                 odds_val = None

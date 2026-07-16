@@ -40,14 +40,17 @@ if not _env_flag("ENABLE_SPORTYTRADER_LOCALSYNC"):
 import pickgrader_server as p
 
 date_str = datetime.now().strftime("%Y-%m-%d")
-result = p.run_sportytrader_scraper(date_str, ["nba", "mlb", "wnba", "fifa_world_cup"])
+result = p.run_sportytrader_scraper(
+    date_str,
+    ["nba", "nba_summer", "mlb", "wnba", "fifa_world_cup"],
+)
 if not result.get("ok"):
     raise SystemExit(result.get("error") or "SportyTrader sync failed")
 
 payload = {
     "updated_at": datetime.now().isoformat(),
     "date": date_str,
-    "leagues": "nba,mlb,wnba,fifa_world_cup",
+    "leagues": "nba,nba_summer,mlb,wnba,fifa_world_cup",
     "note": "Auto-synced locally via macOS launchd.",
     "picks": result.get("picks", []),
 }

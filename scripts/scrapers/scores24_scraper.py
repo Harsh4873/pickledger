@@ -30,6 +30,19 @@ HEADERS = {
     "Accept-Language": "en-US,en;q=0.9",
 }
 SPORT_CONFIG = {
+    "nba_summer": {
+        "espn_sport": "basketball",
+        "espn_league": "nba-summer",
+        "scores24_sport": "basketball",
+        "listing_url": f"{BASE_URL}/en/basketball/l-usa-nba-summer-league/predictions",
+        "listing_urls": (
+            f"{BASE_URL}/en/basketball/l-usa-nba-summer-league/predictions",
+            f"{BASE_URL}/en/basketball/predictions",
+        ),
+        "source": "Scores24NBASummer",
+        "label": "NBA SUMMER",
+        "cache_keys": ("nba_summer",),
+    },
     "wnba": {
         "espn_sport": "basketball",
         "espn_league": "wnba",
@@ -975,6 +988,10 @@ def scrape_scores24(
     block_retry_rounds = 0
     attempted_urls = 0
     listing_links: list[dict[str, str]] = []
+    listing_resolved = False
+    listing_urls_attempted = 0
+    listed_matchup_keys: set[tuple[str, str]] = set()
+    detail_matchup_keys: set[tuple[str, str]] = set()
     checkpointed = _load_checkpoint(sport_key, date_iso, expected)
     picks: list[dict[str, Any]] = list(checkpointed.values())
     remaining = [
@@ -985,11 +1002,24 @@ def scrape_scores24(
     unresolved: list[tuple[dict[str, str], list[str]]] = []
     try:
         if remaining:
-            listing_html, _, listing_blocked = scores_client.get_html(config["listing_url"])
-            if listing_blocked:
-                blocked_urls.append(config["listing_url"])
-            else:
-                listing_links = extract_listing_links(listing_html)
+            configured_listing_urls = config.get("listing_urls") or (config["listing_url"],)
+            seen_listing_links: set[str] = set()
+            for listing_url in dict.fromkeys(configured_listing_urls):
+                listing_urls_attempted += 1
+                listing_html, listing_status, listing_blocked = scores_client.get_html(listing_url)
+                if listing_blocked:
+                    blocked_urls.append(listing_url)
+                    continue
+                if listing_status != 200:
+                    continue
+                listing_resolved = True
+                for link in extract_listing_links(listing_html):
+                    if link["url"] in seen_listing_links:
+                        continue
+                    seen_listing_links.add(link["url"])
+                    listing_links.append(link)
+                if listing_links:
+                    break
 
             max_candidates = int(_env_float("SCORES24_MAX_CANDIDATES_PER_MATCHUP", 36, 1))
 
@@ -1018,10 +1048,12 @@ def scrape_scores24(
                         continue
                     if not _matchup_matches_blob(matchup, f"{url.replace('-', ' ')} {_norm_space(BeautifulSoup(html, 'html.parser').title)}"):
                         continue
+                    key = _matchup_key(matchup["away"], matchup["home"])
+                    if key:
+                        detail_matchup_keys.add(key)
                     tip, odds = extract_our_choice(html)
                     if not tip:
                         continue
-                    key = _matchup_key(matchup["away"], matchup["home"])
                     if key:
                         blocked_matchups.discard(key)
                     return _pick_payload(config, date_iso, matchup, url, tip, odds)
@@ -1031,6 +1063,9 @@ def scrape_scores24(
             unlisted_queue: list[tuple[dict[str, str], list[str]]] = []
             for matchup in remaining:
                 listing_urls = _matching_listing_urls(listing_links, matchup)
+                matchup_key = _matchup_key(matchup["away"], matchup["home"])
+                if listing_urls and matchup_key:
+                    listed_matchup_keys.add(matchup_key)
                 candidates = list(
                     dict.fromkeys(
                         [
@@ -1112,6 +1147,49 @@ def scrape_scores24(
                 "blockedUrls": len(set(blocked_urls)),
                 "blockRetryRounds": block_retry_rounds,
                 "checkpointedPicks": len(checkpointed),
+                "listingResolved": listing_resolved,
+                "listingUrlsAttempted": listing_urls_attempted,
+            },
+        }
+    unverifiable_missing = [
+        f"{matchup['away']} @ {matchup['home']}"
+        for matchup, _ in unresolved
+        if (
+            not listing_resolved
+            or _matchup_key(matchup["away"], matchup["home"]) in listed_matchup_keys
+            or _matchup_key(matchup["away"], matchup["home"]) in detail_matchup_keys
+        )
+    ]
+    if unverifiable_missing:
+        reason = (
+            "could not reach a Scores24 editorial listing"
+            if not listing_resolved
+            else "found matchup prediction page(s) without a parseable editorial choice"
+        )
+        return {
+            "ok": False,
+            "date": date_iso,
+            "picks": picks,
+            "error": (
+                f"{config['source']} {reason}: "
+                f"{', '.join(unverifiable_missing[:3])}"
+            ),
+            "meta": {
+                "officialMatchups": len(expected),
+                "expectedMatchups": len(expected),
+                "matchedPicks": len(picks),
+                "missingMatchups": unverifiable_missing,
+                "unpublishedMatchups": [
+                    matchup
+                    for matchup in unresolved_matchups
+                    if matchup not in unverifiable_missing
+                ],
+                "attemptedUrls": attempted_urls,
+                "blockedUrls": len(set(blocked_urls)),
+                "blockRetryRounds": block_retry_rounds,
+                "checkpointedPicks": len(checkpointed),
+                "listingResolved": listing_resolved,
+                "listingUrlsAttempted": listing_urls_attempted,
             },
         }
     return {
@@ -1132,6 +1210,8 @@ def scrape_scores24(
             "blockedUrls": len(set(blocked_urls)),
             "blockRetryRounds": block_retry_rounds,
             "listingLinks": len(listing_links),
+            "listingResolved": listing_resolved,
+            "listingUrlsAttempted": listing_urls_attempted,
             "checkpointedPicks": len(checkpointed),
         },
     }
@@ -1139,6 +1219,10 @@ def scrape_scores24(
 
 def run_scores24_wnba(date_iso: str, _sports: list[str] | None = None) -> dict[str, Any]:
     return scrape_scores24("wnba", date_iso)
+
+
+def run_scores24_nba_summer(date_iso: str, _sports: list[str] | None = None) -> dict[str, Any]:
+    return scrape_scores24("nba_summer", date_iso)
 
 
 def run_scores24_mlb(date_iso: str, _sports: list[str] | None = None) -> dict[str, Any]:

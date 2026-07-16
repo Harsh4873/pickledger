@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""SportsGambler scraper for NBA, WNBA, MLB, and FIFA World Cup picks."""
+"""SportsGambler scraper for NBA, NBA Summer, WNBA, MLB, and FIFA picks."""
 from __future__ import annotations
 import argparse, json, re, sys, unicodedata
 from datetime import date, datetime
@@ -13,9 +13,20 @@ HEADERS = {
 }
 
 NBA_URL = "https://www.sportsgambler.com/betting-tips/basketball/nba-predictions/"
+NBA_SUMMER_URLS = (
+    NBA_URL,
+    "https://www.sportsgambler.com/betting-tips/basketball/",
+)
 WNBA_URL = "https://www.sportsgambler.com/betting-tips/basketball/wnba-predictions/"
 MLB_URL = "https://www.sportsgambler.com/betting-tips/baseball/"
 FIFA_WORLD_CUP_URL = "https://www.sportsgambler.com/betting-tips/football/fifa-world-cup-predictions/"
+BLOCK_SIGNALS = (
+    "attention required",
+    "just a moment",
+    "performing security verification",
+    "sorry, you have been blocked",
+    "cloudflare",
+)
 
 def _norm(s: str) -> str:
     return re.sub(r"\s+", " ", str(s or "")).strip()
@@ -91,28 +102,55 @@ def _expected_matchup_whitelist(expected_matchups: list[str] | None) -> dict[tup
 
 def scrape_basketball(
     target: date | None,
-    url: str,
+    url: str | tuple[str, ...],
     league: str,
     expected_matchups: list[str] | None = None,
 ) -> list[dict]:
     expected = _expected_matchup_whitelist(expected_matchups)
-    html = requests.get(url, headers=HEADERS, timeout=30).text
-    soup = BeautifulSoup(html, "html.parser")
     articles, seen = [], set()
-    for obj in _json_ld(soup):
-        for node in _iter_nodes(obj):
-            item = node.get("item")
-            if not isinstance(item, dict) or item.get("@type") != "SportsEvent":
-                continue
-            url = _norm(item.get("url", ""))
-            matchup = _matchup_from_node(item)
-            if not url or not matchup or url in seen:
-                continue
-            matchup_key = _matchup_key(matchup)
-            if matchup_key not in expected:
-                continue
-            seen.add(url)
-            articles.append({"url": url, "matchup": matchup, "date": item.get("startDate", "")})
+    listing_urls = (url,) if isinstance(url, str) else url
+    listing_failures: list[str] = []
+    loaded_listing = False
+    for listing_url in dict.fromkeys(listing_urls):
+        try:
+            response = requests.get(listing_url, headers=HEADERS, timeout=30)
+        except requests.RequestException as exc:
+            listing_failures.append(f"{listing_url}: {exc}")
+            continue
+        status = getattr(response, "status_code", 200)
+        html = response.text
+        if status != 200:
+            listing_failures.append(f"{listing_url}: HTTP {status}")
+            continue
+        if any(signal in html[:12000].lower() for signal in BLOCK_SIGNALS):
+            listing_failures.append(f"{listing_url}: provider challenge page")
+            continue
+        loaded_listing = True
+        soup = BeautifulSoup(html, "html.parser")
+        for obj in _json_ld(soup):
+            for node in _iter_nodes(obj):
+                item = node.get("item")
+                if not isinstance(item, dict) or item.get("@type") != "SportsEvent":
+                    continue
+                detail_url = _norm(item.get("url", ""))
+                matchup = _matchup_from_node(item)
+                if not detail_url or not matchup or detail_url in seen:
+                    continue
+                matchup_key = _matchup_key(matchup)
+                if matchup_key not in expected:
+                    continue
+                seen.add(detail_url)
+                articles.append({"url": detail_url, "matchup": matchup, "date": item.get("startDate", "")})
+    if not loaded_listing:
+        raise RuntimeError(
+            f"unable to load {league} prediction listing(s): "
+            f"{'; '.join(listing_failures[:2]) or 'unknown transport failure'}"
+        )
+    if listing_failures:
+        raise RuntimeError(
+            f"incomplete {league} listing coverage: "
+            f"{'; '.join(listing_failures[:2])}"
+        )
 
     rows = []
     missing: list[str] = []
@@ -151,6 +189,9 @@ def scrape_basketball(
 
 def scrape_nba(target: date | None, expected_matchups: list[str] | None = None) -> list[dict]:
     return scrape_basketball(target, NBA_URL, "NBA", expected_matchups)
+
+def scrape_nba_summer(target: date | None, expected_matchups: list[str] | None = None) -> list[dict]:
+    return scrape_basketball(target, NBA_SUMMER_URLS, "NBA SUMMER", expected_matchups)
 
 def scrape_wnba(target: date | None, expected_matchups: list[str] | None = None) -> list[dict]:
     return scrape_basketball(target, WNBA_URL, "WNBA", expected_matchups)
@@ -206,6 +247,8 @@ def main() -> None:
     try:
         if sport in ("nba", "basketball"):
             rows = scrape_nba(target, expected_matchups)
+        elif sport in ("nba_summer", "nba_summer_league", "summer_league"):
+            rows = scrape_nba_summer(target, expected_matchups)
         elif sport == "wnba":
             rows = scrape_wnba(target, expected_matchups)
         elif sport in ("mlb", "baseball"):
@@ -213,7 +256,10 @@ def main() -> None:
         elif sport in ("fifa", "fifa_world_cup", "football", "soccer", "world_cup"):
             rows = scrape_fifa_world_cup(target, expected_matchups)
         else:
-            raise ValueError("supported sports: nba/basketball, wnba, mlb/baseball, fifa_world_cup/soccer")
+            raise ValueError(
+                "supported sports: nba/basketball, nba_summer, wnba, mlb/baseball, "
+                "fifa_world_cup/soccer"
+            )
     except Exception as exc:
         print(f"Error: {exc}", file=sys.stderr)
         sys.exit(1)

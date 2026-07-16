@@ -18,14 +18,17 @@ MODEL_CACHE_DIR = Path("data/model_cache")
 EXTERNAL_FEED_MODEL_KEYS = {
     "sportytrader",
     "sportytrader_nba",
+    "sportytrader_nba_summer",
     "sportytrader_mlb",
     "sportytrader_wnba",
     "sportytrader_fifa_world_cup",
     "sportsgambler",
     "sportsgambler_nba",
+    "sportsgambler_nba_summer",
     "sportsgambler_mlb",
     "sportsgambler_wnba",
     "sportsgambler_fifa_world_cup",
+    "scores24_nba_summer",
     "scores24_wnba",
     "scores24_mlb",
     "scores24_fifa_world_cup",
@@ -33,6 +36,7 @@ EXTERNAL_FEED_MODEL_KEYS = {
 SPLIT_EXTERNAL_FEED_LEGACY_KEYS = {"sportytrader", "sportsgambler"}
 EXTERNAL_FEED_SPORT_KEYS = {
     "NBA": "nba",
+    "NBA SUMMER": "nba_summer",
     "WNBA": "wnba",
     "MLB": "mlb",
     "FIFA WC": "fifa_world_cup",
@@ -40,12 +44,14 @@ EXTERNAL_FEED_SPORT_KEYS = {
 EXTERNAL_FEED_SOURCE_LABELS = {
     "sportytrader": {
         "NBA": "SportyTraderNBA",
+        "NBA SUMMER": "SportyTraderNBASummer",
         "WNBA": "SportyTraderWNBA",
         "MLB": "SportyTraderMLB",
         "FIFA WC": "SportyTraderFIFAWorldCup",
     },
     "sportsgambler": {
         "NBA": "SportsGamblerNBA",
+        "NBA SUMMER": "SportsGamblerNBASummer",
         "WNBA": "SportsGamblerWNBA",
         "MLB": "SportsGamblerMLB",
         "FIFA WC": "SportsGamblerFIFAWorldCup",
@@ -58,6 +64,7 @@ REQUIRED_TEAM_MODEL_KEYS = {
     "wnba",
     "nba",
     "nba_playoffs",
+    "nba_summer",
     "fifa_world_cup",
 }
 PICK_METADATA_FIELDS = {"result", "start_time", "game_start_time", "pregame_snapshot"}
@@ -166,6 +173,9 @@ def _canonical_sport_label(value: Any) -> str:
     aliases = {
         "nba": "NBA",
         "basketball": "NBA",
+        "nba_summer": "NBA SUMMER",
+        "nba_summer_league": "NBA SUMMER",
+        "summer_league": "NBA SUMMER",
         "wnba": "WNBA",
         "mlb": "MLB",
         "baseball": "MLB",

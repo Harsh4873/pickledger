@@ -2,8 +2,8 @@
 """
 SportyTrader Scraper
 ====================
-    Scrapes NBA, WNBA, MLB, and FIFA World Cup picks from SportyTrader and
-prints structured pick blocks for the backend parser.
+    Scrapes NBA, NBA Summer League, WNBA, MLB, and FIFA World Cup picks from
+SportyTrader and prints structured pick blocks for the backend parser.
 """
 
 from __future__ import annotations
@@ -37,24 +37,44 @@ SPORT_CONFIG = {
     "nba": {
         "aliases": {"nba", "basketball"},
         "league": "USA - NBA",
+        "league_aliases": {"USA - NBA"},
         "title": "NBA",
         "url": "https://www.sportytrader.com/us/picks/basketball/usa/nba-306/",
+    },
+    "nba_summer": {
+        "aliases": {"nba_summer", "nba_summer_league", "summer_league"},
+        "league": "USA - NBA Summer League",
+        # SportyTrader can group Summer League cards on its NBA and general
+        # basketball listings. The official matchup whitelist below keeps
+        # ordinary NBA cards out of this bucket.
+        "league_aliases": {
+            "USA - NBA",
+            "USA - NBA Summer League",
+            "NBA Summer League",
+            "Summer League",
+        },
+        "title": "NBA Summer League",
+        "url": "https://www.sportytrader.com/us/picks/basketball/usa/nba-306/",
+        "fallback_urls": ("https://www.sportytrader.com/us/picks/basketball/",),
     },
     "wnba": {
         "aliases": {"wnba"},
         "league": "USA - WNBA",
+        "league_aliases": {"USA - WNBA"},
         "title": "WNBA",
         "url": "https://www.sportytrader.com/us/picks/basketball/usa/wnba-58202/",
     },
     "mlb": {
         "aliases": {"mlb", "baseball"},
         "league": "USA - MLB",
+        "league_aliases": {"USA - MLB"},
         "title": "MLB",
         "url": "https://www.sportytrader.com/us/picks/baseball/usa/mlb-597/",
     },
     "fifa_world_cup": {
         "aliases": {"fifa", "fifa_world_cup", "football", "soccer", "world_cup"},
         "league": "World - World Cup",
+        "league_aliases": {"World - World Cup"},
         "title": "FIFA World Cup",
         "url": "https://www.sportytrader.com/us/picks/soccer/world/world-cup-1811/",
     },
@@ -94,7 +114,7 @@ SPORTYTRADER_CARDS_JS = r"""
             .map((node) => text(node.textContent))
             .filter(Boolean);
         const dateText = paragraphs.find((line) => /\b[A-Z][a-z]{2,8}\s+\d{1,2},\s+\d{4},\s+\d{1,2}:\d{2}/.test(line)) || '';
-        const league = paragraphs.find((line) => /\b-\s*(NBA|WNBA|MLB|World Cup)\b/i.test(line)) || '';
+        const league = paragraphs.find((line) => /\b(?:NBA Summer League|Summer League|NBA|WNBA|MLB|World Cup)\b/i.test(line)) || '';
         const tipNode = card.querySelector('.bg-gray-100 p.font-semibold');
         const tip = text(tipNode ? tipNode.textContent : '');
 
@@ -118,6 +138,20 @@ SPORTYTRADER_CARDS_JS = r"""
         };
     }).filter((row) => row.home && row.away && row.tip && row.href);
 }
+"""
+
+SPORTYTRADER_SUMMER_LINKS_JS = r"""
+() => Array.from(document.querySelectorAll('a[href]'))
+    .map((anchor) => ({
+        href: anchor.href || '',
+        label: (anchor.textContent || '').replace(/\s+/g, ' ').trim(),
+    }))
+    .filter(({ href, label }) => {
+        const blob = `${href} ${label}`.toLowerCase();
+        return href.startsWith('https://www.sportytrader.com/us/picks/basketball/')
+            && blob.includes('summer');
+    })
+    .map(({ href }) => href)
 """
 
 
@@ -228,6 +262,23 @@ def _load_cards(page, url: str) -> tuple[list[dict[str, str]], str]:
     return [], last_text
 
 
+def _discover_summer_listing_urls(page) -> list[str]:
+    try:
+        urls = page.evaluate(SPORTYTRADER_SUMMER_LINKS_JS)
+    except Exception:
+        return []
+    if not isinstance(urls, list):
+        return []
+    return list(
+        dict.fromkeys(
+            str(url).strip()
+            for url in urls
+            if str(url).startswith("https://www.sportytrader.com/us/picks/basketball/")
+            and "summer" in str(url).lower()
+        )
+    )
+
+
 def _extract_rows(
     cards: list[dict[str, str]],
     target_date: datetime | None,
@@ -236,7 +287,9 @@ def _extract_rows(
 ) -> list[dict[str, str]]:
     out: list[dict[str, str]] = []
     seen: set[tuple[str, str, str, str]] = set()
-    sport_league = SPORT_CONFIG[sport_key]["league"]
+    sport_config = SPORT_CONFIG[sport_key]
+    sport_league = sport_config["league"]
+    league_aliases = sport_config.get("league_aliases", {sport_league})
     expected = {
         key: matchup
         for matchup in expected_matchups or []
@@ -245,7 +298,7 @@ def _extract_rows(
 
     for raw in cards:
         row = {key: _normalize_line(str(raw.get(key, ""))) for key in ("datetime", "league", "home", "away", "tip", "odds", "href")}
-        if row["league"] and row["league"] != sport_league:
+        if row["league"] and row["league"] not in league_aliases:
             continue
         if not row["home"] or not row["away"] or not row["tip"]:
             continue
@@ -280,7 +333,12 @@ def _print_pick(row: dict[str, str]) -> None:
 
 def main() -> None:
     ap = argparse.ArgumentParser(description="SportyTrader scraper")
-    ap.add_argument("--sport", "-s", default="nba", help="Supported: nba/wnba/mlb/fifa_world_cup")
+    ap.add_argument(
+        "--sport",
+        "-s",
+        default="nba",
+        help="Supported: nba/nba_summer/wnba/mlb/fifa_world_cup",
+    )
     ap.add_argument("--date", "-d", help="Date in YYYY-MM-DD")
     ap.add_argument("--expected-matchup", action="append", default=[])
     args = ap.parse_args()
@@ -296,31 +354,73 @@ def main() -> None:
 
     sport_key = _normalize_sport(args.sport or "")
     if not sport_key:
-        print("Error: SportyTrader scraper supports NBA/basketball, WNBA, MLB/baseball, and FIFA World Cup/soccer.")
+        print(
+            "Error: SportyTrader scraper supports NBA/basketball, NBA Summer League, "
+            "WNBA, MLB/baseball, and FIFA World Cup/soccer."
+        )
         sys.exit(1)
 
     target_date = _parse_target_date(args.date)
-    target_url = SPORT_CONFIG[sport_key]["url"]
-    target_title = SPORT_CONFIG[sport_key]["title"]
+    sport_config = SPORT_CONFIG[sport_key]
+    target_urls = list(
+        dict.fromkeys(
+            [sport_config["url"], *sport_config.get("fallback_urls", ())]
+        )
+    )
+    target_title = sport_config["title"]
 
     with sync_playwright() as pw:
         browser = _launch_browser(pw)
         ctx = _new_context(browser)
         page = ctx.new_page()
+        cards: list[dict[str, str]] = []
+        page_texts: list[str] = []
+        load_errors: list[str] = []
         try:
-            cards, page_text = _load_cards(page, target_url)
-        except PwTimeout:
-            print(f"Error: timed out loading SportyTrader {target_title} page")
-            sys.exit(1)
-        except Exception as exc:
-            print(f"Error loading SportyTrader {target_title} page: {exc}")
-            sys.exit(1)
+            visited_urls: set[str] = set()
+            target_index = 0
+            while target_index < len(target_urls) and len(visited_urls) < 8:
+                target_url = target_urls[target_index]
+                target_index += 1
+                if target_url in visited_urls:
+                    continue
+                visited_urls.add(target_url)
+                try:
+                    page_cards, page_text = _load_cards(page, target_url)
+                except PwTimeout:
+                    load_errors.append(f"timed out loading {target_url}")
+                    continue
+                except Exception as exc:
+                    load_errors.append(f"{target_url}: {exc}")
+                    continue
+                cards.extend(page_cards)
+                page_texts.append(page_text)
+                if sport_key == "nba_summer":
+                    for discovered_url in _discover_summer_listing_urls(page):
+                        if discovered_url not in visited_urls:
+                            target_urls.append(discovered_url)
         finally:
             page.close()
             browser.close()
 
-    if _looks_like_cloudflare_block("", page_text):
+    if not page_texts:
+        detail = "; ".join(load_errors[:2]) or "no listing page loaded"
+        print(f"Error loading SportyTrader {target_title} page: {detail}")
+        sys.exit(1)
+    if page_texts and all(_looks_like_cloudflare_block("", text) for text in page_texts):
         print(f"Error: SportyTrader {target_title} page hit Cloudflare verification")
+        sys.exit(1)
+    blocked_page_count = sum(
+        1 for text in page_texts if _looks_like_cloudflare_block("", text)
+    )
+    if load_errors or blocked_page_count:
+        detail = "; ".join(load_errors[:2])
+        if blocked_page_count:
+            prefix = f"{detail}; " if detail else ""
+            detail = f"{prefix}{blocked_page_count} listing page(s) were blocked"
+        print(
+            f"Error: incomplete SportyTrader {target_title} listing coverage: {detail}"
+        )
         sys.exit(1)
 
     try:
@@ -330,6 +430,21 @@ def main() -> None:
         sys.exit(1)
     if not rows:
         print(f"No SportyTrader {target_title} picks parsed.")
+        expected_keys = {
+            key
+            for matchup in expected_matchups
+            if (key := _matchup_key(matchup))
+        }
+        official_card_count = sum(
+            1
+            for card in cards
+            if _matchup_key(f"{card.get('home', '')} vs {card.get('away', '')}")
+            in expected_keys
+        )
+        print(
+            f"Diagnostics: listingPages={len(page_texts)} cards={len(cards)} "
+            f"officialMatchupCards={official_card_count}."
+        )
         return
 
     for row in rows:
