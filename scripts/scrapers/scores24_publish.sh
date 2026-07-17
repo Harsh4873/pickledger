@@ -137,18 +137,20 @@ if [[ ! -f "${SCORES24_CACHE_FILE}" ]]; then
   SCORES24_CACHE_FILE="${TEMP_REPO}/data/model_cache/latest.json"
 fi
 
-DATE_ISO="${DATE_ISO}" "${PYTHON_BIN}" - "${SCORES24_CACHE_FILE}" <<'PY'
+DATE_ISO="${DATE_ISO}" PUBLISH_FEEDS="${PUBLISH_FEEDS}" "${PYTHON_BIN}" - "${SCORES24_CACHE_FILE}" <<'PY'
 import json
 import os
 import sys
 from pathlib import Path
 
 date_iso = os.environ["DATE_ISO"]
-required = (
-    "scores24_nba_summer",
-    "scores24_wnba",
-    "scores24_mlb",
-    "scores24_fifa_world_cup",
+required = tuple(
+    feed.strip()
+    for feed in os.environ.get(
+        "PUBLISH_FEEDS",
+        "scores24_mlb,scores24_nba_summer,scores24_wnba,scores24_fifa_world_cup",
+    ).split(",")
+    if feed.strip()
 )
 payload = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
 buckets = payload.get("external_feeds") if isinstance(payload.get("external_feeds"), dict) else {}
