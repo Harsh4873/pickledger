@@ -142,7 +142,7 @@ def _run_model_job_with_retries(
     return result
 
 
-def _write_json_cache(date_iso: str, payload: dict[str, Any]) -> None:
+def _write_json_cache(date_iso: str, payload: dict[str, Any]) -> dict[str, Any]:
     MODEL_CACHE_DIR.mkdir(parents=True, exist_ok=True)
     # This is the only normal publication path that is allowed to certify a
     # team pick.  The marker is per-pick (not inferred later from a mutable
@@ -157,6 +157,10 @@ def _write_json_cache(date_iso: str, payload: dict[str, Any]) -> None:
     # Attach real pregame market prices to every bucket in the merged slate
     # (in-house models and external feeds alike) before it is snapshotted.
     apply_market_odds_to_payload(merged)
+    # Calibration and the MLB consensus gate must see the real observed
+    # prices, so they run only after the market attach; recalibration is
+    # idempotent because it always restarts from each pick's raw probability.
+    apply_mlb_team_consensus_to_payload(apply_calibration_to_payload(merged))
     for target in (MODEL_CACHE_DIR / f"{date_iso}.json", MODEL_CACHE_DIR / "latest.json"):
         with target.open("w", encoding="utf-8") as handle:
             json.dump(merged, handle, indent=2, sort_keys=True, default=str)
@@ -168,6 +172,7 @@ def _write_json_cache(date_iso: str, payload: dict[str, Any]) -> None:
         f"captured={summary['added']} unchanged={summary['unchanged']} "
         f"team_picks={summary['team_picks']}"
     )
+    return merged
 
 
 def main() -> int:
@@ -198,10 +203,7 @@ def main() -> int:
                 errors.append(f"{key}: {result.get('error') if isinstance(result, dict) else result}")
             print(f"[model-cache] {key}: {'ok' if ok else 'error'} ({pick_count} pick(s))")
 
-    payload = apply_mlb_team_consensus_to_payload(
-        apply_calibration_to_payload(_build_payload(date_iso, results, errors))
-    )
-    _write_json_cache(date_iso, payload)
+    payload = _write_json_cache(date_iso, _build_payload(date_iso, results, errors))
     if args.skip_firestore:
         print("[model-cache] skipped Firestore write")
     else:

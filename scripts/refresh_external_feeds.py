@@ -223,17 +223,21 @@ def _split_provider_result(
     return buckets
 
 
-def _write_json_cache(date_iso: str, payload: dict[str, Any]) -> None:
+def _write_json_cache(date_iso: str, payload: dict[str, Any]) -> dict[str, Any]:
     MODEL_CACHE_DIR.mkdir(parents=True, exist_ok=True)
     merged = merge_payload(payload, MODEL_CACHE_DIR)
     # Attach real pregame market prices so scraped picks carry a verifiable
-    # two-sided baseline next to their own posted odds.
+    # two-sided baseline next to their own posted odds. Calibration then runs
+    # against those observed prices; it is idempotent because it restarts from
+    # each pick's raw probability.
     apply_market_odds_to_payload(merged)
+    apply_calibration_to_payload(merged)
     for target in (MODEL_CACHE_DIR / f"{date_iso}.json", MODEL_CACHE_DIR / "latest.json"):
         with target.open("w", encoding="utf-8") as handle:
             json.dump(merged, handle, indent=2, sort_keys=True, default=str)
             handle.write("\n")
     write_cache_manifest(MODEL_CACHE_DIR)
+    return merged
 
 
 def main() -> int:
@@ -293,8 +297,7 @@ def main() -> int:
             external_feeds.pop(feed_key, None)
     payload["external_feeds"] = {**external_feeds, **results}
 
-    apply_calibration_to_payload(payload)
-    _write_json_cache(date_iso, payload)
+    payload = _write_json_cache(date_iso, payload)
     if args.skip_firestore:
         print("[external-feeds] skipped Firestore write")
     else:

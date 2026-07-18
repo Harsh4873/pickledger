@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import math
+import os
 import re
 from typing import Any
 
@@ -60,14 +61,69 @@ def kelly(probability: float, odds: int = ODDS) -> tuple[float, float]:
     return round(full, 4), round(full / 4.0, 4)
 
 
+def edge_basis_mode() -> str:
+    """Gate strictness switch: 'no_vig' (default) lets a verified market fair
+    probability raise the edge baseline; 'vigged' is the legacy escape hatch."""
+    value = os.environ.get("PICKLEDGER_EDGE_BASIS", "").strip().lower()
+    return "vigged" if value == "vigged" else "no_vig"
+
+
+def _odds_number(value: Any) -> int | None:
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        return None
+    if number == 0 or -100.0 < number < 100.0:
+        return None
+    return int(round(number))
+
+
+def market_fair_probability(pick: dict[str, Any], selection: str | None = None) -> float | None:
+    """Verified no-vig probability of the pick's own side.
+
+    Prefers an explicitly stamped value, then devigs a complete captured
+    over/under or selected/opposite pair. A single side is never devigged.
+    """
+    explicit = safe_float(pick.get("market_no_vig_selected_probability"), -1.0)
+    if 0.0 < explicit < 1.0:
+        return explicit
+    side = str(selection or pick.get("selection") or "").strip().lower()
+    over = american_implied_probability(_odds_number(pick.get("market_over_odds")))
+    under = american_implied_probability(_odds_number(pick.get("market_under_odds")))
+    if over is not None and under is not None and side in {"over", "under"}:
+        hold = over + under
+        if hold > 0:
+            fair_over = over / hold
+            return fair_over if side == "over" else 1.0 - fair_over
+    selected = american_implied_probability(_odds_number(pick.get("selected_odds")))
+    opposite = american_implied_probability(_odds_number(pick.get("opposite_odds")))
+    if selected is not None and opposite is not None:
+        hold = selected + opposite
+        if hold > 0:
+            return selected / hold
+    return None
+
+
 def decision_and_stake(
     probability: float,
     odds: int | None = ODDS,
+    fair_probability: float | None = None,
 ) -> tuple[str, float | None, float, float, float]:
     implied = american_implied_probability(odds)
     if implied is None:
         return "PASS", None, 0.0, 0.0, 0.0
-    edge_pp = (probability - implied) * 100.0
+    baseline = implied
+    if (
+        fair_probability is not None
+        and 0.0 < fair_probability < 1.0
+        and edge_basis_mode() == "no_vig"
+    ):
+        # The verified fair probability can only raise the bar. With a real
+        # executable price the vigged implied is the EV breakeven and already
+        # exceeds fair; when the price was assumed (e.g. a -110 default) the
+        # captured market keeps a soft assumption from minting phantom edge.
+        baseline = max(implied, fair_probability)
+    edge_pp = (probability - baseline) * 100.0
     if edge_pp >= 7.0:
         decision = "BET"
     elif edge_pp >= 3.0:
@@ -125,7 +181,10 @@ def build_pick(
     odds: int | None = ODDS,
     extra: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    decision, edge, full_kelly, quarter_kelly, units = decision_and_stake(probability, odds)
+    fair_probability = market_fair_probability(extra or {}, selection)
+    decision, edge, full_kelly, quarter_kelly, units = decision_and_stake(
+        probability, odds, fair_probability=fair_probability
+    )
     market_implied = american_implied_probability(odds)
     matchup = f"{away_team} @ {home_team}"
     payload: dict[str, Any] = {
@@ -156,6 +215,7 @@ def build_pick(
         "units": units,
         "full_kelly": full_kelly,
         "quarter_kelly": quarter_kelly,
+        "edge_basis": "no_vig" if fair_probability is not None else "vigged",
         "reason": reason,
         "key_factors": key_factors,
         "result": "pending",

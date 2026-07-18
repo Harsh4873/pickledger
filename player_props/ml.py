@@ -8,7 +8,12 @@ import math
 from pathlib import Path
 from typing import Any
 
-from .schema import american_implied_probability, decision_and_stake, safe_float
+from .schema import (
+    american_implied_probability,
+    decision_and_stake,
+    market_fair_probability,
+    safe_float,
+)
 
 
 ML_SOURCE = "player_props_ml_v1"
@@ -305,7 +310,10 @@ def apply_ml_to_pick(
         odds = int(odds_raw) if odds_raw is not None else None
     except (TypeError, ValueError):
         odds = None
-    decision, edge, full_kelly, quarter_kelly, units = decision_and_stake(ml_probability, odds)
+    fair_probability = market_fair_probability(pick)
+    decision, edge, full_kelly, quarter_kelly, units = decision_and_stake(
+        ml_probability, odds, fair_probability=fair_probability
+    )
     pick_sport = str(pick.get("sport") or "").strip().upper()
     scored_sport = artifact_sport_for(pick_sport)
     cross_sport = bool(scored_sport and pick_sport and scored_sport != pick_sport)
@@ -356,6 +364,7 @@ def apply_ml_to_pick(
             "probability": ml_probability,
             "confidence": confidence,
             "edge": edge,
+            "edge_basis": "no_vig" if fair_probability is not None else "vigged",
             "decision": decision,
             "full_kelly": full_kelly,
             "quarter_kelly": quarter_kelly,

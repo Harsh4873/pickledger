@@ -13,6 +13,8 @@ import math
 from pathlib import Path
 from typing import Any
 
+from player_props.schema import edge_basis_mode
+from scripts.devig import no_vig_selected_probability
 from scripts.pick_calibration import american_implied_probability, normalize_probability
 
 
@@ -119,13 +121,31 @@ def _reliable_market_price(pick: dict[str, Any], model_key: str) -> bool:
 
 
 def _selected_side_implied_probability(pick: dict[str, Any], model_key: str) -> float | None:
+    """Edge baseline for the gate, stamped with its provenance as ``edge_basis``.
+
+    The executable price's implied probability is the EV breakeven; a verified
+    no-vig fair probability can only raise the bar (it protects assumed prices
+    from minting phantom edge and never loosens a real vigged price).
+    """
+    fair = no_vig_selected_probability(pick)
+    executable = None
+    if _reliable_market_price(pick, model_key):
+        executable = american_implied_probability(pick.get("odds"))
+    if executable is not None and fair is not None and edge_basis_mode() == "no_vig":
+        pick["edge_basis"] = "no_vig"
+        return max(executable, fair)
+    if executable is not None:
+        pick["edge_basis"] = "assumed" if _line_is_assumed(pick) else "vigged"
+        return executable
+    if fair is not None and edge_basis_mode() == "no_vig":
+        pick["edge_basis"] = "no_vig"
+        return fair
     for field in ("market_pick_prob", "market_probability", "market_implied_probability"):
         probability = normalize_probability(pick.get(field))
         if probability is not None:
+            pick["edge_basis"] = "market_field"
             return probability
-    if not _reliable_market_price(pick, model_key):
-        return None
-    return american_implied_probability(pick.get("odds"))
+    return None
 
 
 def _calibrated_probability(pick: dict[str, Any]) -> float | None:
@@ -145,12 +165,15 @@ def _raw_probability(pick: dict[str, Any]) -> float | None:
 
 
 def _calibrated_edge(pick: dict[str, Any], implied: float | None) -> float | None:
-    edge = _number(pick.get("edge"))
-    if edge is not None:
-        return edge
+    # Recompute from the calibrated probability against the gate's own
+    # baseline; a stored pick["edge"] may predate the latest price capture
+    # and is only trusted when no probability is available.
     probability = _calibrated_probability(pick)
     if probability is not None and implied is not None:
         return (probability - implied) * 100.0
+    edge = _number(pick.get("edge"))
+    if edge is not None:
+        return edge
     return None
 
 

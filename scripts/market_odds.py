@@ -28,6 +28,8 @@ from typing import Any, Callable, Iterable, Mapping
 
 import requests
 
+from scripts.devig import two_sided_no_vig
+
 
 FetchJson = Callable[[str, dict[str, Any]], Any]
 
@@ -453,6 +455,14 @@ def _attach_common(pick: dict[str, Any], game: dict[str, Any], captured_at: str)
     pick["market_updated_at"] = captured_at
 
 
+def _stamp_two_sided_no_vig(pick: dict[str, Any], selected: int | None, opposite: int | None) -> None:
+    """Stamp the fair probability of the selected side from a complete pair
+    so decision gates downstream never have to fall back to a vigged side."""
+    no_vig = two_sided_no_vig(selected, opposite)
+    if no_vig is not None:
+        pick["market_no_vig_selected_probability"] = round(no_vig, 6)
+
+
 def _replace_assumed_price(pick: dict[str, Any], real_odds: int, provider: str) -> None:
     if "model_assumed_odds" not in pick:
         pick["model_assumed_odds"] = pick.get("odds")
@@ -504,6 +514,7 @@ def _attach_pick(
         opposite = under_price if direction == "over" else over_price
         pick["selected_odds"] = selected
         pick["opposite_odds"] = opposite
+        _stamp_two_sided_no_vig(pick, selected, opposite)
         if replace:
             _replace_assumed_price(pick, selected, provider)
         return True
@@ -535,6 +546,7 @@ def _attach_pick(
             pick["market_line"] = line
             pick["selected_odds"] = selected_price
             pick["opposite_odds"] = opposite_price
+            _stamp_two_sided_no_vig(pick, selected_price, opposite_price)
             if replace:
                 _replace_assumed_price(pick, selected_price, provider)
             return True
@@ -563,6 +575,7 @@ def _attach_pick(
         else:
             pick["selected_odds"] = selected_price
             pick["opposite_odds"] = opposite_price
+            _stamp_two_sided_no_vig(pick, selected_price, opposite_price)
         if replace:
             _replace_assumed_price(pick, selected_price, provider)
         return True

@@ -348,7 +348,10 @@ def test_first_five_user_assumed_total_ladder_is_evaluable():
 
 
 def test_inning_model_uses_inning_baseline_and_context_with_real_market():
-    pick = _inning_pick()
+    # Edge is derived from the calibrated probability against the executable
+    # price, so the stored (stale) edge field cannot decide publication:
+    # 0.63 vs -110 implied 0.5238 is a 10.6pp edge, clearing the 10pp BET bar.
+    pick = _inning_pick(probability=0.63, calibrated_probability=0.63)
     result = evaluate_mlb_team_pick(
         pick,
         "mlb_inning",
@@ -357,6 +360,7 @@ def test_inning_model_uses_inning_baseline_and_context_with_real_market():
     )
 
     assert result["decision"] == "BET"
+    assert pick["edge_basis"] == "vigged"
     assert {signal["name"] for signal in result["signals"]} >= {
         "inning_baseline_edge",
         "starting_pitcher",
