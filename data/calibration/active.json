@@ -1,57 +1,69 @@
 {
-  "decided_count": 1950,
-  "evaluated_at": "2026-07-16T01:14:13.625114Z",
+  "decided_count": 2062,
+  "evaluated_at": "2026-07-18T06:24:00.143490Z",
   "global": {
-    "intercept": -0.22860227,
-    "samples": 156,
+    "intercept": -0.23493221,
+    "samples": 200,
     "shrinkage_prior_samples": 120.0,
-    "slope": 0.77219474
+    "slope": 0.78565286
   },
   "groups": {
+    "model:nba_summer|source:nba summer league|sport:nba summer|bet:h2h": {
+      "intercept": -0.28678113,
+      "samples": 63,
+      "shrinkage_prior_samples": 80.0,
+      "slope": 0.73314362
+    },
     "model:wnba|source:wnba model|sport:wnba|bet:h2h": {
-      "intercept": -0.22007395,
+      "intercept": -0.22707953,
       "samples": 30,
       "shrinkage_prior_samples": 80.0,
-      "slope": 0.77860439
+      "slope": 0.79074801
+    },
+    "model:wnba|source:wnba model|sport:wnba|bet:spread": {
+      "intercept": -0.32597905,
+      "samples": 30,
+      "shrinkage_prior_samples": 80.0,
+      "slope": 0.68212553
     },
     "model:wnba|source:wnba model|sport:wnba|bet:totals": {
-      "intercept": -0.37998032,
-      "samples": 57,
+      "intercept": -0.37917417,
+      "samples": 59,
       "shrinkage_prior_samples": 80.0,
-      "slope": 0.63314319
+      "slope": 0.6535039
     }
   },
   "holdout": {
     "challenger": {
-      "brier_score": 0.32543215,
-      "calibration_error": 0.29737519,
-      "log_loss": 0.85749097,
-      "qualified_bets": 22,
-      "roi": 0.23489468,
-      "samples": 28
+      "brier_score": 0.20602962,
+      "calibration_error": 0.07641001,
+      "log_loss": 0.60052827,
+      "qualified_bets": 35,
+      "roi": 0.31016834,
+      "samples": 44
     },
     "champion": {
-      "brier_score": 0.33214213,
-      "calibration_error": 0.30535962,
-      "log_loss": 0.8725801,
-      "qualified_bets": 22,
-      "roi": 0.23489468,
-      "samples": 28
+      "brier_score": 0.2057242,
+      "calibration_error": 0.09813089,
+      "log_loss": 0.59971623,
+      "qualified_bets": 37,
+      "roi": 0.31996875,
+      "samples": 44
     }
   },
   "minimum_group_samples": 30,
-  "promoted_at": "2026-07-16T01:14:13.625114Z",
+  "promoted_at": "2026-07-18T06:24:00.143490Z",
   "promotion": {
     "approved": true,
     "reasons": [
-      "brier_improved=True",
+      "brier_improved=False",
       "calibration_improved=True",
       "log_loss_safe=True",
       "roi_safe=True"
     ]
   },
   "schema_version": 1,
-  "trainable_decided_count": 156,
+  "trainable_decided_count": 200,
   "training_contract_version": 2,
-  "version": "cal-v2-1950-2026-07-16"
+  "version": "cal-v2-2062-2026-07-18"
 }
