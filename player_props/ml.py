@@ -66,16 +66,29 @@ SPORT_ARTIFACTS = {
     "MLB": {
         "model": ARTIFACT_DIR / "mlb_player_props_ml.joblib",
         "metadata": ARTIFACT_DIR / "mlb_player_props_ml_metadata.json",
+        "artifact_sport": "MLB",
     },
     "WNBA": {
         "model": ARTIFACT_DIR / "wnba_player_props_ml.joblib",
         "metadata": ARTIFACT_DIR / "wnba_player_props_ml_metadata.json",
+        "artifact_sport": "WNBA",
     },
+    # No NBA training data has been captured yet, so NBA props borrow the
+    # WNBA artifact. Cross-sport-scored picks are labeled and capped at LEAN
+    # until a native NBA artifact exists.
     "NBA": {
         "model": ARTIFACT_DIR / "wnba_player_props_ml.joblib",
         "metadata": ARTIFACT_DIR / "wnba_player_props_ml_metadata.json",
+        "artifact_sport": "WNBA",
     },
 }
+
+
+def artifact_sport_for(sport: str) -> str | None:
+    artifact = SPORT_ARTIFACTS.get(str(sport or "").strip().upper())
+    if artifact is None:
+        return None
+    return str(artifact.get("artifact_sport") or "") or None
 
 _BUNDLES: dict[str, dict[str, Any] | None] = {}
 
@@ -293,8 +306,22 @@ def apply_ml_to_pick(
     except (TypeError, ValueError):
         odds = None
     decision, edge, full_kelly, quarter_kelly, units = decision_and_stake(ml_probability, odds)
+    pick_sport = str(pick.get("sport") or "").strip().upper()
+    scored_sport = artifact_sport_for(pick_sport)
+    cross_sport = bool(scored_sport and pick_sport and scored_sport != pick_sport)
+    if cross_sport:
+        pick["ml_artifact_sport"] = scored_sport
+        pick["cross_sport_artifact"] = True
+        if decision == "BET":
+            decision = "LEAN"
+        pick.setdefault("key_factors", []).insert(
+            0,
+            f"Scored with {scored_sport}-trained model (no {pick_sport} training data yet) — treat as research",
+        )
     market_implied = american_implied_probability(odds)
     stake_cap = 1.0 if model_active else 0.5
+    if cross_sport:
+        stake_cap = min(stake_cap, 0.5)
     quarter_kelly = min(quarter_kelly, stake_cap / 100.0)
     full_kelly = min(full_kelly, quarter_kelly * 4.0)
     units = 0.0 if decision == "PASS" else round(quarter_kelly * 100.0, 2)

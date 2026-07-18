@@ -8,16 +8,13 @@ stricter than prediction: only the market family and price band that cleared
 
 from __future__ import annotations
 
-import json
 import math
-import os
 import statistics
 from collections import defaultdict
 from pathlib import Path
 from typing import Any
 
 from .schema import (
-    american_implied_probability,
     kelly,
     safe_float,
     stable_id,
@@ -205,211 +202,8 @@ def build_training_features(
     return features, dict(history)
 
 
-def load_precision_bundle() -> dict[str, Any] | None:
-    global _BUNDLE
-    if os.environ.get("PICKLEDGER_DISABLE_PRECISION_MODEL", "").strip().lower() in {"1", "true", "yes"}:
-        return None
-    if _BUNDLE is not False:
-        return _BUNDLE if isinstance(_BUNDLE, dict) else None
-    try:
-        import joblib  # type: ignore
-
-        payload = joblib.load(MODEL_PATH)
-        metadata = json.loads(METADATA_PATH.read_text(encoding="utf-8"))
-    except (OSError, ValueError, TypeError, json.JSONDecodeError):
-        _BUNDLE = None
-        return None
-    if not isinstance(payload, dict) or payload.get("model") is None:
-        _BUNDLE = None
-        return None
-    _BUNDLE = {**payload, "metadata": metadata}
-    return _BUNDLE
-
-
-def precision_model_active(sport: str | None = None) -> bool:
-    bundle = load_precision_bundle()
-    if not bundle:
-        return False
-    metadata = bundle.get("metadata") or {}
-    if metadata.get("active") is not True:
-        return False
-    if sport and str(sport).upper() not in set(metadata.get("supported_sports") or []):
-        return False
-    return True
-
-
-def precision_model_required() -> bool:
-    bundle = load_precision_bundle()
-    return bool(bundle)
-
-
 def _profile_key(athlete_id: Any, stat_key: Any) -> str:
     return f"{str(athlete_id or '').strip()}|{str(stat_key or '').strip()}"
-
-
-def evaluate_precision_pick(pick: dict[str, Any]) -> dict[str, Any]:
-    bundle = load_precision_bundle()
-    if not bundle:
-        return {"required": False, "qualified": False, "reason": "precision model inactive"}
-    metadata = bundle.get("metadata") or {}
-    if metadata.get("active") is not True:
-        return {"required": True, "qualified": False, "reason": "precision validation gate inactive"}
-    policy = {**DEFAULT_POLICY, **(metadata.get("policy") or {})}
-    sport = str(pick.get("sport") or "").upper()
-    if sport not in set(metadata.get("supported_sports") or []):
-        return {"required": True, "qualified": False, "reason": f"{sport} has not cleared 70%"}
-    athlete_id = pick.get("market_athlete_id")
-    stat_key = str(pick.get("stat_key") or "")
-    profile = (bundle.get("profiles") or {}).get(_profile_key(athlete_id, stat_key))
-    if not isinstance(profile, list):
-        return {"required": True, "qualified": False, "reason": "no immutable market history"}
-    line = safe_float(pick.get("line"))
-    try:
-        over_odds = int(pick.get("market_over_odds"))
-        under_odds = int(pick.get("market_under_odds"))
-    except (TypeError, ValueError):
-        return {"required": True, "qualified": False, "reason": "two-sided market required"}
-    over_implied = american_implied_probability(over_odds)
-    under_implied = american_implied_probability(under_odds)
-    if over_implied is None or under_implied is None:
-        return {"required": True, "qualified": False, "reason": "valid market prices required"}
-    features = history_features(
-        profile,
-        line=line,
-        over_implied=over_implied,
-        under_implied=under_implied,
-        stat_key=stat_key,
-        market_format=str(pick.get("market_format") or "total"),
-    )
-    if not features:
-        return {"required": True, "qualified": False, "reason": "insufficient player history"}
-    try:
-        import pandas as pd  # type: ignore
-
-        raw_over = float(bundle["model"].predict_proba(pd.DataFrame([features]))[0][1])
-    except Exception:
-        return {"required": True, "qualified": False, "reason": "precision inference failed"}
-    under_probability = 1.0 - raw_over
-    under_history = 1.0 - safe_float(features.get("over_rate"))
-    under_last5 = 1.0 - safe_float(features.get("over_rate5"))
-    checks = {
-        "sport": sport == str(policy["sport"]).upper(),
-        "family": stat_key == str(policy["stat_key"]),
-        "history": int(features["history_count"]) >= int(policy["minimum_history"]),
-        "history_rate": under_history >= float(policy["minimum_under_history_rate"]),
-        "last5_rate": under_last5 >= float(policy["minimum_under_last5_rate"]),
-        "odds_band": int(policy["minimum_under_odds"]) <= under_odds <= int(policy["maximum_under_odds"]),
-        "market_favorite": under_implied >= over_implied,
-        "mean10": safe_float(features.get("mean10")) < line,
-        "model_direction": raw_over < 0.5,
-        "model_edge": under_probability - under_implied >= float(policy["minimum_model_edge"]),
-    }
-    qualified = all(checks.values())
-    failed = [name for name, passed in checks.items() if not passed]
-    return {
-        "required": True,
-        "qualified": qualified,
-        "reason": "qualified" if qualified else f"failed: {', '.join(failed)}",
-        "selection": "Under",
-        "probability": round(under_probability, 6),
-        "raw_over_probability": round(raw_over, 6),
-        "odds": under_odds,
-        "implied_probability": round(under_implied, 6),
-        "edge": round(under_probability - under_implied, 6),
-        "history_count": int(features["history_count"]),
-        "history_under_rate": round(under_history, 6),
-        "last5_under_rate": round(under_last5, 6),
-        "mean10": round(safe_float(features.get("mean10")), 4),
-        "validation_accuracy": safe_float((metadata.get("validation") or {}).get("accuracy")),
-        "holdout_accuracy": safe_float((metadata.get("holdout") or {}).get("accuracy")),
-        "model_version": str(metadata.get("version") or PRECISION_MODEL_VERSION),
-        "training_fingerprint": str(metadata.get("training_fingerprint") or ""),
-    }
-
-
-def apply_precision_to_pick(pick: dict[str, Any]) -> dict[str, Any]:
-    result = evaluate_precision_pick(pick)
-    if not result.get("required"):
-        return pick
-    pick["precision_required"] = True
-    pick["precision_evaluated"] = True
-    pick["precision_qualified"] = bool(result.get("qualified"))
-    pick["precision_reason"] = result.get("reason")
-    if not result.get("qualified"):
-        pick["decision"] = "PASS"
-        pick["units"] = 0.0
-        pick["full_kelly"] = 0.0
-        pick["quarter_kelly"] = 0.0
-        pick["actionability"] = "research_signal"
-        return pick
-
-    probability = safe_float(result.get("probability"))
-    implied = safe_float(result.get("implied_probability"))
-    odds = int(result["odds"])
-    edge = probability - implied
-    full_kelly, quarter_kelly = kelly(probability, odds)
-    stat_label = str(pick.get("stat_label") or pick.get("market_type") or pick.get("stat_key") or "")
-    selection = str(result["selection"])
-    line = safe_float(pick.get("line"))
-    pick.update(
-        {
-            "id": stable_id(
-                str(pick.get("sport") or ""),
-                str(pick.get("date") or ""),
-                str(pick.get("game_id") or ""),
-                str(pick.get("player_id") or ""),
-                str(pick.get("stat_key") or ""),
-                selection,
-                line,
-            ),
-            "selection": selection,
-            "pick": f"{pick.get('player_name')} {selection} {line:.1f} {stat_label}",
-            "odds": odds,
-            "market_implied_probability": round(implied, 4),
-            "probability": round(probability, 4),
-            "ml_probability": round(probability, 4),
-            "ml_raw_probability": round(probability, 4),
-            "ml_edge": round(edge, 6),
-            "ml_expected_value": round((probability * (100.0 / abs(odds))) - (1.0 - probability), 6),
-            "ml_model_active": True,
-            "ml_model_version": result["model_version"],
-            "ml_probability_mode": "season_precision_gate",
-            "ml_training_fingerprint": result["training_fingerprint"],
-            "decision": "LEAN",
-            "confidence": "High",
-            "edge": round(edge * 100.0, 2),
-            "full_kelly": full_kelly,
-            "quarter_kelly": quarter_kelly,
-            "units": safe_float((load_precision_bundle().get("metadata") or {}).get("policy", {}).get("stake_units"), 0.25),
-            "actionability": "precision_qualified",
-            "precision_probability": round(probability, 4),
-            "precision_raw_over_probability": result["raw_over_probability"],
-            "precision_validation_accuracy": result["validation_accuracy"],
-            "precision_holdout_accuracy": result["holdout_accuracy"],
-            "precision_history_count": result["history_count"],
-            "precision_history_under_rate": result["history_under_rate"],
-            "precision_last5_under_rate": result["last5_under_rate"],
-            "precision_mean10": result["mean10"],
-            "reason": (
-                f"Season precision model qualifies the under with {probability:.1%} probability; "
-                f"the chronological validation/holdout accuracy is "
-                f"{result['validation_accuracy']:.1%}/{result['holdout_accuracy']:.1%}."
-            ),
-        }
-    )
-    pick.setdefault("key_factors", []).extend(
-        [
-            f"Prior-game under rate {result['history_under_rate']:.1%} over {result['history_count']} games",
-            f"Last-five under rate {result['last5_under_rate']:.1%}",
-            f"Ten-game mean {result['mean10']:.2f} versus {line:.1f} line",
-        ]
-    )
-    fingerprint = str(result["training_fingerprint"] or "unfingerprinted")[:16]
-    rank_epoch = f"{str(pick.get('sport') or '').upper()}:{result['model_version']}:{fingerprint}"
-    pick["ml_rank_epoch"] = rank_epoch
-    pick["ranking_epoch"] = rank_epoch
-    pick["model_epoch"] = rank_epoch
-    return pick
 
 
 # The v2 four-model consensus supersedes the original single-market precision
