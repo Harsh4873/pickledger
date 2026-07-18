@@ -17,7 +17,6 @@
 <meta name="theme-color" content="#00e5a0">
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500;600&family=Fraunces:opsz,wght@9..144,600;9..144,700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="./src/styles/pickledger.css">
-<link rel="stylesheet" href="./ipl/ipl_styles.css">
 </head>
 <body>
 
@@ -52,10 +51,6 @@
         <span id="sync-status" class="sync-status">Finding the latest picks...</span>
 
       </div>
-      <div id="refresh-status" class="refresh-status">Scores are checked automatically every 15 minutes</div>
-      <div class="automated-picks-badge">
-        Models refresh each morning and again around 3:30 PM CT
-      </div>
     </div>
   </header>
 
@@ -76,15 +71,10 @@
         <div class="home-hero-row">
           <div class="home-hero-copy">
             <div class="home-eyebrow" id="home-eyebrow">TODAY&rsquo;S PICKS</div>
-            <div class="home-title" id="home-title">Today&rsquo;s picks, cleaned up</div>
-            <div class="home-sub" id="home-sub">Browse open picks and finished results by matchup, sport, source, or date.</div>
+            <div class="home-title" id="home-title"></div>
+            <div class="home-sub" id="home-sub"></div>
           </div>
           <div class="home-hero-actions">
-            <div class="home-hero-chips">
-              <span class="home-hero-chip" id="home-mode-chip">OPEN PICKS</span>
-              <span class="home-hero-chip date" id="home-date-chip">APR 19</span>
-              <span class="home-hero-chip muted" id="home-filter-chip">ALL SOURCES</span>
-            </div>
             <div class="home-mode-segment" id="home-mode-segment" aria-label="Home result mode">
               <button type="button" class="home-mode-btn active" data-home-mode="pending" onclick="setHomeResultMode('pending')">Open</button>
               <button type="button" class="home-mode-btn" data-home-mode="all" onclick="setHomeResultMode('all')">All</button>
@@ -94,8 +84,6 @@
         </div>
         <div class="home-summary-grid" id="home-summary-grid"></div>
       </div>
-
-      <div id="home-board-notice"></div>
 
       <div class="home-filter-shell">
         <div class="home-filter-head">
@@ -157,23 +145,36 @@
       <div class="stat-box"><div class="stat-box-val" id="stat-roi">&mdash;</div><div class="stat-box-label">ROI</div></div>
     </div>
     <div class="section-title clean-title">Sport Profitability</div>
-    <div class="section-subtitle">Units and ROI count only picks settled at verified sportsbook prices. Sports still show their full win-loss record, but P/L stays untracked until verified-price picks settle.</div>
+    <details class="method-note">
+      <summary>How these numbers work</summary>
+      <p>Units and ROI count only picks settled at verified sportsbook prices. Sports still show their full win-loss record, but P/L stays untracked until verified-price picks settle.</p>
+    </details>
     <div class="sport-board" id="sport-board"><div class="empty-state" style="grid-column:1/-1">No decided picks yet</div></div>
     <div class="rankings-section-bar">
       <div>
         <div class="section-title clean-title" id="source-rankings-title">Source Rankings</div>
-        <div class="section-subtitle" id="source-rankings-subtitle">See how every source has performed across the picks and results collected here. Select a source for today, yesterday, last 7 days, and all-time records.</div>
+        <details class="method-note">
+          <summary>How these rankings work</summary>
+          <p class="section-subtitle" id="source-rankings-subtitle">See how every source has performed across the picks and results collected here. Select a source for today, yesterday, last 7 days, and all-time records.</p>
+        </details>
       </div>
     </div>
     <div class="leaderboard" id="leaderboard"><div class="empty-state" style="grid-column:1/-1">Waiting for results...</div></div>
     <section id="day-of-week-section">
       <h2 class="section-title">Performance By Day of Week</h2>
-      <p class="dow-subtitle" id="dow-subtitle">Source win rates by weekday. Green cells have at least three decided picks and a 55%+ win rate.</p>
+      <details class="method-note">
+        <summary>How this table works</summary>
+        <p class="dow-subtitle" id="dow-subtitle">Source win rates by weekday. Green cells have at least three decided picks and a 55%+ win rate.</p>
+      </details>
       <div id="dow-model-breakdown"></div>
     </section>
     <section id="profit-qualification-section">
       <h2 class="section-title">Profit Desk Qualification</h2>
-      <p class="dow-subtitle">Every source earns its way onto the Profit Desk card by clearing five evidence gates at real posted prices. This board shows exactly how close each one is.</p>
+      <details class="method-note">
+        <summary>How qualification works</summary>
+        <p class="dow-subtitle">Every source earns its way onto the Profit Desk card by clearing five evidence gates at real posted prices. This board shows exactly how close each one is.</p>
+        <p class="qual-footnote">Evidence counts only settled picks with real executable prices and pregame timestamps, dated strictly before each slate. Sources qualify and lapse automatically as these numbers move.</p>
+      </details>
       <div id="profit-qualification-board"></div>
     </section>
   </div>

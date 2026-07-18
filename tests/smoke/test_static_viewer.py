@@ -132,8 +132,12 @@ def test_header_brand_and_freshness_copy_are_friendly_and_accurate():
     assert "function goHome(" in main
     assert "function latestPayloadTimestamp(" in data
     assert "Picks updated ${updatedAgoLabel(status.updatedAt)}" in main
-    assert "Models refresh each morning and again around 3:30 PM CT" in html
-    assert "Scores are checked automatically every 15 minutes" in html
+    # The header keeps one consolidated status line; the old badge and
+    # duplicate refresh line were removed in the declutter pass.
+    assert "Models refresh each morning and again around 3:30 PM CT" not in html
+    assert "Scores are checked automatically every 15 minutes" not in html
+    assert 'id="sync-status"' in html
+    assert 'id="refresh-status"' not in html
     assert "cache ${status.date}" not in main
     assert ".brand-home" in css
 
@@ -341,7 +345,6 @@ def test_parlays_tab_renders_card_level_filters_and_rankings():
     assert "ENGINE_VERSION = \"parlay_cards_v5_market_excess\"" in builder
     assert "ENGINE_CUTOVER_DATE = \"2026-07-01\"" in builder
     assert "Records count each whole parlay slip once" in main
-    assert "No same-game legs, same-player duplicates, or duplicate markets are allowed" in main
     assert "function parlayCardsForMode(" in main
     assert "function parlayCardPickMode(" in main
     assert "Disciplined 2-leg slips from sources with proven trailing edge over market prices." in main
@@ -437,34 +440,23 @@ def test_home_filters_prioritize_primary_sports_and_use_more_menu():
     assert "overflow: visible" in mobile_filter[:220]
 
 
-def test_your_bets_slot_is_replaced_by_parlays_without_clearing_storage_helpers():
+def test_your_bets_subsystem_is_fully_removed():
     main = (ROOT / "src" / "main.ts").read_text(encoding="utf-8")
     html = (ROOT / "index.html").read_text(encoding="utf-8")
     css = (ROOT / "src" / "styles" / "pickledger.css").read_text(encoding="utf-8")
 
-    assert "const YOUR_BETS_STORAGE_KEY = 'pickledger_your_bets_v1'" in main
-    assert "localStorage.setItem(YOUR_BETS_STORAGE_KEY" in main
-    assert "function addPickToYourBets(" in main
-    assert "function updateYourBetUnits(" in main
-    assert "function syncYourBetResults(" in main
-    assert "const modeBets = yourBets.filter(bet => bet.pickMode === activePickMode)" in main
-    assert "function yourBetAddButton(pick: Pick): string" in main
-    assert "return ''" in main
+    # The dead personal-ledger feature was deleted outright: it never had a
+    # tab or container, so no code, markup, or CSS may reference it. User
+    # localStorage entries are simply left untouched.
+    for source in (main, html, css):
+        assert "your-bet" not in source.lower()
+        assert "yourbet" not in source.lower()
+    assert "UserBet" not in main
     assert ">YOUR BETS</button>" not in html
     assert 'onclick="switchTab(\'parlays\')">PARLAYS</button>' in html
-    assert "Locked and graded by PickLedger" in main
-    assert "function addCustomYourBet(" not in main
-    assert "function updateYourBetResult(" not in main
-    assert "function undoYourBetChange(" not in main
-    assert "Add A Custom Bet" not in main
-    assert "UNDO CHANGE" not in main
-    for label in ("TODAY", "YESTERDAY", "ALL TIME"):
-        assert f"yourBetSummaryCard('{label}'" in main
     assert 'id="tab-your-bets"' not in html
     assert 'id="tab-parlays"' in html
-    assert ".your-bets-shell" in css
-    assert ".your-bet-card" in css
-    assert ".your-bet-locked-result" in css
+    assert ".add-ledger-btn" not in css
 
 
 def test_phone_toggle_keeps_brand_visible_and_more_menu_unclipped():

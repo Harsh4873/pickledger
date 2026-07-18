@@ -1,0 +1,79 @@
+name: Closing Line Capture
+
+on:
+  schedule:
+    # Every 30 minutes across the 16:00-04:00 UTC window (11:00-23:00 CT),
+    # covering afternoon and night game starts. The script fast-exits with no
+    # network traffic when nothing starts inside the capture window.
+    - cron: '*/30 16-23 * * *'
+    - cron: '*/30 0-4 * * *'
+  workflow_dispatch:
+    inputs:
+      date:
+        description: Slate date (YYYY-MM-DD, defaults to today UTC)
+        required: false
+        default: ''
+
+permissions:
+  contents: write
+  actions: write
+
+concurrency:
+  group: pick-cache-writer
+  cancel-in-progress: false
+
+jobs:
+  capture:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Sync latest main
+        run: |
+          git fetch origin main
+          git reset --hard origin/main
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+
+      - name: Capture closing lines
+        env:
+          ODDS_API_KEY: ${{ secrets.ODDS_API_KEY }}
+        run: |
+          python3 scripts/capture_closing_lines.py --date "${{ inputs.date }}"
+
+      - name: Commit and Push Changes
+        run: |
+          ACTOR_EMAIL="${GITHUB_ACTOR_ID:-41898282}+${GITHUB_ACTOR}@users.noreply.github.com"
+          git config user.name  "${GITHUB_ACTOR}"
+          git config user.email "${ACTOR_EMAIL}"
+          BRANCH="${GITHUB_REF_NAME:-main}"
+          if [ -z "$(git status --porcelain -- data/)" ]; then
+            echo "No closing-line changes to publish."
+            exit 0
+          fi
+          for attempt in 1 2 3 4 5; do
+            git add data/
+            if git diff --cached --quiet; then
+              echo "No staged change after resyncing latest origin/${BRANCH}; nothing to publish."
+              exit 0
+            fi
+            git commit -m "chore(clv): capture near-closing line prices"
+            if git push origin "HEAD:${BRANCH}"; then
+              exit 0
+            fi
+            echo "Push rejected on attempt ${attempt}; resyncing and re-capturing."
+            git fetch origin "$BRANCH"
+            git reset --hard "origin/${BRANCH}"
+            python3 scripts/capture_closing_lines.py --date "${{ inputs.date }}"
+          done
+          echo "::error::Unable to publish closing lines after 5 attempts."
+          exit 1

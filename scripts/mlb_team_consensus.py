@@ -13,6 +13,8 @@ import math
 from pathlib import Path
 from typing import Any
 
+from player_props.schema import edge_basis_mode, kelly
+from scripts.devig import no_vig_selected_probability
 from scripts.pick_calibration import american_implied_probability, normalize_probability
 
 
@@ -119,13 +121,31 @@ def _reliable_market_price(pick: dict[str, Any], model_key: str) -> bool:
 
 
 def _selected_side_implied_probability(pick: dict[str, Any], model_key: str) -> float | None:
+    """Edge baseline for the gate, stamped with its provenance as ``edge_basis``.
+
+    The executable price's implied probability is the EV breakeven; a verified
+    no-vig fair probability can only raise the bar (it protects assumed prices
+    from minting phantom edge and never loosens a real vigged price).
+    """
+    fair = no_vig_selected_probability(pick)
+    executable = None
+    if _reliable_market_price(pick, model_key):
+        executable = american_implied_probability(pick.get("odds"))
+    if executable is not None and fair is not None and edge_basis_mode() == "no_vig":
+        pick["edge_basis"] = "no_vig"
+        return max(executable, fair)
+    if executable is not None:
+        pick["edge_basis"] = "assumed" if _line_is_assumed(pick) else "vigged"
+        return executable
+    if fair is not None and edge_basis_mode() == "no_vig":
+        pick["edge_basis"] = "no_vig"
+        return fair
     for field in ("market_pick_prob", "market_probability", "market_implied_probability"):
         probability = normalize_probability(pick.get(field))
         if probability is not None:
+            pick["edge_basis"] = "market_field"
             return probability
-    if not _reliable_market_price(pick, model_key):
-        return None
-    return american_implied_probability(pick.get("odds"))
+    return None
 
 
 def _calibrated_probability(pick: dict[str, Any]) -> float | None:
@@ -145,12 +165,15 @@ def _raw_probability(pick: dict[str, Any]) -> float | None:
 
 
 def _calibrated_edge(pick: dict[str, Any], implied: float | None) -> float | None:
-    edge = _number(pick.get("edge"))
-    if edge is not None:
-        return edge
+    # Recompute from the calibrated probability against the gate's own
+    # baseline; a stored pick["edge"] may predate the latest price capture
+    # and is only trusted when no probability is available.
     probability = _calibrated_probability(pick)
     if probability is not None and implied is not None:
         return (probability - implied) * 100.0
+    edge = _number(pick.get("edge"))
+    if edge is not None:
+        return edge
     return None
 
 
@@ -160,6 +183,52 @@ def _raw_edge(pick: dict[str, Any]) -> float | None:
         if edge is not None:
             return edge
     return None
+
+
+BRIER_SANITY_CEILING = 0.26
+MIN_BRIER_SAMPLES = 15
+
+
+def _record_clv(record: dict[str, Any]) -> float | None:
+    """CLV vs the journaled near-closing anchor price, when one exists."""
+    date_iso = str(record.get("date") or "").strip()
+    odds = _number(record.get("odds"))
+    if not date_iso or odds is None or odds == 0 or -100.0 < odds < 100.0:
+        return None
+    try:
+        from scripts.build_profit_desk import (
+            _closing_ledger_for_date,
+            american_to_decimal,
+            canonical_market_identity,
+        )
+    except Exception:
+        return None
+    ledger = _closing_ledger_cache_get(date_iso, _closing_ledger_for_date)
+    if not ledger:
+        return None
+    identity = canonical_market_identity(
+        record, mode="team", sport=str(record.get("sport") or ""), date_iso=date_iso
+    )
+    row = ledger.get(identity)
+    if row is None:
+        return None
+    entry_decimal = american_to_decimal(odds)
+    closing_decimal = _number(row.get("decimalOdds"))
+    if not entry_decimal or not closing_decimal:
+        return None
+    return entry_decimal / closing_decimal - 1.0
+
+
+_CLOSING_LEDGER_CACHE: dict[str, dict[str, Any]] = {}
+
+
+def _closing_ledger_cache_get(date_iso: str, loader) -> dict[str, Any]:
+    if date_iso not in _CLOSING_LEDGER_CACHE:
+        try:
+            _CLOSING_LEDGER_CACHE[date_iso] = loader(date_iso)
+        except Exception:
+            _CLOSING_LEDGER_CACHE[date_iso] = {}
+    return _CLOSING_LEDGER_CACHE[date_iso]
 
 
 def _walk_forward_performance(ledger_path: Path = OUTCOME_LEDGER_PATH) -> dict[tuple[str, str], dict[str, Any]]:
@@ -174,9 +243,16 @@ def _walk_forward_performance(ledger_path: Path = OUTCOME_LEDGER_PATH) -> dict[t
             continue
         bet_type = str(record.get("bet_type") or MODEL_BET_TYPE_DEFAULTS.get(model_key, "other")).strip().lower()
         key = (model_key, bet_type)
-        group = groups.setdefault(key, {"samples": 0, "wins": 0, "losses": 0, "profit": 0.0, "stake": 0.0})
+        group = groups.setdefault(
+            key,
+            {
+                "samples": 0, "wins": 0, "losses": 0, "profit": 0.0, "stake": 0.0,
+                "brier_sum": 0.0, "brier_n": 0, "clv_sum": 0.0, "clv_n": 0,
+            },
+        )
         group["samples"] += 1
-        if record.get("result") == "win":
+        won = record.get("result") == "win"
+        if won:
             group["wins"] += 1
         else:
             group["losses"] += 1
@@ -184,17 +260,38 @@ def _walk_forward_performance(ledger_path: Path = OUTCOME_LEDGER_PATH) -> dict[t
         group["stake"] += abs(
             float(record.get("stake_units") or record.get("units") or record.get("raw_units") or 1.0)
         )
+        probability = normalize_probability(
+            record.get("calibrated_probability") if record.get("calibrated_probability") is not None
+            else record.get("probability")
+        )
+        if probability is not None:
+            group["brier_sum"] += (probability - (1.0 if won else 0.0)) ** 2
+            group["brier_n"] += 1
+        clv = _record_clv(record)
+        if clv is not None:
+            group["clv_sum"] += clv
+            group["clv_n"] += 1
     for group in groups.values():
         samples = int(group["samples"] or 0)
         stake = float(group["stake"] or 0.0)
         group["win_rate"] = (float(group["wins"]) / samples) if samples else None
         group["roi"] = (float(group["profit"]) / stake) if stake else None
+        group["brier"] = (group["brier_sum"] / group["brier_n"]) if group["brier_n"] else None
+        group["avg_clv"] = (group["clv_sum"] / group["clv_n"]) if group["clv_n"] else None
+        # Profitability OR consistently beating the close qualifies a group;
+        # a Brier score worse than the sanity ceiling disqualifies it because
+        # its probabilities cannot be trusted regardless of a lucky record.
+        # (Calibration research: well-calibrated probabilities, not raw
+        # accuracy, are what separate +ROI from -ROI model selection.)
+        profitable = float(group.get("profit") or 0.0) > 0
+        beats_close = group["avg_clv"] is not None and group["clv_n"] >= 10 and group["avg_clv"] > 0
+        brier_sane = (
+            group["brier"] is None
+            or group["brier_n"] < MIN_BRIER_SAMPLES
+            or group["brier"] <= BRIER_SANITY_CEILING
+        )
         group["qualified"] = (
-            samples >= MIN_WALK_FORWARD_SAMPLES
-            and (
-                float(group.get("profit") or 0.0) > 0
-                or ((group.get("win_rate") or 0.0) >= 0.53 and (group.get("roi") is None or group.get("roi") >= -0.01))
-            )
+            samples >= MIN_WALK_FORWARD_SAMPLES and (profitable or beats_close) and brier_sane
         )
     return groups
 
@@ -594,6 +691,25 @@ def _stake_units(pick: dict[str, Any], decision: str) -> float:
     return round(min(1.5, raw_units if decision == "BET" else raw_units * 0.6), 2)
 
 
+def _kelly_stake_fields(pick: dict[str, Any], result: dict[str, Any], decision: str) -> dict[str, Any]:
+    """Quarter-Kelly stake suggestion at the actual price.
+
+    Display-only guidance on a 100u bankroll: the flat-record staking in
+    ``units`` and the Profit Desk ledgers are unchanged.
+    """
+    probability = normalize_probability(result.get("calibrated_model_probability"))
+    odds = _number(pick.get("odds"))
+    if probability is None or odds is None or odds == 0 or -100.0 < odds < 100.0:
+        return {}
+    full, quarter = kelly(probability, int(round(odds)))
+    recommended = 0.0 if decision == "PASS" else round(min(2.0, quarter * 100.0), 2)
+    return {
+        "full_kelly": full,
+        "quarter_kelly": quarter,
+        "recommended_units": recommended,
+    }
+
+
 def _raw_snapshot_decision(pick: dict[str, Any]) -> str:
     snapshot = pick.get("pregame_snapshot") if isinstance(pick.get("pregame_snapshot"), dict) else {}
     return str(snapshot.get("decision") or pick.get("decision") or "").strip().upper()
@@ -629,6 +745,12 @@ def _validation_candidate_score(
     raw_edge = _raw_edge(pick)
     signal_count = int(result.get("signal_count") or 0)
     if raw_probability_f is None or raw_edge is None:
+        return None
+    # The fallback exists to accumulate walk-forward samples, but a pick
+    # whose calibrated edge against the real observed price is negative is
+    # a knowably -EV publication — raw model enthusiasm never overrides it.
+    calibrated_edge = _number(result.get("calibrated_edge"))
+    if calibrated_edge is not None and calibrated_edge < 0:
         return None
     if raw_probability_f < float(thresholds.get("raw_prob") or 0.0):
         return None
@@ -746,6 +868,7 @@ def apply_mlb_team_consensus_to_payload(
                 "actionability": result["actionability"],
                 "decision": decision,
                 "units": _stake_units(pick, decision),
+                **_kelly_stake_fields(pick, result, decision),
                 "ml_rank_epoch": f"{MLB_TEAM_RANKING_EPOCH_PREFIX}:{model_key}",
                 "ranking_epoch": f"{MLB_TEAM_RANKING_EPOCH_PREFIX}:{model_key}",
                 "model_epoch": f"{MLB_TEAM_RANKING_EPOCH_PREFIX}:{model_key}",

@@ -104,19 +104,33 @@ def grade_payload(payload: dict[str, Any], *, ml_player_props_only: bool = False
     response = pickgrader_server.auto_grade(pending, {}, datetime.now().year)
     grades = response.get("graded") if isinstance(response, dict) else {}
     start_times = response.get("startTimes") if isinstance(response, dict) else {}
+    unsupported = response.get("unsupported") if isinstance(response, dict) else {}
+    anomalies = response.get("gradeAnomalies") if isinstance(response, dict) else []
     grades = grades if isinstance(grades, dict) else {}
     start_times = start_times if isinstance(start_times, dict) else {}
+    unsupported = unsupported if isinstance(unsupported, dict) else {}
 
     for grade_id, pick in refs.items():
         result = str(grades.get(grade_id) or "pending").lower()
         if result in {"win", "loss", "push"} and pick.get("result") != result:
             pick["result"] = result
             changed += 1
+        reason = str(unsupported.get(grade_id) or "").strip()
+        if reason and pick.get("grade_supported") is not False:
+            pick["grade_supported"] = False
+            pick["grade_note"] = f"Auto-grading unsupported: {reason}"
+            changed += 1
         start_time = str(start_times.get(grade_id) or "").strip()
         if start_time and pick.get("start_time") != start_time:
             pick["start_time"] = start_time
             pick["game_start_time"] = start_time
             changed += 1
+
+    if isinstance(anomalies, list) and anomalies:
+        detail = ", ".join(
+            f"{row.get('id')}={row.get('reason')}" for row in anomalies[:10] if isinstance(row, dict)
+        )
+        print(f"[auto-grade] {len(anomalies)} grading anomalie(s): {detail}")
     return changed
 
 

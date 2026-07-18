@@ -3,6 +3,11 @@ from __future__ import annotations
 from datetime import date, datetime
 from typing import Mapping
 
+# League run environment used as the heuristic totals baseline. Historically a
+# dead 8.7 assignment was clamped to 9.0, so 9.0 is the live behavior; tune via
+# the walk-forward backtest before changing.
+TOTALS_BASE_RUNS = 9.0
+
 
 def _float(row: Mapping[str, object], key: str, default: float = 0.0) -> float:
     try:
@@ -162,9 +167,7 @@ def predict_total_runs(row: Mapping[str, object]) -> float:
     The dedicated totals model added later uses this as one input, not as the
     final answer.
     """
-    base_runs = 8.7
-    if base_runs < 9.0:
-        base_runs = 9.0
+    base_runs = TOTALS_BASE_RUNS
     base_runs += _season_phase_total_adjustment(row)
     starter_component = (
         (_float(row, "home_starter_fip_shrunk", _float(row, "home_starter_fip", 4.2)) - 4.2)

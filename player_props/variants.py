@@ -19,7 +19,13 @@ from .ml import (
     expected_value,
     market_family_for_stat,
 )
-from .schema import american_implied_probability, decision_and_stake, normal_probability, safe_float
+from .schema import (
+    american_implied_probability,
+    decision_and_stake,
+    market_fair_probability,
+    normal_probability,
+    safe_float,
+)
 
 
 VARIANT_VERSION = "player_props_variant_v1.0.0"
@@ -104,7 +110,9 @@ def _ml_variant_publication_qualified(pick: dict[str, Any]) -> bool:
     ev = safe_float(pick.get("variant_signal_expected_value") or pick.get("ml_expected_value"))
     if probability < MIN_PUBLISHED_PROBABILITY or edge < MIN_VARIANT_EDGE or ev < MIN_VARIANT_EV:
         return False
-    decision, _, _, _, _ = decision_and_stake(probability, odds)
+    decision, _, _, _, _ = decision_and_stake(
+        probability, odds, fair_probability=market_fair_probability(pick)
+    )
     return decision in {"BET", "LEAN"}
 
 
@@ -116,7 +124,9 @@ def _restore_ml_variant_publication(pick: dict[str, Any], *, consensus_reason: s
     except (TypeError, ValueError):
         odds = int(safe_float(pick.get("odds")) or -110)
     implied = american_implied_probability(odds) or safe_float(pick.get("market_implied_probability"), 0.5)
-    decision, edge_pp, full_kelly, quarter_kelly, units = decision_and_stake(probability, odds)
+    decision, edge_pp, full_kelly, quarter_kelly, units = decision_and_stake(
+        probability, odds, fair_probability=market_fair_probability(pick, selection)
+    )
     edge_fraction = probability - implied
     variant = str(pick.get("model_variant") or "season")
     variant_label = str(pick.get("model_variant_label") or VARIANT_LABELS.get(variant, variant))
@@ -452,7 +462,9 @@ def _variant_pick(
     line = safe_float(pick.get("line"))
     stat_label = str(pick.get("stat_label") or pick.get("market_type") or pick.get("stat_key") or "").strip()
     player_name = str(pick.get("player_name") or pick.get("player") or "").strip()
-    decision, edge_pp, full_kelly, quarter_kelly, units = decision_and_stake(probability, odds)
+    decision, edge_pp, full_kelly, quarter_kelly, units = decision_and_stake(
+        probability, odds, fair_probability=market_fair_probability(pick, selection)
+    )
     edge_fraction = (probability - implied) if implied is not None else 0.0
     source = player_prop_variant_source(sport, variant)
     fingerprint = _variant_fingerprint()
@@ -588,7 +600,9 @@ def _apply_consensus_publication_gate(pick: dict[str, Any]) -> dict[str, Any]:
     odds = int(result["odds"])
     implied = safe_float(result.get("implied_probability"), american_implied_probability(odds) or 0.0)
     probability = _clamp(safe_float(result.get("probability"), safe_float(pick.get("probability"), 0.5)))
-    decision, edge_pp, full_kelly, quarter_kelly, units = decision_and_stake(probability, odds)
+    decision, edge_pp, full_kelly, quarter_kelly, units = decision_and_stake(
+        probability, odds, fair_probability=market_fair_probability(pick, selection)
+    )
     line = safe_float(pick.get("line"))
     stat_label = str(pick.get("stat_label") or pick.get("market_type") or pick.get("stat_key") or "").strip()
     player_name = str(pick.get("player_name") or pick.get("player") or "").strip()
@@ -903,10 +917,12 @@ def _restore_wnba_3pm_relaxed_publication(pick: dict[str, Any]) -> dict[str, Any
         odds = -110
     if odds > MAX_PUBLISHED_POSITIVE_ODDS:
         return pick
-    decision, edge_pp, full_kelly, quarter_kelly, units = decision_and_stake(probability, odds)
+    selection = str(pick.get("variant_signal_selection") or pick.get("selection") or "Over")
+    decision, edge_pp, full_kelly, quarter_kelly, units = decision_and_stake(
+        probability, odds, fair_probability=market_fair_probability(pick, selection)
+    )
     if decision not in {"BET", "LEAN"}:
         return pick
-    selection = str(pick.get("variant_signal_selection") or pick.get("selection") or "Over")
     implied = american_implied_probability(odds) or safe_float(pick.get("market_implied_probability"), 0.5)
     line = safe_float(pick.get("line"))
     stat_label = str(pick.get("stat_label") or "3-Point Field Goals")

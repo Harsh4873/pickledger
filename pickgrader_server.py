@@ -2325,18 +2325,28 @@ def _find_mlb_live_player_record(
     return name_match
 
 
-def _mlb_live_player_has_activity(
+def _mlb_live_player_participation(
     feed: dict[str, Any],
     player_name: str,
     player_ids: Iterable[Any] = (),
-) -> bool:
+) -> str:
+    """Classify a boxscore lookup as 'played', 'dnp', or 'unknown'.
+
+    Only a well-formed record with empty batting AND pitching lines counts as
+    a true DNP; a missing or malformed record is 'unknown' so a name/ID
+    mismatch or feed hiccup can never void a bet that may have played.
+    """
     player_record = _find_mlb_live_player_record(feed, player_name, player_ids)
     if player_record is None:
-        return False
+        return "unknown"
     stats = player_record.get("stats") if isinstance(player_record, dict) else None
-    batting = stats.get("batting") if isinstance(stats, dict) else None
-    pitching = stats.get("pitching") if isinstance(stats, dict) else None
-    return bool(batting) or bool(pitching)
+    if not isinstance(stats, dict):
+        return "unknown"
+    batting = stats.get("batting")
+    pitching = stats.get("pitching")
+    if bool(batting) or bool(pitching):
+        return "played"
+    return "dnp"
 
 
 def _extract_mlb_live_player_stat(
@@ -2431,13 +2441,15 @@ def grade_player_prop_pick(
     if actual is None and summary:
         actual = _extract_nba_player_stat(summary, str(prop["player_name"]), str(prop["stat_key"]))
     if actual is None:
-        if (
-            str(pick.get("sport") or "").strip().upper() == "MLB"
-            and _mlb_game_is_final(mlb_live_feed)
-            and _find_mlb_live_player_record(mlb_live_feed or {}, str(prop["player_name"]), player_ids) is not None
-            and not _mlb_live_player_has_activity(mlb_live_feed or {}, str(prop["player_name"]), player_ids)
-        ):
-            return "push"
+        if str(pick.get("sport") or "").strip().upper() == "MLB" and _mlb_game_is_final(mlb_live_feed):
+            participation = _mlb_live_player_participation(
+                mlb_live_feed or {}, str(prop["player_name"]), player_ids
+            )
+            if participation == "dnp":
+                return "push"
+            pick["grade_anomaly"] = (
+                "stat_extraction_failed" if participation == "played" else "player_not_in_boxscore"
+            )
         return "pending"
 
     line = float(prop["line"])
@@ -2539,8 +2551,11 @@ def grade_pick(pick: dict[str, Any], game: dict[str, Any]) -> str:
             return "win" if team_score > line else "loss"
         return "win" if team_score < line else "loss"
 
-    # Skip 1H / partial-game markets for now.
+    # 1H / partial-game markets have no dedicated settlement logic. grade_pick
+    # only sees completed games, so flag them unsupported instead of leaving
+    # them pending forever; callers persist the flag and stop rescanning.
     if re.search(r"\b1h\b|first half|period", lower):
+        pick["grade_unsupported_reason"] = "partial_game_market"
         return "pending"
 
     # Draw pick (soccer): "Draw (Team A vs Team B)"
@@ -2655,6 +2670,8 @@ def auto_grade(picks: list[dict[str, Any]], existing: dict[str, str], year: int)
 
     graded: dict[str, str] = {}
     start_times: dict[str, str] = {}
+    unsupported: dict[str, str] = {}
+    grade_anomalies: list[dict[str, str]] = []
     attempted = 0
     board_cache: dict[tuple[str, str], dict[str, Any] | None] = {}
     summary_cache: dict[tuple[str, str], dict[str, Any] | None] = {}
@@ -2700,6 +2717,10 @@ def auto_grade(picks: list[dict[str, Any]], existing: dict[str, str], year: int)
                     result = grade_player_prop_pick(pick, {}, None, mlb_live_feed)
                     if result in {"win", "loss", "push"}:
                         graded[str(pick["id"])] = result
+                    elif pick.get("grade_anomaly"):
+                        grade_anomalies.append(
+                            {"id": str(pick["id"]), "reason": str(pick["grade_anomaly"])}
+                        )
                 continue
             if not game:
                 continue
@@ -2730,14 +2751,21 @@ def auto_grade(picks: list[dict[str, Any]], existing: dict[str, str], year: int)
                 result = grade_pick(pick, game)
             if result in {"win", "loss", "push"}:
                 graded[str(pick["id"])] = result
+            elif pick.get("grade_unsupported_reason"):
+                unsupported[str(pick["id"])] = str(pick["grade_unsupported_reason"])
+            elif pick.get("grade_anomaly"):
+                grade_anomalies.append({"id": str(pick["id"]), "reason": str(pick["grade_anomaly"])})
 
     return {
         "graded": graded,
         "startTimes": start_times,
+        "unsupported": unsupported,
+        "gradeAnomalies": grade_anomalies,
         "summary": {
             "attempted": attempted,
             "updated": len(graded),
             "remaining": max(0, attempted - len(graded)),
+            "anomalies": len(grade_anomalies),
         },
     }
 
