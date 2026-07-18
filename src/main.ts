@@ -80,21 +80,6 @@ type DailyPickGroup = {
   score: number;
 };
 
-type UserBet = {
-  id: string;
-  pickId?: string;
-  pickMode: PickMode;
-  selection: string;
-  sport: string;
-  source: string;
-  matchup: string;
-  date: string;
-  odds: number | null;
-  units: number;
-  result: PickResult;
-  addedAt: string;
-};
-
 const ESPN_ENDPOINTS: Record<string, [string, string]> = {
   MLB: ['baseball', 'mlb'],
   NBA: ['basketball', 'nba'],
@@ -126,14 +111,12 @@ const homeScores = new Map<string, HomeScoreInfo>();
 const homeScoreFetches = new Map<string, number>();
 const expandedSourceKeys = new Set<string>();
 const expandedResearchPickKeys = new Set<string>();
-let yourBets: UserBet[] = [];
 let homeScoreRefreshKey = '';
 let latestPicksUpdatedAt = '';
 const HOME_SCORE_TTL_MS = 45_000;
 const DISPLAY_TIME_ZONE = 'America/Chicago';
 const AUTO_REFRESH_MS = 5 * 60_000;
 const PLAYER_PROP_RANKING_START_DATE = '2026-06-23';
-const YOUR_BETS_STORAGE_KEY = 'pickledger_your_bets_v1';
 const MLB_TEAM_CONSENSUS_EPOCH_PREFIX = 'MLB:mlb_team_consensus_v1';
 const MLB_TEAM_CONSENSUS_SOURCES = new Set(['MLB Model', 'MLB First Five', 'MLB Inning']);
 const PRIMARY_FILTERS = ['ALL', 'MLB', 'WNBA', 'NBA SUMMER', 'FIFA WC'];
@@ -467,139 +450,6 @@ function trackedUnitsClass(stats: Stats): string {
   return stats.net > 0 ? 'positive' : 'negative';
 }
 
-function readYourBets(): UserBet[] {
-  try {
-    const stored = JSON.parse(localStorage.getItem(YOUR_BETS_STORAGE_KEY) || '[]');
-    return Array.isArray(stored)
-      ? stored.filter(item => item && typeof item === 'object' && item.pickId && (item.pickMode === 'team' || item.pickMode === 'player')) as UserBet[]
-      : [];
-  } catch {
-    return [];
-  }
-}
-
-function saveYourBets(): void {
-  try {
-    localStorage.setItem(YOUR_BETS_STORAGE_KEY, JSON.stringify(yourBets));
-  } catch {
-    // The rest of the viewer remains usable if device storage is blocked.
-  }
-}
-
-function mutateYourBets(change: () => void): void {
-  change();
-  saveYourBets();
-  renderYourBets();
-}
-
-function resolvedUserBetResult(bet: UserBet): PickResult {
-  if (bet.pickId && bet.pickMode === activePickMode) {
-    return getAllPicks().find(pick => pick.id === bet.pickId)?.result || bet.result;
-  }
-  return bet.result;
-}
-
-function syncYourBetResults(): void {
-  const currentPicks = new Map(getAllPicks().map(pick => [pick.id, pick]));
-  let changed = false;
-  yourBets.forEach(bet => {
-    if (!bet.pickId || bet.pickMode !== activePickMode) return;
-    const pick = currentPicks.get(bet.pickId);
-    if (!pick) return;
-    if (bet.result !== pick.result) {
-      bet.result = pick.result;
-      changed = true;
-    }
-    if (bet.odds !== pick.odds) {
-      bet.odds = pick.odds;
-      changed = true;
-    }
-  });
-  if (changed) saveYourBets();
-}
-
-function userBetProfit(bet: UserBet): number {
-  const result = resolvedUserBetResult(bet);
-  if (result === 'pending' || result === 'push') return 0;
-  if (result === 'loss') return -bet.units;
-  if (bet.odds == null || bet.odds === 0) return bet.units;
-  return Number((bet.odds > 0 ? bet.units * bet.odds / 100 : bet.units * 100 / Math.abs(bet.odds)).toFixed(2));
-}
-
-function userBetStats(bets: UserBet[]): Stats {
-  const results = bets.map(resolvedUserBetResult);
-  const wins = results.filter(result => result === 'win').length;
-  const losses = results.filter(result => result === 'loss').length;
-  const pushes = results.filter(result => result === 'push').length;
-  const pending = results.filter(result => result === 'pending').length;
-  const decided = wins + losses;
-  const net = Number(bets.reduce((sum, bet) => sum + userBetProfit(bet), 0).toFixed(2));
-  const risk = Number(bets.filter(bet => {
-    const result = resolvedUserBetResult(bet);
-    return result !== 'pending' && result !== 'push';
-  }).reduce((sum, bet) => sum + bet.units, 0).toFixed(2));
-  return {
-    total: bets.length,
-    wins,
-    losses,
-    pushes,
-    pending,
-    net,
-    risk,
-    priced: wins + losses + pushes,
-    winRate: decided ? wins / decided : null,
-    roi: risk ? net / risk : null,
-  };
-}
-
-function addPickToYourBets(pickId: string): void {
-  const pick = getAllPicks().find(item => item.id === pickId);
-  if (!pick) return;
-  const existing = yourBets.find(bet => bet.pickMode === activePickMode && bet.pickId === pick.id && bet.date === pickDateKey(pick));
-  mutateYourBets(() => {
-    if (existing) {
-      existing.units = Number((existing.units + Math.max(pick.units, 1)).toFixed(2));
-      existing.odds = pick.odds;
-      existing.result = pick.result;
-      return;
-    }
-    yourBets.unshift({
-      id: `board-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-      pickId: pick.id,
-      pickMode: activePickMode,
-      selection: pick.pick,
-      sport: pick.sport,
-      source: sourceName(pick),
-      matchup: gameName(pick),
-      date: pickDateKey(pick),
-      odds: pick.odds,
-      units: Math.max(pick.units, 1),
-      result: pick.result,
-      addedAt: new Date().toISOString(),
-    });
-  });
-}
-
-function updateYourBetUnits(id: string, value: string): void {
-  const units = Number(value);
-  if (!Number.isFinite(units) || units <= 0) return;
-  mutateYourBets(() => {
-    const bet = yourBets.find(item => item.id === id);
-    if (bet) bet.units = Number(units.toFixed(2));
-  });
-}
-
-function removeYourBet(id: string): void {
-  mutateYourBets(() => {
-    yourBets = yourBets.filter(bet => bet.id !== id);
-  });
-}
-
-function yourBetAddButton(pick: Pick): string {
-  void pick;
-  return '';
-}
-
 function shiftedDateKey(key: string, days: number): string {
   const date = parseDateKey(key);
   if (!date) return key;
@@ -756,10 +606,6 @@ function ensureSelection(): void {
   if (!calendarMonth) calendarMonth = selectedDate.slice(0, 7);
 }
 
-function boardDateFallbackHtml(): string {
-  return '';
-}
-
 function filteredPicks(): Pick[] {
   return getAllPicks().filter(pick => (
     activeFilters.size === 0 ||
@@ -778,7 +624,7 @@ function boardPicks(): Pick[] {
 }
 
 function setRefreshStatus(message: string, state = ''): void {
-  const status = document.getElementById('refresh-status');
+  const status = document.getElementById('sync-status');
   if (status) {
     status.textContent = message;
     status.classList.toggle('ok', state === 'ok');
@@ -917,8 +763,6 @@ function bindInlineDatePicker(prefix: 'daily' | 'parlay' | 'profit'): void {
 function renderHome(): void {
   ensureSelection();
   renderFilters();
-  const boardNotice = document.getElementById('home-board-notice');
-  if (boardNotice) boardNotice.innerHTML = boardDateFallbackHtml();
   const picks = boardPicks();
   const stats = statsFor(picks);
   const selectedAll = filteredPicks().filter(pick => pickDateKey(pick) === selectedDate);
@@ -929,9 +773,6 @@ function renderHome(): void {
   const title = document.getElementById('home-title');
   const eyebrow = document.getElementById('home-eyebrow');
   const sub = document.getElementById('home-sub');
-  const dateChip = document.getElementById('home-date-chip');
-  const filterChip = document.getElementById('home-filter-chip');
-  const modeChip = document.getElementById('home-mode-chip');
   const triggerValue = document.getElementById('home-date-trigger-value');
   const triggerMeta = document.getElementById('home-date-trigger-meta');
   const itemLabel = activePickMode === 'player' ? 'props' : 'picks';
@@ -941,9 +782,6 @@ function renderHome(): void {
     ? `${dateLabel(selectedDate, true)} Player Props`
     : `${dateLabel(selectedDate, true)} Picks`;
   if (sub) sub.textContent = `${selectedAll.length} ${activePickMode === 'player' ? 'player props' : 'picks'} from ${new Set(selectedAll.map(sourceName)).size} sources, organized by matchup.`;
-  if (dateChip) dateChip.textContent = dateLabel(selectedDate).toUpperCase();
-  if (filterChip) filterChip.textContent = activeFilterSummary();
-  if (modeChip) modeChip.textContent = homeMode === 'pending' ? `OPEN ${itemLabel.toUpperCase()}` : homeMode === 'settled' ? 'RESULTS' : `ALL ${itemLabel.toUpperCase()}`;
   if (triggerValue) triggerValue.textContent = dateLabel(selectedDate, true);
   if (triggerMeta) triggerMeta.textContent = selectedDate === centralDateKey() ? 'Today | CT' : `${selectedAll.length} picks`;
   document.querySelectorAll<HTMLElement>('[data-home-mode]').forEach(button => button.classList.toggle('active', button.dataset.homeMode === homeMode));
@@ -1005,6 +843,17 @@ function renderGameCard(picks: Pick[]): string {
   </article>`;
 }
 
+// Quarter-Kelly is a display-only stake suggestion on a 100u bankroll; the
+// tracked flat records elsewhere stay on their own units.
+function quarterKellyLabel(pick: Pick): string {
+  if (pick.result !== 'pending') return '';
+  const decision = String(pick.decision || '').trim().toUpperCase();
+  if (decision !== 'BET' && decision !== 'LEAN') return '';
+  const recommended = Number(pick.recommended_units ?? (pick.quarter_kelly != null ? Number(pick.quarter_kelly) * 100 : NaN));
+  if (!Number.isFinite(recommended) || recommended <= 0) return '';
+  return `¼K ${Number(recommended.toFixed(1))}u`;
+}
+
 function renderPickRow(pick: Pick): string {
   const decision = String(pick.decision || '').trim().toUpperCase();
   const isPlayer = activePickMode === 'player';
@@ -1021,9 +870,9 @@ function renderPickRow(pick: Pick): string {
       : ' data-home-pick-text role="button" tabindex="0" aria-expanded="false"';
   return `<div class="home-feed-row result-${pick.result}${isPlayer ? ' player-row' : ''}${hasResearch ? ' is-expandable' : ''}${expanded ? ' expanded' : ''}"${researchAttrs}>
     ${isPlayer ? '' : `<span class="home-feed-row-sport">${escapeHtml(pick.sport)}</span>`}
-    <div class="home-feed-row-body"><div class="home-feed-row-source">${escapeHtml(sourceName(pick))}</div><div class="home-feed-row-pick"${pickTextAttrs}>${escapeHtml(pick.pick)}</div><div class="home-feed-row-meta">${escapeHtml([formatOdds(pick), pick.odds != null && pick.price_verified !== true ? 'price unverified' : '', decision === 'PASS' ? '' : `${pick.units}u`, formatStart(pick.start_time), activePickMode === 'player' ? '' : pick.decision].filter(Boolean).join(' | '))}</div>${researchDetailsHtml(pick, expanded)}</div>
+    <div class="home-feed-row-body"><div class="home-feed-row-source">${escapeHtml(sourceName(pick))}</div><div class="home-feed-row-pick"${pickTextAttrs}>${escapeHtml(pick.pick)}</div><div class="home-feed-row-meta">${escapeHtml([formatOdds(pick), pick.odds != null && pick.price_verified !== true ? 'price unverified' : '', decision === 'PASS' ? '' : `${pick.units}u`, quarterKellyLabel(pick), formatStart(pick.start_time), activePickMode === 'player' ? '' : pick.decision].filter(Boolean).join(' | '))}</div>${researchDetailsHtml(pick, expanded)}</div>
     <div class="home-feed-row-pl ${pick.pl > 0 ? 'positive' : pick.pl < 0 ? 'negative' : 'neutral'}">${isUnsupportedPendingPick(pick) || (pick.result !== 'pending' && pick.price_verified !== true) ? 'P/L untracked' : pick.result === 'pending' ? decision === 'PASS' ? 'Pass' : `${pick.units}u risk` : signedUnits(pick.pl)}</div>
-    <div class="home-feed-row-control">${pickResultBadge(pick)}${yourBetAddButton(pick)}</div>
+    <div class="home-feed-row-control">${pickResultBadge(pick)}</div>
   </div>`;
 }
 
@@ -1076,16 +925,6 @@ function bindResearchDetailCards(container: HTMLElement): void {
 function bindPickCards(container: HTMLElement): void {
   bindHomePickTextExpansion(container);
   bindResearchDetailCards(container);
-  container.querySelectorAll<HTMLButtonElement>('[data-add-your-bet]').forEach(button => {
-    button.addEventListener('click', event => {
-      event.stopPropagation();
-      const pickId = button.dataset.addYourBet || '';
-      addPickToYourBets(pickId);
-      const saved = yourBets.find(bet => bet.pickMode === activePickMode && bet.pickId === pickId);
-      button.classList.add('is-added');
-      button.textContent = saved ? `ADD 1U | ${formatPlayerMeasure(saved.units)}U SAVED` : 'ADDED';
-    });
-  });
 }
 
 function updateOverallStats(): void {
@@ -1325,7 +1164,6 @@ function renderSearch(): void {
       <div class="search-card-top">${pickResultBadge(pick)}<span class="badge badge-source">${escapeHtml(sourceName(pick))}</span><div class="search-card-pick">${escapeHtml(pick.pick)}</div><div class="search-card-odds">${escapeHtml(formatOdds(pick))}</div></div>
       <div class="search-card-row"><div class="search-card-field"><span class="search-card-field-label">GAME</span><span class="search-card-field-val">${escapeHtml(gameName(pick))}</span></div><div class="search-card-field"><span class="search-card-field-label">DATE</span><span class="search-card-field-val">${escapeHtml(pick.date)}</span></div><div class="search-card-field"><span class="search-card-field-label">P/L</span><span class="search-card-field-val">${signedUnits(pick.pl)}</span></div></div>
       ${researchDetailsHtml(pick, expanded)}
-      <div class="search-card-actions">${yourBetAddButton(pick)}</div>
     </article>`;
   }).join('') : `<div class="empty-state">No open ${itemLabel} match that search for the selected date</div>`;
   bindPickCards(results);
@@ -1565,11 +1403,6 @@ function dailyPickGroupCard(group: DailyPickGroup): string {
     : edge != null ? `${edge >= 0 ? '+' : ''}${edge.toFixed(1)}%` : formatOdds(pick) || 'TRACK';
   const metricLabel = probability != null ? 'MODEL WIN PROB' : edge != null ? 'MODEL EDGE' : 'MARKET PRICE';
   const sources = [...new Set(group.picks.map(sourceName))];
-  const note = group.tags.includes('MODEL GREENLIGHT')
-    ? 'At least one model issued a BET/LEAN greenlight. Compare the source lines and prices before sizing.'
-    : group.tags.includes('PROBABILITY LEADER')
-      ? 'High expected win probability, but price and the official model decision still matter.'
-      : 'Useful context for review, but it does not currently qualify as a top actionable pick.';
   const details = pickExpandableDetails(pick);
   const hasResearch = Boolean(details.reason || details.factors.length);
   const expanded = hasResearch && expandedResearchPickKeys.has(pick.id);
@@ -1588,9 +1421,7 @@ function dailyPickGroupCard(group: DailyPickGroup): string {
       ].filter(Boolean).join(' | ');
       return `<div class="daily-pick-source-row"><strong>${escapeHtml(sourceName(sourcePick))}</strong><span>${escapeHtml(sourceMeta)}</span></div>`;
     }).join('')}</div>
-    <div class="daily-bet-note">${escapeHtml(note)}</div>
     ${researchDetailsHtml(pick, expanded)}
-    <div class="daily-bet-actions">${yourBetAddButton(pick)}</div>
   </article>`;
 }
 
@@ -1627,7 +1458,7 @@ function dailyConsensusCards(picks: Pick[]): string {
     const details = pickExpandableDetails(game);
     const hasResearch = Boolean(details.reason || details.factors.length);
     const expanded = hasResearch && expandedResearchPickKeys.has(game.id);
-    return `<article class="daily-consensus-card ${hasResearch ? 'is-expandable' : ''} ${expanded ? 'expanded' : ''}" ${hasResearch ? `data-research-pick-card="${escapeHtml(game.id)}" role="button" tabindex="0" aria-expanded="${expanded}"` : ''}><div class="daily-consensus-count">${new Set(signal.picks.map(sourceName)).size} SOURCES</div><div class="daily-consensus-pick">${escapeHtml(signal.label)}</div><div class="daily-consensus-game">${escapeHtml(gameName(game))}</div><div class="trend-source-row">${[...new Set(signal.picks.map(sourceName))].map(source => `<span class="trend-source-pill">${escapeHtml(source)}</span>`).join('')}</div>${researchDetailsHtml(game, expanded)}<div class="daily-bet-actions">${yourBetAddButton(game)}</div></article>`;
+    return `<article class="daily-consensus-card ${hasResearch ? 'is-expandable' : ''} ${expanded ? 'expanded' : ''}" ${hasResearch ? `data-research-pick-card="${escapeHtml(game.id)}" role="button" tabindex="0" aria-expanded="${expanded}"` : ''}><div class="daily-consensus-count">${new Set(signal.picks.map(sourceName)).size} SOURCES</div><div class="daily-consensus-pick">${escapeHtml(signal.label)}</div><div class="daily-consensus-game">${escapeHtml(gameName(game))}</div><div class="trend-source-row">${[...new Set(signal.picks.map(sourceName))].map(source => `<span class="trend-source-pill">${escapeHtml(source)}</span>`).join('')}</div>${researchDetailsHtml(game, expanded)}</article>`;
   }).join('')}</div>`;
 }
 
@@ -2089,16 +1920,10 @@ function profitDeskMethodHtml(payload: ProfitDeskPayload | null): string {
   const notes = Array.isArray(payload?.policy?.notes) ? payload.policy.notes : [];
   const policyStatus = payload?.policy?.status || payload?.policy?.mode || payload?.phase || 'artifact unavailable';
   return `<section class="profit-section profit-method">
-    <div class="profit-section-head"><div><div class="profit-section-kicker">MARKET-ANCHORED SELECTION POLICY</div><h2>How a pick earns promotion</h2><p>The browser displays a dated decision artifact. It does not rescore the raw pick database.</p></div><span>${escapeHtml(String(policyStatus).toUpperCase())}</span></div>
-    <div class="profit-method-steps">
-      <article><span>01</span><h3>Require a usable price</h3><p>Start with observed American odds and a break-even or two-sided no-vig market baseline. Missing, stale, or assumed prices block qualification outright.</p></article>
-      <article><span>02</span><h3>Estimate excess over market</h3><p>Adjust the market baseline only by a source and segment&rsquo;s historically observed excess. Source forecasts never qualify as profit evidence on their own.</p></article>
-      <article><span>03</span><h3>Penalize uncertainty</h3><p>Shrink thin samples and rank on the conservative lower estimate, conservative EV, and the probability EV is positive—not the most optimistic point estimate.</p></article>
-      <article><span>04</span><h3>Stake by lane or abstain</h3><p>EDGE clears strict segment-level market-alpha gates and stakes 1.0u. VALUE clears source-level flat-ROI gates and stakes 0.5u. Everything else stays 0u, and sitting out is a valid card.</p></article>
-    </div>
+    <div class="profit-section-head"><div><div class="profit-section-kicker">MARKET-ANCHORED SELECTION POLICY</div><h2>How a pick earns promotion</h2><p>Every stake starts from a real observed price with a no-vig or break-even baseline, adds only a source&rsquo;s historically proven excess over the market, shrinks thin samples toward zero, and stakes by lane (EDGE 1.0u, VALUE 0.5u) or abstains. The browser displays a dated decision artifact; it never rescores raw picks.</p></div><span>${escapeHtml(String(policyStatus).toUpperCase())}</span></div>
     <div class="profit-policy-grid">
       <div><div class="profit-policy-title">Promotion requirements</div>${gates.length ? `<dl>${gates.map(([key, value]) => `<div><dt>${escapeHtml(humanizeProfitGate(key))}</dt><dd>${escapeHtml(formatProfitGateValue(value))}</dd></div>`).join('')}</dl>` : '<p>No policy gates were published for this date. That is itself a blocker; nothing can be promoted.</p>'}</div>
-      <div><div class="profit-policy-title">Live-proof boundary</div><p>Backtests and shadow results can reject a weak rule, but they do not prove that it will generate live profit. Live recordkeeping begins only after promotion${payload?.policy?.firstLiveDate ? ` on ${escapeHtml(dateLabel(payload.policy.firstLiveDate, true))}` : ''}.</p>${notes.length ? `<ul>${notes.map(note => `<li>${escapeHtml(note)}</li>`).join('')}</ul>` : ''}</div>
+      <div><div class="profit-policy-title">Where to see the evidence</div><p>Full qualification rules and each source&rsquo;s progress live under Rankings &rarr; Profit Desk Qualification. Live recordkeeping begins only after promotion${payload?.policy?.firstLiveDate ? ` on ${escapeHtml(dateLabel(payload.policy.firstLiveDate, true))}` : ''}.</p>${notes.length ? `<ul>${notes.map(note => `<li>${escapeHtml(note)}</li>`).join('')}</ul>` : ''}</div>
     </div>
   </section>`;
 }
@@ -2233,9 +2058,9 @@ function renderDaily(): void {
         ? dailySection('Hot Sources', 'Recent three-slate form plus each source’s unique BET/LEAN calls today.', hotForms.length ? `<div class="daily-model-grid">${hotForms.map(dailyHotModelCard).join('')}</div>` : '<div class="daily-empty"><div class="daily-empty-title">No hot source has a published call today</div><div class="daily-empty-sub">This view appears when a source has enough recent decisions and a current greenlight.</div></div>', `${hotForms.length} active sources`)
         : dailySection('Research Queue', researchSubtitle, dailyPickGrid(researchGroups), `${researchGroups.length} unique markets`);
 
-  container.innerHTML = `${boardDateFallbackHtml()}<div class="daily-hero"><div class="daily-hero-row"><div><div class="daily-eyebrow">TODAY'S QUICK READ</div><div class="daily-title">The Shortlist</div><div class="daily-sub">${escapeHtml(dateLabel(key, true))} | Each unique market appears once. Choose a view to focus on ${dailyFocus}.</div></div><div class="daily-clock-wrap"><div class="daily-clock-label">PICKS FOR</div><div class="daily-clock">${escapeHtml(key)}</div></div></div></div>
+  container.innerHTML = `<div class="daily-hero"><div class="daily-hero-row"><div><div class="daily-eyebrow">TODAY'S QUICK READ</div><div class="daily-title">The Shortlist</div><div class="daily-sub">${escapeHtml(dateLabel(key, true))} | Each unique market appears once. Choose a view to focus on ${dailyFocus}.</div></div><div class="daily-clock-wrap"><div class="daily-clock-label">PICKS FOR</div><div class="daily-clock">${escapeHtml(key)}</div></div></div></div>
     <div class="daily-view-shell">
-      <div class="daily-view-copy"><div class="daily-view-eyebrow">CHOOSE A VIEW</div><div class="daily-view-title">${escapeHtml(activeView.label)}</div><div class="daily-view-description">${escapeHtml(activeView.description)}. Sorted ${escapeHtml(activeSort.label.toLowerCase())}; ${stats.pending} picks remain open and ${priceyCount} are pricey favorites.</div></div>
+      <div class="daily-view-copy"><div class="daily-view-eyebrow">CHOOSE A VIEW</div><div class="daily-view-title">${escapeHtml(activeView.label)}</div><div class="daily-view-description">Sorted ${escapeHtml(activeSort.label.toLowerCase())}; ${stats.pending} picks remain open and ${priceyCount} are pricey favorites.</div></div>
       <div class="daily-view-nav" role="tablist" aria-label="Daily shortlist categories">${viewOptions.map(option => `<button class="daily-view-tab ${dailyView === option.key ? 'active' : ''}" type="button" role="tab" aria-selected="${dailyView === option.key}" onclick="setDailyView('${option.key}')"><span class="daily-view-tab-count">${option.count}</span><span class="daily-view-tab-label">${option.label}</span><span class="daily-view-tab-desc">${option.description}</span></button>`).join('')}</div>
       <div class="daily-controls-row">
         ${inlineDatePickerHtml('daily', dailyCalendarOpen, 'Best Bets Date')}
@@ -2314,7 +2139,7 @@ function renderProfit(): void {
   const selected = numericSummary(modeSummary?.portfolioCandidates ?? modeSummary?.selected, cardCandidates.length);
   const evidenceRows = numericSummary(modeSummary?.evidenceRows, 0);
 
-  container.innerHTML = `${boardDateFallbackHtml()}<div class="profit-desk-shell">
+  container.innerHTML = `<div class="profit-desk-shell">
     <section class="profit-decision ${payload ? 'has-data' : 'is-missing'}" aria-labelledby="profit-desk-decision">
       <div class="profit-decision-copy">
         <div class="profit-kicker">${payload ? 'LIVE DECISION' : 'PIPELINE STATUS'} • ALL MARKETS</div>
@@ -2393,7 +2218,7 @@ function renderParlays(): void {
   const activeBody = noDatePayloadBody || emptyModeBody || parlaySections(visibleCards, parlayView, payload);
   const rankingsPanel = payload ? parlayRankingsPanel(parlayRankingsForCards(parlayRankingCardsForDate(key, modeCards, payload.engineVersion), payload)) : '';
 
-  container.innerHTML = `${boardDateFallbackHtml()}<div class="daily-hero"><div class="daily-hero-row"><div><div class="daily-eyebrow">PARLAY BOARD</div><div class="daily-title">${escapeHtml(boardLabel)} Parlays</div><div class="daily-sub">${escapeHtml(dateLabel(key, true))} | ${escapeHtml(boardDescription)}</div></div><div class="daily-clock-wrap"><div class="daily-clock-label">SLATE</div><div class="daily-clock">${escapeHtml(key)}</div><div class="daily-countdown">Updated ${escapeHtml(generatedAt)}</div></div></div></div>
+  container.innerHTML = `<div class="daily-hero"><div class="daily-hero-row"><div><div class="daily-eyebrow">PARLAY BOARD</div><div class="daily-title">${escapeHtml(boardLabel)} Parlays</div><div class="daily-sub">${escapeHtml(dateLabel(key, true))} | ${escapeHtml(boardDescription)}</div></div><div class="daily-clock-wrap"><div class="daily-clock-label">SLATE</div><div class="daily-clock">${escapeHtml(key)}</div><div class="daily-countdown">Updated ${escapeHtml(generatedAt)}</div></div></div></div>
     <div class="daily-stats-strip">
       <div class="daily-stat"><div class="daily-stat-val accent">${twoLegCards}</div><div class="daily-stat-label">Shown 2-Leg Slips</div></div>
       <div class="daily-stat"><div class="daily-stat-val">${visibleCards.length}</div><div class="daily-stat-label">Shown Slips</div></div>
@@ -2402,7 +2227,7 @@ function renderParlays(): void {
       <div class="daily-stat"><div class="daily-stat-val">${teamCardCount}/${playerCardCount}</div><div class="daily-stat-label">Team / Player</div></div>
     </div>
     <div class="daily-view-shell">
-      <div class="daily-view-copy"><div class="daily-view-eyebrow">FILTER PARLAYS</div><div class="daily-view-title">${escapeHtml(activeView.label)}</div><div class="daily-view-description">${escapeHtml(activeView.description)}. Records count each whole parlay slip once; leg results only decide whether the card wins, loses, pushes, or stays open. No same-game legs, same-player duplicates, or duplicate markets are allowed.</div></div>
+      <div class="daily-view-copy"><div class="daily-view-eyebrow">FILTER PARLAYS</div><div class="daily-view-title">${escapeHtml(activeView.label)}</div><div class="daily-view-description">Records count each whole parlay slip once; leg results only decide whether the card wins, loses, pushes, or stays open.</div></div>
       <div class="daily-view-nav" role="tablist" aria-label="Parlay board filters">${viewOptions.map(option => `<button class="daily-view-tab ${parlayView === option.key ? 'active' : ''}" type="button" role="tab" aria-selected="${parlayView === option.key}" onclick="setParlayView(${escapeHtml(JSON.stringify(option.key))})"><span class="daily-view-tab-count">${option.count}</span><span class="daily-view-tab-label">${option.label}</span><span class="daily-view-tab-desc">${option.description}</span></button>`).join('')}</div>
       <div class="daily-controls-row">
         ${inlineDatePickerHtml('parlay', parlayCalendarOpen, 'Parlay Date')}
@@ -2413,57 +2238,6 @@ function renderParlays(): void {
     <div class="daily-active-content">${activeBody}${rankingsPanel}</div>
     <div class="daily-disclaimer"><strong>Parlay tracking, not a forced ticket.</strong> Odds are multiplied from individual American prices, hit probability is anchored to market-implied leg probabilities plus each source's proven trailing edge, and every generated slip is tracked at 1u as one card for rankings.</div>`;
   bindInlineDatePicker('parlay');
-}
-
-function yourBetRecord(stats: Stats): string {
-  return `${stats.wins}-${stats.losses}${stats.pushes ? `-${stats.pushes}` : ''}`;
-}
-
-function yourBetSummaryCard(label: string, bets: UserBet[]): string {
-  const stats = userBetStats(bets);
-  return `<article class="your-bets-summary-card">
-    <div class="your-bets-summary-label">${escapeHtml(label)}</div>
-    <div class="your-bets-summary-record">${yourBetRecord(stats)}</div>
-    <div class="your-bets-summary-meta"><span class="${stats.net > 0 ? 'positive' : stats.net < 0 ? 'negative' : 'neutral'}">${signedUnits(stats.net)}</span><span>${stats.roi == null ? 'ROI —' : `${(stats.roi * 100).toFixed(1)}% ROI`}</span><span>${stats.pending} open</span></div>
-  </article>`;
-}
-
-function yourBetCard(bet: UserBet): string {
-  const result = resolvedUserBetResult(bet);
-  const profit = userBetProfit(bet);
-  return `<article class="your-bet-card result-${result}">
-    <div class="your-bet-card-head"><div><div class="your-bet-card-kicker">${escapeHtml(bet.sport)} | ${escapeHtml(bet.source)}</div><div class="your-bet-card-pick">${escapeHtml(bet.selection)}</div><div class="your-bet-card-game">${escapeHtml([bet.matchup, dateLabel(bet.date), bet.odds == null ? '' : bet.odds > 0 ? `+${bet.odds}` : bet.odds].filter(Boolean).join(' | '))}</div></div>${resultBadge(result)}</div>
-    <div class="your-bet-card-controls">
-      <label><span>Units</span><input type="number" min="0.01" step="0.25" value="${bet.units}" onchange="updateYourBetUnits('${escapeHtml(bet.id)}', this.value)"></label>
-      <div class="your-bet-locked-result"><span>Official Result</span><strong>${result === 'pending' ? 'OPEN' : result.toUpperCase()}</strong><small>Locked and graded by PickLedger</small></div>
-      <div class="your-bet-return"><span>${result === 'pending' ? 'To Win' : 'P/L'}</span><strong class="${profit > 0 ? 'positive' : profit < 0 ? 'negative' : 'neutral'}">${result === 'pending' ? bet.odds == null ? `${bet.units}u` : signedUnits(Math.max(0, userBetProfit({ ...bet, result: 'win' }))) : signedUnits(profit)}</strong></div>
-    </div>
-    <div class="your-bet-card-actions"><button type="button" class="danger" onclick="removeYourBet('${escapeHtml(bet.id)}')">REMOVE</button></div>
-  </article>`;
-}
-
-function renderYourBets(): void {
-  const container = document.getElementById('your-bets-container');
-  if (!container) return;
-  syncYourBetResults();
-  const today = centralDateKey();
-  const yesterday = shiftedDateKey(today, -1);
-  const modeBets = yourBets.filter(bet => bet.pickMode === activePickMode);
-  const todayBets = modeBets.filter(bet => bet.date === today);
-  const yesterdayBets = modeBets.filter(bet => bet.date === yesterday);
-  const history = modeBets.filter(bet => bet.date !== today)
-    .sort((a, b) => b.date.localeCompare(a.date) || b.addedAt.localeCompare(a.addedAt));
-  const sortedToday = [...todayBets].sort((a, b) => b.addedAt.localeCompare(a.addedAt));
-  const modeLabel = activePickMode === 'player' ? 'Player Props' : 'Team Picks';
-  container.innerHTML = `<div class="your-bets-shell">
-    <section class="your-bets-hero">
-      <div><div class="your-bets-eyebrow">${escapeHtml(modeLabel.toUpperCase())} | DEVICE-LOCAL LEDGER</div><div class="your-bets-title">Your Bets</div><div class="your-bets-sub">Your ${escapeHtml(modeLabel.toLowerCase())} stay separate from the other pick mode. Results are locked and graded by PickLedger; you can change units or remove a saved pick.</div></div>
-      <div class="your-bets-hero-actions"><button type="button" onclick="refreshAutoGrades()">REFRESH RESULTS</button><button type="button" class="primary" onclick="switchTab('daily')">ADD MORE PICKS</button></div>
-    </section>
-    <div class="your-bets-summary-grid">${yourBetSummaryCard('TODAY', todayBets)}${yourBetSummaryCard('YESTERDAY', yesterdayBets)}${yourBetSummaryCard('ALL TIME', modeBets)}</div>
-    <section class="your-bet-board"><div class="your-bet-section-head"><div><div class="your-bet-section-title">Today&rsquo;s ${escapeHtml(modeLabel)} Ticket</div><div class="your-bet-section-sub">${sortedToday.length} saved pick${sortedToday.length === 1 ? '' : 's'} for ${escapeHtml(dateLabel(today, true))}</div></div><span>${userBetStats(todayBets).pending} OPEN</span></div>${sortedToday.length ? `<div class="your-bet-grid">${sortedToday.map(yourBetCard).join('')}</div>` : '<div class="your-bet-empty"><strong>No picks saved for today yet.</strong><span>Add picks from Home, Find Picks, or Best Bets.</span></div>'}</section>
-    <section class="your-bet-board"><div class="your-bet-section-head"><div><div class="your-bet-section-title">Previous Results</div><div class="your-bet-section-sub">Your recent device-local history, newest first.</div></div><span>${history.length} SAVED</span></div>${history.length ? `<div class="your-bet-grid">${history.map(yourBetCard).join('')}</div>` : '<div class="your-bet-empty"><strong>No previous bets yet.</strong><span>Yesterday and all-time performance will build here as you use the ledger.</span></div>'}</section>
-  </div>`;
 }
 
 function render(): void {
@@ -3213,8 +2987,6 @@ Object.assign(window, {
   toggleParlayDatePicker,
   refreshAutoGrades,
   renderSearch,
-  updateYourBetUnits,
-  removeYourBet,
 });
 
 document.addEventListener('click', event => {
@@ -3256,7 +3028,6 @@ document.addEventListener('DOMContentLoaded', async () => {
   activePickMode = initPickMode();
   setDataPickMode(activePickMode);
   initSettingsUI();
-  yourBets = readYourBets();
   await loadAllData();
   lastCentralDate = centralDateKey();
   updateSyncStatus();

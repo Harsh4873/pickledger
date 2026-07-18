@@ -138,10 +138,9 @@
   .refresh-btn { background: var(--card); border: 1px solid var(--border); border-radius: 20px; padding: 6px 12px; color: var(--muted); font-family: 'DM Mono', monospace; font-size: 10px; letter-spacing: 1px; cursor: pointer; transition: border-color 0.2s, color 0.2s, opacity 0.2s; }
   .refresh-btn:hover { border-color: var(--accent); color: var(--text); }
   .refresh-btn:disabled { opacity: 0.65; cursor: wait; }
-  .refresh-status { font-family: 'DM Mono', monospace; font-size: 10px; letter-spacing: 0.5px; color: var(--muted); text-align: right; min-height: 14px; }
-  .refresh-status.error { color: var(--danger); }
-  .refresh-status.ok { color: var(--accent3); }
   .sync-status { margin-left: 8px; font-family: 'DM Mono', monospace; font-size: 10px; color: var(--accent3); }
+  .sync-status.error { color: var(--danger); }
+  .sync-status.ok { color: var(--accent); }
   .toggle-icon { font-size: 12px; line-height: 1; }
   .toggle-label { font-family: 'DM Mono', monospace; font-size: 10px; letter-spacing: 1px; color: var(--muted); min-width: 32px; }
   .toggle-track { width: 34px; height: 18px; background: var(--border); border-radius: 9px; position: relative; flex-shrink: 0; transition: background-color 0.3s; }
@@ -429,33 +428,6 @@
     min-width: 220px;
     position: relative;
     z-index: 1;
-  }
-  .home-hero-chips {
-    display: flex;
-    align-items: center;
-    justify-content: flex-end;
-    gap: 8px;
-    flex-wrap: wrap;
-  }
-  .home-hero-chip {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    min-height: 34px;
-    padding: 8px 12px;
-    border-radius: 999px;
-    border: 1px solid rgba(0,229,160,0.28);
-    background: rgba(0,229,160,0.1);
-    color: var(--accent);
-    font-family: 'DM Mono', monospace;
-    font-size: 11px;
-    letter-spacing: 0.8px;
-    text-transform: uppercase;
-  }
-  .home-hero-chip.muted {
-    border-color: var(--border);
-    background: rgba(255,255,255,0.04);
-    color: var(--muted);
   }
   .home-toggle-btn {
     min-height: 46px;
@@ -1854,7 +1826,6 @@
   }
   body[data-theme="light"] .home-score-chip.live { color: #9fffe5; }
   body[data-theme="light"] .home-score-chip.delayed { color: #fde68a; }
-  body[data-theme="light"] .home-hero-chip.muted,
   body[data-theme="light"] .home-toggle-btn,
   body[data-theme="light"] .home-mode-segment,
   body[data-theme="light"] .filter-btn,
@@ -1879,16 +1850,6 @@
   body[data-theme="light"] .home-pick-odds {
     background: rgba(15,23,42,0.04);
     border-color: rgba(15,23,42,0.06);
-  }
-  .home-hero-chip.date {
-    border-color: rgba(77,166,255,0.28);
-    background: rgba(77,166,255,0.11);
-    color: var(--accent3);
-  }
-  body[data-theme="light"] .home-hero-chip.date {
-    border-color: rgba(37,99,235,0.18);
-    background: rgba(37,99,235,0.09);
-    color: #1d4ed8;
   }
   body[data-theme="light"] .pick-feed-empty {
     background: linear-gradient(180deg, rgba(37,99,235,0.04), transparent 65%), #ffffff;
@@ -2780,7 +2741,6 @@
     .home-title { font-size: 40px; }
     .home-hero { padding: 20px; }
     .home-hero-actions { width: 100%; align-items: flex-start; }
-    .home-hero-chips { justify-content: flex-start; }
     .home-mode-segment { width: 100%; grid-template-columns: repeat(3, minmax(0, 1fr)); }
     .home-mode-btn { padding: 0 8px; font-size: 10px; }
     .home-summary-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -4149,7 +4109,6 @@
       max-width: none;
       justify-content: flex-start;
     }
-    .refresh-status { text-align: left; }
     .logo-title { font-size: 28px; }
     .header-profile-name { display: none; }
     .stats-grid { grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); }
@@ -4339,7 +4298,7 @@
   body.mobile-app-mode .header-profile-dropdown {
     min-width: min(220px, calc(100vw - 24px));
   }
-  body.mobile-app-mode .refresh-status {
+  body.mobile-app-mode .sync-status {
     max-width: none;
     font-size: 9px;
     line-height: 1.35;
@@ -4480,14 +4439,6 @@
     width: 100%;
     min-width: 0;
     align-items: stretch;
-  }
-  body.mobile-app-mode .home-hero-chips {
-    justify-content: flex-start;
-  }
-  body.mobile-app-mode .home-hero-chip {
-    min-height: 30px;
-    padding: 6px 10px;
-    font-size: 10px;
   }
   body.mobile-app-mode .home-toggle-btn {
     width: 100%;
@@ -5049,162 +5000,32 @@
       width: 100%;
       max-width: none;
     }
-    body.mobile-app-mode .header-controls,
-    body.mobile-app-mode .refresh-status {
+    body.mobile-app-mode .header-controls {
       max-width: none;
     }
     body.mobile-app-mode .logo-title { font-size: 30px; }
     body[data-theme="light"].mobile-app-mode .logo-title { font-size: 31px; }
   }
 
-.add-ledger-btn {
-  min-height: 34px;
-  padding: 7px 10px;
-  border: 1px solid rgba(77,166,255,0.3);
-  border-radius: 10px;
-  background: rgba(77,166,255,0.08);
-  color: var(--accent3);
-  font-family: 'DM Mono', monospace;
-  font-size: 8px;
-  font-weight: 800;
-  letter-spacing: 0.55px;
-  cursor: pointer;
-  transition: transform 0.18s, border-color 0.18s, background 0.18s, color 0.18s;
-}
-.add-ledger-btn:hover { transform: translateY(-1px); border-color: var(--accent); color: var(--accent); }
-.add-ledger-btn.is-added { border-color: rgba(0,229,160,0.28); background: rgba(0,229,160,0.08); color: var(--accent); }
 .home-feed-row-control { display: flex; flex-direction: column; align-items: flex-end; gap: 7px; }
 
-.your-bets-shell { display: flex; flex-direction: column; gap: 18px; }
-.your-bets-hero {
-  display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: 24px;
-  padding: 28px;
-  border: 1px solid var(--border);
-  border-radius: 24px;
-  background:
-    radial-gradient(700px 260px at 0% 0%, rgba(0,229,160,0.15), transparent 65%),
-    radial-gradient(700px 260px at 100% 0%, rgba(77,166,255,0.15), transparent 65%),
-    var(--card);
-}
-.your-bets-eyebrow { color: var(--accent); font: 800 10px 'DM Mono', monospace; letter-spacing: 1.4px; }
-.your-bets-title { margin-top: 7px; color: var(--text); font: 58px/0.95 'Bebas Neue', sans-serif; letter-spacing: 1.8px; }
-.your-bets-sub { max-width: 720px; margin-top: 9px; color: var(--muted); font-size: 13px; line-height: 1.65; }
-.your-bets-hero-actions { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
-.your-bets-hero-actions button,
-.your-bet-card-actions button {
-  min-height: 40px;
-  padding: 9px 13px;
-  border: 1px solid var(--border);
-  border-radius: 11px;
-  background: rgba(255,255,255,0.04);
-  color: var(--text);
-  font: 800 9px 'DM Mono', monospace;
-  letter-spacing: 0.7px;
-  cursor: pointer;
-}
-.your-bets-hero-actions button:hover,
-.your-bet-card-actions button:hover { border-color: var(--accent3); color: var(--accent3); }
-.your-bets-hero-actions button.primary { border-color: transparent; background: linear-gradient(135deg, var(--accent), var(--accent3)); color: #04131a; }
-.your-bets-summary-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
-.your-bets-summary-card {
-  padding: 20px;
-  border: 1px solid var(--border);
-  border-radius: 18px;
-  background: linear-gradient(150deg, rgba(77,166,255,0.06), transparent 70%), var(--card);
-}
-.your-bets-summary-label { color: var(--muted); font: 800 9px 'DM Mono', monospace; letter-spacing: 1.2px; }
-.your-bets-summary-record { margin-top: 8px; color: var(--text); font: 42px/1 'Bebas Neue', sans-serif; letter-spacing: 1.2px; }
-.your-bets-summary-meta { display: flex; flex-wrap: wrap; gap: 7px 12px; margin-top: 9px; color: var(--muted); font: 9px 'DM Mono', monospace; }
-.your-bet-board {
-  padding: 22px;
-  border: 1px solid var(--border);
-  border-radius: 20px;
-  background: var(--card);
-}
-.your-bet-section-head { display: flex; justify-content: space-between; gap: 18px; align-items: flex-end; margin-bottom: 16px; }
-.your-bet-section-head > span { color: var(--accent3); font: 800 9px 'DM Mono', monospace; letter-spacing: 1px; }
-.your-bet-section-title { color: var(--text); font: 34px/1 'Bebas Neue', sans-serif; letter-spacing: 1.2px; }
-.your-bet-section-sub { margin-top: 5px; color: var(--muted); font-size: 11px; line-height: 1.5; }
-.your-bet-card-controls label { display: flex; flex-direction: column; gap: 5px; color: var(--muted); font: 8px 'DM Mono', monospace; letter-spacing: 0.8px; text-transform: uppercase; }
-.your-bet-card-controls input {
-  width: 100%;
-  min-height: 40px;
-  padding: 8px 10px;
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  background: rgba(255,255,255,0.035);
-  color: var(--text);
-  font: 11px 'DM Mono', monospace;
-  outline: none;
-}
-.your-bet-card-controls input:focus { border-color: var(--accent3); }
-.your-bet-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 390px), 1fr)); gap: 12px; }
-.your-bet-card {
-  position: relative;
-  overflow: hidden;
-  padding: 18px;
-  border: 1px solid var(--border);
-  border-radius: 16px;
-  background: linear-gradient(150deg, rgba(77,166,255,0.06), transparent 65%), rgba(255,255,255,0.018);
-}
-.your-bet-card::before { content: ''; position: absolute; inset: 0 auto 0 0; width: 3px; background: var(--accent3); }
-.your-bet-card.result-win::before { background: var(--win); }
-.your-bet-card.result-loss::before { background: var(--loss); }
-.your-bet-card.result-push::before { background: var(--push); }
-.your-bet-card-head { display: flex; justify-content: space-between; gap: 14px; align-items: flex-start; }
-.your-bet-card-kicker { color: var(--accent3); font: 800 8px 'DM Mono', monospace; letter-spacing: 0.8px; }
-.your-bet-card-pick { margin-top: 6px; color: var(--text); font-size: 15px; font-weight: 700; line-height: 1.35; }
-.your-bet-card-game { margin-top: 5px; color: var(--muted); font: 9px/1.45 'DM Mono', monospace; }
-.your-bet-card-controls { display: grid; grid-template-columns: minmax(90px, 0.7fr) minmax(120px, 1fr) auto; gap: 9px; align-items: end; margin-top: 14px; }
-.your-bet-locked-result { min-height: 40px; display: flex; flex-direction: column; justify-content: center; gap: 2px; }
-.your-bet-locked-result span,
-.your-bet-locked-result small { color: var(--muted); font: 8px 'DM Mono', monospace; letter-spacing: 0.7px; text-transform: uppercase; }
-.your-bet-locked-result strong { color: var(--accent3); font: 700 12px 'DM Mono', monospace; letter-spacing: 0.6px; }
-.your-bet-locked-result small { font-size: 7px; letter-spacing: 0.35px; text-transform: none; }
-.your-bet-return { min-height: 40px; display: flex; flex-direction: column; justify-content: center; align-items: flex-end; gap: 3px; }
-.your-bet-return span { color: var(--muted); font: 8px 'DM Mono', monospace; letter-spacing: 0.7px; text-transform: uppercase; }
-.your-bet-return strong { font: 25px/1 'Bebas Neue', sans-serif; letter-spacing: 0.8px; }
-.your-bet-card-actions { display: flex; justify-content: flex-end; gap: 7px; margin-top: 12px; padding-top: 12px; border-top: 1px dashed var(--border); }
-.your-bet-card-actions button { min-height: 34px; padding: 7px 10px; font-size: 8px; }
-.your-bet-card-actions button.danger:hover { border-color: var(--danger); color: var(--danger); }
-.your-bet-empty { display: flex; flex-direction: column; gap: 5px; padding: 24px; border: 1px dashed var(--border); border-radius: 14px; color: var(--muted); }
-.your-bet-empty strong { color: var(--text); font-size: 13px; }
-.your-bet-empty span { font-size: 11px; line-height: 1.5; }
-body[data-theme="light"] .your-bets-hero,
-body[data-theme="light"] .your-bets-summary-card,
-body[data-theme="light"] .your-bet-board { background-color: #fff; }
-
 @media (max-width: 720px) {
-  .your-bets-hero { align-items: flex-start; flex-direction: column; padding: 20px; }
-  .your-bets-title { font-size: 44px; }
-  .your-bets-hero-actions { width: 100%; justify-content: stretch; }
-  .your-bets-hero-actions button { flex: 1 1 130px; }
-  .your-bets-summary-grid { grid-template-columns: 1fr; }
-  .your-bet-board { padding: 16px; }
-  .your-bet-card-controls { grid-template-columns: 1fr 1fr; }
-  .your-bet-return { grid-column: 1 / -1; align-items: flex-start; }
   .search-card-actions,
   .daily-bet-actions { justify-content: stretch; }
-  .search-card-actions .add-ledger-btn,
-  .daily-bet-actions .add-ledger-btn { width: 100%; }
 }
 
-.automated-picks-badge {
-  max-width: 390px;
+
+details.method-note { margin: 6px 0 12px; }
+details.method-note summary {
+  cursor: pointer;
+  color: var(--muted);
   font-family: 'DM Mono', monospace;
   font-size: 10px;
-  line-height: 1.4;
-  letter-spacing: 0.35px;
-  background: rgba(0,229,160,0.08);
-  border: 1px solid rgba(0,229,160,0.18);
-  color: var(--accent);
-  padding: 6px 9px;
-  border-radius: 999px;
-  margin-top: 4px;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
 }
+details.method-note summary:hover { color: var(--accent3); }
+details.method-note p { margin: 8px 0 0; color: var(--muted); font-size: 12px; line-height: 1.6; max-width: 860px; }
 
 /* Profit Desk: precomputed, decision-first research workspace */
 .profit-desk-shell { display: flex; flex-direction: column; gap: 16px; }
