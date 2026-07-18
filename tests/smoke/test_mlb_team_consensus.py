@@ -200,13 +200,15 @@ def test_bad_walk_forward_history_blocks_high_probability_pick():
 
 
 def test_dry_mlb_new_bucket_publishes_top_raw_signal_as_validation_lean():
+    # Calibrated 0.545 vs -110 implied 0.5238 is +2.1pp: positive enough for
+    # the fallback but below the 3pp strict LEAN gate.
     pick = _mlb_new_pick(
         pick="Under 8.0 (Dodgers vs Padres)",
         market_type="totals",
-        probability=0.5104,
-        calibrated_probability=0.5104,
+        probability=0.545,
+        calibrated_probability=0.545,
         raw_probability=0.6381,
-        edge=-1.34,
+        edge=2.1,
         raw_edge=11.43,
         odds=-110,
         assumed_odds=-110,
@@ -234,15 +236,51 @@ def test_dry_mlb_new_bucket_publishes_top_raw_signal_as_validation_lean():
     assert published["primary_consensus_passed"] is False
     assert published["consensus_publication_mode"] == "validation_fallback"
     assert published["validation_lean"] is True
-    assert "non_positive_calibrated_edge" in published["consensus_rejection_reason"]
+    assert "edge_signal_threshold_not_met" in published["consensus_rejection_reason"]
+
+
+def test_validation_lean_never_promotes_negative_calibrated_edge():
+    # Raw model enthusiasm (raw_edge 11.4) cannot promote a pick whose
+    # calibrated edge against the real price is negative.
+    pick = _mlb_new_pick(
+        pick="Under 8.0 (Dodgers vs Padres)",
+        market_type="totals",
+        probability=0.5104,
+        calibrated_probability=0.5104,
+        raw_probability=0.6381,
+        edge=-1.34,
+        raw_edge=11.43,
+        odds=-110,
+        assumed_odds=-110,
+        pregame_snapshot={"decision": "BET", "units": 0.06, "probability": 0.6381},
+    )
+    payload = {
+        "date": "2026-06-28",
+        "models": {
+            "mlb_new": {
+                "ok": True,
+                "artifact_status": {"ready": True},
+                "model_stack": "v2",
+                "picks": [pick],
+            },
+        },
+    }
+
+    gated = apply_mlb_team_consensus_to_payload(payload, performance=GOOD_PERFORMANCE)
+    published = gated["models"]["mlb_new"]["picks"][0]
+
+    assert published["decision"] == "PASS"
+    assert published.get("validation_lean") is not True
 
 
 def test_dry_inning_bucket_publishes_validation_lean_for_raw_inning_edge():
+    # Calibrated 0.575 vs -120 implied 0.5455 is +3pp: positive for the
+    # fallback but below the 5pp strict inning LEAN gate.
     pick = _inning_pick(
-        probability=0.521,
-        calibrated_probability=0.521,
+        probability=0.575,
+        calibrated_probability=0.575,
         raw_probability=0.643,
-        edge=-2.45,
+        edge=2.95,
         raw_edge=12.41,
         edge_pp=12.41,
         odds=-120,

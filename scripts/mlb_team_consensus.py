@@ -746,6 +746,12 @@ def _validation_candidate_score(
     signal_count = int(result.get("signal_count") or 0)
     if raw_probability_f is None or raw_edge is None:
         return None
+    # The fallback exists to accumulate walk-forward samples, but a pick
+    # whose calibrated edge against the real observed price is negative is
+    # a knowably -EV publication — raw model enthusiasm never overrides it.
+    calibrated_edge = _number(result.get("calibrated_edge"))
+    if calibrated_edge is not None and calibrated_edge < 0:
+        return None
     if raw_probability_f < float(thresholds.get("raw_prob") or 0.0):
         return None
     if raw_edge < float(thresholds.get("raw_edge") or 0.0):
