@@ -44,6 +44,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 MODEL_CACHE_DIR = REPO_ROOT / "data" / "model_cache"
 PLAYER_PROPS_CACHE_DIR = REPO_ROOT / "data" / "player_props_cache"
 PROFIT_DESK_DIR = REPO_ROOT / "data" / "profit_desk"
+CLOSING_LINES_DIR = REPO_ROOT / "data" / "closing_lines"
 
 ENGINE_VERSION = "profit_desk_v2_live"
 POLICY_VERSION = "profit_desk_policy_v2"
@@ -1859,6 +1860,37 @@ def _closing_from_record(record: Mapping[str, Any]) -> dict[str, Any] | None:
     }
 
 
+def _closing_ledger_for_date(date_iso: str) -> dict[str, dict[str, Any]]:
+    """Latest anchor-provider closing row per market identity for the slate.
+
+    Rows come from the near-close capture cron (``capture_closing_lines``).
+    Sharp-book rows (``role == 'sharp'``) are journaled for analysis but the
+    primary CLV baseline stays on the anchor provider so the metric is
+    consistent across picks with and without sharp coverage.
+    """
+
+    payload = _read_json(CLOSING_LINES_DIR / f"{date_iso}.json")
+    rows = payload.get("rows") if isinstance(payload, dict) else None
+    latest: dict[str, dict[str, Any]] = {}
+    for row in rows or []:
+        if not isinstance(row, dict):
+            continue
+        if _text(row.get("role") or "anchor") != "anchor":
+            continue
+        identity = _text(row.get("marketIdentity"))
+        captured = _parse_timestamp(row.get("capturedAt"))
+        if not identity or captured is None:
+            continue
+        start = _parse_timestamp(row.get("startTime"))
+        if start is not None and captured > start:
+            continue
+        current = latest.get(identity)
+        current_captured = _parse_timestamp(current.get("capturedAt")) if current else None
+        if current_captured is None or captured > current_captured:
+            latest[identity] = row
+    return latest
+
+
 def _grade_sync_maps(
     model_dir: Path, player_dir: Path, date_iso: str
 ) -> tuple[dict[tuple[str, str], str], dict[tuple[str, str], dict[str, Any]]]:
@@ -1866,6 +1898,7 @@ def _grade_sync_maps(
 
     results: dict[tuple[str, str], str] = {}
     closings: dict[tuple[str, str], dict[str, Any]] = {}
+    ledger = _closing_ledger_for_date(date_iso)
     for mode, directory in (("team", model_dir), ("player", player_dir)):
         payload = _read_json(directory / f"{date_iso}.json")
         for context in _iter_records(payload, mode):
@@ -1883,6 +1916,22 @@ def _grade_sync_maps(
             if result != "pending":
                 results[key] = result
             closing = _closing_from_record(record)
+            ledger_row = ledger.get(identity)
+            if ledger_row is not None:
+                ledger_captured = _parse_timestamp(ledger_row.get("capturedAt"))
+                record_captured = (
+                    _parse_timestamp(closing.get("capturedAt")) if closing else None
+                )
+                if ledger_captured is not None and (
+                    record_captured is None or ledger_captured > record_captured
+                ):
+                    closing = {
+                        "oddsAmerican": ledger_row.get("oddsAmerican"),
+                        "decimalOdds": ledger_row.get("decimalOdds"),
+                        "noVigProbability": ledger_row.get("noVigProbability"),
+                        "capturedAt": _text(ledger_row.get("capturedAt")) or None,
+                        "provider": _text(ledger_row.get("provider")) or None,
+                    }
             if closing is not None:
                 closings.setdefault(key, closing)
     return results, closings
