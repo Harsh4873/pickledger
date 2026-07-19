@@ -23,29 +23,38 @@ import re
 from typing import Optional
 
 # MLB venue_id → run-environment factor. 1.00 = league-average run
-# scoring; >1.00 hitter-friendly; <1.00 pitcher-friendly. Sourced from
-# multi-year Statcast park factors. Only listed when materially off
-# neutral; everything else uses 1.00.
+# scoring; >1.00 hitter-friendly; <1.00 pitcher-friendly. Factors from
+# multi-year Statcast park factors; only listed when materially off
+# neutral, everything else uses 1.00. Venue ids verified against live
+# statsapi ``gameData.venue`` payloads — the original table shipped with
+# guessed ids that mislabeled most parks (e.g. id 1 is Angel Stadium,
+# not Yankee Stadium; Petco is 2680, not 2889 which is Busch).
 STATIC_PARK_FACTORS: dict[int, float] = {
     19:   1.18,  # Coors Field (COL) — highest in MLB by a wide margin
-    2:    1.07,  # Globe Life Field (TEX)
-    1:    1.06,  # Yankee Stadium (NYY) — short porch in RF
-    3309: 1.05,  # Great American Ball Park (CIN)
-    13:   1.04,  # Fenway Park (BOS)
+    5325: 1.07,  # Globe Life Field (TEX)
+    3313: 1.06,  # Yankee Stadium (NYY) — short porch in RF
+    2602: 1.05,  # Great American Ball Park (CIN)
+    3:    1.04,  # Fenway Park (BOS)
     17:   1.04,  # Wrigley Field (CHC) — wind-dependent
-    7:    1.03,  # Camden Yards (BAL)
-    14:   1.02,  # Globe Life Park style
-    5:    0.99,
+    2:    1.03,  # Oriole Park at Camden Yards (BAL)
+    2681: 1.03,  # Citizens Bank Park (PHI)
+    4:    1.02,  # Rate Field (CWS)
+    14:   1.02,  # Rogers Centre (TOR)
+    15:   1.02,  # Chase Field (ARI)
+    7:    0.99,  # Kauffman Stadium (KC)
+    5:    0.98,  # Progressive Field (CLE)
     22:   0.98,  # Dodger Stadium (LAD)
-    32:   0.97,  # Truist Park (ATL)
-    15:   0.97,  # Tropicana Field (TB)
-    4:    0.96,  # Angel Stadium (LAA)
-    2680: 0.95,  # T-Mobile Park (SEA)
-    12:   0.94,  # Comerica Park (DET)
-    2602: 0.92,  # loanDepot park (MIA)
+    31:   0.97,  # PNC Park (PIT)
+    12:   0.97,  # Tropicana Field (TB)
+    2889: 0.97,  # Busch Stadium (STL)
+    3289: 0.97,  # Citi Field (NYM)
+    4705: 0.97,  # Truist Park (ATL)
+    1:    0.96,  # Angel Stadium (LAA)
+    680:  0.95,  # T-Mobile Park (SEA)
+    2394: 0.94,  # Comerica Park (DET)
+    4169: 0.92,  # loanDepot park (MIA)
     2395: 0.92,  # Oracle Park (SF)
-    2680: 0.95,
-    2889: 0.91,  # Petco Park (SD) — most pitcher-friendly
+    2680: 0.91,  # Petco Park (SD) — most pitcher-friendly
 }
 
 # Per-100-points-of-park-factor delta in F5 runs/team. A factor of 1.10

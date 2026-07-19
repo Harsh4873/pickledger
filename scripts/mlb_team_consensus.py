@@ -44,6 +44,14 @@ VALIDATION_LEAN_THRESHOLDS = {
     "mlb_inning": {"raw_prob": 0.60, "raw_edge": 8.0, "signals": 2},
 }
 
+# A validation-fallback LEAN may bypass structural blockers (empty
+# walk-forward ledger, assumed pricing) — that's its purpose — but it must
+# never publish a pick the system's own calibrated estimate says is -EV at
+# the pick's own price. The published validation-lean pool graded 21-21 at
+# an implied 54.55% breakeven, and 33 of the 42 decided picks carried a
+# negative calibrated edge at publication time.
+VALIDATION_LEAN_MIN_PRICE_MARGIN = 0.01
+
 
 def _number(value: Any) -> float | None:
     if isinstance(value, bool):
@@ -725,6 +733,18 @@ def _has_publishable_price(pick: dict[str, Any]) -> bool:
     )
 
 
+def _own_price_implied_probability(pick: dict[str, Any]) -> float | None:
+    """Breakeven probability at the price the pick will actually be graded
+    against — the assumed price counts here, unlike the strict lane's
+    reliable-market check, because that is the ledger's settlement price."""
+    implied = normalize_probability(pick.get("market_implied_probability"))
+    if implied is not None:
+        return implied
+    return american_implied_probability(pick.get("odds")) or american_implied_probability(
+        pick.get("assumed_odds")
+    )
+
+
 def _validation_candidate_score(
     pick: dict[str, Any],
     result: dict[str, Any],
@@ -746,17 +766,27 @@ def _validation_candidate_score(
     signal_count = int(result.get("signal_count") or 0)
     if raw_probability_f is None or raw_edge is None:
         return None
-    # The fallback exists to accumulate walk-forward samples, but a pick
-    # whose calibrated edge against the real observed price is negative is
-    # a knowably -EV publication — raw model enthusiasm never overrides it.
-    calibrated_edge = _number(result.get("calibrated_edge"))
-    if calibrated_edge is not None and calibrated_edge < 0:
-        return None
     if raw_probability_f < float(thresholds.get("raw_prob") or 0.0):
         return None
     if raw_edge < float(thresholds.get("raw_edge") or 0.0):
         return None
     if signal_count < int(thresholds.get("signals") or 0):
+        return None
+
+    # Calibrated-EV gate: the fallback exists to accumulate walk-forward
+    # samples, but raw thresholds alone anti-selected — they promoted picks
+    # whose calibrated edge against their own settlement price was already
+    # negative. Raw model enthusiasm never overrides a knowably -EV price:
+    # the calibrated edge must be positive AND the calibrated probability
+    # must clear the pick's own price with margin.
+    calibrated_edge = _number(result.get("calibrated_edge"))
+    if calibrated_edge is None or calibrated_edge <= 0:
+        return None
+    calibrated_probability = _number(result.get("calibrated_model_probability"))
+    price_implied = _own_price_implied_probability(pick)
+    if calibrated_probability is None or price_implied is None:
+        return None
+    if calibrated_probability < price_implied + VALIDATION_LEAN_MIN_PRICE_MARGIN:
         return None
 
     return round(

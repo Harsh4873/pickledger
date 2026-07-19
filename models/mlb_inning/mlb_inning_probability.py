@@ -6,10 +6,12 @@ try:
     from mlb_inning_history import MLB_AVG_SCORELESS
     from mlb_inning_fetcher import DEFAULT_PITCHER, safe_float
     from mlb_inning_bullpen import compute_fatigue_shift
+    from mlb_inning_environment import park_run_factor, scoreless_weather_multiplier
 except ImportError:
     from .mlb_inning_history import MLB_AVG_SCORELESS
     from .mlb_inning_fetcher import DEFAULT_PITCHER, safe_float
     from .mlb_inning_bullpen import compute_fatigue_shift
+    from .mlb_inning_environment import park_run_factor, scoreless_weather_multiplier
 
 
 THREAT_BASELINE = 0.270
@@ -33,6 +35,22 @@ MLB_AVG_FULL_SCORELESS = {
 INNING_BET_EDGE = 0.10  # need +10 percentage points over baseline to BET
 INNING_LEAN_EDGE = 0.03  # +3 pp over baseline qualifies for LEAN
 
+# Downstream every pick is priced at an assumed -120 (implied 54.55%). The
+# old LEAN floor of 0.45 emitted picks that were -EV at their own price by
+# construction — the graded validation-lean pool ran 50% against a 54.5%
+# breakeven. Beating the league baseline is not enough; the probability
+# itself has to clear the price with margin.
+INNING_BET_PROB_FLOOR = 0.58
+INNING_LEAN_PROB_FLOOR = 0.56
+
+# Starter-pull taper: starters average ~5.1 IP (16 outs) in the modern
+# game, so innings past the expected exit belong increasingly to the
+# bullpen. The old hard inning<=6 starter / inning>=7 bullpen split
+# graded worst exactly at the boundary (inning 6 went 4-9): it credited
+# the starter with innings a middle reliever actually pitches.
+DEFAULT_STARTER_OUTS = 16.0
+STARTER_TAPER_SPAN = 2.5
+
 
 def compute_inning_probabilities(
     game: dict[str, Any],
@@ -44,6 +62,7 @@ def compute_inning_probabilities(
     home_team = str(game.get("home_team") or "Home Team")
     game_threats = (matchup_threats.get(game_id) or {}).get("innings") or {}
     venue_factor = _venue_factor(game)
+    weather_multiplier, weather_detail = scoreless_weather_multiplier(game.get("weather"))
 
     full_inning_table: dict[str, float] = {}
     edge_table: dict[str, float] = {}
@@ -55,6 +74,7 @@ def compute_inning_probabilities(
             inning=inning,
             opposing_pitcher=game.get("home_pitcher") or {},
             venue_factor=venue_factor,
+            weather_multiplier=weather_multiplier,
         )
         home_half_scoreless = _half_scoreless_probability(
             historical_scoreless_rate=_history_rate(team_histories, home_team, inning),
@@ -62,6 +82,7 @@ def compute_inning_probabilities(
             inning=inning,
             opposing_pitcher=game.get("away_pitcher") or {},
             venue_factor=venue_factor,
+            weather_multiplier=weather_multiplier,
         )
         full_probability = _clamp(away_half_scoreless * home_half_scoreless, 0.01, 0.98)
         full_inning_table[str(inning)] = round(full_probability, 3)
@@ -104,6 +125,7 @@ def compute_inning_probabilities(
         "away_pitcher_context": _pitcher_context(game.get("away_pitcher") or {}),
         "travel": game.get("travel") if isinstance(game.get("travel"), dict) else {},
         "weather": game.get("weather") if isinstance(game.get("weather"), dict) else {},
+        "weather_adjustment": weather_detail,
         "venue": {
             "id": game.get("venue_id"),
             "name": game.get("venue_name"),
@@ -123,13 +145,17 @@ def _half_scoreless_probability(
     inning: int,
     opposing_pitcher: dict[str, Any],
     venue_factor: float = 1.0,
+    weather_multiplier: float = 1.0,
 ) -> float:
     """Probability the offense fails to score in this half-inning.
 
-    Pre-patch this used only the team's per-inning history × matchup-threat,
-    plus a small late-inning ERA bump. Now it also folds in the actual
-    starter's per-inning scoreless rate (when known) for innings 1-6, swaps
-    in a bullpen baseline for innings 7-9, and applies a park-factor scalar.
+    The pitching side is a starter/bullpen mix weighted by how likely the
+    starter is still in for this inning (their average outs per start),
+    instead of the old hard inning<=6 starter / inning>=7 bullpen cliff.
+    Park factor applies as ``p ** factor``: a Poisson scoreless probability
+    exp(-λ) becomes exp(-λf) = p^f when the park scales run rate by f, so
+    Coors (1.18) costs a 0.70 half-inning ~4pp — the old ``p / factor``
+    division would have charged ~11pp.
     """
     threat_adjustment = _clamp(
         (threat_score - THREAT_BASELINE) / THREAT_SPAN,
@@ -138,22 +164,43 @@ def _half_scoreless_probability(
     )
     probability = historical_scoreless_rate * (1.0 - threat_adjustment)
 
-    # Innings 1-6: blend in the actual starter's per-inning scoreless rate.
-    starter_inning_rate = _starter_scoreless_rate_for_inning(opposing_pitcher, inning)
-    if inning <= 6 and starter_inning_rate is not None:
-        probability = (probability * 0.55) + (starter_inning_rate * 0.45)
-    elif inning >= 7:
-        # Innings 7-9 are pitched by the bullpen — use the team's bullpen
-        # scoreless rate when available, otherwise the league late-inning
-        # baseline. The starter's late-inning ERA is no longer relevant.
-        bullpen_rate = _bullpen_scoreless_rate(opposing_pitcher, inning)
-        probability = (probability * 0.60) + (bullpen_rate * 0.40)
+    starter_rate = _starter_scoreless_rate_for_inning(opposing_pitcher, inning)
+    bullpen_rate = _bullpen_scoreless_rate(opposing_pitcher, inning)
+    starter_share = _starter_share(opposing_pitcher, inning)
+    if starter_rate is None:
+        starter_rate = bullpen_rate
+    pitching_rate = (starter_rate * starter_share) + (bullpen_rate * (1.0 - starter_share))
+    probability = (probability * 0.55) + (pitching_rate * 0.45)
 
-    # Park factor — hitter-friendly parks (>1.0) reduce scoreless prob.
-    if venue_factor and venue_factor != 1.0:
-        probability /= max(venue_factor, 0.6)
+    if venue_factor and venue_factor > 0 and venue_factor != 1.0:
+        probability = _clamp(probability, 0.05, 0.98) ** venue_factor
+    if weather_multiplier and weather_multiplier != 1.0:
+        probability *= weather_multiplier
 
     return _clamp(probability, 0.05, 0.98)
+
+
+def _starter_share(pitcher: dict[str, Any], inning: int) -> float:
+    """Fraction of this inning expected to be thrown by the starter.
+
+    Full credit through (avg_IP - 1), ramping to zero by ~1.5 innings past
+    the starter's average exit. Unknown workloads use the league-average
+    16 outs, which keeps innings 1-4 pure starter and hands innings 7+
+    fully to the bullpen — matching the old behavior at the extremes while
+    fixing the boundary innings.
+    """
+    expected_outs = safe_float((pitcher or {}).get("expected_outs"), DEFAULT_STARTER_OUTS)
+    avg_ip = max(3.0, min(7.5, expected_outs / 3.0))
+    return _clamp((avg_ip + 1.5 - inning) / STARTER_TAPER_SPAN, 0.0, 1.0)
+
+
+def era_derived_scoreless_rate(era: float) -> float:
+    """Flat per-inning scoreless rate implied by a pitcher's ERA.
+
+    ERA 3.00 -> ~78% half-inning scoreless; ERA 5.50 -> ~64%. Serves as
+    the prior the observed per-inning starter rates are shrunk toward.
+    """
+    return _clamp(0.92 - (era - 3.0) * 0.045, 0.55, 0.86)
 
 
 def _starter_scoreless_rate_for_inning(pitcher: dict[str, Any], inning: int) -> float | None:
@@ -170,11 +217,7 @@ def _starter_scoreless_rate_for_inning(pitcher: dict[str, Any], inning: int) -> 
                 return _clamp(float(value), 0.05, 0.98)
             except (TypeError, ValueError):
                 continue
-    # Fallback: derive a flat per-inning rate from ERA. ERA 3.00 -> ~78%
-    # half-inning scoreless; ERA 5.50 -> ~64%.
-    era = safe_float(pitcher.get("era"), DEFAULT_PITCHER["era"])
-    derived = _clamp(0.92 - (era - 3.0) * 0.045, 0.55, 0.86)
-    return derived
+    return era_derived_scoreless_rate(safe_float(pitcher.get("era"), DEFAULT_PITCHER["era"]))
 
 
 def _bullpen_scoreless_rate(opposing_pitcher: dict[str, Any], inning: int) -> float:
@@ -242,7 +285,9 @@ def _venue_factor(game: dict[str, Any]) -> float:
             return _clamp(float(direct), 0.80, 1.25)
         except (TypeError, ValueError):
             pass
-    return 1.0
+    # Static venue table — the fetcher supplies venue_id on every game but
+    # never populated run_factor, so this fallback is what actually runs.
+    return _clamp(park_run_factor(game.get("venue_id")), 0.80, 1.25)
 
 
 def _pitcher_context(pitcher: dict[str, Any]) -> dict[str, Any]:
@@ -274,15 +319,17 @@ def _history_rate(team_histories: dict[str, dict[int, dict[str, float]]], team_n
 
 
 def _decision_for_edge(probability: float, edge: float) -> str:
-    """Only label as BET/LEAN when the inning beats the league baseline.
+    """Only label as BET/LEAN when the inning beats the league baseline
+    AND the probability clears the assumed -120 price with margin.
 
-    Pre-patch the model emitted a "High" confidence label any time the
-    probability cleared 50% even though the league baseline for early
-    innings is already 38-44% — i.e., 50% wasn't actually informative.
+    Both gates are necessary: baseline edge alone published inning-1
+    "no run" picks at ~0.50 probability against a 54.55% breakeven,
+    and a high probability alone (late innings baseline ~0.55) carries
+    no information over the league average.
     """
-    if edge >= INNING_BET_EDGE and probability >= 0.50:
+    if edge >= INNING_BET_EDGE and probability >= INNING_BET_PROB_FLOOR:
         return "BET"
-    if edge >= INNING_LEAN_EDGE and probability >= 0.45:
+    if edge >= INNING_LEAN_EDGE and probability >= INNING_LEAN_PROB_FLOOR:
         return "LEAN"
     return "PASS"
 

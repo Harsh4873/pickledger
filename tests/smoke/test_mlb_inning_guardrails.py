@@ -30,14 +30,17 @@ def _stub_game(home="Yankees", away="Red Sox", **kwargs):
 
 
 def test_decision_for_edge_gate_thresholds():
-    """The edge gate is the core anti-noise improvement: only innings
-    that beat the league baseline by 3pp (LEAN) or 10pp (BET) qualify."""
+    """Two gates now: beat the league baseline by 3pp (LEAN) / 10pp (BET)
+    AND clear the assumed -120 breakeven (54.55%) with margin — the old
+    0.45 LEAN floor published picks that were -EV at their own price."""
     from models.mlb_inning.mlb_inning_probability import _decision_for_edge
 
     assert _decision_for_edge(probability=0.50, edge=0.02) == "PASS"   # too small
-    assert _decision_for_edge(probability=0.45, edge=0.04) == "LEAN"   # clears LEAN gate
-    assert _decision_for_edge(probability=0.55, edge=0.08) == "LEAN"   # below stricter BET gate
-    assert _decision_for_edge(probability=0.55, edge=0.11) == "BET"    # clears BET gate
+    assert _decision_for_edge(probability=0.45, edge=0.04) == "PASS"   # old LEAN floor: -EV at -120
+    assert _decision_for_edge(probability=0.56, edge=0.04) == "LEAN"   # clears LEAN gates
+    assert _decision_for_edge(probability=0.55, edge=0.08) == "PASS"   # below the -120 price floor
+    assert _decision_for_edge(probability=0.57, edge=0.11) == "LEAN"   # edge BETs but prob below BET floor
+    assert _decision_for_edge(probability=0.58, edge=0.11) == "BET"    # clears BET gates
     assert _decision_for_edge(probability=0.42, edge=0.05) == "PASS"   # edge OK but prob too low
 
 
@@ -156,15 +159,16 @@ def test_burnt_bullpen_lowers_late_inning_scoreless_probability():
     fresh_pp = compute_inning_probabilities(fresh, histories, _stub_threats())
     burnt_pp = compute_inning_probabilities(burnt, histories, _stub_threats())
 
-    # Late innings (7, 8) should differ — burnt pen lower; early innings
-    # (1-6) shouldn't change because they don't consult the bullpen rate.
+    # Late innings (7, 8) should differ — burnt pen lower. Innings 1-4 are
+    # pure starter under the taper (league-average exit ≈ 5.1 IP), so they
+    # shouldn't move; innings 5-6 legitimately consult the bullpen now.
     for late in (7, 8):
         assert burnt_pp["full_inning_table"][str(late)] < fresh_pp["full_inning_table"][str(late)], (
             f"burnt-pen inning {late} should be less scoreless than fresh-pen"
         )
-    for early in (1, 5):
+    for early in (1, 4):
         assert burnt_pp["full_inning_table"][str(early)] == fresh_pp["full_inning_table"][str(early)], (
-            f"early inning {early} shouldn't depend on bullpen fatigue"
+            f"inning {early} is starter-only and shouldn't depend on bullpen fatigue"
         )
 
 
@@ -238,11 +242,11 @@ def test_team_histories_dedupe_unique_teams(monkeypatch):
 
     calls = []
 
-    def fake_history(team_id, team_name, target_date):
+    def fake_context(team_id, team_name, target_date):
         calls.append((team_id, team_name, target_date))
-        return hist._league_default_history()
+        return hist._league_default_context()
 
-    monkeypatch.setattr(hist, "fetch_team_history", fake_history)
+    monkeypatch.setattr(hist, "fetch_team_context", fake_context)
     games = [
         {
             "game_date": "2026-05-15",
@@ -267,6 +271,122 @@ def test_team_histories_dedupe_unique_teams(monkeypatch):
         (111, "Boston Red Sox", "2026-05-15"),
         (147, "New York Yankees", "2026-05-15"),
     ]
+
+
+def test_starter_taper_hands_middle_innings_to_bullpen():
+    """A short starter (4 IP avg) leaves innings 5-6 to the bullpen; a
+    workhorse (7 IP avg) keeps them. With a bad pen and a good starter,
+    the short-starter team's innings 5-6 should be less scoreless."""
+    from models.mlb_inning.mlb_inning_probability import compute_inning_probabilities
+
+    histories = {
+        "Yankees": {i: {"scoreless_rate": 0.74} for i in range(1, 10)},
+        "Red Sox": {i: {"scoreless_rate": 0.74} for i in range(1, 10)},
+    }
+    def _game(outs):
+        return _stub_game(
+            home_pitcher={
+                "name": "SP", "era": 3.00, "expected_outs": outs,
+                "team_bullpen": {"scoreless_rate": 0.58},
+            },
+            away_pitcher={
+                "name": "SP2", "era": 3.00, "expected_outs": outs,
+                "team_bullpen": {"scoreless_rate": 0.58},
+            },
+        )
+
+    workhorse = compute_inning_probabilities(_game(21.0), histories, _stub_threats())
+    short = compute_inning_probabilities(_game(12.0), histories, _stub_threats())
+    for inning in (5, 6):
+        assert short["full_inning_table"][str(inning)] < workhorse["full_inning_table"][str(inning)], (
+            f"inning {inning} should lean bullpen for a short starter"
+        )
+    # Inning 1 is starter-only for both.
+    assert short["full_inning_table"]["1"] == workhorse["full_inning_table"]["1"]
+
+
+def test_populated_starter_inning_rates_move_the_probability():
+    """`inning_scoreless_rates` was a dead input pre-patch; a dominant
+    observed inning-2 rate should now raise that inning's scoreless prob
+    over the flat ERA-derived fallback."""
+    from models.mlb_inning.mlb_inning_probability import compute_inning_probabilities
+
+    histories = {
+        "Yankees": {i: {"scoreless_rate": 0.74} for i in range(1, 10)},
+        "Red Sox": {i: {"scoreless_rate": 0.74} for i in range(1, 10)},
+    }
+    flat = _stub_game()
+    informed = _stub_game(
+        home_pitcher={"name": "Home SP", "era": 4.20, "inning_scoreless_rates": {"2": 0.95}},
+        away_pitcher={"name": "Away SP", "era": 4.20, "inning_scoreless_rates": {"2": 0.95}},
+    )
+    flat_pp = compute_inning_probabilities(flat, histories, _stub_threats())
+    informed_pp = compute_inning_probabilities(informed, histories, _stub_threats())
+    assert informed_pp["full_inning_table"]["2"] > flat_pp["full_inning_table"]["2"]
+    assert informed_pp["full_inning_table"]["3"] == flat_pp["full_inning_table"]["3"]
+
+
+def test_static_park_factor_fallback_applies_by_venue_id():
+    """Coors (venue_id 19) should lower scoreless probs vs a neutral park
+    even though the fetcher never sets venue.run_factor."""
+    from models.mlb_inning.mlb_inning_probability import compute_inning_probabilities
+
+    histories = {
+        "Yankees": {i: {"scoreless_rate": 0.78} for i in range(1, 10)},
+        "Red Sox": {i: {"scoreless_rate": 0.78} for i in range(1, 10)},
+    }
+    neutral = compute_inning_probabilities(_stub_game(), histories, _stub_threats())
+    coors = compute_inning_probabilities(_stub_game(venue_id=19), histories, _stub_threats())
+    for inning in range(1, 9):
+        assert coors["full_inning_table"][str(inning)] < neutral["full_inning_table"][str(inning)]
+    assert coors["venue_factor"] == 1.18
+
+
+def test_weather_multiplier_directions():
+    """Wind out / heat lower the scoreless probability; wind in raises it;
+    a closed roof ignores wind entirely."""
+    from models.mlb_inning.mlb_inning_environment import scoreless_weather_multiplier
+
+    out_hot, _ = scoreless_weather_multiplier({"wind": "15 mph, Out To CF", "temp": "93"})
+    calm, _ = scoreless_weather_multiplier({"wind": "Calm", "temp": "72"})
+    wind_in, _ = scoreless_weather_multiplier({"wind": "12 mph, In From LF", "temp": "72"})
+    roof, roof_detail = scoreless_weather_multiplier({"wind": "10 mph, Out To RF", "condition": "Roof Closed", "temp": "72"})
+
+    assert out_hot < calm == 1.0 < wind_in
+    assert roof == 1.0
+    assert roof_detail["wind_direction"] == "roof_closed"
+    assert 0.95 <= out_hot <= 1.03
+
+
+def test_history_summaries_extract_bullpen_and_starter_rates():
+    """The bullpen and starter summaries feed the previously dead
+    probability inputs from the same cached feeds as the offense history."""
+    from models.mlb_inning.mlb_inning_history import (
+        _summarize_bullpen_allowed,
+        _summarize_starters,
+    )
+
+    records = []
+    for index in range(20):
+        records.append({
+            "scored": {i: 0 for i in range(1, 10)},
+            # Inning 7 allowed a run every other game; 8-9 always scoreless.
+            "allowed": {i: (1 if i == 7 and index % 2 == 0 else 0) for i in range(1, 10)},
+            "starter_id": 500 if index < 5 else 600 + index,
+            "starter_outs": 18,  # 6 full innings
+        })
+
+    bullpen = _summarize_bullpen_allowed(records)
+    by_inning = bullpen["bullpen_scoreless_by_inning"]
+    assert by_inning["8"] > by_inning["7"]
+    assert bullpen["bullpen_samples"] == 20
+
+    starters = _summarize_starters(records)
+    assert starters["500"]["starts"] == 5
+    assert starters["500"]["avg_outs"] == 18.0
+    # 5 starts × innings 1-6 completed, all scoreless except inning 7 (not credited).
+    for inning in ("1", "6"):
+        assert starters["500"]["innings"][inning]["n"] == 5
 
 
 def test_inning_9_excluded_from_picks():

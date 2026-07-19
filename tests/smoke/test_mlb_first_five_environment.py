@@ -20,11 +20,11 @@ def test_park_factor_lookup_known_venues():
         park_factor_run_delta,
     )
     coors = park_factor(19)
-    petco = park_factor(2889)
+    petco = park_factor(2680)
     assert coors >= 1.10
     assert petco <= 0.95
     assert park_factor_run_delta(19) > 0.10
-    assert park_factor_run_delta(2889) < -0.05
+    assert park_factor_run_delta(2680) < -0.05
 
 
 def test_parse_wind_extracts_mph_and_direction():
