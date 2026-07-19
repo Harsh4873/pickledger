@@ -147,16 +147,16 @@ def test_static_viewer_keeps_public_tabs_and_client_grading():
     data = (ROOT / "src" / "data.ts").read_text(encoding="utf-8")
     html = (ROOT / "index.html").read_text(encoding="utf-8")
 
-    for tab in ("home", "search", "rankings", "daily", "parlays", "profit"):
+    for tab in ("home", "search", "rankings", "daily", "profit"):
         assert f"id=\"tab-{tab}\"" in html
     assert 'id="tab-trends"' not in html
     assert ">TRENDS</button>" not in html
     assert 'onclick="switchTab(\'daily\')">BEST BETS</button>' in html
-    assert 'onclick="switchTab(\'parlays\')">PARLAYS</button>' in html
+    # The standalone Parlays tab merged into Profit Desk (2026-07-19).
+    assert ">PARLAYS</button>" not in html
     assert 'onclick="switchTab(\'profit\')">PROFIT DESK</button>' in html
     assert ">YOUR BETS</button>" not in html
-    assert html.index(">BEST BETS</button>") < html.index(">PARLAYS</button>")
-    assert html.index(">PARLAYS</button>") < html.index(">PROFIT DESK</button>")
+    assert html.index(">BEST BETS</button>") < html.index(">PROFIT DESK</button>")
     assert "async function refreshAutoGrades()" in main
     assert "async function gradeDate(" in main
     assert "site.api.espn.com" in main
@@ -342,7 +342,7 @@ def test_parlays_tab_renders_card_level_filters_and_rankings():
     assert "Whole-card records" in main
     assert "Team / Player" in main
     assert "Switch to ${otherMode === 'team' ? 'Team' : 'Player'} mode for this slate" in main
-    assert "ENGINE_VERSION = \"parlay_cards_v5_market_excess\"" in builder
+    assert "ENGINE_VERSION = \"parlay_cards_v6_proven_legs\"" in builder
     assert "ENGINE_CUTOVER_DATE = \"2026-07-01\"" in builder
     assert "Records count each whole parlay slip once" in main
     assert "function parlayCardsForMode(" in main
@@ -380,7 +380,7 @@ def test_player_mode_keeps_best_bets_available_and_prop_sources_separate():
     assert 'data-player-hidden-tab="trends"' not in html
     assert "function syncModeTabs(" not in main
     assert 'onclick="switchTab(\'daily\')">BEST BETS</button>' in html
-    assert 'onclick="switchTab(\'parlays\')">PARLAYS</button>' in html
+    assert ">PARLAYS</button>" not in html
     assert "dailyView = 'picks'" in main
     assert "profitView = 'card'" in main
     assert "parlayView = 'all'" in main
@@ -453,9 +453,10 @@ def test_your_bets_subsystem_is_fully_removed():
         assert "yourbet" not in source.lower()
     assert "UserBet" not in main
     assert ">YOUR BETS</button>" not in html
-    assert 'onclick="switchTab(\'parlays\')">PARLAYS</button>' in html
     assert 'id="tab-your-bets"' not in html
-    assert 'id="tab-parlays"' in html
+    # Parlays render inside the merged Profit Desk tab.
+    assert 'id="tab-parlays"' not in html
+    assert 'id="parlays-container"' in html
     assert ".add-ledger-btn" not in css
 
 

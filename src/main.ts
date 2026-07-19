@@ -2384,11 +2384,16 @@ function render(): void {
   const active = document.querySelector('.tab-content.active')?.id;
   if (active === 'tab-search') renderSearch();
   if (active === 'tab-daily') renderDaily();
-  if (active === 'tab-parlays') renderParlays();
-  if (active === 'tab-profit') renderProfit();
+  if (active === 'tab-profit') {
+    renderProfit();
+    renderParlays();
+  }
 }
 
 function switchTab(name: string): void {
+  // The standalone Parlays tab merged into Profit Desk; keep old deep
+  // links working.
+  if (name === 'parlays') name = 'profit';
   document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
   document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active'));
   document.querySelector<HTMLElement>(`.tab[onclick*="'${name}'"]`)?.classList.add('active');
@@ -2396,8 +2401,10 @@ function switchTab(name: string): void {
   if (name === 'home') renderHome();
   if (name === 'search') renderSearch();
   if (name === 'daily') renderDaily();
-  if (name === 'parlays') renderParlays();
-  if (name === 'profit') renderProfit();
+  if (name === 'profit') {
+    renderProfit();
+    renderParlays();
+  }
 }
 
 function setHomeResultMode(mode: string): void {

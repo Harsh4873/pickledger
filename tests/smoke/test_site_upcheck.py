@@ -84,7 +84,7 @@ def _upcheck_repo(tmp_path: Path, date: str) -> Path:
     props_payload = {"date": date, "models": {key: {"ok": True, "picks": []} for key in PLAYER_PROP_KEYS}}
     parlay_payload = {
         "date": date,
-        "engineVersion": "parlay_cards_v5_market_excess",
+        "engineVersion": "parlay_cards_v6_proven_legs",
         "summary": {"displayedCards": 0, "threeLegCards": 0},
         "cards": [],
     }
@@ -424,7 +424,7 @@ def test_data_only_readiness_allows_weak_parlay_slate_without_team_cards(tmp_pat
 
     parlay_payload = {
         "date": today,
-        "engineVersion": "parlay_cards_v5_market_excess",
+        "engineVersion": "parlay_cards_v6_proven_legs",
         "summary": {
             "eligibleLegs": 3,
             "generatedThreeLegCandidates": 0,

@@ -47,7 +47,14 @@ MODEL_CACHE_DIR = REPO_ROOT / "data" / "model_cache"
 PLAYER_PROPS_CACHE_DIR = REPO_ROOT / "data" / "player_props_cache"
 PARLAY_CARDS_DIR = REPO_ROOT / "data" / "parlay_cards"
 
-ENGINE_VERSION = "parlay_cards_v5_market_excess"
+# v6 ("proven legs"): parlays multiply whatever edge the legs carry — a
+# 20% book hold on parlays vs ~4.6% on straights exists precisely because
+# recreational slips combine legs without individual edge. v6 therefore
+# only mints a card when every leg is individually +EV at a REAL price:
+# assumed/model prices can never seed a leg, and the team edge gate rose
+# from 4.5% to 6%. Fewer cards is the correct outcome; the v5 live record
+# (13-18) and retired v3 (15-48) stay split by engineVersion in the UI.
+ENGINE_VERSION = "parlay_cards_v6_proven_legs"
 ENGINE_CUTOVER_DATE = "2026-07-01"
 
 TEAM_VISIBLE_DECISIONS = {"BET", "LEAN"}
@@ -55,8 +62,8 @@ TEAM_VISIBLE_DECISIONS = {"BET", "LEAN"}
 # Leg gates
 LEG_ODDS_MIN = -320
 LEG_ODDS_MAX = 160
-TEAM_EDGE_MIN = 0.045
-TEAM_P_MIN = 0.53
+TEAM_EDGE_MIN = 0.060
+TEAM_P_MIN = 0.55
 PLAYER_P_MIN = 0.58
 PLAYER_ADJ_FALLBACK = 0.02  # non-qualified props need this much trailing excess
 
@@ -643,12 +650,16 @@ def collect_legs(
             continue
         if _pick_date(pick, fallback_date) != date_iso:
             continue
-        odds = _int_number(
-            pick.get("odds")
-            or pick.get("assumed_odds")
-            or pick.get("american_odds")
-            or pick.get("price")
+        # A leg's price must be executable. Assumed/model placeholder
+        # prices (e.g. the inning model's flat -120) would give the slip
+        # phantom odds and phantom edge.
+        markers = " ".join(
+            _clean_text(pick.get(key)).lower()
+            for key in ("pricing_type", "odds_source", "line_source")
         )
+        if "assumed" in markers and _clean_text(pick.get("odds_source")).lower() != "posted_market":
+            continue
+        odds = _int_number(pick.get("odds") or pick.get("american_odds") or pick.get("price"))
         if odds is None or odds == 0 or odds < LEG_ODDS_MIN or odds > LEG_ODDS_MAX:
             continue
         source = _source_label(source_key, pick.get("source") or fallback_source, player_prop=player_props)
