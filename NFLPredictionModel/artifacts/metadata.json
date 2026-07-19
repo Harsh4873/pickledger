@@ -1,0 +1,111 @@
+{
+  "model_version": "nfl_v0_games_ewma",
+  "trained_at": "2026-07-19T22:51:29.001649+00:00",
+  "train_window": [
+    2002,
+    2025
+  ],
+  "games": 6499,
+  "feature_names": [
+    "home_off_ewma",
+    "home_def_ewma",
+    "away_off_ewma",
+    "away_def_ewma",
+    "net_rating_diff",
+    "home_rest",
+    "away_rest",
+    "rest_diff",
+    "div_game",
+    "roof_dome",
+    "week",
+    "home_qb_change",
+    "away_qb_change",
+    "spread_line",
+    "total_line",
+    "covid_season"
+  ],
+  "margin_residual_sigma": 13.2,
+  "total_residual_sigma": 13.5,
+  "walk_forward": [
+    {
+      "season": 2015,
+      "games": 267,
+      "ml_brier": 0.23478,
+      "spread_direction_rate": 0.4747,
+      "total_direction_rate": 0.4885
+    },
+    {
+      "season": 2016,
+      "games": 267,
+      "ml_brier": 0.23046,
+      "spread_direction_rate": 0.4809,
+      "total_direction_rate": 0.5038
+    },
+    {
+      "season": 2017,
+      "games": 267,
+      "ml_brier": 0.21567,
+      "spread_direction_rate": 0.4788,
+      "total_direction_rate": 0.4719
+    },
+    {
+      "season": 2018,
+      "games": 267,
+      "ml_brier": 0.22473,
+      "spread_direction_rate": 0.5426,
+      "total_direction_rate": 0.4432
+    },
+    {
+      "season": 2019,
+      "games": 267,
+      "ml_brier": 0.22614,
+      "spread_direction_rate": 0.5097,
+      "total_direction_rate": 0.4812
+    },
+    {
+      "season": 2020,
+      "games": 269,
+      "ml_brier": 0.21469,
+      "spread_direction_rate": 0.4721,
+      "total_direction_rate": 0.5455
+    },
+    {
+      "season": 2021,
+      "games": 285,
+      "ml_brier": 0.22386,
+      "spread_direction_rate": 0.4875,
+      "total_direction_rate": 0.5284
+    },
+    {
+      "season": 2022,
+      "games": 284,
+      "ml_brier": 0.21572,
+      "spread_direction_rate": 0.4453,
+      "total_direction_rate": 0.5089
+    },
+    {
+      "season": 2023,
+      "games": 285,
+      "ml_brier": 0.22628,
+      "spread_direction_rate": 0.5203,
+      "total_direction_rate": 0.4698
+    },
+    {
+      "season": 2024,
+      "games": 285,
+      "ml_brier": 0.20528,
+      "spread_direction_rate": 0.4947,
+      "total_direction_rate": 0.4716
+    },
+    {
+      "season": 2025,
+      "games": 285,
+      "ml_brier": 0.21233,
+      "spread_direction_rate": 0.5035,
+      "total_direction_rate": 0.4561
+    }
+  ],
+  "oof_ml_brier": 0.22078,
+  "market_reference_brier": 0.21253,
+  "notes": "Phase-1 provisional (games.csv EWMA features); EPA/play features arrive in Phase 2."
+}

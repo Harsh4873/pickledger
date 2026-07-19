@@ -369,6 +369,7 @@ SPORT_TO_ESPNSLUG = {
     "EPL": ("soccer", "eng.1"),
     "FIFA WC": ("soccer", "fifa.world"),
     "MLS": ("soccer", "usa.1"),
+    "NFL": ("football", "nfl"),
     "WBC": ("baseball", "world-baseball-classic"),
 }
 
@@ -4987,6 +4988,24 @@ else:
         return result
     except subprocess.TimeoutExpired:
         return {"ok": False, "error": "WNBA model timed out (4 min limit)"}
+    except Exception as exc:
+        return {"ok": False, "error": str(exc)}
+
+
+def run_nfl_model(date_str: str | None = None) -> dict[str, Any]:
+    """Execute the NFL shadow model (site display suppressed until go-live)."""
+    target_iso, _ = _parse_model_date_arg(date_str)
+    nfl_dir = os.path.join(BASE_DIR, "NFLPredictionModel")
+    if not os.path.exists(nfl_dir):
+        return {"ok": False, "error": "NFL model directory not found"}
+    try:
+        from NFLPredictionModel import generate_nfl_picks
+
+        result = generate_nfl_picks(target_iso)
+        if not isinstance(result, dict):
+            return {"ok": False, "error": "NFL model returned an invalid payload"}
+        _save_admin_picks_doc("nfl", result, target_iso)
+        return result
     except Exception as exc:
         return {"ok": False, "error": str(exc)}
 

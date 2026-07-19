@@ -376,6 +376,9 @@ const GAME_TIME_STORAGE_KEY = 'pickledger_static_game_times_v2';
 // NBA Summer League and the FIFA World Cup archived 2026-07-19: both
 // seasons ended (summer league finale + World Cup final same day).
 const ARCHIVED_SPORTS = new Set(['NBA', 'NBA SUMMER', 'FIFA WC']);
+// Shadow-mode sports: their picks are graded and ledger-tracked
+// server-side but render nowhere on the site until an explicit go-live.
+const SHADOW_SPORTS = new Set(['NFL']);
 const PLAYER_PROPS_ML_SOURCE = 'player_props_ml_v1';
 // First snapshot produced by the ML slate-engine launch in commit b6f9dbe.
 const PLAYER_PROPS_ML_FIRST_SNAPSHOT_AT = Date.parse('2026-06-16T19:04:34.909830Z');
@@ -386,6 +389,7 @@ const SOURCE_LABELS: Record<string, string> = {
   mlb_first_five: 'MLB First Five',
   mlb_team_total: 'MLB Team Total',
   mls: 'MLS Model',
+  nfl: 'NFL Model',
   wnba: 'WNBA Model',
   nba: 'NBA New',
   nba_playoffs: 'NBA Playoffs',
@@ -432,6 +436,7 @@ const MARKET_SOURCE_LABELS: Record<string, Record<string, string>> = {
   // variants were built — the league's season ends 2026-07-19.
   nba_summer: { h2h: 'NBA Summer ML', moneyline: 'NBA Summer ML', '': 'NBA Summer ML' },
   mls: { moneyline: 'MLS ML', total: 'MLS Total', totals: 'MLS Total', spread: 'MLS Spread' },
+  nfl: { h2h: 'NFL ML', moneyline: 'NFL ML', totals: 'NFL Total', total: 'NFL Total', spread: 'NFL Spread' },
 };
 
 function teamSourceLabel(modelKey: string, raw: Record<string, unknown>): string {
@@ -827,7 +832,7 @@ export async function loadAllData(): Promise<Pick[]> {
     else teamById.set(pick.id, pick);
   });
   playerPayloads.flatMap(picksFromPlayerProps).forEach(pick => playerById.set(pick.id, pick));
-  teamPicks = sortPicks([...teamById.values()].filter(pick => !ARCHIVED_SPORTS.has(pick.sport)));
+  teamPicks = sortPicks([...teamById.values()].filter(pick => !ARCHIVED_SPORTS.has(pick.sport) && !SHADOW_SPORTS.has(pick.sport)));
   playerPicks = sortPicks([...playerById.values()].filter(
     pick => !ARCHIVED_SPORTS.has(pick.sport) && isMlEraPlayerProp(pick),
   ));

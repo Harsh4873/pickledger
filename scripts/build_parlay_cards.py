@@ -95,6 +95,7 @@ SOURCE_LABELS: dict[str, str] = {
     "nba_summer": "NBA Summer League",
     "fifa_world_cup": "FIFA Model",
     "mls": "MLS Model",
+    "nfl": "NFL Model",
     "sportytrader": "SportyTrader",
     "sportytrader_nba": "SportyTraderNBA",
     "sportytrader_nba_summer": "SportyTraderNBASummer",
@@ -641,6 +642,10 @@ def collect_legs(
     for source_key, fallback_source, fallback_date, pick, player_props in records:
         decision = _clean_text(pick.get("decision")).upper()
         if decision not in TEAM_VISIBLE_DECISIONS:
+            continue
+        if pick.get("shadow_mode") is True:
+            # Shadow-mode models accumulate ledger evidence without any
+            # public surface — including parlay legs.
             continue
         if player_props and pick.get("market_priced") is not True:
             continue

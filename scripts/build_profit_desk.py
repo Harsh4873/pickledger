@@ -888,6 +888,8 @@ class EvidenceBook:
                         continue
                     if _text(record.get("decision")).upper() not in VISIBLE_DECISIONS:
                         continue
+                    if record.get("shadow_mode") is True:
+                        continue
                     result = _result(record.get("result"))
                     if result not in {"win", "loss"}:
                         continue
@@ -1641,6 +1643,8 @@ def build_profit_desk_payload(
             if _record_date(record, context.fallback_date) != date_iso:
                 continue
             if _text(record.get("decision")).upper() not in VISIBLE_DECISIONS:
+                continue
+            if record.get("shadow_mode") is True:
                 continue
             input_count += 1
             raw_candidates.append(_raw_candidate(context, date_iso))

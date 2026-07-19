@@ -19,7 +19,7 @@ on:
       models:
         description: "Comma-separated models, or all"
         required: false
-        default: "mlb_new,mlb_inning,mlb_first_five,mlb_team_total,wnba,nba,nba_playoffs,mls"
+        default: "mlb_new,mlb_inning,mlb_first_five,mlb_team_total,wnba,nba,nba_playoffs,mls,nfl"
 
 permissions:
   contents: write
@@ -62,7 +62,7 @@ jobs:
         run: |
           python scripts/refresh_model_cache.py \
             --date "${{ github.event.inputs.date || '' }}" \
-            --models "${{ github.event.inputs.models || 'mlb_new,mlb_inning,mlb_first_five,mlb_team_total,wnba,nba,nba_playoffs,mls' }}" \
+            --models "${{ github.event.inputs.models || 'mlb_new,mlb_inning,mlb_first_five,mlb_team_total,wnba,nba,nba_playoffs,mls,nfl' }}" \
             --max-workers 3 \
             --skip-firestore
 
