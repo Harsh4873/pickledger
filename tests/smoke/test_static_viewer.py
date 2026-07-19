@@ -418,7 +418,7 @@ def test_home_filters_prioritize_primary_sports_and_use_more_menu():
     data = (ROOT / "src" / "data.ts").read_text(encoding="utf-8")
     css = (ROOT / "src" / "styles" / "pickledger.css").read_text(encoding="utf-8")
 
-    assert "const PRIMARY_FILTERS = ['ALL', 'MLB', 'WNBA']" in main
+    assert "const PRIMARY_FILTERS = ['ALL', 'MLB', 'WNBA', 'MLS']" in main
     assert "const ARCHIVED_SPORTS = new Set(['NBA', 'NBA SUMMER', 'FIFA WC'])" in data
     assert "!ARCHIVED_SPORTS.has(pick.sport)" in data
     assert "'MLB NEW': 'MLB Model'" in data

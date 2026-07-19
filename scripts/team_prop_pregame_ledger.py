@@ -41,8 +41,9 @@ TEAM_PROP_MODEL_KEYS = {
     "wnba",
     "nba_summer",
     "fifa_world_cup",
+    "mls",
 }
-FIFA_MODEL_KEYS = {"fifa_world_cup"}
+FIFA_MODEL_KEYS = {"fifa_world_cup", "mls"}  # soccer models share the evaluation exclusion
 TRACKED_TEAM_DECISIONS = {"BET", "LEAN"}
 
 _TIMESTAMP_FIELDS = (

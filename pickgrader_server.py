@@ -368,6 +368,7 @@ SPORT_TO_ESPNSLUG = {
     "MLB": ("baseball", "mlb"),
     "EPL": ("soccer", "eng.1"),
     "FIFA WC": ("soccer", "fifa.world"),
+    "MLS": ("soccer", "usa.1"),
     "WBC": ("baseball", "world-baseball-classic"),
 }
 
@@ -4986,6 +4987,24 @@ else:
         return result
     except subprocess.TimeoutExpired:
         return {"ok": False, "error": "WNBA model timed out (4 min limit)"}
+    except Exception as exc:
+        return {"ok": False, "error": str(exc)}
+
+
+def run_mls_model(date_str: str | None = None) -> dict[str, Any]:
+    """Execute the player-centric MLS algorithmic model."""
+    target_iso, _ = _parse_model_date_arg(date_str)
+    mls_dir = os.path.join(BASE_DIR, "MLSPredictionModel")
+    if not os.path.exists(mls_dir):
+        return {"ok": False, "error": "MLS model directory not found"}
+    try:
+        from MLSPredictionModel import generate_mls_picks
+
+        result = generate_mls_picks(target_iso)
+        if not isinstance(result, dict):
+            return {"ok": False, "error": "MLS model returned an invalid payload"}
+        _save_admin_picks_doc("mls", result, target_iso)
+        return result
     except Exception as exc:
         return {"ok": False, "error": str(exc)}
 

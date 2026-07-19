@@ -89,6 +89,18 @@ FEATURE_CONTRACTS: dict[str, dict[str, Any]] = {
             ("market_context", ("market_total_line", "market_probability")),
         ),
     },
+"mls": {
+        "contract_version": "mls_player_power_serving_groups",
+        "groups": (
+            ("home_squad_units", ("home_unit_ratings",)),
+            ("away_squad_units", ("away_unit_ratings",)),
+            ("home_tournament_form", ("home_tournament_form",)),
+            ("away_tournament_form", ("away_tournament_form",)),
+            ("venue_context", ("venue_profile",)),
+            ("goal_projection", ("raw_projected_home_goals", "projected_home_goals")),
+            ("market_context", ("market_total_line", "market_probability")),
+        ),
+    },
     "nba_summer": {
         "contract_version": "nba_summer_v1_serving_groups",
         "groups": (

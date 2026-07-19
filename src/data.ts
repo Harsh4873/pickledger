@@ -385,6 +385,7 @@ const SOURCE_LABELS: Record<string, string> = {
   mlb_inning: 'MLB Inning',
   mlb_first_five: 'MLB First Five',
   mlb_team_total: 'MLB Team Total',
+  mls: 'MLS Model',
   wnba: 'WNBA Model',
   nba: 'NBA New',
   nba_playoffs: 'NBA Playoffs',
@@ -430,6 +431,7 @@ const MARKET_SOURCE_LABELS: Record<string, Record<string, string>> = {
   // consistency with the other per-market sources. No spread/total
   // variants were built — the league's season ends 2026-07-19.
   nba_summer: { h2h: 'NBA Summer ML', moneyline: 'NBA Summer ML', '': 'NBA Summer ML' },
+  mls: { moneyline: 'MLS ML', total: 'MLS Total', totals: 'MLS Total', spread: 'MLS Spread' },
 };
 
 function teamSourceLabel(modelKey: string, raw: Record<string, unknown>): string {

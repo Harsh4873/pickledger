@@ -94,6 +94,7 @@ const ESPN_ENDPOINTS: Record<string, [string, string]> = {
   'NBA SUMMER': ['basketball', 'nba-summer'],
   WNBA: ['basketball', 'wnba'],
   'FIFA WC': ['soccer', 'fifa.world'],
+  'MLS': ['soccer', 'usa.1'],
   NHL: ['hockey', 'nhl'],
 };
 
@@ -143,7 +144,7 @@ const LEGACY_RECORD_SOURCES = new Set(['MLB ML', 'MLB Total', 'MLB Model']);
 // WNBA ML; the rebuilt spread/total variants (and any stray legacy label)
 // restart from the redesign date.
 const WNBA_RESET_SOURCES = new Set(['WNBA Model', 'WNBA Spread', 'WNBA Total']);
-const PRIMARY_FILTERS = ['ALL', 'MLB', 'WNBA'];
+const PRIMARY_FILTERS = ['ALL', 'MLB', 'WNBA', 'MLS'];
 let lastCentralDate = '';
 
 function escapeHtml(value: unknown): string {
