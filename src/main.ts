@@ -389,11 +389,12 @@ function rankingComparablePicks(picks: Pick[]): Pick[] {
       const source = sourceName(pick);
       const isConsensusSource = String(pick.sport || '').toUpperCase() === 'MLB'
         && MLB_TEAM_CONSENSUS_SOURCES.has(source);
-      if (isConsensusSource) {
-        const epoch = String(pick.ml_rank_epoch || pick.ranking_epoch || pick.model_epoch || '').trim();
-        if (!epoch.startsWith(MLB_TEAM_CONSENSUS_EPOCH_PREFIX)) return false;
-        if (LEGACY_RECORD_SOURCES.has(source)) return true;
-      }
+      // The 2026-07-19 record reset applies ONLY to the in-house MLB model
+      // variants. External feeds and other sports keep their full history.
+      if (!isConsensusSource) return true;
+      const epoch = String(pick.ml_rank_epoch || pick.ranking_epoch || pick.model_epoch || '').trim();
+      if (!epoch.startsWith(MLB_TEAM_CONSENSUS_EPOCH_PREFIX)) return false;
+      if (LEGACY_RECORD_SOURCES.has(source)) return true;
       return pickDateKey(pick) >= TEAM_RANKING_START_DATE;
     });
   }
@@ -415,14 +416,18 @@ function playerModelRank(pick: Pick): number | null {
 function rankingWindowLabel(): string {
   return activePickMode === 'player'
     ? `SINCE ${dateLabel(PLAYER_PROP_RANKING_START_DATE).toUpperCase()}`
-    : `SINCE ${dateLabel(TEAM_RANKING_START_DATE).toUpperCase()}`;
+    : 'ALL TIME';
 }
 
 function rankingBucketScopeLabel(bucketName: string): string {
-  if (activePickMode !== 'player' && LEGACY_RECORD_SOURCES.has(bucketName)) {
+  if (activePickMode === 'player') return rankingWindowLabel();
+  if (LEGACY_RECORD_SOURCES.has(bucketName)) {
     return 'ALL TIME | MLB TEAM CONSENSUS V1';
   }
-  return rankingWindowLabel();
+  if (MLB_TEAM_CONSENSUS_SOURCES.has(bucketName)) {
+    return `SINCE ${dateLabel(TEAM_RANKING_START_DATE).toUpperCase()}`;
+  }
+  return 'ALL TIME';
 }
 
 function gameName(pick: Pick): string {
