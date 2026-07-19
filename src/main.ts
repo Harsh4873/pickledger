@@ -139,6 +139,10 @@ const TEAM_RANKING_START_DATE = '2026-07-19';
 // "MLB Model" stays listed as a safety net: any mlb_new row whose market
 // tag fails the ML/Total split must never drop out of the record.
 const LEGACY_RECORD_SOURCES = new Set(['MLB ML', 'MLB Total', 'MLB Model']);
+// WNBA redesign (2026-07-19): the proven moneyline record carries over as
+// WNBA ML; the rebuilt spread/total variants (and any stray legacy label)
+// restart from the redesign date.
+const WNBA_RESET_SOURCES = new Set(['WNBA Model', 'WNBA Spread', 'WNBA Total']);
 const PRIMARY_FILTERS = ['ALL', 'MLB', 'WNBA', 'NBA SUMMER', 'FIFA WC'];
 let lastCentralDate = '';
 
@@ -389,8 +393,12 @@ function rankingComparablePicks(picks: Pick[]): Pick[] {
       const source = sourceName(pick);
       const isConsensusSource = String(pick.sport || '').toUpperCase() === 'MLB'
         && MLB_TEAM_CONSENSUS_SOURCES.has(source);
-      // The 2026-07-19 record reset applies ONLY to the in-house MLB model
-      // variants. External feeds and other sports keep their full history.
+      // The 2026-07-19 record reset applies ONLY to the in-house MLB and
+      // WNBA model variants. External feeds and every other source keep
+      // their full history.
+      if (WNBA_RESET_SOURCES.has(source)) {
+        return pickDateKey(pick) >= TEAM_RANKING_START_DATE;
+      }
       if (!isConsensusSource) return true;
       const epoch = String(pick.ml_rank_epoch || pick.ranking_epoch || pick.model_epoch || '').trim();
       if (!epoch.startsWith(MLB_TEAM_CONSENSUS_EPOCH_PREFIX)) return false;
@@ -424,7 +432,7 @@ function rankingBucketScopeLabel(bucketName: string): string {
   if (LEGACY_RECORD_SOURCES.has(bucketName)) {
     return 'ALL TIME | MLB TEAM CONSENSUS V1';
   }
-  if (MLB_TEAM_CONSENSUS_SOURCES.has(bucketName)) {
+  if (MLB_TEAM_CONSENSUS_SOURCES.has(bucketName) || WNBA_RESET_SOURCES.has(bucketName)) {
     return `SINCE ${dateLabel(TEAM_RANKING_START_DATE).toUpperCase()}`;
   }
   return 'ALL TIME';

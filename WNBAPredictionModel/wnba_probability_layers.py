@@ -97,7 +97,12 @@ def blend_pace(home_pace, away_pace) -> float:
 
     - Both None → league average.
     - One None → use the other.
-    - Both present → 0.55 home / 0.45 away (home dictates tempo slightly).
+    - Both present → pace compounds rather than averages: each team's
+      possessions deviate from league average roughly independently, so
+      the expected game pace is ``home + away - league_avg``. Two
+      fast-pace teams play faster than either's own average and two
+      grinders play slower — a weighted average systematically shaved
+      the tails, which biased every totals projection toward the middle.
 
     Result is clamped to [55.0, 85.0] — anything outside that range is
     almost certainly a data error (WNBA paces realistically live inside it).
@@ -110,7 +115,7 @@ def blend_pace(home_pace, away_pace) -> float:
     elif away_pace is None:
         blended = float(home_pace)
     else:
-        blended = float(home_pace) * 0.55 + float(away_pace) * 0.45
+        blended = float(home_pace) + float(away_pace) - WNBA_LEAGUE_AVG_PACE
 
     if blended < 55.0:
         blended = 55.0
@@ -522,6 +527,7 @@ def compute_projected_total(
     away_stats: dict,
     home_injury_penalty: float = 0.0,
     away_injury_penalty: float = 0.0,
+    b2b_penalty: float = 0.0,
 ) -> float | None:
     """
     Project total points scored in the game.
@@ -582,6 +588,14 @@ def compute_projected_total(
         max(0.0, hi + ai) * WNBA_TOTAL_INJURY_SCALE,
     )
     projected -= injury_adjustment
+
+    # Fatigue: a team on the second night of a back-to-back shoots
+    # measurably worse (~1.5-2.5% from three), which shows up as fewer
+    # points, not fewer possessions.
+    try:
+        projected -= max(0.0, float(b2b_penalty or 0.0))
+    except (TypeError, ValueError):
+        pass
 
     if projected < 130.0:
         projected = 130.0
@@ -646,6 +660,7 @@ def calculate_wnba_matchup(
         away_stats,
         home_injury_penalty=context.get("home_injury_penalty", 0.0) or 0.0,
         away_injury_penalty=context.get("away_injury_penalty", 0.0) or 0.0,
+        b2b_penalty=1.5 if context.get("away_is_b2b") is True else 0.0,
     )
 
     data_quality = (

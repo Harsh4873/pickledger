@@ -35,8 +35,11 @@ def test_wnba_full_baseline_can_emit_bet():
     from WNBAPredictionModel.wnba_picks import assess_spread_edge
     from WNBAPredictionModel.wnba_probability_layers import calculate_wnba_matchup
 
-    home = {"NRtg": 8.0, "ORtg": 108.0, "DRtg": 100.0, "Pace": 70.0, "W": 8, "L": 3}
-    away = {"NRtg": -2.0, "ORtg": 101.0, "DRtg": 103.0, "Pace": 69.0, "W": 4, "L": 7}
+    # Realistic 2026 paces (league runs ~75-82); pace now compounds
+    # (home + away - league_avg), so unrealistically low fixture paces
+    # artificially shrink the projected margin.
+    home = {"NRtg": 8.0, "ORtg": 108.0, "DRtg": 100.0, "Pace": 80.0, "W": 8, "L": 3}
+    away = {"NRtg": -2.0, "ORtg": 101.0, "DRtg": 103.0, "Pace": 79.0, "W": 4, "L": 7}
     context = {
         "home_rest_days": 3,
         "away_rest_days": 1,
@@ -51,6 +54,52 @@ def test_wnba_full_baseline_can_emit_bet():
     assert result["data_quality"] == "full"
     assert guardrail["decision"] == "BET"
     assert guardrail["confidence_label"] == "High"
+
+
+def test_pace_compounds_instead_of_averaging():
+    """Two fast teams play faster than either's average; two grinders play
+    slower — a weighted average shaved both tails off every total."""
+    from WNBAPredictionModel.wnba_probability_layers import blend_pace, WNBA_LEAGUE_AVG_PACE
+
+    fast = blend_pace(81.5, 81.0)
+    slow = blend_pace(76.0, 77.0)
+    assert fast == 81.5 + 81.0 - WNBA_LEAGUE_AVG_PACE > 81.5
+    assert slow == 76.0 + 77.0 - WNBA_LEAGUE_AVG_PACE < 76.0
+    # One-sided and missing inputs keep their old behavior.
+    assert blend_pace(None, None) == WNBA_LEAGUE_AVG_PACE
+    assert blend_pace(78.0, None) == 78.0
+
+
+def test_away_b2b_shaves_projected_total():
+    """Second night of a back-to-back costs shooting efficiency, so the
+    projected total drops when the away team is on a B2B."""
+    from WNBAPredictionModel.wnba_probability_layers import calculate_wnba_matchup
+
+    home = {"NRtg": 2.0, "ORtg": 104.0, "DRtg": 102.0, "Pace": 80.0, "W": 10, "L": 8}
+    away = {"NRtg": 1.0, "ORtg": 103.0, "DRtg": 102.0, "Pace": 79.5, "W": 9, "L": 9}
+    rested = calculate_wnba_matchup("IND", "MIN", home, away, {"away_is_b2b": False})
+    fatigued = calculate_wnba_matchup("IND", "MIN", home, away, {"away_is_b2b": True})
+    assert fatigued["projected_total"] < rested["projected_total"]
+
+
+def test_tightened_spread_and_total_gates():
+    """2026-07-19 tightening: spread ran 10-20 and totals 22-37 at the old
+    gates, so both markets now demand materially larger disagreement."""
+    from WNBAPredictionModel.wnba_picks import (
+        WNBA_SPREAD_BET_EDGE,
+        WNBA_SPREAD_LEAN_EDGE,
+        WNBA_SPREAD_BET_COVER,
+        WNBA_SPREAD_LEAN_COVER,
+        WNBA_TOTAL_LEAN_EDGE,
+        WNBA_TOTAL_MIN_GAP,
+    )
+
+    assert WNBA_SPREAD_BET_EDGE >= 0.06
+    assert WNBA_SPREAD_LEAN_EDGE >= 0.045
+    assert WNBA_SPREAD_BET_COVER >= 3.5
+    assert WNBA_SPREAD_LEAN_COVER >= 2.5
+    assert WNBA_TOTAL_LEAN_EDGE >= 0.045
+    assert WNBA_TOTAL_MIN_GAP >= 7.0
 
 
 def test_wnba_away_favorite_confidence_uses_favorite_side():

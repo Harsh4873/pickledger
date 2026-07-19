@@ -305,10 +305,17 @@ MARKET_EDGE_LEAN_THRESHOLD = 0.015  # 1.5% edge qualifies for LEAN
 # RMSE 18.2. Understating these inflates every cover/total probability.
 WNBA_SPREAD_RMSE = 13.3
 WNBA_TOTAL_RMSE = 18.0
-WNBA_SPREAD_BET_EDGE = 0.050
-WNBA_SPREAD_LEAN_EDGE = 0.030
-WNBA_TOTAL_BET_EDGE = 0.050
-WNBA_TOTAL_LEAN_EDGE = 0.030
+# 2026-07-19 tightening: at the old gates the live spread record ran
+# 10-20 and totals 22-37 while the moneyline ran 35-11 — the expansion
+# markets were publishing on edges the model cannot actually resolve.
+# Both markets now demand materially larger model-to-line disagreement.
+WNBA_SPREAD_BET_EDGE = 0.060
+WNBA_SPREAD_LEAN_EDGE = 0.045
+WNBA_TOTAL_BET_EDGE = 0.060
+WNBA_TOTAL_LEAN_EDGE = 0.045
+WNBA_SPREAD_BET_COVER = 3.5
+WNBA_SPREAD_LEAN_COVER = 2.5
+WNBA_TOTAL_MIN_GAP = 7.0
 
 def _units_for_conviction(
     decision: str,
@@ -549,14 +556,14 @@ def assess_wnba_spread_market(
         reasons.append("spread requires two-team NRtg baseline")
     if min_games < 3:
         reasons.append(f"thin completed-game sample ({min_games})")
-    if cover_margin < 1.5:
-        reasons.append("model-to-line cover margin below 1.5 points")
+    if cover_margin < WNBA_SPREAD_LEAN_COVER:
+        reasons.append(f"model-to-line cover margin below {WNBA_SPREAD_LEAN_COVER} points")
 
     decision = "PASS"
     if has_full_baseline and min_games >= 3:
-        if cover_margin >= 2.5 and edge >= WNBA_SPREAD_BET_EDGE:
+        if cover_margin >= WNBA_SPREAD_BET_COVER and edge >= WNBA_SPREAD_BET_EDGE:
             decision = "BET"
-        elif cover_margin >= 1.5 and edge >= WNBA_SPREAD_LEAN_EDGE:
+        elif cover_margin >= WNBA_SPREAD_LEAN_COVER and edge >= WNBA_SPREAD_LEAN_EDGE:
             decision = "LEAN"
 
     lineup = _lineup_for_side(context, pick_team_is_home)
@@ -624,14 +631,13 @@ def assess_wnba_total_market(
         reasons.append("total requires two-team NRtg baseline")
     if min_games < 3:
         reasons.append(f"thin completed-game sample ({min_games})")
-    if gap < 5.0:
-        reasons.append("model-to-line total gap below 5 points")
+    if gap < WNBA_TOTAL_MIN_GAP:
+        reasons.append(f"model-to-line total gap below {WNBA_TOTAL_MIN_GAP:g} points")
 
     decision = "PASS"
-    if has_full_baseline and min_games >= 3 and gap >= 5.0 and edge >= WNBA_TOTAL_LEAN_EDGE:
+    if has_full_baseline and min_games >= 3 and gap >= WNBA_TOTAL_MIN_GAP and edge >= WNBA_TOTAL_LEAN_EDGE:
         decision = "LEAN"
-        if gap >= 7.0 and min_games >= 5 and edge >= WNBA_TOTAL_BET_EDGE:
-            reasons.append("new totals market capped at LEAN while its live record is established")
+        reasons.append("totals market capped at LEAN while its live record is established")
 
     context = context or {}
     lineups = [

@@ -418,17 +418,20 @@ const SOURCE_ALIASES: Record<string, string> = {
 // the split is retroactive across every committed cache day — the legacy
 // "MLB Model" history decomposes into its ML and Total components with the
 // underlying algorithms untouched.
-const MLB_MARKET_SOURCE_LABELS: Record<string, Record<string, string>> = {
+const MARKET_SOURCE_LABELS: Record<string, Record<string, string>> = {
   mlb_new: { h2h: 'MLB ML', moneyline: 'MLB ML', totals: 'MLB Total', total: 'MLB Total' },
   mlb_first_five: { f5_side: 'MLB F5', f5_total: 'MLB F5 Total' },
+  // Early-June wnba rows predate market_type stamping and were all
+  // moneylines, so the empty-market fallback belongs to WNBA ML.
+  wnba: { h2h: 'WNBA ML', moneyline: 'WNBA ML', '': 'WNBA ML', spread: 'WNBA Spread', totals: 'WNBA Total', total: 'WNBA Total' },
 };
 
 function teamSourceLabel(modelKey: string, raw: Record<string, unknown>): string {
   const base = SOURCE_LABELS[modelKey] || modelKey;
-  const byMarket = MLB_MARKET_SOURCE_LABELS[modelKey];
+  const byMarket = MARKET_SOURCE_LABELS[modelKey];
   if (!byMarket) return base;
   const market = String(raw.market || raw.market_type || '').trim().toLowerCase();
-  return byMarket[market] || base;
+  return byMarket[market] ?? base;
 }
 
 const PLAYER_PROP_SOURCE_LABELS: Record<string, string> = {
@@ -652,7 +655,7 @@ function picksFromCache(payload: ModelCachePayload): Pick[] {
       // Committed rows carry their own legacy source label ("MLB Model"),
       // which normalizePick would prefer — override it so the per-market
       // split actually lands.
-      const input = MLB_MARKET_SOURCE_LABELS[modelKey] ? { ...rawRecord, source } : rawRecord;
+      const input = MARKET_SOURCE_LABELS[modelKey] ? { ...rawRecord, source } : rawRecord;
       const pick = normalizePick(input, date, source, gameByMatchup);
       if (pick && isTrackedPick(pick)) picks.push(pick);
     }
