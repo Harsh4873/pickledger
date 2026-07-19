@@ -333,7 +333,10 @@ def main() -> int:
     manifest = _read_json(MODEL_CACHE_DIR / "index.json")
     if not latest:
         failures.append("data/model_cache/latest.json is missing or invalid")
-    elif str(latest.get("date") or "") != today:
+    elif str(latest.get("date") or "") < today:
+        # Only STALE data blocks a deploy. A refresh dispatched after UTC
+        # midnight legitimately produces tomorrow's (Central) slate early;
+        # deferring on that wedges every deploy until Central midnight.
         failures.append(f"latest model cache is {latest.get('date') or 'undated'}, expected {today}")
     if not dated:
         failures.append(f"data/model_cache/{today}.json is missing or invalid")
@@ -383,7 +386,7 @@ def main() -> int:
     player_manifest = _read_json(PLAYER_PROPS_CACHE_DIR / "index.json")
     if not player_latest:
         failures.append("data/player_props_cache/latest.json is missing or invalid")
-    elif str(player_latest.get("date") or "") != today:
+    elif str(player_latest.get("date") or "") < today:
         failures.append(f"latest player-props cache is {player_latest.get('date') or 'undated'}, expected {today}")
     if not player_dated:
         failures.append(f"data/player_props_cache/{today}.json is missing or invalid")
@@ -477,7 +480,7 @@ def main() -> int:
     parlay_manifest = _read_json(PARLAY_CARDS_DIR / "index.json")
     if not parlay_latest:
         failures.append("data/parlay_cards/latest.json is missing or invalid")
-    elif str(parlay_latest.get("date") or "") != today:
+    elif str(parlay_latest.get("date") or "") < today:
         failures.append(f"latest parlay cards are {parlay_latest.get('date') or 'undated'}, expected {today}")
     if not parlay_dated:
         failures.append(f"data/parlay_cards/{today}.json is missing or invalid")
@@ -534,7 +537,7 @@ def main() -> int:
     profit_manifest = _read_json(PROFIT_DESK_DIR / "index.json")
     if not profit_latest:
         failures.append("data/profit_desk/latest.json is missing or invalid")
-    elif str(profit_latest.get("date") or "") != today:
+    elif str(profit_latest.get("date") or "") < today:
         failures.append(f"latest Profit Desk is {profit_latest.get('date') or 'undated'}, expected {today}")
     if not profit_dated:
         failures.append(f"data/profit_desk/{today}.json is missing or invalid")
