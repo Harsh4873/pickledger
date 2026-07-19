@@ -126,7 +126,17 @@ const DISPLAY_TIME_ZONE = 'America/Chicago';
 const AUTO_REFRESH_MS = 5 * 60_000;
 const PLAYER_PROP_RANKING_START_DATE = '2026-06-23';
 const MLB_TEAM_CONSENSUS_EPOCH_PREFIX = 'MLB:mlb_team_consensus_v1';
-const MLB_TEAM_CONSENSUS_SOURCES = new Set(['MLB Model', 'MLB First Five', 'MLB Inning']);
+const MLB_TEAM_CONSENSUS_SOURCES = new Set([
+  'MLB Model', 'MLB ML', 'MLB Total',
+  'MLB First Five', 'MLB F5', 'MLB F5 Total',
+  'MLB Inning', 'MLB Team Total',
+]);
+// The 2026-07-19 board rebuild: rankings restart from this date so stale
+// records don't carry into the redesigned source split. The proven MLB
+// moneyline/total split (formerly "MLB Model") keeps its full
+// consensus-era history — that record is the one worth preserving.
+const TEAM_RANKING_START_DATE = '2026-07-19';
+const LEGACY_RECORD_SOURCES = new Set(['MLB ML', 'MLB Total']);
 const PRIMARY_FILTERS = ['ALL', 'MLB', 'WNBA', 'NBA SUMMER', 'FIFA WC'];
 let lastCentralDate = '';
 
@@ -374,10 +384,15 @@ function isOpenPick(pick: Pick): boolean {
 function rankingComparablePicks(picks: Pick[]): Pick[] {
   if (activePickMode !== 'player') {
     return picks.filter(pick => {
-      if (String(pick.sport || '').toUpperCase() !== 'MLB') return true;
-      if (!MLB_TEAM_CONSENSUS_SOURCES.has(sourceName(pick))) return true;
-      const epoch = String(pick.ml_rank_epoch || pick.ranking_epoch || pick.model_epoch || '').trim();
-      return epoch.startsWith(MLB_TEAM_CONSENSUS_EPOCH_PREFIX);
+      const source = sourceName(pick);
+      const isConsensusSource = String(pick.sport || '').toUpperCase() === 'MLB'
+        && MLB_TEAM_CONSENSUS_SOURCES.has(source);
+      if (isConsensusSource) {
+        const epoch = String(pick.ml_rank_epoch || pick.ranking_epoch || pick.model_epoch || '').trim();
+        if (!epoch.startsWith(MLB_TEAM_CONSENSUS_EPOCH_PREFIX)) return false;
+        if (LEGACY_RECORD_SOURCES.has(source)) return true;
+      }
+      return pickDateKey(pick) >= TEAM_RANKING_START_DATE;
     });
   }
   return uniquePlayerRankingPicks(picks.filter(pick => {
@@ -398,7 +413,14 @@ function playerModelRank(pick: Pick): number | null {
 function rankingWindowLabel(): string {
   return activePickMode === 'player'
     ? `SINCE ${dateLabel(PLAYER_PROP_RANKING_START_DATE).toUpperCase()}`
-    : 'ALL TIME | MLB TEAM CONSENSUS V1';
+    : `SINCE ${dateLabel(TEAM_RANKING_START_DATE).toUpperCase()}`;
+}
+
+function rankingBucketScopeLabel(bucketName: string): string {
+  if (activePickMode !== 'player' && LEGACY_RECORD_SOURCES.has(bucketName)) {
+    return 'ALL TIME | MLB TEAM CONSENSUS V1';
+  }
+  return rankingWindowLabel();
 }
 
 function gameName(pick: Pick): string {
@@ -957,7 +979,6 @@ function renderRankings(): void {
   const allPicks = getAllPicks();
   const comparablePicks = rankingComparablePicks(allPicks);
   const rankingPicks = comparablePicks.filter(isSettledPick);
-  const rankingScope = rankingWindowLabel();
   const rankingTitle = document.getElementById('source-rankings-title');
   const rankingSubtitle = document.getElementById('source-rankings-subtitle');
   const dowSubtitle = document.getElementById('dow-subtitle');
@@ -997,7 +1018,7 @@ function renderRankings(): void {
         <div class="card-rank">${index + 1}</div><div class="card-name">${escapeHtml(item.source)}</div>
         <div class="score-bar-wrap"><div class="score-label"><span>ACCURACY</span><span class="score-val">${item.stats.winRate == null ? '—' : `${(item.stats.winRate * 100).toFixed(1)}%`} (${item.stats.wins}-${item.stats.losses})</span></div><div class="bar-bg"><div class="bar-fill bar-acc" style="width:${(item.stats.winRate || 0) * 100}%"></div></div></div>
         <div class="score-bar-wrap"><div class="score-label"><span>ROI</span><span class="score-val">${item.stats.priced ? `${item.stats.roi == null ? '—' : `${(item.stats.roi * 100).toFixed(1)}%`} (${signedUnits(item.stats.net)})` : '— (no priced picks)'}</span></div><div class="bar-bg"><div class="bar-fill bar-roi" style="width:${Math.max(0, Math.min(100, 50 + (item.stats.roi || 0) * 100))}%"></div></div></div>
-        <div class="algo-score"><div class="algo-score-val">${item.stats.total}</div><div class="algo-score-info">DECIDED PICKS<br>${escapeHtml(rankingScope)}</div></div>
+        <div class="algo-score"><div class="algo-score-val">${item.stats.total}</div><div class="algo-score-info">DECIDED PICKS<br>${escapeHtml(rankingBucketScopeLabel(item.source))}</div></div>
         <div class="source-expand-control"><span data-source-expand-label>${expanded ? 'Hide period records' : 'View period records'}</span><span class="source-expand-icon" aria-hidden="true">&#9662;</span></div>
         <div class="source-deep-dive">
           <div class="trend-deep-title">PERIOD RECORDS</div>

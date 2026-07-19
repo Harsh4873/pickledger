@@ -382,6 +382,7 @@ const SOURCE_LABELS: Record<string, string> = {
   mlb_new: 'MLB Model',
   mlb_inning: 'MLB Inning',
   mlb_first_five: 'MLB First Five',
+  mlb_team_total: 'MLB Team Total',
   wnba: 'WNBA Model',
   nba: 'NBA New',
   nba_playoffs: 'NBA Playoffs',
@@ -410,6 +411,25 @@ const SOURCE_ALIASES: Record<string, string> = {
   'MLB New': 'MLB Model',
   'FIFA WC In-House': 'FIFA Model',
 };
+
+// The in-house MLB publishers each cover multiple markets under one bucket.
+// The board tracks each market as its own source so a moneyline record can
+// never hide a bad totals record (or vice versa). Applied at load time, so
+// the split is retroactive across every committed cache day — the legacy
+// "MLB Model" history decomposes into its ML and Total components with the
+// underlying algorithms untouched.
+const MLB_MARKET_SOURCE_LABELS: Record<string, Record<string, string>> = {
+  mlb_new: { h2h: 'MLB ML', moneyline: 'MLB ML', totals: 'MLB Total', total: 'MLB Total' },
+  mlb_first_five: { f5_side: 'MLB F5', f5_total: 'MLB F5 Total' },
+};
+
+function teamSourceLabel(modelKey: string, raw: Record<string, unknown>): string {
+  const base = SOURCE_LABELS[modelKey] || modelKey;
+  const byMarket = MLB_MARKET_SOURCE_LABELS[modelKey];
+  if (!byMarket) return base;
+  const market = String(raw.market || raw.market_type || '').trim().toLowerCase();
+  return byMarket[market] || base;
+}
 
 const PLAYER_PROP_SOURCE_LABELS: Record<string, string> = {
   nba_player_props: 'NBAPlayerProps',
@@ -626,7 +646,9 @@ function picksFromCache(payload: ModelCachePayload): Pick[] {
       }
     }
     for (const raw of Array.isArray(bucket.picks) ? bucket.picks : []) {
-      const pick = normalizePick(raw, date, SOURCE_LABELS[modelKey] || modelKey, gameByMatchup);
+      if (!raw || typeof raw !== 'object') continue;
+      const source = teamSourceLabel(modelKey, raw as Record<string, unknown>);
+      const pick = normalizePick(raw, date, source, gameByMatchup);
       if (pick && isTrackedPick(pick)) picks.push(pick);
     }
   }

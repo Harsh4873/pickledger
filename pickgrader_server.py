@@ -2882,6 +2882,7 @@ WNBA_MODEL_DIR = os.path.join(BASE_DIR, "WNBAPredictionModel")
 MLB_MODEL_DIR = os.path.join(BASE_DIR, "MLBPredictionModel")
 MLB_INNING_MODEL_DIR = os.path.join(BASE_DIR, "models", "mlb_inning")
 MLB_FIRST_FIVE_MODEL_DIR = os.path.join(BASE_DIR, "models", "mlb_first_five")
+MLB_TEAM_TOTAL_MODEL_DIR = os.path.join(BASE_DIR, "models", "mlb_team_total")
 FIFA_WORLD_CUP_MODEL_DIR = os.path.join(BASE_DIR, "FIFAWorldCupPredictionModel")
 NBA_PROPS_MODEL_DIR = os.path.join(BASE_DIR, "NBAPlayerBettingModel")
 IPL_MODEL_RUNNER = os.path.join(BASE_DIR, "ipl", "run_api.py")
@@ -3153,6 +3154,10 @@ def _model_cache_response(payload: dict[str, Any], date_iso: str, model_key: str
 
 
 MLB_INNING_USER_ASSUMED_ODDS = -120
+# Placeholder until the real DraftKings "Team Total Runs" price attaches;
+# market_odds replaces it for exact team+line matches, which is what makes
+# these rows financially measurable.
+MLB_TEAM_TOTAL_USER_ASSUMED_ODDS = -110
 MLB_F5_SIDE_FALLBACK_USER_ASSUMED_ODDS = -110
 MLB_F5_TOTAL_USER_LINE_ODDS = {
     3.5: -170,
@@ -5400,6 +5405,120 @@ def run_mlb_first_five_model(date_str: str | None = None) -> dict[str, Any]:
         return {"ok": False, "error": str(exc)}
 
 
+def _mlb_team_total_pick_rows(payload: dict[str, Any]) -> list[dict[str, Any]]:
+    date_str = str(payload.get("date") or datetime.now().strftime("%Y-%m-%d"))
+    implied_value = _american_implied_probability_value(MLB_TEAM_TOTAL_USER_ASSUMED_ODDS)
+    rows: list[dict[str, Any]] = []
+    for game in payload.get("picks") or []:
+        if not isinstance(game, dict):
+            continue
+        game_id = str(game.get("game_id") or "").strip()
+        game_start_time = str(game.get("game_start_time") or "").strip()
+        matchup = str(game.get("matchup") or "").strip()
+        home_team = str(game.get("home_team") or "").strip()
+        away_team = str(game.get("away_team") or "").strip()
+        for entry in game.get("team_totals") or []:
+            if not isinstance(entry, dict):
+                continue
+            probability = entry.get("probability")
+            try:
+                probability_f = float(probability)
+            except (TypeError, ValueError):
+                probability_f = None
+            edge = entry.get("edge_pp")
+            try:
+                edge_f = float(edge)
+            except (TypeError, ValueError):
+                edge_f = None
+            line_value = entry.get("line")
+            pitching = entry.get("pitching") if isinstance(entry.get("pitching"), dict) else {}
+            rows.append({
+                "source": "MLB Team Total",
+                "pick": str(entry.get("pick") or "").strip(),
+                "sport": "MLB",
+                "league": "MLB",
+                "date": date_str,
+                "start_time": game_start_time or None,
+                "game_start_time": game_start_time or None,
+                "game_order": game.get("game_order", 0),
+                "game_id": game_id,
+                "game": matchup,
+                "matchup": matchup,
+                "home_team": home_team,
+                "away_team": away_team,
+                "team": str(entry.get("team") or "").strip(),
+                "market": "team_total",
+                "direction": str(entry.get("direction") or "").lower(),
+                "line": line_value,
+                "odds": MLB_TEAM_TOTAL_USER_ASSUMED_ODDS,
+                "assumed_odds": MLB_TEAM_TOTAL_USER_ASSUMED_ODDS,
+                "pricing_type": "user_assumed",
+                "line_source": "user_assumed_team_total_ladder",
+                "odds_source": f"user_assumed_team_total_{MLB_TEAM_TOTAL_USER_ASSUMED_ODDS}",
+                "market_priced": True,
+                "market_implied_probability": round(implied_value, 6) if implied_value is not None else None,
+                "actionability": "research_signal",
+                "probability": probability_f,
+                "edge": edge_f,
+                "edge_pp": edge_f,
+                "decision": str(entry.get("decision") or "PASS").upper(),
+                "confidence": "Medium" if str(entry.get("decision") or "").upper() in {"BET", "LEAN"} else "Low",
+                "model_prediction": f"{entry.get('projected_runs')} runs projected",
+                "notes": (
+                    f"Projected {entry.get('projected_runs')} runs vs {entry.get('opposing_pitcher')} "
+                    f"(offense {entry.get('offense_runs')}, pitching x{pitching.get('multiplier')}, "
+                    f"park x{entry.get('park_factor')})."
+                ),
+            })
+    return rows
+
+
+def run_mlb_team_total_model(date_str: str | None = None) -> dict[str, Any]:
+    """Execute the MLB team total model and return per-team run total rows."""
+    if not os.path.exists(os.path.join(MLB_TEAM_TOTAL_MODEL_DIR, "mlb_team_total_model.py")):
+        return {"ok": False, "error": f"MLB Team Total model not found at {MLB_TEAM_TOTAL_MODEL_DIR}"}
+
+    date_iso, _ = _parse_model_date_arg(date_str)
+    python_bin = _resolve_python_bin(os.path.join(BASE_DIR, ".venv", "bin", "python"))
+    try:
+        output = _run_script(
+            python_bin,
+            "mlb_team_total_model.py",
+            MLB_TEAM_TOTAL_MODEL_DIR,
+            timeout=900,
+            extra_args=["--date", date_iso],
+        )
+        if "Traceback (most recent call last)" in output or "ModuleNotFoundError" in output:
+            tail = " | ".join((output.strip().splitlines() or ["no output"])[-12:])
+            return {"ok": False, "error": f"MLB Team Total runtime failed ({tail})"}
+
+        output_path = os.path.join(MLB_TEAM_TOTAL_MODEL_DIR, "mlb_team_total_output.json")
+        with open(output_path, encoding="utf-8") as fh:
+            payload = json.load(fh)
+        picks = _mlb_team_total_pick_rows(payload)
+        used_date_iso = str(payload.get("date") or date_iso)
+
+        result = {
+            "ok": True,
+            "date": used_date_iso,
+            "requested_date": date_iso,
+            "model": "MLBTeamTotal",
+            "picks": picks,
+            "games": payload.get("picks", []),
+            "raw_lines": len(output.split("\n")),
+            "note": (
+                f"MLB Team Total processed {len(payload.get('picks', []))} game(s), "
+                f"returned {len(picks)} team total row(s)."
+            ),
+        }
+        result["firebase_saved"] = _save_admin_picks_doc("mlb_team_total", result, used_date_iso)
+        return result
+    except subprocess.TimeoutExpired:
+        return {"ok": False, "error": "MLB Team Total model timed out (15 min limit)"}
+    except Exception as exc:
+        return {"ok": False, "error": str(exc)}
+
+
 def _resolve_scrape_date(date_str: str | None) -> str:
     """Normalize incoming date to YYYY-MM-DD for scraper scripts."""
     if date_str:
@@ -5428,7 +5547,7 @@ _EXTERNAL_FEED_SPORT_CONFIG = {
     "nba": {"label": "NBA", "model_keys": ("nba", "nba_playoffs")},
     "nba_summer": {"label": "NBA SUMMER", "model_keys": ("nba_summer",)},
     "wnba": {"label": "WNBA", "model_keys": ("wnba",)},
-    "mlb": {"label": "MLB", "model_keys": ("mlb_first_five", "mlb_inning", "mlb_new")},
+    "mlb": {"label": "MLB", "model_keys": ("mlb_first_five", "mlb_inning", "mlb_new", "mlb_team_total")},
     "fifa_world_cup": {"label": "FIFA WC", "model_keys": ("fifa_world_cup",)},
 }
 

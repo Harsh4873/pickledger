@@ -81,6 +81,7 @@ SOURCE_LABELS: dict[str, str] = {
     "mlb_new": "MLB Model",
     "mlb_inning": "MLB Inning",
     "mlb_first_five": "MLB First Five",
+    "mlb_team_total": "MLB Team Total",
     "wnba": "WNBA Model",
     "nba": "NBA New",
     "nba_playoffs": "NBA Playoffs",

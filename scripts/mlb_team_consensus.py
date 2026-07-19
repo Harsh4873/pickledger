@@ -20,7 +20,7 @@ from scripts.pick_calibration import american_implied_probability, normalize_pro
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 OUTCOME_LEDGER_PATH = REPO_ROOT / "data" / "calibration" / "outcome_ledger.json"
-MLB_TEAM_MODEL_KEYS = {"mlb_new", "mlb_first_five", "mlb_inning"}
+MLB_TEAM_MODEL_KEYS = {"mlb_new", "mlb_first_five", "mlb_inning", "mlb_team_total"}
 MLB_TEAM_CONSENSUS_VERSION = "mlb_team_consensus_v1.1.0"
 MLB_TEAM_RANKING_EPOCH_PREFIX = f"MLB:{MLB_TEAM_CONSENSUS_VERSION}"
 MIN_WALK_FORWARD_SAMPLES = 30
@@ -31,12 +31,17 @@ MODEL_BET_TYPE_DEFAULTS = {
     "mlb_new": "h2h",
     "mlb_first_five": "f5_side",
     "mlb_inning": "no_run_inning",
+    "mlb_team_total": "team_total",
 }
 
 PUBLICATION_THRESHOLDS = {
     "mlb_new": {"lean_edge": 3.0, "bet_edge": 7.0, "lean_prob": 0.53, "bet_prob": 0.56, "lean_signals": 3, "bet_signals": 4},
     "mlb_first_five": {"lean_edge": 3.0, "bet_edge": 7.0, "lean_prob": 0.54, "bet_prob": 0.58, "lean_signals": 4, "bet_signals": 5},
     "mlb_inning": {"lean_edge": 5.0, "bet_edge": 10.0, "lean_prob": 0.55, "bet_prob": 0.60, "lean_signals": 4, "bet_signals": 5},
+    # Team totals launch strict-only (no validation-lean lane): real
+    # DraftKings prices mean the model earns publication through the
+    # walk-forward ledger like mlb_new, not through fallback promotions.
+    "mlb_team_total": {"lean_edge": 4.0, "bet_edge": 8.0, "lean_prob": 0.56, "bet_prob": 0.60, "lean_signals": 3, "bet_signals": 4},
 }
 
 VALIDATION_LEAN_THRESHOLDS = {

@@ -50,6 +50,7 @@ TEAM_MODEL_BUCKET_KEYS = {
     "mlb_new",
     "mlb_inning",
     "mlb_first_five",
+    "mlb_team_total",
     "wnba",
     "nba",
     "nba_playoffs",
@@ -221,14 +222,15 @@ def _parse_scoreboard_event(event: Mapping[str, Any]) -> dict[str, Any] | None:
 
 
 def _parse_f5_prop_items(game: dict[str, Any], items: Iterable[Mapping[str, Any]]) -> None:
-    """Attach MLB first-5-innings markets parsed from the propBets feed."""
+    """Attach MLB first-5-innings and team-total markets from the propBets feed."""
 
     f5_moneyline: dict[str, int] = {}
     f5_run_line: dict[str, dict[str, Any]] = {}
     totals_by_line: dict[float, list[int]] = {}
+    team_totals_by_line: dict[str, dict[float, list[int]]] = {"home": {}, "away": {}}
     for item in items:
         type_name = _text((item.get("type") or {}).get("name"))
-        if not type_name.startswith("1st 5 Innings"):
+        if type_name != "Team Total Runs" and not type_name.startswith("1st 5 Innings"):
             continue
         odds_node = item.get("odds") if isinstance(item.get("odds"), Mapping) else {}
         price = _american(((odds_node.get("american") or {}).get("value")))
@@ -252,6 +254,8 @@ def _parse_f5_prop_items(game: dict[str, Any], items: Iterable[Mapping[str, Any]
             existing[round(line, 2)] = price
         elif type_name == "1st 5 Innings Total Runs" and line is not None:
             totals_by_line.setdefault(round(line, 2), []).append(price)
+        elif type_name == "Team Total Runs" and side and line is not None:
+            team_totals_by_line[side].setdefault(round(line, 2), []).append(price)
 
     markets = game.setdefault("markets", {})
     if "home" in f5_moneyline and "away" in f5_moneyline:
@@ -268,6 +272,16 @@ def _parse_f5_prop_items(game: dict[str, Any], items: Iterable[Mapping[str, Any]
     }
     if f5_totals:
         markets["f5_totals"] = f5_totals
+    team_totals = {
+        side: {
+            line: {"over": prices[0], "under": prices[1]}
+            for line, prices in by_line.items()
+            if len(prices) == 2
+        }
+        for side, by_line in team_totals_by_line.items()
+    }
+    if team_totals["home"] or team_totals["away"]:
+        markets["team_totals"] = team_totals
 
 
 def fetch_market_odds_for_date(
@@ -491,6 +505,31 @@ def _attach_pick(
     )
     provider = f"espn_scoreboard:{game.get('provider') or 'unknown'}"
     is_f5 = bucket_key in F5_BUCKET_KEYS
+    is_team_total = _text(pick.get("market") or pick.get("market_type")).lower() == "team_total"
+
+    if is_team_total and direction in {"over", "under"}:
+        # Per-team run totals: the market is keyed by which team the total
+        # belongs to, so the side must resolve before the line lookup.
+        line = _pick_line(pick)
+        side = _selected_side(pick, game)
+        if line is None or side not in {"home", "away"}:
+            return False
+        totals = ((markets.get("team_totals") or {}).get(side) or {}).get(round(line, 2))
+        if not totals:
+            return False
+        over_price, under_price = totals["over"], totals["under"]
+        _attach_common(pick, game, captured_at)
+        pick["market_over_odds"] = over_price
+        pick["market_under_odds"] = under_price
+        pick["market_line"] = line
+        selected = over_price if direction == "over" else under_price
+        opposite = under_price if direction == "over" else over_price
+        pick["selected_odds"] = selected
+        pick["opposite_odds"] = opposite
+        _stamp_two_sided_no_vig(pick, selected, opposite)
+        if replace:
+            _replace_assumed_price(pick, selected, provider)
+        return True
 
     if direction in {"over", "under"}:
         line = _pick_line(pick)

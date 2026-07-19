@@ -287,6 +287,79 @@ def test_first_five_markets_price_moneyline_and_ordered_total_pairs():
     assert total_pick["market_under_odds"] == 114
 
 
+def team_total_prop_items() -> list[dict]:
+    def item(price: str, team_id: str, line: float) -> dict:
+        return {
+            "type": {"name": "Team Total Runs"},
+            "odds": {"american": {"value": price}, "total": {"value": str(line)}},
+            "team": {"$ref": f"http://example/teams/{team_id}?lang=en"},
+        }
+
+    # Over precedes Under per team, mirroring the live feed's ordering.
+    return [
+        item("-135", "23", 3.5),
+        item("+105", "23", 3.5),
+        item("-115", "8", 4.5),
+        item("-105", "8", 4.5),
+    ]
+
+
+def test_team_total_markets_price_by_side_and_line():
+    book = build_book([scoreboard_event()], team_total_prop_items())
+    games = book["MLB"]
+    assert games[0]["markets"]["team_totals"] == {
+        "home": {3.5: {"over": -135, "under": 105}},
+        "away": {4.5: {"over": -115, "under": -105}},
+    }
+    payload = payload_with(
+        "mlb_team_total",
+        [
+            {
+                "date": DATE,
+                "sport": "MLB",
+                "pick": "Milwaukee Brewers Team Total Over 4.5",
+                "away_team": "Milwaukee Brewers",
+                "home_team": "Pittsburgh Pirates",
+                "team": "Milwaukee Brewers",
+                "market": "team_total",
+                "direction": "over",
+                "line": 4.5,
+                "odds": -110,
+                "assumed_odds": -110,
+                "pricing_type": "user_assumed",
+                "market_priced": True,
+                "decision": "LEAN",
+            },
+            {
+                # No 5.5 market exists for the home side — stays assumed.
+                "date": DATE,
+                "sport": "MLB",
+                "pick": "Pittsburgh Pirates Team Total Under 5.5",
+                "away_team": "Milwaukee Brewers",
+                "home_team": "Pittsburgh Pirates",
+                "team": "Pittsburgh Pirates",
+                "market": "team_total",
+                "direction": "under",
+                "line": 5.5,
+                "odds": -110,
+                "assumed_odds": -110,
+                "pricing_type": "user_assumed",
+                "market_priced": True,
+                "decision": "PASS",
+            },
+        ],
+    )
+    summary = market_odds.apply_market_odds_to_payload(payload, book)
+    priced, unpriced = payload["models"]["mlb_team_total"]["picks"]
+    assert summary["replacedAssumed"] == 1
+    assert priced["odds"] == -115  # away Over 4.5 real price
+    assert priced["market_over_odds"] == -115
+    assert priced["market_under_odds"] == -105
+    assert priced["assumed_odds_replaced"] is True
+    assert unpriced["odds"] == -110
+    assert "assumed_odds_replaced" not in unpriced
+
+
 def test_replaced_price_survives_a_merge_against_a_regenerated_assumed_pick():
     current_bucket = {
         "picks": [

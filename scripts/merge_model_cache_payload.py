@@ -38,6 +38,7 @@ DEPLOYED_MODEL_KEYS = {
     "mlb_new",
     "mlb_inning",
     "mlb_first_five",
+    "mlb_team_total",
     "wnba",
     "nba",
     "nba_playoffs",
@@ -57,6 +58,7 @@ MODEL_ALIAS_KEYS = {
     "mlb_new",
     "mlb_inning",
     "mlb_first_five",
+    "mlb_team_total",
     "ipl",
     "fifa_world_cup",
 }

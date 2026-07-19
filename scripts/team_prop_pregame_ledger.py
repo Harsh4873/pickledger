@@ -37,6 +37,7 @@ TEAM_PROP_MODEL_KEYS = {
     "mlb_new",
     "mlb_inning",
     "mlb_first_five",
+    "mlb_team_total",
     "nba_summer",
     "fifa_world_cup",
 }
