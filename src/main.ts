@@ -58,7 +58,15 @@ type DailySourceForm = {
   score: number;
 };
 
-type DailyView = 'picks' | 'consensus' | 'sources' | 'research';
+type WeekdaySourceForm = {
+  source: string;
+  stats: Stats;
+  decided: number;
+  todayCalls: Pick[];
+  score: number;
+};
+
+type DailyView = 'picks' | 'consensus' | 'sources' | 'research' | 'dayform';
 type ProfitView = 'card' | 'watchlist' | 'method';
 type ParlayView = string;
 type DailySort = 'time' | 'percentage';
@@ -1317,6 +1325,38 @@ function dailySourceForms(date: string, todaysPicks: Pick[]): DailySourceForm[] 
     .sort((a, b) => b.score - a.score);
 }
 
+function weekdayLabel(date: string): string {
+  const parsed = parseDateKey(date);
+  return parsed ? parsed.toLocaleDateString('en-US', { weekday: 'long' }) : '';
+}
+
+function weekdaySourceForms(date: string, todaysPicks: Pick[]): WeekdaySourceForm[] {
+  const day = parseDateKey(date)?.getDay();
+  if (day == null) return [];
+  const historical = rankingComparablePicks(getAllPicks()).filter(pick => (
+    pickDateKey(pick) < date &&
+    (pick.result === 'win' || pick.result === 'loss' || pick.result === 'push') &&
+    parseDateKey(pickDateKey(pick))?.getDay() === day
+  ));
+  const sources = new Set(todaysPicks.map(sourceName));
+  return [...sources].map(source => {
+    const stats = statsFor(historical.filter(pick => sourceName(pick) === source));
+    const decided = stats.wins + stats.losses;
+    const todayCalls = uniqueDailyPicks(todaysPicks
+      .filter(pick => sourceName(pick) === source && isOpenPick(pick) && isPublishedDailyPick(pick))
+      .sort(comparePickActionableStart));
+    const score = (stats.winRate || 0) * 100 + Math.min(decided, 20) * 0.35 + stats.net * 0.08;
+    return { source, stats, decided, todayCalls, score };
+  }).sort((a, b) => b.score - a.score);
+}
+
+function compareWeekdaySourceForms(left: WeekdaySourceForm, right: WeekdaySourceForm): number {
+  if (dailySort === 'time' && left.todayCalls.length && right.todayCalls.length) {
+    return comparePickActionableStart(left.todayCalls[0], right.todayCalls[0]) || right.score - left.score;
+  }
+  return right.score - left.score;
+}
+
 function dailyPickScore(pick: Pick, forms: Map<string, DailySourceForm>): number {
   const modelRank = activePickMode === 'player' ? playerModelRank(pick) : null;
   if (modelRank != null) return 10000 - modelRank;
@@ -1444,6 +1484,61 @@ function dailyHotModelCard(form: DailySourceForm): string {
     <div class="daily-model-picks">${todays.length ? todays.map(pick => `<div><strong>${escapeHtml(pick.pick)}</strong><span>${escapeHtml([dailyDecision(pick), formatOdds(pick), pickProbability(pick) == null ? '' : `${(pickProbability(pick)! * 100).toFixed(1)}%`].filter(Boolean).join(' | '))}</span></div>`).join('') : '<div><strong>No published call today</strong><span>Recent form is hot, but the model is sitting out.</span></div>'}</div>
     <div class="daily-model-foot">${recentDecided} recent decisions${form.recentStats.priced ? ` | ${signedUnits(form.recentStats.net)}` : ''}</div>
   </article>`;
+}
+
+function weekdayRecordText(form: WeekdaySourceForm): string {
+  return `${form.stats.wins}-${form.stats.losses}${form.stats.pushes ? `-${form.stats.pushes}` : ''}`;
+}
+
+function dailyDayFormCard(form: WeekdaySourceForm, dayName: string): string {
+  const rate = form.stats.winRate == null ? null : form.stats.winRate * 100;
+  const tone = rate == null ? 'unproven' : rate >= 55 ? 'hot' : rate >= 50 ? 'steady' : 'cold';
+  const dayUpper = dayName.toUpperCase();
+  const kicker = rate == null
+    ? `NO ${dayUpper} DECISIONS YET`
+    : tone === 'hot' ? `HOT ON ${dayUpper}S` : tone === 'steady' ? `STEADY ON ${dayUpper}S` : `COLD ON ${dayUpper}S`;
+  const todays = form.todayCalls.slice(0, 3);
+  const foot = tone === 'cold' && form.todayCalls.length
+    ? `Careful: this source loses more than it wins on ${dayName}s.`
+    : `${form.decided} decided ${dayName} pick${form.decided === 1 ? '' : 's'} before this slate`;
+  return `<article class="daily-model-card daily-dayform-card is-${tone}">
+    <div class="daily-model-head"><div><div class="daily-model-kicker">${escapeHtml(kicker)}</div><div class="daily-model-name">${escapeHtml(form.source)}</div></div><div class="daily-model-rate">${rate == null ? '—' : `${rate.toFixed(0)}%`}</div></div>
+    <div class="daily-model-records"><span>${escapeHtml(dayName)}s: ${escapeHtml(weekdayRecordText(form))}</span><span>${form.stats.priced ? `${escapeHtml(dayName)} net: ${escapeHtml(signedUnits(form.stats.net))}` : 'No priced results'}</span></div>
+    <div class="daily-model-picks">${todays.length ? todays.map(pick => `<div><strong>${escapeHtml(pick.pick)}</strong><span>${escapeHtml([dailyDecision(pick), formatOdds(pick), pickProbability(pick) == null ? '' : `${(pickProbability(pick)! * 100).toFixed(1)}%`].filter(Boolean).join(' | '))}</span></div>`).join('') : `<div><strong>No published call today</strong><span>${tone === 'cold' ? 'Sitting out may be for the best on this day.' : 'This source is sitting out this slate.'}</span></div>`}</div>
+    <div class="daily-model-foot">${escapeHtml(foot)}</div>
+  </article>`;
+}
+
+function dailyDayFormBody(date: string, dayForms: WeekdaySourceForm[], formsBySource: Map<string, DailySourceForm>): string {
+  const dayName = weekdayLabel(date);
+  const qualified = dayForms.filter(form => form.decided >= 3);
+  if (!qualified.length) {
+    return `<div class="daily-empty"><div class="daily-empty-title">Not enough ${escapeHtml(dayName)} history yet</div><div class="daily-empty-sub">A source needs at least three decided picks on past ${escapeHtml(dayName)}s before it can be ranked here.</div></div>`;
+  }
+  const actionable = qualified.filter(form => form.todayCalls.length).sort(compareWeekdaySourceForms);
+  const benched = qualified.filter(form => !form.todayCalls.length);
+  const unproven = dayForms.filter(form => form.decided < 3 && form.todayCalls.length);
+  const spotlightForm = [...actionable].sort((a, b) => b.score - a.score).find(form => (form.stats.winRate || 0) >= 0.5) || null;
+  let spotlightHtml: string;
+  if (spotlightForm) {
+    const pick = [...spotlightForm.todayCalls].sort((a, b) => dailyPickScore(b, formsBySource) - dailyPickScore(a, formsBySource))[0];
+    const rate = (spotlightForm.stats.winRate || 0) * 100;
+    const meta = [dailyDecision(pick), formatOdds(pick), pickProbability(pick) == null ? '' : `${(pickProbability(pick)! * 100).toFixed(1)}%`].filter(Boolean).join(' | ');
+    spotlightHtml = `<article class="daily-dayform-spotlight">
+      <div class="daily-dayform-spotlight-kicker">BEST BET FOR ${escapeHtml(dayName.toUpperCase())}</div>
+      <div class="daily-dayform-spotlight-pick">${escapeHtml(pick.pick)}</div>
+      <div class="daily-dayform-spotlight-game">${escapeHtml(gameName(pick))} | ${escapeHtml(formatStart(pick.start_time))}</div>
+      <div class="daily-dayform-spotlight-meta"><span>${escapeHtml(spotlightForm.source)} is ${escapeHtml(weekdayRecordText(spotlightForm))} (${rate.toFixed(0)}%) on ${escapeHtml(dayName)}s</span><span>${escapeHtml(meta)}</span></div>
+    </article>`;
+  } else if (actionable.length) {
+    spotlightHtml = `<div class="daily-dayform-warning"><strong>${escapeHtml(dayName)}s have been rough.</strong> No source with a winning ${escapeHtml(dayName)} record has a published call today, so there is no ${escapeHtml(dayName)} best bet. Treat this slate with extra caution.</div>`;
+  } else {
+    spotlightHtml = `<div class="daily-dayform-warning"><strong>No ranked source has a call today.</strong> Every source with enough ${escapeHtml(dayName)} history is sitting this slate out.</div>`;
+  }
+  const unprovenHtml = unproven.length
+    ? `<div class="daily-dayform-unproven">Not enough ${escapeHtml(dayName)} history to rank: ${unproven.map(form => `${escapeHtml(form.source)} (${form.decided} decided)`).join(', ')}. Their calls still appear in Top Picks.</div>`
+    : '';
+  return `${spotlightHtml}<div class="daily-model-grid">${[...actionable, ...benched].map(form => dailyDayFormCard(form, dayName)).join('')}</div>${unprovenHtml}`;
 }
 
 function dailyConsensusCards(picks: Pick[]): string {
@@ -1936,7 +2031,7 @@ function bindProfitDeskControls(container: HTMLElement): void {
 
 function setDailyView(view: string): void {
   if (activePickMode === 'player' && view === 'consensus') view = 'picks';
-  if (view === 'picks' || view === 'consensus' || view === 'sources' || view === 'research') {
+  if (view === 'picks' || view === 'consensus' || view === 'sources' || view === 'research' || view === 'dayform') {
     dailyView = view;
     renderDaily();
   }
@@ -2030,6 +2125,9 @@ function renderDaily(): void {
   const hotForms = forms.filter(form => form.todayCalls.length)
     .sort(compareDailySourceForms)
     .slice(0, 8);
+  const dayForms = weekdaySourceForms(key, picks);
+  const dayName = weekdayLabel(key) || 'Day';
+  const dayFormCount = dayForms.filter(form => form.decided >= 3 && form.todayCalls.length).length;
   const games = new Map<string, Pick[]>();
   pending.forEach(pick => games.set(gameKey(pick), [...(games.get(gameKey(pick)) || []), pick]));
   const consensusCount = [...games.values()].reduce((total, gamePicks) => total + trendSignalGroups(gamePicks).filter(signal => signal.matching).length, 0);
@@ -2037,6 +2135,7 @@ function renderDaily(): void {
     { key: 'picks', label: 'Top Picks', count: topGroups.length, description: 'Unique actionable markets' },
     { key: 'consensus', label: 'Consensus', count: consensusCount, description: 'All matching market signals' },
     { key: 'sources', label: 'Active Sources', count: hotForms.length, description: 'Sources issuing BET/LEAN calls today' },
+    { key: 'dayform', label: 'Day Form', count: dayFormCount, description: `How sources do on ${dayName}s` },
     { key: 'research', label: 'Research', count: researchGroups.length, description: activePickMode === 'player' ? 'Next-best prop candidates' : 'High probability and pricey spots' },
   ];
   const viewOptions = viewOptionsBase.filter(option => activePickMode !== 'player' || option.key !== 'consensus');
@@ -2046,7 +2145,7 @@ function renderDaily(): void {
     { key: 'percentage', label: 'By Percentage', description: 'Highest model % first' },
   ];
   const activeSort = sortOptions.find(option => option.key === dailySort) || sortOptions[0];
-  const dailyFocus = activePickMode === 'player' ? 'top picks, sources, or research' : 'picks, consensus, sources, or research';
+  const dailyFocus = activePickMode === 'player' ? 'top picks, sources, day form, or research' : 'picks, consensus, sources, day form, or research';
   const researchSubtitle = activePickMode === 'player'
     ? 'Next-best player prop candidates and pass research, excluding anything already in Top Picks.'
     : 'High-probability non-published calls and expensive favorites, excluding anything already in Top Picks.';
@@ -2056,7 +2155,9 @@ function renderDaily(): void {
       ? dailySection('Consensus Signals', 'Same market selection from at least two independent sources.', dailyConsensusCards(pending), `${consensusCount} matching signals`)
       : dailyView === 'sources'
         ? dailySection('Hot Sources', 'Recent three-slate form plus each source’s unique BET/LEAN calls today.', hotForms.length ? `<div class="daily-model-grid">${hotForms.map(dailyHotModelCard).join('')}</div>` : '<div class="daily-empty"><div class="daily-empty-title">No hot source has a published call today</div><div class="daily-empty-sub">This view appears when a source has enough recent decisions and a current greenlight.</div></div>', `${hotForms.length} active sources`)
-        : dailySection('Research Queue', researchSubtitle, dailyPickGrid(researchGroups), `${researchGroups.length} unique markets`);
+        : dailyView === 'dayform'
+          ? dailySection(`For ${dayName}s`, `Every source publishing today, ranked by its record on past ${dayName}s only. Some days of the week are simply weaker — this shows who has actually delivered on this one.`, dailyDayFormBody(key, dayForms, formsBySource), `${dayFormCount} ranked source${dayFormCount === 1 ? '' : 's'} with calls today`)
+          : dailySection('Research Queue', researchSubtitle, dailyPickGrid(researchGroups), `${researchGroups.length} unique markets`);
 
   container.innerHTML = `<div class="daily-hero"><div class="daily-hero-row"><div><div class="daily-eyebrow">TODAY'S QUICK READ</div><div class="daily-title">The Shortlist</div><div class="daily-sub">${escapeHtml(dateLabel(key, true))} | Each unique market appears once. Choose a view to focus on ${dailyFocus}.</div></div><div class="daily-clock-wrap"><div class="daily-clock-label">PICKS FOR</div><div class="daily-clock">${escapeHtml(key)}</div></div></div></div>
     <div class="daily-view-shell">

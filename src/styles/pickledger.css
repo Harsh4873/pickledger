@@ -2379,6 +2379,77 @@
     letter-spacing: 0.5px;
     color: var(--muted);
   }
+  .daily-dayform-card.is-cold { border-color: rgba(255,69,96,0.32); }
+  .daily-dayform-card.is-cold .daily-model-rate { color: var(--loss); }
+  .daily-dayform-card.is-steady .daily-model-rate { color: var(--push); }
+  .daily-dayform-card.is-unproven .daily-model-rate { color: var(--muted); }
+  .daily-dayform-spotlight {
+    position: relative;
+    overflow: hidden;
+    margin: 0 0 18px;
+    padding: 23px;
+    border: 1px solid rgba(0,229,160,0.35);
+    border-radius: 18px;
+    background:
+      radial-gradient(600px 200px at 0% 0%, rgba(0,229,160,0.14), transparent 70%),
+      var(--card);
+  }
+  .daily-dayform-spotlight-kicker {
+    font-family: 'DM Mono', monospace;
+    font-size: 9px;
+    letter-spacing: 1px;
+    color: var(--accent);
+  }
+  .daily-dayform-spotlight-pick {
+    margin-top: 7px;
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 34px;
+    letter-spacing: 0.8px;
+    line-height: 1.05;
+    color: var(--text);
+  }
+  .daily-dayform-spotlight-game {
+    margin-top: 6px;
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    color: var(--muted);
+  }
+  .daily-dayform-spotlight-meta {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-top: 12px;
+  }
+  .daily-dayform-spotlight-meta span {
+    padding: 5px 8px;
+    border-radius: 8px;
+    background: rgba(255,255,255,0.04);
+    color: var(--muted);
+    font-family: 'DM Mono', monospace;
+    font-size: 9px;
+  }
+  .daily-dayform-warning {
+    margin: 0 0 18px;
+    padding: 15px 17px;
+    border: 1px solid rgba(255,69,96,0.35);
+    border-radius: 14px;
+    background: rgba(255,69,96,0.07);
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    line-height: 1.6;
+    color: var(--muted);
+  }
+  .daily-dayform-warning strong { color: var(--danger); }
+  .daily-dayform-unproven {
+    margin-top: 14px;
+    font-family: 'DM Mono', monospace;
+    font-size: 9px;
+    letter-spacing: 0.5px;
+    line-height: 1.6;
+    color: var(--muted);
+  }
   .daily-consensus-card {
     padding: 23px;
     border-color: rgba(0,229,160,0.3);
@@ -2721,10 +2792,14 @@
   body[data-theme="light"] .parlay-card,
   body[data-theme="light"] .daily-bet-card,
   body[data-theme="light"] .daily-model-card,
-  body[data-theme="light"] .daily-consensus-card {
+  body[data-theme="light"] .daily-consensus-card,
+  body[data-theme="light"] .daily-dayform-spotlight {
     background: #ffffff;
     border-color: var(--border);
   }
+  body[data-theme="light"] .daily-dayform-spotlight-meta span { background: #f7f9fc; }
+  body[data-theme="light"] .daily-dayform-warning { background: rgba(217,59,89,0.06); }
+  body[data-theme="light"] .daily-dayform-card.is-cold { border-color: rgba(217,59,89,0.35); }
   body[data-theme="light"] .daily-slate-pick { background: #f7f9fc; }
   body[data-theme="light"] .parlay-leg,
   body[data-theme="light"] .parlay-metrics div { background: #f7f9fc; }
