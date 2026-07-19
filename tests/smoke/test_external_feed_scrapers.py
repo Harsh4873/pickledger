@@ -976,8 +976,9 @@ def test_external_feed_schedule_requests_nba_summer_wnba_and_fifa_world_cup():
     workflow = (ROOT / ".github" / "workflows" / "external-feed-refresh.yml").read_text(encoding="utf-8")
     refresh = (ROOT / "scripts" / "refresh_external_feeds.py").read_text(encoding="utf-8")
     server = (ROOT / "pickgrader_server.py").read_text(encoding="utf-8")
-    assert '--sports "nba,nba_summer,mlb,wnba,fifa_world_cup"' in workflow
-    assert 'default="nba,nba_summer,mlb,wnba,fifa_world_cup"' in refresh
+    # nba_summer + fifa_world_cup archived 2026-07-19 (seasons ended).
+    assert '--sports "nba,mlb,wnba"' in workflow
+    assert 'default="nba,mlb,wnba"' in refresh
     assert '"nba_summer": "nba_summer"' in server
     assert '"wnba": "wnba"' in server
     assert '"fifa_world_cup": "fifa_world_cup"' in server
@@ -1710,8 +1711,11 @@ def test_local_scores24_publisher_registers_separate_models():
         "scores24_mlb",
         "scores24_fifa_world_cup",
     ):
-        assert model_key in refresh
+        assert model_key in refresh  # runner registry keeps archived keys for manual runs
+    for model_key in ("scores24_wnba", "scores24_mlb"):
         assert model_key in publisher
+    for model_key in ("scores24_nba_summer", "scores24_fifa_world_cup"):
+        assert model_key not in publisher  # archived from the daily local publish
     for model_key in (
         "sportytrader_mlb",
         "sportytrader_nba_summer",
@@ -1729,10 +1733,7 @@ def test_local_scores24_publisher_registers_separate_models():
     assert 'GH_BIN="$(command -v gh || true)"' in publisher
     assert "SCORES24_BROWSER_FALLBACK=true" in publisher
     assert "SCORES24_CAMOUFOX_FALLBACK=true" in publisher
-    assert (
-        'PUBLISH_FEEDS="${SCORES24_PUBLISH_FEEDS:-scores24_mlb,scores24_nba_summer,'
-        'scores24_wnba,scores24_fifa_world_cup}"'
-    ) in publisher
+    assert 'PUBLISH_FEEDS="${SCORES24_PUBLISH_FEEDS:-scores24_mlb,scores24_wnba}"' in publisher
     assert 'SCORES24_REQUEST_INTERVAL_SECONDS="${REQUEST_INTERVAL}"' in publisher
     assert 'SCORES24_REQUEST_ATTEMPTS="${REQUEST_ATTEMPTS}"' in publisher
     assert 'SCORES24_ATTEMPT_RETRY_DELAY_SECONDS="${ATTEMPT_RETRY_DELAY}"' in publisher

@@ -29,8 +29,6 @@ REQUIRED_MODEL_KEYS = {
     "wnba",
     "nba",
     "nba_playoffs",
-    "nba_summer",
-    "fifa_world_cup",
 }
 REQUIRED_PLAYER_PROP_KEYS = {
     "nba_player_props",
@@ -48,9 +46,7 @@ REQUIRED_ML_PLAYER_PROP_FIELDS = (
     "baseline_projection",
 )
 REQUIRED_SCORES24_FEED_KEYS = {
-    "scores24_fifa_world_cup",
     "scores24_mlb",
-    "scores24_nba_summer",
     "scores24_wnba",
 }
 TEAM_VISIBLE_DECISIONS = {"BET", "LEAN"}

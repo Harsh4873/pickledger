@@ -34,7 +34,7 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument("--date", default="", help="Target date in YYYY-MM-DD or MM/DD/YYYY format.")
     parser.add_argument(
         "--models",
-        default="mlb_new,mlb_inning,mlb_first_five,mlb_team_total,wnba,nba,nba_playoffs,nba_summer,fifa_world_cup",
+        default="mlb_new,mlb_inning,mlb_first_five,mlb_team_total,wnba,nba,nba_playoffs",
         help="Comma-separated model keys to refresh, or 'all'.",
     )
     parser.add_argument("--max-workers", type=int, default=3, help="Maximum parallel model jobs.")

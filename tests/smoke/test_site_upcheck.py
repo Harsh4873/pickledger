@@ -21,8 +21,6 @@ MODEL_KEYS = {
     "wnba",
     "nba",
     "nba_playoffs",
-    "nba_summer",
-    "fifa_world_cup",
 }
 PLAYER_PROP_KEYS = {
     "nba_player_props",
@@ -30,9 +28,7 @@ PLAYER_PROP_KEYS = {
     "wnba_player_props",
 }
 SCORES24_KEYS = {
-    "scores24_fifa_world_cup",
     "scores24_mlb",
-    "scores24_nba_summer",
     "scores24_wnba",
 }
 
@@ -356,7 +352,7 @@ def test_data_only_readiness_rejects_incomplete_scores24_bucket(tmp_path: Path):
     script = _upcheck_repo(tmp_path, today)
     cache_path = tmp_path / "data" / "model_cache" / "latest.json"
     payload = json.loads(cache_path.read_text(encoding="utf-8"))
-    payload["external_feeds"]["scores24_fifa_world_cup"] = {
+    payload["external_feeds"]["scores24_wnba"] = {
         "ok": False,
         "date": today,
         "picks": [{"matchup": "Qatar @ Canada"}],
@@ -378,7 +374,7 @@ def test_data_only_readiness_rejects_incomplete_scores24_bucket(tmp_path: Path):
     )
 
     assert result.returncode == 1
-    assert "scores24_fifa_world_cup failed" in result.stdout
+    assert "scores24_wnba failed" in result.stdout
 
 
 def test_data_only_readiness_allows_stale_but_valid_scores24_feed(tmp_path: Path):

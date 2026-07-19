@@ -21,8 +21,8 @@ if [[ -z "${GH_BIN}" ]]; then
 fi
 
 DATE_ISO="${SCORES24_DATE:-$(date +%F)}"
-PUBLISH_FEEDS="${SCORES24_PUBLISH_FEEDS:-scores24_mlb,scores24_nba_summer,scores24_wnba,scores24_fifa_world_cup}"
-PUBLISH_SPORTS="${SCORES24_PUBLISH_SPORTS:-mlb,nba_summer,wnba,fifa_world_cup}"
+PUBLISH_FEEDS="${SCORES24_PUBLISH_FEEDS:-scores24_mlb,scores24_wnba}"
+PUBLISH_SPORTS="${SCORES24_PUBLISH_SPORTS:-mlb,wnba}"
 REQUEST_INTERVAL="${SCORES24_REQUEST_INTERVAL_SECONDS:-12}"
 REQUEST_ATTEMPTS="${SCORES24_REQUEST_ATTEMPTS:-1}"
 ATTEMPT_RETRY_DELAY="${SCORES24_ATTEMPT_RETRY_DELAY_SECONDS:-0}"
@@ -148,7 +148,7 @@ required = tuple(
     feed.strip()
     for feed in os.environ.get(
         "PUBLISH_FEEDS",
-        "scores24_mlb,scores24_nba_summer,scores24_wnba,scores24_fifa_world_cup",
+        "scores24_mlb,scores24_wnba",
     ).split(",")
     if feed.strip()
 )

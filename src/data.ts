@@ -373,7 +373,9 @@ export interface ProfitDeskPayload {
 
 const RESULT_STORAGE_KEY = 'pickledger_static_results_v2';
 const GAME_TIME_STORAGE_KEY = 'pickledger_static_game_times_v2';
-const ARCHIVED_SPORTS = new Set(['NBA']);
+// NBA Summer League and the FIFA World Cup archived 2026-07-19: both
+// seasons ended (summer league finale + World Cup final same day).
+const ARCHIVED_SPORTS = new Set(['NBA', 'NBA SUMMER', 'FIFA WC']);
 const PLAYER_PROPS_ML_SOURCE = 'player_props_ml_v1';
 // First snapshot produced by the ML slate-engine launch in commit b6f9dbe.
 const PLAYER_PROPS_ML_FIRST_SNAPSHOT_AT = Date.parse('2026-06-16T19:04:34.909830Z');

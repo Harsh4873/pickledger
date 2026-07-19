@@ -70,7 +70,7 @@ def _parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--sports",
-        default="nba,nba_summer,mlb,wnba,fifa_world_cup",
+        default="nba,mlb,wnba",
         help="Comma-separated sports passed to each feed scraper.",
     )
     parser.add_argument("--skip-firestore", action="store_true", help="Write JSON only; useful for local checks.")

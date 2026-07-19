@@ -143,7 +143,7 @@ const LEGACY_RECORD_SOURCES = new Set(['MLB ML', 'MLB Total', 'MLB Model']);
 // WNBA ML; the rebuilt spread/total variants (and any stray legacy label)
 // restart from the redesign date.
 const WNBA_RESET_SOURCES = new Set(['WNBA Model', 'WNBA Spread', 'WNBA Total']);
-const PRIMARY_FILTERS = ['ALL', 'MLB', 'WNBA', 'NBA SUMMER', 'FIFA WC'];
+const PRIMARY_FILTERS = ['ALL', 'MLB', 'WNBA'];
 let lastCentralDate = '';
 
 function escapeHtml(value: unknown): string {
