@@ -424,6 +424,10 @@ const MARKET_SOURCE_LABELS: Record<string, Record<string, string>> = {
   // Early-June wnba rows predate market_type stamping and were all
   // moneylines, so the empty-market fallback belongs to WNBA ML.
   wnba: { h2h: 'WNBA ML', moneyline: 'WNBA ML', '': 'WNBA ML', spread: 'WNBA Spread', totals: 'WNBA Total', total: 'WNBA Total' },
+  // Summer league only ever bet moneylines; relabeled for naming
+  // consistency with the other per-market sources. No spread/total
+  // variants were built — the league's season ends 2026-07-19.
+  nba_summer: { h2h: 'NBA Summer ML', moneyline: 'NBA Summer ML', '': 'NBA Summer ML' },
 };
 
 function teamSourceLabel(modelKey: string, raw: Record<string, unknown>): string {
