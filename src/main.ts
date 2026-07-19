@@ -136,7 +136,9 @@ const MLB_TEAM_CONSENSUS_SOURCES = new Set([
 // moneyline/total split (formerly "MLB Model") keeps its full
 // consensus-era history — that record is the one worth preserving.
 const TEAM_RANKING_START_DATE = '2026-07-19';
-const LEGACY_RECORD_SOURCES = new Set(['MLB ML', 'MLB Total']);
+// "MLB Model" stays listed as a safety net: any mlb_new row whose market
+// tag fails the ML/Total split must never drop out of the record.
+const LEGACY_RECORD_SOURCES = new Set(['MLB ML', 'MLB Total', 'MLB Model']);
 const PRIMARY_FILTERS = ['ALL', 'MLB', 'WNBA', 'NBA SUMMER', 'FIFA WC'];
 let lastCentralDate = '';
 

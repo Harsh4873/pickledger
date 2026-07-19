@@ -647,8 +647,13 @@ function picksFromCache(payload: ModelCachePayload): Pick[] {
     }
     for (const raw of Array.isArray(bucket.picks) ? bucket.picks : []) {
       if (!raw || typeof raw !== 'object') continue;
-      const source = teamSourceLabel(modelKey, raw as Record<string, unknown>);
-      const pick = normalizePick(raw, date, source, gameByMatchup);
+      const rawRecord = raw as Record<string, unknown>;
+      const source = teamSourceLabel(modelKey, rawRecord);
+      // Committed rows carry their own legacy source label ("MLB Model"),
+      // which normalizePick would prefer — override it so the per-market
+      // split actually lands.
+      const input = MLB_MARKET_SOURCE_LABELS[modelKey] ? { ...rawRecord, source } : rawRecord;
+      const pick = normalizePick(input, date, source, gameByMatchup);
       if (pick && isTrackedPick(pick)) picks.push(pick);
     }
   }
