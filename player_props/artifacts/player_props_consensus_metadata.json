@@ -24,14 +24,14 @@
       "totalRebounds": 3
     }
   },
-  "market_rows": 134696,
+  "market_rows": 138350,
   "models": {
     "mlb_history": "2022-26 five-year roster-aware outcome-history classifiers",
     "mlb_season": "2026 market classifier",
     "wnba_history": "2024-26 workload-aware market/count models",
     "wnba_season": "2026 market/count models"
   },
-  "outcome_rows": 424184,
+  "outcome_rows": 425652,
   "roster_aware": true,
   "roster_policy": "Current player IDs only; season features reset annually; recent 3/5/10-game workload dominates older priors.",
   "seasons": {
@@ -99,9 +99,9 @@
           "minimum_validation_samples": 8,
           "require_classifier_agreement": true,
           "validation": {
-            "accuracy": 0.6842105263157895,
-            "losses": 12,
-            "samples": 38,
+            "accuracy": 0.6666666666666666,
+            "losses": 13,
+            "samples": 39,
             "wins": 26
           }
         },
@@ -162,19 +162,19 @@
     "WNBA": {
       "active": true,
       "combined_out_of_sample": {
-        "accuracy": 0.8421052631578947,
-        "losses": 6,
-        "samples": 38,
-        "wins": 32
+        "accuracy": 0.7272727272727273,
+        "losses": 3,
+        "samples": 11,
+        "wins": 8
       },
       "failed_policies": {
-        "three_pointers_made": {
+        "assists": {
           "active": false,
           "holdout": {
-            "accuracy": 0.38461538461538464,
-            "losses": 16,
-            "samples": 26,
-            "wins": 10
+            "accuracy": 0.6,
+            "losses": 2,
+            "samples": 5,
+            "wins": 3
           },
           "meta_gate_threshold": 0.6,
           "minimum_holdout_samples": 3,
@@ -182,10 +182,30 @@
           "minimum_validation_samples": 5,
           "selection": "Over",
           "validation": {
-            "accuracy": 0.8043478260869565,
-            "losses": 9,
+            "accuracy": 0.9523809523809523,
+            "losses": 1,
+            "samples": 21,
+            "wins": 20
+          }
+        },
+        "three_pointers_made": {
+          "active": false,
+          "holdout": {
+            "accuracy": 0.4230769230769231,
+            "losses": 15,
+            "samples": 26,
+            "wins": 11
+          },
+          "meta_gate_threshold": 0.6,
+          "minimum_holdout_samples": 3,
+          "minimum_implied": 0.0,
+          "minimum_validation_samples": 5,
+          "selection": "Over",
+          "validation": {
+            "accuracy": 0.8478260869565217,
+            "losses": 7,
             "samples": 46,
-            "wins": 37
+            "wins": 39
           }
         },
         "totalRebounds": {
@@ -206,9 +226,9 @@
           "minimum_validation_samples": 5,
           "selection": "Over",
           "validation": {
-            "accuracy": 0.6,
-            "losses": 2,
-            "samples": 5,
+            "accuracy": 0.5,
+            "losses": 3,
+            "samples": 6,
             "wins": 3
           }
         }
@@ -218,26 +238,6 @@
         "history_2024_2026"
       ],
       "policies": {
-        "assists": {
-          "active": true,
-          "holdout": {
-            "accuracy": 0.8,
-            "losses": 1,
-            "samples": 5,
-            "wins": 4
-          },
-          "meta_gate_threshold": 0.6,
-          "minimum_holdout_samples": 3,
-          "minimum_implied": 0.0,
-          "minimum_validation_samples": 5,
-          "selection": "Over",
-          "validation": {
-            "accuracy": 0.9090909090909091,
-            "losses": 2,
-            "samples": 22,
-            "wins": 20
-          }
-        },
         "points": {
           "active": true,
           "holdout": {
@@ -266,6 +266,6 @@
     }
   },
   "target_accuracy": 0.7,
-  "training_fingerprint": "4ae4e7303000d5b693a6a0fcd905c3c4ce76b5ea7eee1b3a389b53fdf1253051",
+  "training_fingerprint": "f4b8e85d781a035a7c9cb0f461150b4ce56216373c8901a28155dac0616dfe2e",
   "version": "player_props_consensus_v2.0.0"
 }
