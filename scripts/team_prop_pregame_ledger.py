@@ -377,9 +377,13 @@ def _price_fields(pick: Mapping[str, Any]) -> dict[str, Any]:
 
 
 def _price_marker_text(price: Mapping[str, Any]) -> str:
+    # Only odds-provenance fields decide executability. line_source /
+    # market_total_source describe how the LINE was selected (e.g. an
+    # assumed total ladder); when the odds at that line are observed
+    # sportsbook prices the bet is still executable at those prices.
     return " ".join(
         _norm(price.get(field))
-        for field in ("pricing_type", "price_source", "odds_source", "line_source", "market_total_source")
+        for field in ("pricing_type", "price_source", "odds_source")
         if price.get(field) not in (None, "")
     )
 

@@ -137,3 +137,19 @@ def test_universal_calibration_ledger_uses_only_certified_real_price_team_rows(t
     assert record["stake_units"] == 1.0
     assert record["profit"] == 100 / 110
     assert record["calibration_eligible"] is True
+
+
+def test_assumed_line_source_with_observed_market_odds_stays_financial(tmp_path):
+    # The line may come from an assumed ladder (e.g. F5 total 4.5) while the
+    # odds at that line are observed sportsbook prices; line-selection
+    # provenance must not disqualify an executable observed price.
+    payload = _payload()
+    pick = payload["models"]["mlb_new"]["picks"][0]
+    pick["odds_source"] = "posted_market"
+    pick["line_source"] = "user_assumed_f5_total_ladder"
+    stamp_team_prop_pregame_timing(payload)
+    capture_team_prop_pregame_snapshots(payload, repo_root=tmp_path)
+
+    record = load_team_prop_pregame_ledger(tmp_path)["records"][0]
+    assert record["financial_eligible"] is True
+    assert record["calibration_eligible"] is True

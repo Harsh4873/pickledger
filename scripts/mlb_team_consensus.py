@@ -21,7 +21,7 @@ from scripts.pick_calibration import american_implied_probability, normalize_pro
 REPO_ROOT = Path(__file__).resolve().parents[1]
 OUTCOME_LEDGER_PATH = REPO_ROOT / "data" / "calibration" / "outcome_ledger.json"
 MLB_TEAM_MODEL_KEYS = {"mlb_new", "mlb_first_five", "mlb_inning", "mlb_team_total"}
-MLB_TEAM_CONSENSUS_VERSION = "mlb_team_consensus_v1.1.0"
+MLB_TEAM_CONSENSUS_VERSION = "mlb_team_consensus_v1.2.0"
 MLB_TEAM_RANKING_EPOCH_PREFIX = f"MLB:{MLB_TEAM_CONSENSUS_VERSION}"
 MIN_WALK_FORWARD_SAMPLES = 30
 VALIDATION_LEAN_MODELS = {"mlb_new", "mlb_inning"}
@@ -633,7 +633,13 @@ def evaluate_mlb_team_pick(
     calibration = pick.get("calibration") if isinstance(pick.get("calibration"), dict) else {}
     if calibration and int(calibration.get("samples") or 0) < 30:
         hard_blockers.append("insufficient_calibration_samples")
-    if not family_performance.get("qualified"):
+    walk_forward_samples = int(family_performance.get("samples") or 0)
+    walk_forward_bootstrap = walk_forward_samples < MIN_WALK_FORWARD_SAMPLES
+    # A family with a full decided sample that still fails validation is
+    # blocked outright. A family that simply has too little decided history
+    # cannot "fail" a test it was never given — it publishes capped at LEAN
+    # (bootstrap) so the ledger can accumulate the samples validation needs.
+    if not family_performance.get("qualified") and not walk_forward_bootstrap:
         hard_blockers.append("failed_walk_forward_validation")
     if model_key == "mlb_new" and bucket.get("warnings"):
         hard_blockers.append("model_artifact_warning")
@@ -656,6 +662,9 @@ def evaluate_mlb_team_pick(
             and probability >= thresholds["lean_prob"]
             and signal_count >= thresholds["lean_signals"]
         ):
+            decision = "LEAN"
+            actionability = "lean"
+        if decision == "BET" and walk_forward_bootstrap:
             decision = "LEAN"
             actionability = "lean"
 
@@ -688,10 +697,11 @@ def evaluate_mlb_team_pick(
         "calibrated_model_probability": probability,
         "calibrated_edge": edge,
         "walk_forward": family_performance,
+        "walk_forward_bootstrap": walk_forward_bootstrap,
     }
 
 
-def _stake_units(pick: dict[str, Any], decision: str) -> float:
+def _stake_units(pick: dict[str, Any], decision: str, *, bootstrap: bool = False) -> float:
     if decision == "PASS":
         return 0.0
     raw_units = _number(pick.get("raw_units"))
@@ -700,8 +710,12 @@ def _stake_units(pick: dict[str, Any], decision: str) -> float:
     if raw_units is None:
         raw_units = _number(pick.get("units"))
     if raw_units is None or raw_units <= 0:
-        return 0.25 if decision == "LEAN" else 0.5
-    return round(min(1.5, raw_units if decision == "BET" else raw_units * 0.6), 2)
+        units = 0.25 if decision == "LEAN" else 0.5
+    else:
+        units = round(min(1.5, raw_units if decision == "BET" else raw_units * 0.6), 2)
+    # Bootstrap publications exist to accumulate decided history, not to
+    # size up an unvalidated family — same exposure cap as validation leans.
+    return min(units, 0.25) if bootstrap else units
 
 
 def _kelly_stake_fields(pick: dict[str, Any], result: dict[str, Any], decision: str) -> dict[str, Any]:
@@ -886,7 +900,12 @@ def apply_mlb_team_consensus_to_payload(
                 "consensus_passed": result["consensus_passed"],
                 "consensus_qualified": result["consensus_passed"],
                 "primary_consensus_passed": result["consensus_passed"],
-                "consensus_publication_mode": "strict" if result["consensus_passed"] else "research",
+                "consensus_publication_mode": (
+                    ("bootstrap" if result["walk_forward_bootstrap"] else "strict")
+                    if result["consensus_passed"]
+                    else "research"
+                ),
+                "walk_forward_bootstrap": result["walk_forward_bootstrap"],
                 "consensus_score": result["consensus_score"],
                 "consensus_rejection_reason": result["consensus_rejection_reason"],
                 "consensus_signal_count": result["signal_count"],
@@ -902,7 +921,7 @@ def apply_mlb_team_consensus_to_payload(
                 "walk_forward_roi": (result["walk_forward"] or {}).get("roi"),
                 "actionability": result["actionability"],
                 "decision": decision,
-                "units": _stake_units(pick, decision),
+                "units": _stake_units(pick, decision, bootstrap=result["walk_forward_bootstrap"]),
                 **_kelly_stake_fields(pick, result, decision),
                 "ml_rank_epoch": f"{MLB_TEAM_RANKING_EPOCH_PREFIX}:{model_key}",
                 "ranking_epoch": f"{MLB_TEAM_RANKING_EPOCH_PREFIX}:{model_key}",

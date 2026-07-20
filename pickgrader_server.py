@@ -5045,6 +5045,54 @@ def run_fifa_world_cup_model(date_str: str | None = None) -> dict[str, Any]:
         return {"ok": False, "error": str(exc)}
 
 
+def _stamp_mlb_game_start_times(picks: list[dict[str, Any]], date_str: str | None) -> None:
+    """Stamp statsapi gameDate onto parsed MLB picks.
+
+    Parsed stdout picks carry no start time, so their pregame snapshots can
+    never certify (missing_or_invalid_game_start_time) and never reach the
+    walk-forward ledger.
+    """
+    if not picks:
+        return
+    date_iso = str(date_str or datetime.now().strftime("%Y-%m-%d"))
+    try:
+        schedule = fetch_mlb_schedule(date_iso)
+    except Exception:
+        schedule = None
+    if not isinstance(schedule, dict):
+        return
+    start_by_teams: dict[frozenset[str], str] = {}
+    for date_block in schedule.get("dates", []) if isinstance(schedule.get("dates"), list) else []:
+        games = date_block.get("games", []) if isinstance(date_block, dict) else []
+        for game in games if isinstance(games, list) else []:
+            teams = game.get("teams", {}) if isinstance(game, dict) else {}
+            names: set[str] = set()
+            for side in ("away", "home"):
+                side_record = teams.get(side, {}) if isinstance(teams, dict) else {}
+                team = side_record.get("team", {}) if isinstance(side_record, dict) else {}
+                name = str(team.get("name") or "") if isinstance(team, dict) else ""
+                if name:
+                    names.add(normalize(_norm_mlb(name)))
+            game_date = str(game.get("gameDate") or "").strip()
+            if len(names) == 2 and game_date:
+                key = frozenset(names)
+                # Doubleheaders: keep the earliest start so certification's
+                # published_at-before-start check stays conservative.
+                if key not in start_by_teams or game_date < start_by_teams[key]:
+                    start_by_teams[key] = game_date
+    for pick in picks:
+        if not isinstance(pick, dict) or pick.get("game_start_time"):
+            continue
+        matchup = pick_matchup_from_fields(pick)
+        if not matchup:
+            continue
+        key = frozenset(normalize(_norm_mlb(team)) for team in matchup)
+        start = start_by_teams.get(key)
+        if start:
+            pick["game_start_time"] = start
+            pick.setdefault("start_time", start)
+
+
 def run_mlb_model(date_str: str | None = None, variant: str = "old") -> dict[str, Any]:
     """Execute an MLB model variant and return parsed picks."""
     python_bin = _resolve_python_bin(os.path.join(MLB_MODEL_DIR, "venv", "bin", "python"))
@@ -5071,6 +5119,7 @@ def run_mlb_model(date_str: str | None = None, variant: str = "old") -> dict[str
             return {"ok": False, "error": f"{source_label} runtime failed ({tail})"}
 
         picks = _parse_mlb_output(output, source_label=source_label)
+        _stamp_mlb_game_start_times(picks, date_str)
         if not picks:
             if "No MLB games found for" in output:
                 result = {

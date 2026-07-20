@@ -496,3 +496,61 @@ def test_payload_gate_only_touches_three_mlb_team_models():
     assert gated["models"]["mlb_new"]["picks"][0]["consensus_required"] is True
     assert "consensus_required" not in gated["models"]["wnba"]["picks"][0]
     assert gated["models"]["wnba"]["picks"][0] == wnba_pick
+
+
+def test_zero_history_family_publishes_bootstrap_lean_capped():
+    # A family with no decided walk-forward history cannot "fail" validation;
+    # it publishes through the strict thresholds capped at LEAN so the ledger
+    # can accumulate the decided samples validation needs.
+    pick = _mlb_new_pick()
+    result = evaluate_mlb_team_pick(
+        pick,
+        "mlb_new",
+        {"artifact_status": {"ready": True}, "model_stack": "v2"},
+        performance={},
+    )
+
+    assert "failed_walk_forward_validation" not in result["hard_blockers"]
+    assert result["decision"] == "LEAN"
+    assert result["consensus_passed"] is True
+    assert result["walk_forward_bootstrap"] is True
+
+
+def test_bootstrap_does_not_bypass_edge_and_probability_thresholds():
+    pick = _mlb_new_pick(
+        probability=0.515,
+        calibrated_probability=0.515,
+        edge=0.8,
+    )
+    result = evaluate_mlb_team_pick(
+        pick,
+        "mlb_new",
+        {"artifact_status": {"ready": True}, "model_stack": "v2"},
+        performance={},
+    )
+
+    assert result["decision"] == "PASS"
+    assert result["consensus_passed"] is False
+
+
+def test_bootstrap_publication_mode_is_labeled_in_payload():
+    pick = _mlb_new_pick()
+    payload = {
+        "date": "2026-07-20",
+        "models": {
+            "mlb_new": {
+                "ok": True,
+                "artifact_status": {"ready": True},
+                "model_stack": "v2",
+                "picks": [pick],
+            },
+        },
+    }
+
+    gated = apply_mlb_team_consensus_to_payload(payload, performance={})
+    published = gated["models"]["mlb_new"]["picks"][0]
+
+    assert published["decision"] == "LEAN"
+    assert published["consensus_publication_mode"] == "bootstrap"
+    assert published["walk_forward_bootstrap"] is True
+    assert published["units"] == 0.25
