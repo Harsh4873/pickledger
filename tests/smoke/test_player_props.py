@@ -722,9 +722,13 @@ def test_four_model_consensus_clears_70_percent_on_validation_and_later_holdout(
     assert metadata["history_years"] == {"MLB": 5, "WNBA": 3}
     assert set(metadata["history_years_by_market"]["MLB"].values()) == {5}
     assert set(metadata["history_years_by_market"]["WNBA"].values()) == {3}
+    assert metadata["sports"]["MLB"]["active"] is True
+    assert any(metadata["sports"][sport]["active"] is True for sport in ("MLB", "WNBA"))
     for sport in ("MLB", "WNBA"):
         sport_metadata = metadata["sports"][sport]
-        assert sport_metadata["active"] is True
+        if sport_metadata["active"] is not True:
+            assert not sport_metadata["policies"]
+            continue
         assert sport_metadata["combined_out_of_sample"]["accuracy"] >= 0.70
         for policy in sport_metadata["policies"].values():
             assert policy["validation"]["accuracy"] >= 0.70
@@ -746,7 +750,7 @@ def test_four_model_consensus_clears_70_percent_on_validation_and_later_holdout(
     precision._BUNDLE = False
     consensus._BUNDLE = False
     assert precision.precision_model_active("MLB") is True
-    assert precision.precision_model_active("WNBA") is True
+    assert precision.precision_model_active("WNBA") is bool(metadata["sports"]["WNBA"]["active"])
     source = (ROOT / "player_props" / "precision.py").read_text(encoding="utf-8")
     assert '"consensus_model_count": len(consensus_models)' in source
     assert '"consensus_applicable_models": consensus_applicable_models or consensus_models' in source

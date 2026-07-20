@@ -47,8 +47,8 @@ OUTCOME_FEATURES = [
 OUTCOME_MARKET_FEATURES = OUTCOME_FEATURES + ["line", "over_implied", "under_implied"]
 
 TARGET_STATS = {
-    "MLB": {"hits_runs_rbis", "hits", "strikeouts", "pitcher_walks_allowed"},
-    "WNBA": {"points", "totalRebounds", "assists", "three_pointers_made"},
+    "MLB": {"hits_runs_rbis", "hits", "strikeouts", "pitcher_walks_allowed", "batter_walks", "rbis"},
+    "WNBA": {"points", "totalRebounds", "assists", "three_pointers_made", "points_rebounds", "points_assists"},
 }
 
 _BUNDLE: dict[str, Any] | None | bool = False
@@ -381,7 +381,14 @@ def evaluate_consensus_pick(pick: dict[str, Any]) -> dict[str, Any]:
     if history_probability is not None:
         checks["history_probability"] = history_probability >= safe_float(policy.get("minimum_history_probability"), 0.0)
     if policy.get("require_classifier_agreement"):
-        checks["model_agreement"] = (safe_float(season_over_probability) >= 0.5) == (safe_float(history_over_probability) >= 0.5)
+        season_says_over = safe_float(season_over_probability) >= 0.5
+        history_says_over = safe_float(history_over_probability) >= 0.5
+        if fixed_selection == "Over":
+            checks["model_agreement"] = season_says_over and history_says_over
+        elif fixed_selection == "Under":
+            checks["model_agreement"] = (not season_says_over) and (not history_says_over)
+        else:
+            checks["model_agreement"] = season_says_over == history_says_over
     checks["season_rate"] = season_rate >= safe_float(policy.get("minimum_season_rate"), 0.0)
     checks["history_rate"] = history_rate >= safe_float(policy.get("minimum_history_rate"), 0.0)
     if season_margin is not None:
