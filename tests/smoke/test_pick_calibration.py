@@ -483,3 +483,23 @@ def test_champion_challenger_gate_requires_quality_and_roi_safety():
 
     assert should_promote(champion, good)[0] is True
     assert should_promote(champion, bad_roi)[0] is False
+
+
+def test_downgrade_exempt_model_keeps_model_decision_and_units():
+    # mlb_inning settles at an assumed price only; calibration adjusts the
+    # displayed probability but must not veto the model's own decision.
+    active = {
+        "version": "test-v3",
+        "minimum_group_samples": 30,
+        "global": {"intercept": -3.0, "slope": 1.0, "samples": 100},
+        "groups": {},
+    }
+    payload = {"models": {"mlb_inning": {"picks": [_pick(market="no_run_inning", decision="LEAN", units=0.25)]}}}
+
+    apply_calibration_to_payload(payload, active)
+    adjusted = payload["models"]["mlb_inning"]["picks"][0]
+
+    assert adjusted["decision"] == "LEAN"
+    assert adjusted["units"] == 0.25
+    assert adjusted["probability"] < 0.7
+    assert adjusted["calibration"]["applied"] is True

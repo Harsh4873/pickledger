@@ -273,47 +273,25 @@ def test_validation_lean_never_promotes_negative_calibrated_edge():
     assert published.get("validation_lean") is not True
 
 
-def test_dry_inning_bucket_publishes_validation_lean_for_raw_inning_edge():
-    # Calibrated 0.575 vs -120 implied 0.5455 is +3pp: positive for the
-    # fallback but below the 5pp strict inning LEAN gate.
-    pick = _inning_pick(
-        probability=0.575,
-        calibrated_probability=0.575,
-        raw_probability=0.643,
-        edge=2.95,
-        raw_edge=12.41,
-        edge_pp=12.41,
-        odds=-120,
-        assumed_odds=-120,
-        market_implied_probability=0.545455,
-        pricing_type="user_assumed",
-        odds_source="user_assumed_no_run_inning_-120",
-        line_source="user_assumed_no_run_inning_price",
-        pregame_snapshot={"decision": "BET", "units": 0.6, "probability": 0.643},
-    )
-    bad_performance = {
-        ("mlb_inning", "no_run_inning"): {
-            "samples": 173,
-            "wins": 86,
-            "losses": 87,
-            "profit": 0.0,
-            "stake": 173.0,
-            "roi": 0.0,
-            "qualified": False,
-        }
-    }
+def test_inning_bucket_is_exempt_from_consensus_gate():
+    # mlb_inning has no real market and is tracked as a research model —
+    # the gate must leave the model's own decisions untouched.
+    pick = _inning_pick(decision="BET", units=0.5)
     payload = {
         "date": "2026-06-28",
         "models": {"mlb_inning": {"ok": True, "picks": [pick], "games": []}},
     }
 
-    gated = apply_mlb_team_consensus_to_payload(payload, performance=bad_performance)
-    published = gated["models"]["mlb_inning"]["picks"][0]
+    gated = apply_mlb_team_consensus_to_payload(payload, performance={})
+    bucket = gated["models"]["mlb_inning"]
+    published = bucket["picks"][0]
 
-    assert published["decision"] == "LEAN"
-    assert published["actionability"] == "validation_lean"
-    assert published["consensus_publication_mode"] == "validation_fallback"
-    assert "failed_walk_forward_validation" in published["consensus_rejection_reason"]
+    assert bucket["consensus_required"] is False
+    assert bucket["consensus_exempt"] == "no_real_market_research_model"
+    assert published["decision"] == "BET"
+    assert published["units"] == 0.5
+    assert "consensus_hard_blockers" not in published
+    assert "consensus_passed" not in published
 
 
 def test_first_five_uses_baseball_context_when_real_market_price_exists():

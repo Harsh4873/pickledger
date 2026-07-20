@@ -5225,6 +5225,9 @@ def _mlb_inning_pick_rows(payload: dict[str, Any]) -> list[dict[str, Any]]:
             baseline_value = pick.get("baseline")
             inning_odds = MLB_INNING_USER_ASSUMED_ODDS
             inning_implied = _american_implied_probability_value(inning_odds)
+            # Ungated research model (no real market): the model's own
+            # decision publishes directly, at tracking-scale stakes.
+            inning_units = 0.5 if decision == "BET" else 0.25 if decision == "LEAN" else 0.0
             rows.append({
                 "source": "MLB Inning",
                 "pick": f"Inning {inning} - No Run Scored" if inning else str(pick.get("label") or "No Run Scored"),
@@ -5249,7 +5252,8 @@ def _mlb_inning_pick_rows(payload: dict[str, Any]) -> list[dict[str, Any]]:
                 "odds_source": "user_assumed_no_run_inning_-120",
                 "market_priced": True,
                 "market_implied_probability": round(inning_implied, 6) if inning_implied is not None else None,
-                "actionability": "research_signal",
+                "actionability": "bettable" if decision == "BET" else "lean" if decision == "LEAN" else "research_signal",
+                "units": inning_units,
                 "probability": probability_f,
                 "edge": edge_value,
                 "edge_pp": edge_value,

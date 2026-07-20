@@ -21,10 +21,15 @@ from scripts.pick_calibration import american_implied_probability, normalize_pro
 REPO_ROOT = Path(__file__).resolve().parents[1]
 OUTCOME_LEDGER_PATH = REPO_ROOT / "data" / "calibration" / "outcome_ledger.json"
 MLB_TEAM_MODEL_KEYS = {"mlb_new", "mlb_first_five", "mlb_inning", "mlb_team_total"}
+# The consensus gate protects executable-price publications. mlb_inning has
+# no real market (assumed -120 settlement only), can never accumulate the
+# financial evidence the gate keys on, and is tracked as a research model —
+# its picks publish on the model's own decisions, ungated.
+CONSENSUS_EXEMPT_MODEL_KEYS = {"mlb_inning"}
 MLB_TEAM_CONSENSUS_VERSION = "mlb_team_consensus_v1.2.0"
 MLB_TEAM_RANKING_EPOCH_PREFIX = f"MLB:{MLB_TEAM_CONSENSUS_VERSION}"
 MIN_WALK_FORWARD_SAMPLES = 30
-VALIDATION_LEAN_MODELS = {"mlb_new", "mlb_inning"}
+VALIDATION_LEAN_MODELS = {"mlb_new"}
 VALIDATION_LEAN_LIMIT = 3
 
 MODEL_BET_TYPE_DEFAULTS = {
@@ -46,7 +51,6 @@ PUBLICATION_THRESHOLDS = {
 
 VALIDATION_LEAN_THRESHOLDS = {
     "mlb_new": {"raw_prob": 0.57, "raw_edge": 6.0, "signals": 3},
-    "mlb_inning": {"raw_prob": 0.60, "raw_edge": 8.0, "signals": 2},
 }
 
 # A validation-fallback LEAN may bypass structural blockers (empty
@@ -874,6 +878,10 @@ def apply_mlb_team_consensus_to_payload(
     performance = performance or _walk_forward_performance()
     for model_key, bucket in models.items():
         if model_key not in MLB_TEAM_MODEL_KEYS or not isinstance(bucket, dict):
+            continue
+        if model_key in CONSENSUS_EXEMPT_MODEL_KEYS:
+            bucket["consensus_required"] = False
+            bucket["consensus_exempt"] = "no_real_market_research_model"
             continue
         lookup = _game_lookup(bucket)
         bucket["consensus_required"] = True

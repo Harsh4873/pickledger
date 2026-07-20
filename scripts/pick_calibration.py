@@ -24,6 +24,11 @@ LEDGER_PATH = CALIBRATION_DIR / "outcome_ledger.json"
 CALIBRATION_SCHEMA_VERSION = 1
 MIN_GROUP_SAMPLES = 30
 CALIBRATION_EXCLUDED_MODEL_KEYS = {"fifa_world_cup", "mls"}
+# Research models with no real market (settlement at an assumed price only)
+# keep their calibrated probabilities for display, but the model's own
+# decision and stake publish untouched — there is no executable price for
+# the edge-based downgrade to protect.
+DECISION_DOWNGRADE_EXEMPT_MODEL_KEYS = {"mlb_inning"}
 ML_OWNED_PROBABILITY_SOURCE = "player_props_ml_v1"
 
 SNAPSHOT_EXCLUDED_FIELDS = {
@@ -229,9 +234,10 @@ def apply_calibration_to_pick(
         pick["raw_edge"] = round(raw_edge, 4)
     if adjusted_edge is not None:
         pick["edge"] = round(adjusted_edge, 2)
+    downgrade_exempt = model_key in DECISION_DOWNGRADE_EXEMPT_MODEL_KEYS
     if raw_units is not None:
         pick["raw_units"] = round(raw_units, 4)
-        if adjusted_edge is None:
+        if downgrade_exempt or adjusted_edge is None:
             pick["units"] = round(raw_units, 4)
         elif adjusted_edge <= 0:
             pick["units"] = 0
@@ -241,7 +247,7 @@ def apply_calibration_to_pick(
             pick["units"] = round(raw_units * ratio, 2)
 
     raw_decision = str(snapshot.get("decision") or pick.get("decision") or "").strip().upper()
-    if raw_decision in {"BET", "LEAN"} and adjusted_edge is not None:
+    if not downgrade_exempt and raw_decision in {"BET", "LEAN"} and adjusted_edge is not None:
         if adjusted_edge < 3:
             pick["decision"] = "PASS"
             pick["units"] = 0
