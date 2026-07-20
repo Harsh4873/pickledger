@@ -66,7 +66,7 @@ type WeekdaySourceForm = {
   score: number;
 };
 
-type DailyView = 'picks' | 'consensus' | 'sources' | 'research' | 'dayform';
+type DailyView = 'picks' | 'consensus' | 'sources' | 'research' | 'dayform' | 'fade';
 type ProfitView = 'card' | 'watchlist' | 'method';
 type ParlayView = string;
 type DailySort = 'time' | 'percentage';
@@ -1578,6 +1578,138 @@ function dailyDayFormBody(date: string, dayForms: WeekdaySourceForm[], formsBySo
   return `${spotlightHtml}<div class="daily-model-grid">${[...actionable, ...benched].map(form => dailyDayFormCard(form, dayName)).join('')}</div>${unprovenHtml}`;
 }
 
+// --- Fade board: the inverse of Day Form -----------------------------------
+// A pick becomes a fade candidate when every source on it is cold BOTH on
+// this weekday and recently. Any in-form source on the same selection
+// cancels the fade (mixed signals); additional cold sources reinforce it.
+const FADE_DAY_MAX_RATE = 0.45;
+const FADE_DAY_MIN_DECIDED = 3;
+const FADE_RECENT_DAYS = 7;
+const FADE_RECENT_MAX_RATE = 0.5;
+const FADE_RECENT_MIN_DECIDED = 2;
+const FADE_BLOCK_DAY_RATE = 0.55;
+
+type FadeCandidate = {
+  key: string;
+  pick: Pick;
+  coldForms: WeekdaySourceForm[];
+  strength: number;
+};
+
+type FadeBoard = {
+  candidates: FadeCandidate[];
+  suppressed: number;
+  coldSources: WeekdaySourceForm[];
+};
+
+function recentSourceRecords(date: string): Map<string, { rate: number | null; decided: number }> {
+  const start = shiftedDateKey(date, -FADE_RECENT_DAYS);
+  const records = new Map<string, { wins: number; losses: number }>();
+  rankingComparablePicks(getAllPicks()).forEach(pick => {
+    const key = pickDateKey(pick);
+    if (key >= date || key < start) return;
+    if (pick.result !== 'win' && pick.result !== 'loss') return;
+    const entry = records.get(sourceName(pick)) || { wins: 0, losses: 0 };
+    if (pick.result === 'win') entry.wins += 1; else entry.losses += 1;
+    records.set(sourceName(pick), entry);
+  });
+  return new Map([...records.entries()].map(([source, entry]) => {
+    const decided = entry.wins + entry.losses;
+    return [source, { rate: decided ? entry.wins / decided : null, decided }];
+  }));
+}
+
+function dailyFadeBoard(date: string, dayForms: WeekdaySourceForm[]): FadeBoard {
+  const recent = recentSourceRecords(date);
+  const isCold = (form: WeekdaySourceForm): boolean => {
+    const recentForm = recent.get(form.source);
+    return form.decided >= FADE_DAY_MIN_DECIDED
+      && (form.stats.winRate ?? 1) <= FADE_DAY_MAX_RATE
+      && recentForm != null
+      && recentForm.decided >= FADE_RECENT_MIN_DECIDED
+      && (recentForm.rate ?? 1) <= FADE_RECENT_MAX_RATE;
+  };
+  const isHot = (form: WeekdaySourceForm): boolean => {
+    if (form.decided >= FADE_DAY_MIN_DECIDED && (form.stats.winRate ?? 0) >= FADE_BLOCK_DAY_RATE) return true;
+    const recentForm = recent.get(form.source);
+    return recentForm != null && recentForm.decided >= 3 && (recentForm.rate ?? 0) >= 0.6;
+  };
+  const coldSources = dayForms.filter(isCold);
+  const hotKeys = new Set(dayForms.filter(isHot).flatMap(form => form.todayCalls.map(dailyPickKey)));
+  const byKey = new Map<string, FadeCandidate>();
+  let suppressed = 0;
+  coldSources.forEach(form => {
+    form.todayCalls.forEach(pick => {
+      const key = dailyPickKey(pick);
+      if (hotKeys.has(key)) {
+        suppressed += 1;
+        return;
+      }
+      const current = byKey.get(key);
+      if (current) {
+        if (!current.coldForms.some(existing => existing.source === form.source)) current.coldForms.push(form);
+      } else {
+        byKey.set(key, { key, pick, coldForms: [form], strength: 0 });
+      }
+    });
+  });
+  const candidates = [...byKey.values()].map(candidate => {
+    const badness = candidate.coldForms.reduce((total, form) => total + (FADE_DAY_MAX_RATE - (form.stats.winRate ?? 0)), 0);
+    candidate.strength = candidate.coldForms.length * 10 + badness * 20;
+    return candidate;
+  }).sort((a, b) => b.strength - a.strength || comparePickActionableStart(a.pick, b.pick));
+  return { candidates, suppressed, coldSources };
+}
+
+function fadeOppositeText(pick: Pick): string {
+  const text = String(pick.pick || '');
+  const direction = text.match(/\b(over|under)\b/i);
+  if (direction) {
+    const line = pick.line ?? pick.market_line;
+    return `take ${direction[1].toLowerCase() === 'over' ? 'Under' : 'Over'}${line != null ? ` ${line}` : ''}`;
+  }
+  const team = String(pick.team || '').trim();
+  if (team && pick.home_team && pick.away_team) {
+    const opponent = team === pick.home_team ? pick.away_team : team === pick.away_team ? pick.home_team : '';
+    if (opponent) {
+      return /\bml\b|moneyline|to win/i.test(text) ? `take ${opponent} ML` : `take ${opponent} (other side)`;
+    }
+  }
+  return 'take the other side';
+}
+
+function fadeRetroText(form: WeekdaySourceForm, dayName: string): string {
+  // Fading inverts the record: their losses are the fader's wins.
+  return `fading ${form.source} on ${dayName}s would be ${form.stats.losses}-${form.stats.wins}`;
+}
+
+function dailyFadeCard(candidate: FadeCandidate, dayName: string): string {
+  const pick = candidate.pick;
+  const meta = [dailyDecision(pick), formatOdds(pick), pickProbability(pick) == null ? '' : `${(pickProbability(pick)! * 100).toFixed(1)}%`].filter(Boolean).join(' | ');
+  const sourcesHtml = candidate.coldForms.map(form => `<div><strong>${escapeHtml(form.source)}</strong><span>${escapeHtml(`${dayName}s: ${weekdayRecordText(form)} | ${fadeRetroText(form, dayName)}`)}</span></div>`).join('');
+  return `<article class="daily-model-card daily-fade-card">
+    <div class="daily-model-head"><div><div class="daily-model-kicker">FADE SIGNAL${candidate.coldForms.length > 1 ? ` × ${candidate.coldForms.length} COLD SOURCES` : ''}</div><div class="daily-model-name">${escapeHtml(pick.pick)}</div></div><div class="daily-model-rate daily-fade-rate">FADE</div></div>
+    <div class="daily-model-records"><span>${escapeHtml(gameName(pick))}</span><span>${escapeHtml(formatStart(pick.start_time))}</span></div>
+    <div class="daily-model-picks">${sourcesHtml}</div>
+    <div class="daily-model-foot">Cold call | ${escapeHtml(meta)} | Fade = ${escapeHtml(fadeOppositeText(pick))}</div>
+  </article>`;
+}
+
+function dailyFadeBody(date: string, board: FadeBoard): string {
+  const dayName = weekdayLabel(date);
+  const suppressedNote = board.suppressed
+    ? `<div class="daily-dayform-unproven">${board.suppressed} cold-source pick${board.suppressed === 1 ? '' : 's'} hidden: an in-form source is on the same selection, so the signal is mixed and there is no clean fade.</div>`
+    : '';
+  if (!board.coldSources.length) {
+    return `<div class="daily-empty"><div class="daily-empty-title">No qualifying cold source today</div><div class="daily-empty-sub">A source only enters the fade pool when it is under ${(FADE_DAY_MAX_RATE * 100).toFixed(0)}% on past ${escapeHtml(dayName)}s (${FADE_DAY_MIN_DECIDED}+ decided) AND losing over the last ${FADE_RECENT_DAYS} days.</div></div>`;
+  }
+  if (!board.candidates.length) {
+    return `${suppressedNote || ''}<div class="daily-empty"><div class="daily-empty-title">No clean fade on this slate</div><div class="daily-empty-sub">Cold sources are publishing, but every one of their picks is either shared by an in-form source or already started.</div></div>`;
+  }
+  return `<div class="daily-dayform-warning daily-fade-intro"><strong>Fading is betting the other side.</strong> These picks come only from sources that are bad on ${escapeHtml(dayName)}s and bad recently, with no in-form source agreeing. A losing signal can be as useful as a winning one.</div>
+    <div class="daily-model-grid">${board.candidates.map(candidate => dailyFadeCard(candidate, dayName)).join('')}</div>${suppressedNote}`;
+}
+
 function dailyConsensusCards(picks: Pick[]): string {
   const games = new Map<string, Pick[]>();
   picks.forEach(pick => games.set(gameKey(pick), [...(games.get(gameKey(pick)) || []), pick]));
@@ -2068,7 +2200,7 @@ function bindProfitDeskControls(container: HTMLElement): void {
 
 function setDailyView(view: string): void {
   if (activePickMode === 'player' && view === 'consensus') view = 'picks';
-  if (view === 'picks' || view === 'consensus' || view === 'sources' || view === 'research' || view === 'dayform') {
+  if (view === 'picks' || view === 'consensus' || view === 'sources' || view === 'research' || view === 'dayform' || view === 'fade') {
     dailyView = view;
     renderDaily();
   }
@@ -2165,6 +2297,7 @@ function renderDaily(): void {
   const dayForms = weekdaySourceForms(key, picks);
   const dayName = weekdayLabel(key) || 'Day';
   const dayFormCount = dayForms.filter(form => form.decided >= 3 && form.todayCalls.length).length;
+  const fadeBoard = dailyFadeBoard(key, dayForms);
   const games = new Map<string, Pick[]>();
   pending.forEach(pick => games.set(gameKey(pick), [...(games.get(gameKey(pick)) || []), pick]));
   const consensusCount = [...games.values()].reduce((total, gamePicks) => total + trendSignalGroups(gamePicks).filter(signal => signal.matching).length, 0);
@@ -2173,6 +2306,7 @@ function renderDaily(): void {
     { key: 'consensus', label: 'Consensus', count: consensusCount, description: 'All matching market signals' },
     { key: 'sources', label: 'Active Sources', count: hotForms.length, description: 'Sources issuing BET/LEAN calls today' },
     { key: 'dayform', label: 'Day Form', count: dayFormCount, description: `How sources do on ${dayName}s` },
+    { key: 'fade', label: 'Fade', count: fadeBoard.candidates.length, description: `Cold-source picks to bet against` },
     { key: 'research', label: 'Research', count: researchGroups.length, description: activePickMode === 'player' ? 'Next-best prop candidates' : 'High probability and pricey spots' },
   ];
   const viewOptions = viewOptionsBase.filter(option => activePickMode !== 'player' || option.key !== 'consensus');
@@ -2194,7 +2328,9 @@ function renderDaily(): void {
         ? dailySection('Hot Sources', 'Recent three-slate form plus each source’s unique BET/LEAN calls today.', hotForms.length ? `<div class="daily-model-grid">${hotForms.map(dailyHotModelCard).join('')}</div>` : '<div class="daily-empty"><div class="daily-empty-title">No hot source has a published call today</div><div class="daily-empty-sub">This view appears when a source has enough recent decisions and a current greenlight.</div></div>', `${hotForms.length} active sources`)
         : dailyView === 'dayform'
           ? dailySection(`For ${dayName}s`, `Every source publishing today, ranked by its record on past ${dayName}s only. Some days of the week are simply weaker — this shows who has actually delivered on this one.`, dailyDayFormBody(key, dayForms, formsBySource), `${dayFormCount} ranked source${dayFormCount === 1 ? '' : 's'} with calls today`)
-          : dailySection('Research Queue', researchSubtitle, dailyPickGrid(researchGroups), `${researchGroups.length} unique markets`);
+          : dailyView === 'fade'
+            ? dailySection(`Fade Board for ${dayName}s`, `The inverse of Day Form: picks published today by sources that are cold on ${dayName}s AND cold over the last ${FADE_RECENT_DAYS} days, with any in-form agreement cancelling the fade.`, dailyFadeBody(key, fadeBoard), `${fadeBoard.candidates.length} clean fade${fadeBoard.candidates.length === 1 ? '' : 's'}`)
+            : dailySection('Research Queue', researchSubtitle, dailyPickGrid(researchGroups), `${researchGroups.length} unique markets`);
 
   container.innerHTML = `<div class="daily-hero"><div class="daily-hero-row"><div><div class="daily-eyebrow">TODAY'S QUICK READ</div><div class="daily-title">The Shortlist</div><div class="daily-sub">${escapeHtml(dateLabel(key, true))} | Each unique market appears once. Choose a view to focus on ${dailyFocus}.</div></div><div class="daily-clock-wrap"><div class="daily-clock-label">PICKS FOR</div><div class="daily-clock">${escapeHtml(key)}</div></div></div></div>
     <div class="daily-view-shell">

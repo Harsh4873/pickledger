@@ -1302,3 +1302,23 @@ def test_rankings_tab_renders_profit_desk_qualification_board():
     assert ".qual-card" in css
     assert ".qual-gates" in css
     assert ".qual-card.is-qualified::before" in css
+
+
+def test_fade_board_is_wired_and_conflict_aware():
+    """The Fade view is Day Form's inverse: cold-on-this-weekday AND
+    cold-recently sources produce fade candidates, and any in-form source
+    on the same selection cancels the fade (anti-consensus rule)."""
+    main = (ROOT / "src" / "main.ts").read_text(encoding="utf-8")
+    css = (ROOT / "src" / "styles" / "pickledger.css").read_text(encoding="utf-8")
+
+    assert "function dailyFadeBoard(" in main
+    assert "function dailyFadeBody(" in main
+    assert "function fadeOppositeText(" in main
+    assert "function recentSourceRecords(" in main
+    # Mixed-signal cancellation + reinforcement both present.
+    assert "hotKeys.has(key)" in main
+    assert "coldForms.push(form)" in main
+    assert "FADE_DAY_MAX_RATE = 0.45" in main
+    assert "FADE_BLOCK_DAY_RATE = 0.55" in main
+    assert "'fade'" in main
+    assert ".daily-fade-card" in css
