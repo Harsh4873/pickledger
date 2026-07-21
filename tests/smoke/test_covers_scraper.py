@@ -713,6 +713,7 @@ def test_covers_feeds_are_registered_across_the_pipeline():
 
     profit_desk_text = (ROOT / "scripts" / "build_profit_desk.py").read_text(encoding="utf-8")
     assert '"covers_"' in profit_desk_text
+    assert '"forebet_"' in profit_desk_text
 
     data_ts = (ROOT / "src" / "data.ts").read_text(encoding="utf-8")
     for label in (
@@ -726,9 +727,17 @@ def test_covers_feeds_are_registered_across_the_pipeline():
     assert "pick.external_player_feed === true" in data_ts
     assert "isMlEraPlayerProp(pick)" in data_ts
 
+    main_ts = (ROOT / "src" / "main.ts").read_text(encoding="utf-8")
+    assert "pick.external_player_feed === true ? sourceName(pick)" in main_ts
+
     workflow = (ROOT / ".github" / "workflows" / "external-feed-refresh.yml").read_text(encoding="utf-8")
-    assert (
+    default_feeds = (
+        "sportytrader,sportsgambler,forebet_mls,forebet_mlb,forebet_wnba,"
         "covers_experts_mlb,covers_experts_wnba,covers_computer_mlb,"
         "covers_consensus_mlb,covers_consensus_wnba,covers_props_mlb"
-    ) in workflow
+    )
+    # Both the workflow_dispatch input default and the schedule fallback must
+    # include Forebet + Covers; otherwise a bare `gh workflow run` refresh
+    # silently drops them.
+    assert workflow.count(default_feeds) >= 2
     assert "forebet_mls,forebet_mlb,forebet_wnba" in workflow

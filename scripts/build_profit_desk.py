@@ -83,7 +83,7 @@ LOWER_BOUND_Z = 1.2815515655446004  # one-sided 90% lower bound
 # records carry a real scraped price but no per-record provenance markers,
 # so provenance is declared here at the source level (Tier C: posted,
 # one-sided).  Model feeds that invent assumed prices are NOT listed.
-SCRAPED_ODDS_SOURCE_PREFIXES = ("scores24_", "sportsgambler_", "sportytrader_", "covers_")
+SCRAPED_ODDS_SOURCE_PREFIXES = ("scores24_", "sportsgambler_", "sportytrader_", "covers_", "forebet_")
 
 _NON_EXECUTABLE_MARKERS = (
     "assumed",

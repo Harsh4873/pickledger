@@ -1,8 +1,8 @@
 name: External Feed Refresh
 
-# Runs the SportyTrader and SportsGambler scrapers on a daily schedule and
-# publishes their results into data/model_cache so GitHub Pages can serve them
-# without waiting on the cloud backend.
+# Runs SportyTrader, SportsGambler, Forebet, and Covers scrapers on a daily
+# schedule and publishes their results into data/model_cache so GitHub Pages
+# can serve them without waiting on the cloud backend.
 
 on:
   schedule:
@@ -20,7 +20,7 @@ on:
       feeds:
         description: "Comma-separated feeds, or all"
         required: false
-        default: "sportytrader,sportsgambler"
+        default: "sportytrader,sportsgambler,forebet_mls,forebet_mlb,forebet_wnba,covers_experts_mlb,covers_experts_wnba,covers_computer_mlb,covers_consensus_mlb,covers_consensus_wnba,covers_props_mlb"
 
 permissions:
   contents: write
