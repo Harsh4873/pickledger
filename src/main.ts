@@ -426,10 +426,12 @@ function rankingComparablePicks(picks: Pick[]): Pick[] {
   }));
 }
 
-// The pool each mode ranks on: team records are only meaningful once settled,
-// while player-prop model rankings intentionally include the open slate.
+// The pool each mode ranks on. Both modes keep the open slate: a source that
+// has picks but nothing decided yet still belongs on the board with an empty
+// record, otherwise a newly added feed stays invisible — and unfilterable —
+// until its first game finishes. Records themselves stay settled-only.
 function rankingPoolPicks(comparablePicks: Pick[]): Pick[] {
-  return activePickMode === 'player' ? comparablePicks : comparablePicks.filter(isSettledPick);
+  return comparablePicks;
 }
 
 function rankingSportName(pick: Pick): string {
@@ -1171,13 +1173,14 @@ function renderRankings(): void {
       : 'Source win rates by weekday. Green cells have at least three decided picks and a 55%+ win rate.';
   }
   const bySource = new Map<string, Pick[]>();
-  (activePickMode === 'player' ? scopedPicks : rankingPicks).forEach(pick => addPickToRankingBuckets(bySource, pick));
+  // Every source in scope gets a card, decided or not; stats below stay
+  // settled-only so an open slate can never move a record.
+  scopedPicks.forEach(pick => addPickToRankingBuckets(bySource, pick));
   const ranked = [...bySource.entries()].map(([source, picks]) => ({
     source,
     picks,
     stats: statsFor(picks.filter(isSettledPick)),
   }))
-    .filter(item => activePickMode === 'player' || item.stats.wins + item.stats.losses > 0)
     .sort((a, b) => activePickMode === 'player'
       ? (
         (b.stats.wins + b.stats.losses) - (a.stats.wins + a.stats.losses)
@@ -1185,17 +1188,28 @@ function renderRankings(): void {
         || b.stats.net - a.stats.net
         || a.source.localeCompare(b.source)
       )
-      : (b.stats.roi ?? -999) - (a.stats.roi ?? -999) || b.stats.net - a.stats.net);
+      // Undecided sources have no ROI to rank on, so they sort below every
+      // source with a real record instead of tying at the top.
+      : (b.stats.roi ?? -999) - (a.stats.roi ?? -999)
+        || b.stats.net - a.stats.net
+        || (b.stats.wins + b.stats.losses) - (a.stats.wins + a.stats.losses)
+        || a.source.localeCompare(b.source));
   const leaderboard = document.getElementById('leaderboard');
   if (leaderboard) {
     leaderboard.innerHTML = ranked.length ? ranked.map((item, index) => {
       const expanded = expandedSourceKeys.has(item.source);
       const records = sourceRecordLines(picksForRankingBucket(scopedPicks, item.source), centralDateKey());
+      // A card with nothing decided reads as broken unless it says why, so
+      // name the state instead of showing a bare 0-0 line.
+      const openPicks = item.picks.filter(isOpenPick).length;
+      const decidedLabel = item.stats.total
+        ? 'DECIDED PICKS'
+        : `AWAITING FIRST RESULT${openPicks ? ` · ${openPicks} OPEN` : ''}`;
       return `<article class="source-card ${index < 3 ? `rank-${index + 1}` : ''} ${expanded ? 'expanded' : ''}" data-source-card="${escapeHtml(item.source)}" role="button" tabindex="0" aria-expanded="${expanded}">
         <div class="card-rank">${index + 1}</div><div class="card-name">${escapeHtml(item.source)}</div>
         <div class="score-bar-wrap"><div class="score-label"><span>ACCURACY</span><span class="score-val">${item.stats.winRate == null ? '—' : `${(item.stats.winRate * 100).toFixed(1)}%`} (${item.stats.wins}-${item.stats.losses})</span></div><div class="bar-bg"><div class="bar-fill bar-acc" style="width:${(item.stats.winRate || 0) * 100}%"></div></div></div>
         <div class="score-bar-wrap"><div class="score-label"><span>ROI</span><span class="score-val">${item.stats.priced ? `${item.stats.roi == null ? '—' : `${(item.stats.roi * 100).toFixed(1)}%`} (${signedUnits(item.stats.net)})` : '— (no priced picks)'}</span></div><div class="bar-bg"><div class="bar-fill bar-roi" style="width:${Math.max(0, Math.min(100, 50 + (item.stats.roi || 0) * 100))}%"></div></div></div>
-        <div class="algo-score"><div class="algo-score-val">${item.stats.total}</div><div class="algo-score-info">DECIDED PICKS<br>${escapeHtml(rankingBucketScopeLabel(item.source))}</div></div>
+        <div class="algo-score"><div class="algo-score-val">${item.stats.total}</div><div class="algo-score-info">${decidedLabel}<br>${escapeHtml(rankingBucketScopeLabel(item.source))}</div></div>
         <div class="source-expand-control"><span data-source-expand-label>${expanded ? 'Hide period records' : 'View period records'}</span><span class="source-expand-icon" aria-hidden="true">&#9662;</span></div>
         <div class="source-deep-dive">
           <div class="trend-deep-title">PERIOD RECORDS</div>

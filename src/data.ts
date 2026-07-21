@@ -474,6 +474,30 @@ const PLAYER_PROP_SOURCE_LABELS: Record<string, string> = {
   wnba_player_props_matchup_h2h: 'WNBA Matchup H2H Props',
 };
 
+// The MLB prop publisher ships several stat families out of one bucket, so a
+// single blended record hides how each one actually does. Walks price and
+// settle nothing like the hits/RBI props that dominate the slate, so they
+// rank as their own model — the same per-market reasoning behind
+// MARKET_SOURCE_LABELS on the team board, and the same shape as WNBA3PM.
+// Resolved at load time, so the split is retroactive across every committed
+// prop day with the underlying model untouched.
+const MLB_PLAYER_PROPS_MODEL_KEY = 'mlb_player_props';
+const MLB_WALKS_SOURCE = 'MLBWalks';
+
+// Covers batter walks and the pitcher walks-allowed line; both are walk
+// markets and neither carries enough volume to stand on its own.
+function isWalkPropMarket(raw: Record<string, unknown>): boolean {
+  return String(raw.stat_key || raw.market_type || raw.market || '')
+    .toLowerCase()
+    .includes('walk');
+}
+
+function playerPropSourceLabel(modelKey: string, raw: unknown): string {
+  const base = PLAYER_PROP_SOURCE_LABELS[modelKey] || modelKey;
+  if (modelKey !== MLB_PLAYER_PROPS_MODEL_KEY || !raw || typeof raw !== 'object') return base;
+  return isWalkPropMarket(raw as Record<string, unknown>) ? MLB_WALKS_SOURCE : base;
+}
+
 let activePickMode: PickMode = 'team';
 let teamPicks: Pick[] = [];
 let playerPicks: Pick[] = [];
@@ -690,25 +714,27 @@ function picksFromCache(payload: ModelCachePayload): Pick[] {
 
 function playerPropRecords(payload: PlayerPropsPayload): Array<{ raw: unknown; source: string }> {
   const records: Array<{ raw: unknown; source: string }> = [];
-  const addBucket = (bucket: unknown, source: string): void => {
+  // Resolved per row rather than per bucket so one model key can publish
+  // into more than one ranked source (see playerPropSourceLabel).
+  const addBucket = (bucket: unknown, sourceFor: (raw: unknown) => string): void => {
     if (Array.isArray(bucket)) {
-      bucket.forEach(raw => records.push({ raw, source }));
+      bucket.forEach(raw => records.push({ raw, source: sourceFor(raw) }));
       return;
     }
     if (!bucket || typeof bucket !== 'object') return;
     const value = bucket as Record<string, unknown>;
     if (value.ok === false) return;
     for (const key of ['picks', 'props', 'player_props', 'recommendations']) {
-      if (Array.isArray(value[key])) addBucket(value[key], source);
+      if (Array.isArray(value[key])) addBucket(value[key], sourceFor);
     }
   };
 
-  addBucket(payload, 'Player Props');
+  addBucket(payload, () => 'Player Props');
   for (const containerKey of ['models', 'sports', 'leagues']) {
     const container = payload[containerKey];
     if (!container || typeof container !== 'object' || Array.isArray(container)) continue;
-    for (const [source, bucket] of Object.entries(container as Record<string, unknown>)) {
-      addBucket(bucket, PLAYER_PROP_SOURCE_LABELS[source] || source);
+    for (const [modelKey, bucket] of Object.entries(container as Record<string, unknown>)) {
+      addBucket(bucket, raw => playerPropSourceLabel(modelKey, raw));
     }
   }
   return records;

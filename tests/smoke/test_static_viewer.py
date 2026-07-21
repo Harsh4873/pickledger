@@ -400,7 +400,7 @@ def test_player_mode_keeps_best_bets_available_and_prop_sources_separate():
     assert "function playerRankingNames(" in main
     assert "function rankingBucketNames(" in main
     assert "function addPickToRankingBuckets(" in main
-    assert "(activePickMode === 'player' ? scopedPicks : rankingPicks).forEach(pick => addPickToRankingBuckets(bySource, pick))" in main
+    assert "scopedPicks.forEach(pick => addPickToRankingBuckets(bySource, pick))" in main
     assert "rankingBucketNames(pick).forEach(source =>" in main
     assert "? 'Model Rankings' : 'Source Rankings'" in main
     assert "? 'Model' : 'Source'" in main
@@ -411,6 +411,25 @@ def test_player_mode_keeps_best_bets_available_and_prop_sources_separate():
         assert source in data
     assert "playerProp && fallbackSource" in data
     assert ".home-player-model-stack" in (ROOT / "src" / "styles" / "pickledger.css").read_text(encoding="utf-8")
+
+
+def test_mlb_walk_props_rank_as_their_own_model():
+    """Walks come out of the blended MLB prop bucket and rank on their own,
+    the same way WNBA3PM does — resolved per row at load time so the split is
+    retroactive across every committed prop day."""
+    data = (ROOT / "src" / "data.ts").read_text(encoding="utf-8")
+
+    assert "const MLB_WALKS_SOURCE = 'MLBWalks'" in data
+    assert "const MLB_PLAYER_PROPS_MODEL_KEY = 'mlb_player_props'" in data
+    assert "function isWalkPropMarket(" in data
+    assert "function playerPropSourceLabel(" in data
+    # stat_key is the field every committed prop row carries; market_type only
+    # appeared later, so it can never be the primary key for the split.
+    assert "String(raw.stat_key || raw.market_type || raw.market || '')" in data
+    assert ".includes('walk')" in data
+    # Per row, not per bucket — one model key now feeds two ranked sources.
+    assert "addBucket(bucket, raw => playerPropSourceLabel(modelKey, raw))" in data
+    assert "bucket.forEach(raw => records.push({ raw, source: sourceFor(raw) }))" in data
 
 
 def test_home_filters_prioritize_primary_sports_and_use_more_menu():
@@ -1348,6 +1367,13 @@ def test_rankings_boards_follow_a_sport_and_source_filter_while_overall_stats_st
     assert 'data-rank-${kind}="' in main
     assert "button.dataset.rankSport || 'ALL'" in main
     assert "button.dataset.rankSource || 'ALL'" in main
+
+    # A source with picks but nothing decided still gets a card and a filter
+    # pill; otherwise a newly added feed is invisible until its first game
+    # finishes. Records stay settled-only either way.
+    assert "item.stats.wins + item.stats.losses > 0" not in main
+    assert "AWAITING FIRST RESULT" in main
+    assert "stats: statsFor(picks.filter(isSettledPick))" in main
     assert ".rank-filter-btn" in css
     assert ".rank-filter-btn.active" in css
     assert ".rank-scope-summary" in css
