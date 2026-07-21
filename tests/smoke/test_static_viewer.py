@@ -183,7 +183,7 @@ def test_rich_static_viewer_restores_consensus_table_and_scores():
     assert "function canonicalTrendSignal(" in main
     assert "matching: !group.pass && new Set(group.picks.map(sourceName)).size >= 2" in main
     assert ".trend-market.matching" in css
-    assert "function renderDayOfWeekTable()" in main
+    assert "function renderDayOfWeekTable(comparablePicks: Pick[]): void" in main
     assert 'class="dow-table"' in main
     assert 'id="dow-overall-heatmap"' not in html
     assert "async function refreshHomeScores(" in main
@@ -205,7 +205,7 @@ def test_source_rankings_expand_period_records_and_static_cards_do_not_fake_clic
     assert "date >= PLAYER_PROP_RANKING_START_DATE" in main
     assert "function rankingWindowLabel(" in main
     assert "function picksForRankingBucket(" in main
-    assert "sourceRecordLines(picksForRankingBucket(comparablePicks, item.source), centralDateKey())" in main
+    assert "sourceRecordLines(picksForRankingBucket(scopedPicks, item.source), centralDateKey())" in main
     assert 'data-source-card="${escapeHtml(item.source)}"' in main
     assert 'role="button" tabindex="0" aria-expanded="${expanded}"' in main
     assert "function bindSourceCards(" in main
@@ -400,7 +400,7 @@ def test_player_mode_keeps_best_bets_available_and_prop_sources_separate():
     assert "function playerRankingNames(" in main
     assert "function rankingBucketNames(" in main
     assert "function addPickToRankingBuckets(" in main
-    assert "(activePickMode === 'player' ? comparablePicks : rankingPicks).forEach(pick => addPickToRankingBuckets(bySource, pick))" in main
+    assert "(activePickMode === 'player' ? scopedPicks : rankingPicks).forEach(pick => addPickToRankingBuckets(bySource, pick))" in main
     assert "rankingBucketNames(pick).forEach(source =>" in main
     assert "? 'Model Rankings' : 'Source Rankings'" in main
     assert "? 'Model' : 'Source'" in main
@@ -1283,25 +1283,74 @@ def test_external_feed_merge_promotes_complete_cache_to_latest(tmp_path):
     assert json.loads((cache_dir / "latest.json").read_text(encoding="utf-8"))["date"] == "2026-06-15"
 
 
-def test_rankings_tab_renders_profit_desk_qualification_board():
+def test_rankings_tab_drops_the_profit_desk_qualification_board():
+    """The qualification board moved off Rankings entirely; the Profit Desk
+    Method view is now the only place the promotion rules are stated, so no
+    copy may keep pointing readers at a section that no longer exists."""
     main = (ROOT / "src" / "main.ts").read_text(encoding="utf-8")
     data = (ROOT / "src" / "data.ts").read_text(encoding="utf-8")
     html = (ROOT / "index.html").read_text(encoding="utf-8")
     css = (ROOT / "src" / "styles" / "pickledger.css").read_text(encoding="utf-8")
 
-    assert 'id="profit-qualification-section"' in html
-    assert 'id="profit-qualification-board"' in html
-    assert "Profit Desk Qualification" in html
-    assert "function renderProfitQualificationBoard(" in main
-    assert "renderProfitQualificationBoard();" in main
-    assert "QUALIFICATION_GATE_LABELS" in main
-    assert "ON THE CARD" in main
-    assert "GATES CLEARED" in main
+    assert 'id="profit-qualification-section"' not in html
+    assert 'id="profit-qualification-board"' not in html
+    assert "Profit Desk Qualification" not in html
+    assert "How qualification works" not in html
+    assert "renderProfitQualificationBoard" not in main
+    assert "QUALIFICATION_GATE_LABELS" not in main
+    assert "Rankings &rarr; Profit Desk Qualification" not in main
+    assert ".qual-card" not in css
+    assert ".qual-gates" not in css
+    # The published artifact still carries the per-source evidence; only the
+    # board that rendered it is gone.
     assert "export interface ProfitDeskSourceCard" in data
     assert "sources?: ProfitDeskSourceCard[]" in data
-    assert ".qual-card" in css
-    assert ".qual-gates" in css
-    assert ".qual-card.is-qualified::before" in css
+
+
+def test_rankings_boards_follow_a_sport_and_source_filter_while_overall_stats_stay_global():
+    """Rankings gets a Home-style scope filter: sport profitability, source
+    rankings, and day-of-week all read from the same scoped pool, while the
+    Overall Stats row above stays all-time across every source."""
+    main = (ROOT / "src" / "main.ts").read_text(encoding="utf-8")
+    html = (ROOT / "index.html").read_text(encoding="utf-8")
+    css = (ROOT / "src" / "styles" / "pickledger.css").read_text(encoding="utf-8")
+
+    assert 'id="rank-filter-groups"' in html
+    assert 'id="rank-scope-summary"' in html
+    assert "Filter Rankings" in html
+    # The filter sits between Overall Stats and the three boards it drives.
+    assert html.index("Overall Stats") < html.index('id="rank-filter-groups"')
+    assert html.index('id="rank-filter-groups"') < html.index("Sport Profitability")
+
+    # Rankings scope is its own state — sharing Home's Set would make every
+    # Home tag silently rewrite the leaderboard.
+    assert "const rankingSportFilters = new Set<string>()" in main
+    assert "const rankingSourceFilters = new Set<string>()" in main
+    assert "function rankingScopedPicks(" in main
+    assert "const scopedPicks = rankingScopedPicks(comparablePicks)" in main
+    assert "const rankingPicks = scopedPicks.filter(isSettledPick)" in main
+    assert "renderDayOfWeekTable(scopedPicks)" in main
+    assert "function renderDayOfWeekTable(comparablePicks: Pick[]): void" in main
+    # Sports and sources intersect; a flat OR would union unrelated buckets.
+    assert "comparablePicks.filter(pick => matchesRankingSports(pick) && matchesRankingSources(pick))" in main
+    # Overall Stats never reads the scoped pool.
+    stats_start = main.index("function updateOverallStats(): void {")
+    stats_end = main.index("function ", stats_start + 1)
+    assert "rankingScopedPicks" not in main[stats_start:stats_end]
+    assert "rankingSportFilters" not in main[stats_start:stats_end]
+
+    # Switching Team/Player mode rebuilds the buckets, so the scope must reset.
+    mode_start = main.index("function switchPickMode(mode: PickMode): void {")
+    mode_end = main.index("function ", mode_start + 1)
+    assert "rankingSportFilters.clear()" in main[mode_start:mode_end]
+    assert "rankingSourceFilters.clear()" in main[mode_start:mode_end]
+
+    assert 'data-rank-${kind}="' in main
+    assert "button.dataset.rankSport || 'ALL'" in main
+    assert "button.dataset.rankSource || 'ALL'" in main
+    assert ".rank-filter-btn" in css
+    assert ".rank-filter-btn.active" in css
+    assert ".rank-scope-summary" in css
 
 
 def test_fade_board_is_wired_and_conflict_aware():

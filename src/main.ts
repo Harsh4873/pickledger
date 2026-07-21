@@ -99,6 +99,11 @@ const ESPN_ENDPOINTS: Record<string, [string, string]> = {
 };
 
 const activeFilters = new Set<string>();
+// Rankings carries its own scope, independent of the Home board filters: the
+// two views answer different questions and sharing one Set made every Home
+// tag silently rewrite the leaderboard.
+const rankingSportFilters = new Set<string>();
+const rankingSourceFilters = new Set<string>();
 let activePickMode: PickMode = 'team';
 let homeMode: ResultMode = 'pending';
 let dailyView: DailyView = 'picks';
@@ -384,6 +389,10 @@ function isSettledPick(pick: Pick): boolean {
   return pick.result !== 'pending';
 }
 
+function isDecidedPick(pick: Pick): boolean {
+  return pick.result === 'win' || pick.result === 'loss';
+}
+
 function isUnsupportedPendingPick(pick: Pick): boolean {
   return pick.result === 'pending' && pick.grade_supported === false;
 }
@@ -415,6 +424,74 @@ function rankingComparablePicks(picks: Pick[]): Pick[] {
     const date = pickDateKey(pick);
     return date >= PLAYER_PROP_RANKING_START_DATE;
   }));
+}
+
+// The pool each mode ranks on: team records are only meaningful once settled,
+// while player-prop model rankings intentionally include the open slate.
+function rankingPoolPicks(comparablePicks: Pick[]): Pick[] {
+  return activePickMode === 'player' ? comparablePicks : comparablePicks.filter(isSettledPick);
+}
+
+function rankingSportName(pick: Pick): string {
+  return String(pick.sport || '').trim() || 'Other';
+}
+
+function matchesRankingSports(pick: Pick): boolean {
+  return rankingSportFilters.size === 0 || rankingSportFilters.has(rankingSportName(pick));
+}
+
+function matchesRankingSources(pick: Pick): boolean {
+  return rankingSourceFilters.size === 0 || rankingBucketNames(pick).some(name => rankingSourceFilters.has(name));
+}
+
+function rankingScopedPicks(comparablePicks: Pick[]): Pick[] {
+  if (!rankingSportFilters.size && !rankingSourceFilters.size) return comparablePicks;
+  return comparablePicks.filter(pick => matchesRankingSports(pick) && matchesRankingSources(pick));
+}
+
+// Faceted counts: each row is counted with the *other* row's selection applied
+// but not its own, so the numbers on a pill always describe what clicking it
+// would produce instead of collapsing to the current selection.
+function rankingFacetCounts(pool: Pick[]): { sports: Map<string, number>; sources: Map<string, number> } {
+  const sports = new Map<string, number>();
+  const sources = new Map<string, number>();
+  pool.forEach(pick => {
+    if (matchesRankingSources(pick)) {
+      const sport = rankingSportName(pick);
+      sports.set(sport, (sports.get(sport) || 0) + 1);
+    }
+    if (matchesRankingSports(pick)) {
+      rankingBucketNames(pick).forEach(name => sources.set(name, (sources.get(name) || 0) + 1));
+    }
+  });
+  return { sports, sources };
+}
+
+function toggleRankingSport(value: string): void {
+  if (value === 'ALL') rankingSportFilters.clear();
+  else if (rankingSportFilters.has(value)) rankingSportFilters.delete(value);
+  else rankingSportFilters.add(value);
+  // A source that no longer exists inside the new sport scope would leave every
+  // board empty with nothing on screen explaining why, so drop it instead.
+  if (!rankingSourceFilters.size) return;
+  const available = new Set<string>();
+  rankingPoolPicks(rankingComparablePicks(getAllPicks()))
+    .filter(matchesRankingSports)
+    .forEach(pick => rankingBucketNames(pick).forEach(name => available.add(name)));
+  [...rankingSourceFilters].forEach(name => {
+    if (!available.has(name)) rankingSourceFilters.delete(name);
+  });
+}
+
+function toggleRankingSource(value: string): void {
+  if (value === 'ALL') rankingSourceFilters.clear();
+  else if (rankingSourceFilters.has(value)) rankingSourceFilters.delete(value);
+  else rankingSourceFilters.add(value);
+}
+
+function rankingSourceNoun(plural = false): string {
+  if (activePickMode === 'player') return plural ? 'models' : 'model';
+  return plural ? 'sources' : 'source';
 }
 
 function latestAvailableDateKey(picks = getAllPicks()): string {
@@ -995,10 +1072,85 @@ function updateOverallStats(): void {
   });
 }
 
+function rankingFilterButton(
+  kind: 'sport' | 'source',
+  value: string,
+  label: string,
+  count: number | null,
+  active: boolean,
+): string {
+  const title = count == null ? '' : ` title="${count} ranked pick${count === 1 ? '' : 's'}"`;
+  return `<button type="button" class="rank-filter-btn ${active ? 'active' : ''}" data-rank-${kind}="${escapeHtml(value)}" aria-pressed="${active}"${title}><span class="rank-filter-label">${escapeHtml(label)}</span>${count == null ? '' : `<span class="rank-filter-count">${count}</span>`}</button>`;
+}
+
+function renderRankingFilters(comparablePicks: Pick[], scopedPicks: Pick[]): void {
+  const container = document.getElementById('rank-filter-groups');
+  if (!container) return;
+  const pool = rankingPoolPicks(comparablePicks);
+  const { sports, sources } = rankingFacetCounts(pool);
+  // Busiest tag first: the models carrying real sample size are the ones worth
+  // ranking, and alphabetical order buried them behind the scraper feeds.
+  const byCount = (counts: Map<string, number>, selected: Set<string>): string[] => (
+    // Selected tags stay listed even at zero so a selection is never invisible.
+    [...new Set([...counts.keys(), ...selected])]
+      .sort((left, right) => (counts.get(right) ?? 0) - (counts.get(left) ?? 0) || left.localeCompare(right))
+  );
+  const sportNames = byCount(sports, rankingSportFilters);
+  const sourceNames = byCount(sources, rankingSourceFilters);
+  const isPlayer = activePickMode === 'player';
+
+  container.innerHTML = `<div class="rank-filter-row">
+      <div class="rank-filter-row-label">Sport</div>
+      <div class="rank-filter-pills">
+        ${rankingFilterButton('sport', 'ALL', 'All Sports', null, rankingSportFilters.size === 0)}
+        ${sportNames.map(sport => rankingFilterButton('sport', sport, filterLabel(sport), sports.get(sport) ?? 0, rankingSportFilters.has(sport))).join('')}
+      </div>
+    </div>
+    <div class="rank-filter-row">
+      <div class="rank-filter-row-label">${isPlayer ? 'Model' : 'Source'}</div>
+      <div class="rank-filter-pills">
+        ${rankingFilterButton('source', 'ALL', isPlayer ? 'All Models' : 'All Sources', null, rankingSourceFilters.size === 0)}
+        ${sourceNames.length
+          ? sourceNames.map(source => rankingFilterButton('source', source, source, sources.get(source) ?? 0, rankingSourceFilters.has(source))).join('')
+          : `<span class="rank-filter-empty">No ${rankingSourceNoun(true)} in this scope yet</span>`}
+      </div>
+    </div>`;
+
+  container.querySelectorAll<HTMLButtonElement>('[data-rank-sport]').forEach(button => {
+    button.addEventListener('click', () => {
+      toggleRankingSport(button.dataset.rankSport || 'ALL');
+      renderRankings();
+    });
+  });
+  container.querySelectorAll<HTMLButtonElement>('[data-rank-source]').forEach(button => {
+    button.addEventListener('click', () => {
+      toggleRankingSource(button.dataset.rankSource || 'ALL');
+      renderRankings();
+    });
+  });
+
+  const summary = document.getElementById('rank-scope-summary');
+  if (!summary) return;
+  const scopedPool = rankingPoolPicks(scopedPicks);
+  const scopedSources = new Set<string>();
+  scopedPool.forEach(pick => rankingBucketNames(pick).forEach(name => scopedSources.add(name)));
+  const tags = [
+    ...[...rankingSportFilters].sort().map(filterLabel),
+    ...[...rankingSourceFilters].sort(),
+  ];
+  const scopeText = tags.length ? tags.join(' + ') : `All sports · all ${rankingSourceNoun(true)}`;
+  summary.innerHTML = `<span class="rank-scope-eyebrow">Showing</span>
+    <span class="rank-scope-value">${escapeHtml(scopeText)}</span>
+    <span class="rank-scope-meta">${scopedPool.length} ranked pick${scopedPool.length === 1 ? '' : 's'} · ${scopedSources.size} ${rankingSourceNoun(scopedSources.size !== 1)}</span>`;
+}
+
 function renderRankings(): void {
   const allPicks = getAllPicks();
   const comparablePicks = rankingComparablePicks(allPicks);
-  const rankingPicks = comparablePicks.filter(isSettledPick);
+  const scopedPicks = rankingScopedPicks(comparablePicks);
+  const scoped = rankingSportFilters.size > 0 || rankingSourceFilters.size > 0;
+  renderRankingFilters(comparablePicks, scopedPicks);
+  const rankingPicks = scopedPicks.filter(isSettledPick);
   const rankingTitle = document.getElementById('source-rankings-title');
   const rankingSubtitle = document.getElementById('source-rankings-subtitle');
   const dowSubtitle = document.getElementById('dow-subtitle');
@@ -1014,7 +1166,7 @@ function renderRankings(): void {
       : 'Source win rates by weekday. Green cells have at least three decided picks and a 55%+ win rate.';
   }
   const bySource = new Map<string, Pick[]>();
-  (activePickMode === 'player' ? comparablePicks : rankingPicks).forEach(pick => addPickToRankingBuckets(bySource, pick));
+  (activePickMode === 'player' ? scopedPicks : rankingPicks).forEach(pick => addPickToRankingBuckets(bySource, pick));
   const ranked = [...bySource.entries()].map(([source, picks]) => ({
     source,
     picks,
@@ -1033,7 +1185,7 @@ function renderRankings(): void {
   if (leaderboard) {
     leaderboard.innerHTML = ranked.length ? ranked.map((item, index) => {
       const expanded = expandedSourceKeys.has(item.source);
-      const records = sourceRecordLines(picksForRankingBucket(comparablePicks, item.source), centralDateKey());
+      const records = sourceRecordLines(picksForRankingBucket(scopedPicks, item.source), centralDateKey());
       return `<article class="source-card ${index < 3 ? `rank-${index + 1}` : ''} ${expanded ? 'expanded' : ''}" data-source-card="${escapeHtml(item.source)}" role="button" tabindex="0" aria-expanded="${expanded}">
         <div class="card-rank">${index + 1}</div><div class="card-name">${escapeHtml(item.source)}</div>
         <div class="score-bar-wrap"><div class="score-label"><span>ACCURACY</span><span class="score-val">${item.stats.winRate == null ? '—' : `${(item.stats.winRate * 100).toFixed(1)}%`} (${item.stats.wins}-${item.stats.losses})</span></div><div class="bar-bg"><div class="bar-fill bar-acc" style="width:${(item.stats.winRate || 0) * 100}%"></div></div></div>
@@ -1045,74 +1197,24 @@ function renderRankings(): void {
           <div class="source-record-list">${records.map(record => `<div class="source-record-item"><div class="source-record-label">${record.label}</div><div class="source-record-value">${record.text}</div></div>`).join('')}</div>
         </div>
       </article>`;
-    }).join('') : '<div class="empty-state">Source records will appear here as games finish and scores come in.</div>';
+    }).join('') : `<div class="empty-state">${scoped ? 'No ranked picks match this filter yet.' : 'Source records will appear here as games finish and scores come in.'}</div>`;
     bindSourceCards(leaderboard);
   }
 
   const bySport = new Map<string, Pick[]>();
   rankingPicks.forEach(pick => bySport.set(pick.sport, [...(bySport.get(pick.sport) || []), pick]));
   const sportBoard = document.getElementById('sport-board');
-  if (sportBoard) sportBoard.innerHTML = [...bySport.entries()].map(([sport, picks]) => {
-    const stats = statsFor(picks);
-    const profitLine = stats.priced
-      ? `ROI ${stats.roi == null ? '—' : `${(stats.roi * 100).toFixed(1)}%`} • ${stats.priced} priced pick${stats.priced === 1 ? '' : 's'}`
-      : 'P/L untracked — no verified-price picks yet';
-    return `<div class="sport-card"><div class="sport-name">${escapeHtml(sport)}</div><div class="sport-meta">${stats.wins}-${stats.losses}${stats.pushes ? `-${stats.pushes}` : ''} record<br>${stats.total} decided picks</div><div class="sport-units ${trackedUnitsClass(stats)}">${trackedUnits(stats)}</div><div class="sport-meta">${profitLine}</div></div>`;
-  }).join('');
+  if (sportBoard) sportBoard.innerHTML = bySport.size ? [...bySport.entries()]
+    .sort((left, right) => right[1].length - left[1].length || left[0].localeCompare(right[0]))
+    .map(([sport, picks]) => {
+      const stats = statsFor(picks);
+      const profitLine = stats.priced
+        ? `ROI ${stats.roi == null ? '—' : `${(stats.roi * 100).toFixed(1)}%`} • ${stats.priced} priced pick${stats.priced === 1 ? '' : 's'}`
+        : 'P/L untracked — no verified-price picks yet';
+      return `<div class="sport-card"><div class="sport-name">${escapeHtml(sport)}</div><div class="sport-meta">${stats.wins}-${stats.losses}${stats.pushes ? `-${stats.pushes}` : ''} record<br>${stats.total} decided picks</div><div class="sport-units ${trackedUnitsClass(stats)}">${trackedUnits(stats)}</div><div class="sport-meta">${profitLine}</div></div>`;
+    }).join('') : `<div class="empty-state" style="grid-column:1/-1">${scoped ? 'No decided picks match this filter yet' : 'No decided picks yet'}</div>`;
 
-  renderDayOfWeekTable();
-  renderProfitQualificationBoard();
-}
-
-const QUALIFICATION_GATE_LABELS: Record<string, string> = {
-  sourceSamples: 'Settled priced rows',
-  distinctPriorDates: 'Distinct dates',
-  positiveFlatRoi: 'Positive flat ROI',
-  stableChronologicalHalves: 'Stable halves',
-  probabilityPositiveEv: 'Pr(profit)',
-};
-
-function qualificationGateValue(value: number | boolean | null | undefined, key: string): string {
-  if (value == null) return '—';
-  if (typeof value === 'boolean') return value ? 'stable' : 'unstable';
-  if (key === 'positiveFlatRoi') return `${(Number(value) * 100).toFixed(1)}%`;
-  if (key === 'probabilityPositiveEv') return `${(Number(value) * 100).toFixed(1)}%`;
-  return String(value);
-}
-
-function qualificationGateTarget(value: number | boolean | null | undefined, key: string): string {
-  if (value == null) return '';
-  if (typeof value === 'boolean') return 'required';
-  if (key === 'positiveFlatRoi') return '> 0%';
-  if (key === 'probabilityPositiveEv') return `≥ ${(Number(value) * 100).toFixed(0)}%`;
-  return `≥ ${value}`;
-}
-
-function renderProfitQualificationBoard(): void {
-  const container = document.getElementById('profit-qualification-board');
-  if (!container) return;
-  const payload = getProfitDeskPayload();
-  const cards = Array.isArray(payload?.sources) ? payload!.sources!.filter(card => card && typeof card === 'object') : [];
-  if (!cards.length) {
-    container.innerHTML = '<div class="empty-state">Qualification progress appears after the Profit Desk publishes its next artifact.</div>';
-    return;
-  }
-  const visible = cards.filter(card => (card.samples || 0) > 0 || (card.candidatesToday || 0) > 0).slice(0, 14);
-  container.innerHTML = `<div class="qual-grid">${visible.map(card => {
-    const qualified = card.evidenceQualified === true;
-    const gates = card.gates && typeof card.gates === 'object' ? Object.entries(card.gates) : [];
-    const record = `${card.wins ?? 0}-${card.losses ?? 0}`;
-    const roi = card.flatRoi == null ? '—' : `${(Number(card.flatRoi) * 100).toFixed(1)}%`;
-    return `<article class="qual-card ${qualified ? 'is-qualified' : ''}">
-      <div class="qual-head">
-        <div><div class="qual-source">${escapeHtml(card.source || card.sourceKey || 'Unknown source')}</div><div class="qual-meta">${escapeHtml(String(card.sport || '').toUpperCase())} • ${escapeHtml(String(card.mode || ''))} • ${record} at real prices • ROI ${escapeHtml(roi)}</div></div>
-        <div class="qual-score ${qualified ? 'positive' : ''}"><strong>${card.gatesPassed ?? 0}/${card.gatesTotal ?? 5}</strong><span>${qualified ? 'ON THE CARD' : 'GATES CLEARED'}</span></div>
-      </div>
-      <ul class="qual-gates">${gates.map(([key, gate]) => `<li class="${gate?.passed ? 'pass' : 'fail'}"><span class="qual-gate-mark" aria-hidden="true">${gate?.passed ? '✓' : '✗'}</span><span class="qual-gate-label">${escapeHtml(QUALIFICATION_GATE_LABELS[key] || key)}</span><span class="qual-gate-value">${escapeHtml(qualificationGateValue(gate?.actual, key))} <small>${escapeHtml(qualificationGateTarget(gate?.required, key))}</small></span></li>`).join('')}</ul>
-      ${(card.liveToday || 0) > 0 ? `<div class="qual-live-note">${card.liveToday} live pick${card.liveToday === 1 ? '' : 's'} on today's card</div>` : ''}
-    </article>`;
-  }).join('')}</div>
-  <p class="qual-footnote">Evidence counts only settled picks with real executable prices and pregame timestamps, dated strictly before each slate. Sources qualify and lapse automatically as these numbers move.</p>`;
+  renderDayOfWeekTable(scopedPicks);
 }
 
 function bindSourceCards(leaderboard: HTMLElement): void {
@@ -1137,14 +1239,14 @@ function bindSourceCards(leaderboard: HTMLElement): void {
   });
 }
 
-function renderDayOfWeekTable(): void {
+function renderDayOfWeekTable(comparablePicks: Pick[]): void {
   const container = document.getElementById('dow-model-breakdown');
   if (!container) return;
   const dayOrder = [1, 2, 3, 4, 5, 6, 0];
   const dayLabels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
   const bySource = new Map<string, Pick[][]>();
 
-  rankingComparablePicks(getAllPicks()).filter(pick => pick.result === 'win' || pick.result === 'loss').forEach(pick => {
+  comparablePicks.filter(isDecidedPick).forEach(pick => {
     const day = parseDateKey(pickDateKey(pick))?.getDay();
     if (day == null) return;
     rankingBucketNames(pick).forEach(source => {
@@ -1156,7 +1258,8 @@ function renderDayOfWeekTable(): void {
 
   const sources = [...bySource.keys()].sort((a, b) => a.localeCompare(b));
   if (!sources.length) {
-    container.innerHTML = '<div class="empty-state">No decided picks yet</div>';
+    const scoped = rankingSportFilters.size > 0 || rankingSourceFilters.size > 0;
+    container.innerHTML = `<div class="empty-state">${scoped ? 'No decided picks match this filter yet' : 'No decided picks yet'}</div>`;
     return;
   }
 
@@ -2191,7 +2294,7 @@ function profitDeskMethodHtml(payload: ProfitDeskPayload | null): string {
     <div class="profit-section-head"><div><div class="profit-section-kicker">MARKET-ANCHORED SELECTION POLICY</div><h2>How a pick earns promotion</h2><p>Every stake starts from a real observed price with a no-vig or break-even baseline, adds only a source&rsquo;s historically proven excess over the market, shrinks thin samples toward zero, and stakes by lane (EDGE 1.0u, VALUE 0.5u) or abstains. The browser displays a dated decision artifact; it never rescores raw picks.</p></div><span>${escapeHtml(String(policyStatus).toUpperCase())}</span></div>
     <div class="profit-policy-grid">
       <div><div class="profit-policy-title">Promotion requirements</div>${gates.length ? `<dl>${gates.map(([key, value]) => `<div><dt>${escapeHtml(humanizeProfitGate(key))}</dt><dd>${escapeHtml(formatProfitGateValue(value))}</dd></div>`).join('')}</dl>` : '<p>No policy gates were published for this date. That is itself a blocker; nothing can be promoted.</p>'}</div>
-      <div><div class="profit-policy-title">Where to see the evidence</div><p>Full qualification rules and each source&rsquo;s progress live under Rankings &rarr; Profit Desk Qualification. Live recordkeeping begins only after promotion${payload?.policy?.firstLiveDate ? ` on ${escapeHtml(dateLabel(payload.policy.firstLiveDate, true))}` : ''}.</p>${notes.length ? `<ul>${notes.map(note => `<li>${escapeHtml(note)}</li>`).join('')}</ul>` : ''}</div>
+      <div><div class="profit-policy-title">Where to see the evidence</div><p>The promotion requirements beside this note are the full rule set. Each source&rsquo;s settled record, ROI, and weekday form live under Rankings &mdash; filter that page to a single source to read the evidence behind any candidate. Live recordkeeping begins only after promotion${payload?.policy?.firstLiveDate ? ` on ${escapeHtml(dateLabel(payload.policy.firstLiveDate, true))}` : ''}.</p>${notes.length ? `<ul>${notes.map(note => `<li>${escapeHtml(note)}</li>`).join('')}</ul>` : ''}</div>
     </div>
   </section>`;
 }
@@ -3222,6 +3325,8 @@ function switchPickMode(mode: PickMode): void {
   activePickMode = mode;
   setDataPickMode(mode);
   activeFilters.clear();
+  rankingSportFilters.clear();
+  rankingSourceFilters.clear();
   homeMode = 'pending';
   dailyView = 'picks';
   profitView = 'card';
