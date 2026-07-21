@@ -2458,14 +2458,18 @@
         "value_probability_positive_ev_below_0.70"
       ],
       "canonicalGame": "2026-07-21:mlb:arizona diamondbacks|athletics",
-      "consensusSources": [],
+      "consensusSources": [
+        "ForebetMLB",
+        "SportsGamblerMLB"
+      ],
       "date": "2026-07-21",
       "decimalOdds": 1.740741,
       "decision": "BET",
       "dedupeRule": "exact_market_identity_best_executable_price",
       "direction": "side",
-      "duplicateCount": 1,
+      "duplicateCount": 2,
       "duplicateSources": [
+        "ForebetMLB",
         "SportsGamblerMLB"
       ],
       "edgeQualified": false,
@@ -3150,7 +3154,7 @@
         "updatedAt": "2026-07-21T14:55:51.410365Z"
       },
       "rawModelProbabilityIgnored": null,
-      "result": "pending",
+      "result": "push",
       "shadowQualified": false,
       "source": "SportyTraderMLB",
       "sourceKey": "sportytrader_mlb",
@@ -4152,146 +4156,6 @@
       "shadowQualified": false,
       "source": "SportsGamblerMLB",
       "sourceKey": "sportsgambler_mlb",
-      "sport": "MLB",
-      "stakeUnits": 0.0,
-      "tier": "watch",
-      "valueQualified": false
-    },
-    {
-      "blockers": [
-        "edge_negative_chronological_evidence_half",
-        "edge_probability_positive_ev_below_0.80",
-        "edge_conservative_probability_margin_below_0.02",
-        "edge_non_positive_conservative_ev",
-        "value_negative_chronological_evidence_half",
-        "value_non_positive_flat_roi",
-        "value_probability_positive_ev_below_0.70"
-      ],
-      "canonicalGame": "2026-07-21:mlb:cincinnati reds|seattle mariners",
-      "consensusSources": [],
-      "date": "2026-07-21",
-      "decimalOdds": 1.649351,
-      "decision": "BET",
-      "dedupeRule": "exact_market_identity_best_executable_price",
-      "direction": "side",
-      "duplicateCount": 1,
-      "duplicateSources": [
-        "Scores24MLB"
-      ],
-      "edgeQualified": false,
-      "estimate": {
-        "alpha": 0.050554,
-        "alphaStdError": 0.053871,
-        "breakEvenProbability": 0.606299,
-        "conservativeExpectedValue": -0.175581,
-        "expectedValue": -0.061714,
-        "lowerProbability": 0.499845,
-        "marketProbability": 0.518328,
-        "method": "market_baseline_plus_hierarchically_shrunk_prior_residual",
-        "probability": 0.568882,
-        "probabilityPositiveEv": 0.243662,
-        "sourceAlpha": -0.017866,
-        "value": {
-          "alpha": -0.017866,
-          "alphaStdError": 0.025686,
-          "conservativeExpectedValue": -0.083761,
-          "expectedValue": -0.029468,
-          "lowerProbability": 0.555515,
-          "method": "source_flat_roi_shrunk_residual_vs_break_even",
-          "probability": 0.588433,
-          "probabilityPositiveEv": 0.243355
-        }
-      },
-      "evidence": {
-        "chronologicalHalvesNonnegative": false,
-        "cutoffExclusive": "2026-07-21",
-        "distinctDates": 26,
-        "firstHalfFlatNetUnits": 9.2799,
-        "flatNetUnits": 8.387,
-        "flatRoi": 0.144603,
-        "losses": 23,
-        "modelVersion": "source_identity:scores24_mlb",
-        "policyVersion": "profit_desk_policy_v2",
-        "priorOnly": true,
-        "pushes": 0,
-        "secondHalfFlatNetUnits": -0.8929,
-        "segmentDistinctDates": 26,
-        "segmentEvidenceKey": "team|scores24_mlb|mlb|source_identity:scores24_mlb|market|side|0.50_0.55",
-        "segmentSamples": 58,
-        "sourceChronologicalHalvesNonnegative": false,
-        "sourceDistinctDates": 31,
-        "sourceEvidenceKey": "team|scores24_mlb|mlb",
-        "sourceFirstHalfFlatNetUnits": -9.7165,
-        "sourceFlatNetUnits": -12.7394,
-        "sourceFlatRoi": -0.038487,
-        "sourceLosses": 147,
-        "sourceSamples": 331,
-        "sourceSecondHalfFlatNetUnits": -3.0228,
-        "sourceWins": 184,
-        "wins": 35
-      },
-      "game": "Cincinnati Reds @ Seattle Mariners",
-      "gradeSupportSource": "repository_grader_default",
-      "gradeSupported": true,
-      "id": "profit-c93e0fd89a0f2804f54619ce",
-      "lane": null,
-      "laneBlockers": {
-        "edge": [
-          "edge_negative_chronological_evidence_half",
-          "edge_probability_positive_ev_below_0.80",
-          "edge_conservative_probability_margin_below_0.02",
-          "edge_non_positive_conservative_ev"
-        ],
-        "structural": [],
-        "value": [
-          "value_negative_chronological_evidence_half",
-          "value_non_positive_flat_roi",
-          "value_probability_positive_ev_below_0.70"
-        ]
-      },
-      "line": null,
-      "liveQualified": false,
-      "market": "market",
-      "marketFamily": "market",
-      "marketIdentity": "market:22aaf86843bc44946befe05d",
-      "mode": "team",
-      "modelVersion": "source_identity:scores24_mlb",
-      "oddsAmerican": -154,
-      "pick": "Seattle Mariners ML (Cincinnati Reds @ Seattle Mariners)",
-      "player": null,
-      "policyVersion": "profit_desk_policy_v2",
-      "price": {
-        "ageHours": 10.917,
-        "breakEvenProbability": 0.606299,
-        "decimalOdds": 1.649351,
-        "eligibleForAlphaEstimate": true,
-        "fresh": true,
-        "freshPregame": true,
-        "maxAgeHours": 24.0,
-        "noVigInputs": {
-          "field": "market_no_vig_selected_probability"
-        },
-        "noVigMethod": "explicit:pick.market_no_vig_selected_probability",
-        "noVigProbability": 0.518328,
-        "noVigVerified": true,
-        "observedExecutable": true,
-        "oddsAmerican": -154,
-        "quality": "verified_two_sided",
-        "source": "scraped_feed:scores24_mlb",
-        "sourceField": "source_registry.scraped_odds",
-        "startTime": "2026-07-22T01:40Z",
-        "tier": "B",
-        "tierLabel": "posted_two_sided",
-        "timestamp": "2026-07-21T14:45:00.192751Z",
-        "timestampField": "pick.market_updated_at",
-        "twoSided": true,
-        "updatedAt": "2026-07-21T14:45:00.192751Z"
-      },
-      "rawModelProbabilityIgnored": null,
-      "result": "pending",
-      "shadowQualified": false,
-      "source": "Scores24MLB",
-      "sourceKey": "scores24_mlb",
       "sport": "MLB",
       "stakeUnits": 0.0,
       "tier": "watch",
@@ -6746,6 +6610,14 @@
         "value_probability_positive_ev_below_0.70"
       ],
       "canonicalGame": "2026-07-21:mlb:new york yankees|pittsburgh pirates",
+      "closing": {
+        "capturedAt": "2026-07-21T14:45:00.192751Z",
+        "clv": 0.026469,
+        "decimalOdds": 1.636943,
+        "noVigProbability": 0.58421,
+        "oddsAmerican": -157,
+        "provider": "espn_scoreboard:DraftKings"
+      },
       "consensusSources": [],
       "date": "2026-07-21",
       "decimalOdds": 1.680272,
@@ -6866,7 +6738,7 @@
         "updatedAt": "2026-07-21T14:45:00.192751Z"
       },
       "rawModelProbabilityIgnored": null,
-      "result": "pending",
+      "result": "push",
       "shadowQualified": false,
       "source": "Scores24MLB",
       "sourceKey": "scores24_mlb",
@@ -8639,6 +8511,14 @@
         "value_probability_positive_ev_below_0.70"
       ],
       "canonicalGame": "2026-07-21:mlb:new york yankees|pittsburgh pirates",
+      "closing": {
+        "capturedAt": "2026-07-21T14:57:35.412227Z",
+        "clv": 0.018158,
+        "decimalOdds": 1.636943,
+        "noVigProbability": 0.58421,
+        "oddsAmerican": -157,
+        "provider": "espn_scoreboard:DraftKings"
+      },
       "consensusSources": [
         "Covers Computer MLB",
         "Covers Consensus MLB"
@@ -8766,7 +8646,7 @@
         "updatedAt": "2026-07-21T14:57:35.412227Z"
       },
       "rawModelProbabilityIgnored": null,
-      "result": "pending",
+      "result": "push",
       "shadowQualified": false,
       "source": "Covers Computer MLB",
       "sourceKey": "covers_computer_mlb",
@@ -8916,6 +8796,156 @@
       "shadowQualified": false,
       "source": "Covers Computer MLB",
       "sourceKey": "covers_computer_mlb",
+      "sport": "MLB",
+      "stakeUnits": 0.0,
+      "tier": "watch",
+      "valueQualified": false
+    },
+    {
+      "blockers": [
+        "edge_insufficient_source_samples",
+        "edge_insufficient_segment_samples",
+        "edge_insufficient_distinct_prior_dates",
+        "edge_probability_positive_ev_below_0.80",
+        "edge_conservative_probability_margin_below_0.02",
+        "edge_non_positive_conservative_ev",
+        "value_insufficient_source_samples",
+        "value_insufficient_distinct_prior_dates",
+        "value_non_positive_flat_roi",
+        "value_probability_positive_ev_below_0.70"
+      ],
+      "canonicalGame": "2026-07-21:mlb:cincinnati reds|seattle mariners",
+      "consensusSources": [
+        "ForebetMLB",
+        "Scores24MLB"
+      ],
+      "date": "2026-07-21",
+      "decimalOdds": 1.909091,
+      "decision": "BET",
+      "dedupeRule": "exact_market_identity_best_executable_price",
+      "direction": "side",
+      "duplicateCount": 2,
+      "duplicateSources": [
+        "ForebetMLB",
+        "Scores24MLB"
+      ],
+      "edgeQualified": false,
+      "estimate": {
+        "alpha": 0.0,
+        "alphaStdError": 0.1,
+        "breakEvenProbability": 0.52381,
+        "conservativeExpectedValue": -0.244445,
+        "expectedValue": 0.000215,
+        "lowerProbability": 0.395767,
+        "marketProbability": 0.523922,
+        "method": "market_baseline_plus_hierarchically_shrunk_prior_residual",
+        "probability": 0.523922,
+        "probabilityPositiveEv": 0.500449,
+        "sourceAlpha": 0.0,
+        "value": {
+          "alpha": 0.0,
+          "alphaStdError": 0.079057,
+          "conservativeExpectedValue": -0.193421,
+          "expectedValue": 0.0,
+          "lowerProbability": 0.422494,
+          "method": "source_flat_roi_shrunk_residual_vs_break_even",
+          "probability": 0.52381,
+          "probabilityPositiveEv": 0.5
+        }
+      },
+      "evidence": {
+        "chronologicalHalvesNonnegative": true,
+        "cutoffExclusive": "2026-07-21",
+        "distinctDates": 0,
+        "firstHalfFlatNetUnits": 0,
+        "flatNetUnits": 0,
+        "flatRoi": null,
+        "losses": 0,
+        "modelVersion": "source_identity:forebet_mlb",
+        "policyVersion": "profit_desk_policy_v2",
+        "priorOnly": true,
+        "pushes": 0,
+        "secondHalfFlatNetUnits": 0,
+        "segmentDistinctDates": 0,
+        "segmentEvidenceKey": "team|forebet_mlb|mlb|source_identity:forebet_mlb|market|side|0.50_0.55",
+        "segmentSamples": 0,
+        "sourceChronologicalHalvesNonnegative": true,
+        "sourceDistinctDates": 0,
+        "sourceEvidenceKey": "team|forebet_mlb|mlb",
+        "sourceFirstHalfFlatNetUnits": 0,
+        "sourceFlatNetUnits": 0,
+        "sourceFlatRoi": null,
+        "sourceLosses": 0,
+        "sourceSamples": 0,
+        "sourceSecondHalfFlatNetUnits": 0,
+        "sourceWins": 0,
+        "wins": 0
+      },
+      "game": "Cincinnati Reds @ Seattle Mariners",
+      "gradeSupportSource": "repository_grader_default",
+      "gradeSupported": true,
+      "id": "profit-e320e0fadbfdb02a3329cbb1",
+      "lane": null,
+      "laneBlockers": {
+        "edge": [
+          "edge_insufficient_source_samples",
+          "edge_insufficient_segment_samples",
+          "edge_insufficient_distinct_prior_dates",
+          "edge_probability_positive_ev_below_0.80",
+          "edge_conservative_probability_margin_below_0.02",
+          "edge_non_positive_conservative_ev"
+        ],
+        "structural": [],
+        "value": [
+          "value_insufficient_source_samples",
+          "value_insufficient_distinct_prior_dates",
+          "value_non_positive_flat_roi",
+          "value_probability_positive_ev_below_0.70"
+        ]
+      },
+      "line": null,
+      "liveQualified": false,
+      "market": "market",
+      "marketFamily": "market",
+      "marketIdentity": "market:22aaf86843bc44946befe05d",
+      "mode": "team",
+      "modelVersion": "source_identity:forebet_mlb",
+      "oddsAmerican": -110,
+      "pick": "Seattle Mariners ML (Cincinnati Reds @ Seattle Mariners)",
+      "player": null,
+      "policyVersion": "profit_desk_policy_v2",
+      "price": {
+        "ageHours": 7.456,
+        "breakEvenProbability": 0.52381,
+        "decimalOdds": 1.909091,
+        "eligibleForAlphaEstimate": true,
+        "fresh": true,
+        "freshPregame": true,
+        "maxAgeHours": 24.0,
+        "noVigInputs": {
+          "field": "market_no_vig_selected_probability"
+        },
+        "noVigMethod": "explicit:pick.market_no_vig_selected_probability",
+        "noVigProbability": 0.523922,
+        "noVigVerified": true,
+        "observedExecutable": true,
+        "oddsAmerican": -110,
+        "quality": "verified_two_sided",
+        "source": "scraped_feed:forebet_mlb",
+        "sourceField": "source_registry.scraped_odds",
+        "startTime": "2026-07-22T01:40Z",
+        "tier": "B",
+        "tierLabel": "posted_two_sided",
+        "timestamp": "2026-07-21T18:12:36.976764Z",
+        "timestampField": "pick.market_updated_at",
+        "twoSided": true,
+        "updatedAt": "2026-07-21T18:12:36.976764Z"
+      },
+      "rawModelProbabilityIgnored": 0.73,
+      "result": "pending",
+      "shadowQualified": false,
+      "source": "ForebetMLB",
+      "sourceKey": "forebet_mlb",
       "sport": "MLB",
       "stakeUnits": 0.0,
       "tier": "watch",
@@ -10257,6 +10287,14 @@
         "value_probability_positive_ev_below_0.70"
       ],
       "canonicalGame": "2026-07-21:mlb:new york yankees|pittsburgh pirates",
+      "closing": {
+        "capturedAt": "2026-07-21T14:57:35.412227Z",
+        "clv": 0.029512,
+        "decimalOdds": 1.952381,
+        "noVigProbability": 0.490183,
+        "oddsAmerican": -105,
+        "provider": "espn_scoreboard:DraftKings"
+      },
       "consensusSources": [
         "Covers Computer MLB",
         "Covers \u00b7 Chris Hatfield"
@@ -10384,7 +10422,7 @@
         "updatedAt": "2026-07-21T14:57:35.412227Z"
       },
       "rawModelProbabilityIgnored": null,
-      "result": "pending",
+      "result": "push",
       "shadowQualified": false,
       "source": "Covers \u00b7 Chris Hatfield",
       "sourceKey": "covers_experts_mlb",
@@ -13470,6 +13508,152 @@
         "value_non_positive_flat_roi",
         "value_probability_positive_ev_below_0.70"
       ],
+      "canonicalGame": "2026-07-21:mlb:milwaukee brewers|new york mets",
+      "consensusSources": [],
+      "date": "2026-07-21",
+      "decimalOdds": 1.671141,
+      "decision": "LEAN",
+      "dedupeRule": "exact_market_identity_best_executable_price",
+      "direction": "side",
+      "duplicateCount": 1,
+      "duplicateSources": [
+        "ForebetMLB"
+      ],
+      "edgeQualified": false,
+      "estimate": {
+        "alpha": 0.0,
+        "alphaStdError": 0.1,
+        "breakEvenProbability": 0.598394,
+        "conservativeExpectedValue": -0.29327,
+        "expectedValue": -0.079104,
+        "lowerProbability": 0.422903,
+        "marketProbability": 0.551058,
+        "method": "market_baseline_plus_hierarchically_shrunk_prior_residual",
+        "probability": 0.551058,
+        "probabilityPositiveEv": 0.31798,
+        "sourceAlpha": 0.0,
+        "value": {
+          "alpha": 0.0,
+          "alphaStdError": 0.079057,
+          "conservativeExpectedValue": -0.169313,
+          "expectedValue": 0.0,
+          "lowerProbability": 0.497078,
+          "method": "source_flat_roi_shrunk_residual_vs_break_even",
+          "probability": 0.598394,
+          "probabilityPositiveEv": 0.5
+        }
+      },
+      "evidence": {
+        "chronologicalHalvesNonnegative": true,
+        "cutoffExclusive": "2026-07-21",
+        "distinctDates": 0,
+        "firstHalfFlatNetUnits": 0,
+        "flatNetUnits": 0,
+        "flatRoi": null,
+        "losses": 0,
+        "modelVersion": "source_identity:forebet_mlb",
+        "policyVersion": "profit_desk_policy_v2",
+        "priorOnly": true,
+        "pushes": 0,
+        "secondHalfFlatNetUnits": 0,
+        "segmentDistinctDates": 0,
+        "segmentEvidenceKey": "team|forebet_mlb|mlb|source_identity:forebet_mlb|market|side|0.55_0.60",
+        "segmentSamples": 0,
+        "sourceChronologicalHalvesNonnegative": true,
+        "sourceDistinctDates": 0,
+        "sourceEvidenceKey": "team|forebet_mlb|mlb",
+        "sourceFirstHalfFlatNetUnits": 0,
+        "sourceFlatNetUnits": 0,
+        "sourceFlatRoi": null,
+        "sourceLosses": 0,
+        "sourceSamples": 0,
+        "sourceSecondHalfFlatNetUnits": 0,
+        "sourceWins": 0,
+        "wins": 0
+      },
+      "game": "New York Mets @ Milwaukee Brewers",
+      "gradeSupportSource": "repository_grader_default",
+      "gradeSupported": true,
+      "id": "profit-db82e2f42eb724e81422e1e9",
+      "lane": null,
+      "laneBlockers": {
+        "edge": [
+          "edge_insufficient_source_samples",
+          "edge_insufficient_segment_samples",
+          "edge_insufficient_distinct_prior_dates",
+          "edge_probability_positive_ev_below_0.80",
+          "edge_conservative_probability_margin_below_0.02",
+          "edge_non_positive_conservative_ev"
+        ],
+        "structural": [],
+        "value": [
+          "value_insufficient_source_samples",
+          "value_insufficient_distinct_prior_dates",
+          "value_non_positive_flat_roi",
+          "value_probability_positive_ev_below_0.70"
+        ]
+      },
+      "line": null,
+      "liveQualified": false,
+      "market": "market",
+      "marketFamily": "market",
+      "marketIdentity": "market:648c372f46c16609e9bc3d59",
+      "mode": "team",
+      "modelVersion": "source_identity:forebet_mlb",
+      "oddsAmerican": -149,
+      "pick": "Milwaukee Brewers ML (New York Mets @ Milwaukee Brewers)",
+      "player": null,
+      "policyVersion": "profit_desk_policy_v2",
+      "price": {
+        "ageHours": 5.456,
+        "breakEvenProbability": 0.598394,
+        "decimalOdds": 1.671141,
+        "eligibleForAlphaEstimate": true,
+        "fresh": true,
+        "freshPregame": true,
+        "maxAgeHours": 24.0,
+        "noVigInputs": {
+          "field": "market_no_vig_selected_probability"
+        },
+        "noVigMethod": "explicit:pick.market_no_vig_selected_probability",
+        "noVigProbability": 0.551058,
+        "noVigVerified": true,
+        "observedExecutable": true,
+        "oddsAmerican": -149,
+        "quality": "verified_two_sided",
+        "source": "scraped_feed:forebet_mlb",
+        "sourceField": "source_registry.scraped_odds",
+        "startTime": "2026-07-21T23:40Z",
+        "tier": "B",
+        "tierLabel": "posted_two_sided",
+        "timestamp": "2026-07-21T18:12:36.976764Z",
+        "timestampField": "pick.market_updated_at",
+        "twoSided": true,
+        "updatedAt": "2026-07-21T18:12:36.976764Z"
+      },
+      "rawModelProbabilityIgnored": 0.74,
+      "result": "pending",
+      "shadowQualified": false,
+      "source": "ForebetMLB",
+      "sourceKey": "forebet_mlb",
+      "sport": "MLB",
+      "stakeUnits": 0.0,
+      "tier": "watch",
+      "valueQualified": false
+    },
+    {
+      "blockers": [
+        "edge_insufficient_source_samples",
+        "edge_insufficient_segment_samples",
+        "edge_insufficient_distinct_prior_dates",
+        "edge_probability_positive_ev_below_0.80",
+        "edge_conservative_probability_margin_below_0.02",
+        "edge_non_positive_conservative_ev",
+        "value_insufficient_source_samples",
+        "value_insufficient_distinct_prior_dates",
+        "value_non_positive_flat_roi",
+        "value_probability_positive_ev_below_0.70"
+      ],
       "canonicalGame": "2026-07-21:mlb:cincinnati reds|seattle mariners",
       "consensusSources": [],
       "date": "2026-07-21",
@@ -15499,6 +15683,152 @@
     },
     {
       "blockers": [
+        "edge_insufficient_source_samples",
+        "edge_insufficient_segment_samples",
+        "edge_insufficient_distinct_prior_dates",
+        "edge_probability_positive_ev_below_0.80",
+        "edge_conservative_probability_margin_below_0.02",
+        "edge_non_positive_conservative_ev",
+        "value_insufficient_source_samples",
+        "value_insufficient_distinct_prior_dates",
+        "value_non_positive_flat_roi",
+        "value_probability_positive_ev_below_0.70"
+      ],
+      "canonicalGame": "2026-07-21:mlb:kansas city royals|san francisco giants",
+      "consensusSources": [],
+      "date": "2026-07-21",
+      "decimalOdds": 1.909091,
+      "decision": "LEAN",
+      "dedupeRule": "exact_market_identity_best_executable_price",
+      "direction": "side",
+      "duplicateCount": 1,
+      "duplicateSources": [
+        "ForebetMLB"
+      ],
+      "edgeQualified": false,
+      "estimate": {
+        "alpha": 0.0,
+        "alphaStdError": 0.1,
+        "breakEvenProbability": 0.52381,
+        "conservativeExpectedValue": -0.313029,
+        "expectedValue": -0.068369,
+        "lowerProbability": 0.359842,
+        "marketProbability": 0.487997,
+        "method": "market_baseline_plus_hierarchically_shrunk_prior_residual",
+        "probability": 0.487997,
+        "probabilityPositiveEv": 0.360125,
+        "sourceAlpha": 0.0,
+        "value": {
+          "alpha": 0.0,
+          "alphaStdError": 0.079057,
+          "conservativeExpectedValue": -0.193421,
+          "expectedValue": 0.0,
+          "lowerProbability": 0.422494,
+          "method": "source_flat_roi_shrunk_residual_vs_break_even",
+          "probability": 0.52381,
+          "probabilityPositiveEv": 0.5
+        }
+      },
+      "evidence": {
+        "chronologicalHalvesNonnegative": true,
+        "cutoffExclusive": "2026-07-21",
+        "distinctDates": 0,
+        "firstHalfFlatNetUnits": 0,
+        "flatNetUnits": 0,
+        "flatRoi": null,
+        "losses": 0,
+        "modelVersion": "source_identity:forebet_mlb",
+        "policyVersion": "profit_desk_policy_v2",
+        "priorOnly": true,
+        "pushes": 0,
+        "secondHalfFlatNetUnits": 0,
+        "segmentDistinctDates": 0,
+        "segmentEvidenceKey": "team|forebet_mlb|mlb|source_identity:forebet_mlb|market|side|0.45_0.50",
+        "segmentSamples": 0,
+        "sourceChronologicalHalvesNonnegative": true,
+        "sourceDistinctDates": 0,
+        "sourceEvidenceKey": "team|forebet_mlb|mlb",
+        "sourceFirstHalfFlatNetUnits": 0,
+        "sourceFlatNetUnits": 0,
+        "sourceFlatRoi": null,
+        "sourceLosses": 0,
+        "sourceSamples": 0,
+        "sourceSecondHalfFlatNetUnits": 0,
+        "sourceWins": 0,
+        "wins": 0
+      },
+      "game": "San Francisco Giants @ Kansas City Royals",
+      "gradeSupportSource": "repository_grader_default",
+      "gradeSupported": true,
+      "id": "profit-f81f7c369caf993f67d534c9",
+      "lane": null,
+      "laneBlockers": {
+        "edge": [
+          "edge_insufficient_source_samples",
+          "edge_insufficient_segment_samples",
+          "edge_insufficient_distinct_prior_dates",
+          "edge_probability_positive_ev_below_0.80",
+          "edge_conservative_probability_margin_below_0.02",
+          "edge_non_positive_conservative_ev"
+        ],
+        "structural": [],
+        "value": [
+          "value_insufficient_source_samples",
+          "value_insufficient_distinct_prior_dates",
+          "value_non_positive_flat_roi",
+          "value_probability_positive_ev_below_0.70"
+        ]
+      },
+      "line": null,
+      "liveQualified": false,
+      "market": "market",
+      "marketFamily": "market",
+      "marketIdentity": "market:49e32117ef9b2f996e8595a4",
+      "mode": "team",
+      "modelVersion": "source_identity:forebet_mlb",
+      "oddsAmerican": -110,
+      "pick": "Kansas City Royals ML (San Francisco Giants @ Kansas City Royals)",
+      "player": null,
+      "policyVersion": "profit_desk_policy_v2",
+      "price": {
+        "ageHours": 5.456,
+        "breakEvenProbability": 0.52381,
+        "decimalOdds": 1.909091,
+        "eligibleForAlphaEstimate": true,
+        "fresh": true,
+        "freshPregame": true,
+        "maxAgeHours": 24.0,
+        "noVigInputs": {
+          "field": "market_no_vig_selected_probability"
+        },
+        "noVigMethod": "explicit:pick.market_no_vig_selected_probability",
+        "noVigProbability": 0.487997,
+        "noVigVerified": true,
+        "observedExecutable": true,
+        "oddsAmerican": -110,
+        "quality": "verified_two_sided",
+        "source": "scraped_feed:forebet_mlb",
+        "sourceField": "source_registry.scraped_odds",
+        "startTime": "2026-07-21T23:40Z",
+        "tier": "B",
+        "tierLabel": "posted_two_sided",
+        "timestamp": "2026-07-21T18:12:36.976764Z",
+        "timestampField": "pick.market_updated_at",
+        "twoSided": true,
+        "updatedAt": "2026-07-21T18:12:36.976764Z"
+      },
+      "rawModelProbabilityIgnored": 0.65,
+      "result": "pending",
+      "shadowQualified": false,
+      "source": "ForebetMLB",
+      "sourceKey": "forebet_mlb",
+      "sport": "MLB",
+      "stakeUnits": 0.0,
+      "tier": "watch",
+      "valueQualified": false
+    },
+    {
+      "blockers": [
         "edge_negative_chronological_evidence_half",
         "edge_probability_positive_ev_below_0.80",
         "edge_conservative_probability_margin_below_0.02",
@@ -15508,6 +15838,14 @@
         "value_probability_positive_ev_below_0.70"
       ],
       "canonicalGame": "2026-07-21:mlb:new york yankees|pittsburgh pirates",
+      "closing": {
+        "capturedAt": "2026-07-21T14:57:35.412227Z",
+        "clv": -0.021739,
+        "decimalOdds": 2.3,
+        "noVigProbability": 0.41579,
+        "oddsAmerican": 130,
+        "provider": "espn_scoreboard:DraftKings"
+      },
       "consensusSources": [],
       "date": "2026-07-21",
       "decimalOdds": 2.25,
@@ -15628,7 +15966,7 @@
         "updatedAt": "2026-07-21T14:57:35.412227Z"
       },
       "rawModelProbabilityIgnored": null,
-      "result": "pending",
+      "result": "push",
       "shadowQualified": false,
       "source": "SportsGamblerMLB",
       "sourceKey": "sportsgambler_mlb",
@@ -16681,6 +17019,14 @@
         "value_probability_positive_ev_below_0.70"
       ],
       "canonicalGame": "2026-07-21:mlb:new york yankees|pittsburgh pirates",
+      "closing": {
+        "capturedAt": "2026-07-21T14:57:35.412227Z",
+        "clv": 0.017391,
+        "decimalOdds": 2.3,
+        "noVigProbability": 0.41579,
+        "oddsAmerican": 130,
+        "provider": "espn_scoreboard:DraftKings"
+      },
       "consensusSources": [],
       "date": "2026-07-21",
       "decimalOdds": 2.34,
@@ -16804,7 +17150,7 @@
         "updatedAt": "2026-07-21T14:57:35.412227Z"
       },
       "rawModelProbabilityIgnored": null,
-      "result": "pending",
+      "result": "push",
       "shadowQualified": false,
       "source": "Covers \u00b7 Chris Hatfield",
       "sourceKey": "covers_experts_mlb",
@@ -22509,6 +22855,117 @@
         "edge_no_usable_price_baseline",
         "value_no_usable_price_baseline"
       ],
+      "canonicalGame": "2026-07-21:mlb:chicago white sox|texas rangers",
+      "consensusSources": [],
+      "date": "2026-07-21",
+      "decimalOdds": null,
+      "decision": "BET",
+      "dedupeRule": "exact_market_identity_best_executable_price",
+      "direction": "side",
+      "duplicateCount": 1,
+      "duplicateSources": [
+        "ForebetMLB"
+      ],
+      "edgeQualified": false,
+      "estimate": null,
+      "evidence": {
+        "chronologicalHalvesNonnegative": false,
+        "cutoffExclusive": "2026-07-21",
+        "distinctDates": 0,
+        "firstHalfFlatNetUnits": 0.0,
+        "flatNetUnits": 0.0,
+        "flatRoi": null,
+        "losses": 0,
+        "modelVersion": "source_identity:forebet_mlb",
+        "policyVersion": "profit_desk_policy_v2",
+        "priorOnly": true,
+        "pushes": 0,
+        "secondHalfFlatNetUnits": 0.0,
+        "segmentDistinctDates": 0,
+        "segmentEvidenceKey": null,
+        "segmentSamples": 0,
+        "sourceChronologicalHalvesNonnegative": false,
+        "sourceDistinctDates": 0,
+        "sourceEvidenceKey": "team|forebet_mlb|mlb",
+        "sourceFirstHalfFlatNetUnits": 0.0,
+        "sourceFlatNetUnits": 0.0,
+        "sourceFlatRoi": null,
+        "sourceLosses": 0,
+        "sourceSamples": 0,
+        "sourceSecondHalfFlatNetUnits": 0.0,
+        "sourceWins": 0,
+        "wins": 0
+      },
+      "game": "Chicago White Sox @ Texas Rangers",
+      "gradeSupportSource": "repository_grader_default",
+      "gradeSupported": true,
+      "id": "profit-00ae89bb5465f579118a05f4",
+      "lane": null,
+      "laneBlockers": {
+        "edge": [
+          "edge_no_usable_price_baseline"
+        ],
+        "structural": [
+          "missing_executable_odds"
+        ],
+        "value": [
+          "value_no_usable_price_baseline"
+        ]
+      },
+      "line": null,
+      "liveQualified": false,
+      "market": "market",
+      "marketFamily": "market",
+      "marketIdentity": "market:47c63ee8cf45708c96131eae",
+      "mode": "team",
+      "modelVersion": "source_identity:forebet_mlb",
+      "oddsAmerican": null,
+      "pick": "Texas Rangers ML (Chicago White Sox @ Texas Rangers)",
+      "player": null,
+      "policyVersion": "profit_desk_policy_v2",
+      "price": {
+        "ageHours": 5.873,
+        "breakEvenProbability": null,
+        "decimalOdds": null,
+        "eligibleForAlphaEstimate": false,
+        "fresh": true,
+        "freshPregame": true,
+        "maxAgeHours": 24.0,
+        "noVigInputs": {
+          "field": "market_no_vig_selected_probability"
+        },
+        "noVigMethod": "explicit:pick.market_no_vig_selected_probability",
+        "noVigProbability": 0.529135,
+        "noVigVerified": true,
+        "observedExecutable": false,
+        "oddsAmerican": null,
+        "quality": "missing",
+        "source": null,
+        "sourceField": "missing",
+        "startTime": "2026-07-22T00:05Z",
+        "tier": "D",
+        "tierLabel": "assumed_proxy_or_synthetic",
+        "timestamp": "2026-07-21T18:12:36.976764Z",
+        "timestampField": "pick.market_updated_at",
+        "twoSided": true,
+        "updatedAt": "2026-07-21T18:12:36.976764Z"
+      },
+      "rawModelProbabilityIgnored": 0.7,
+      "result": "pending",
+      "shadowQualified": false,
+      "source": "ForebetMLB",
+      "sourceKey": "forebet_mlb",
+      "sport": "MLB",
+      "stakeUnits": 0.0,
+      "tier": "avoid",
+      "valueQualified": false
+    },
+    {
+      "blockers": [
+        "missing_executable_odds",
+        "edge_no_usable_price_baseline",
+        "value_no_usable_price_baseline"
+      ],
       "canonicalGame": "2026-07-21:mlb:los angeles angels|st louis cardinals",
       "consensusSources": [],
       "date": "2026-07-21",
@@ -24157,7 +24614,7 @@
   "date": "2026-07-21",
   "engineVersion": "profit_desk_v2_live",
   "firstLiveDate": "2026-07-11",
-  "generatedAt": "2026-07-21T17:13:26.450885Z",
+  "generatedAt": "2026-07-21T18:12:32.191349Z",
   "notices": [
     "Qualified picks carry real flat stakes: EDGE 1.0u, VALUE 0.5u; everything else stays 0u.",
     "The market price is the baseline; historical residual alpha is shrunk and uncertainty-adjusted.",
@@ -25811,7 +26268,7 @@
     },
     {
       "alpha": -0.017866,
-      "candidatesToday": 14,
+      "candidatesToday": 13,
       "distinctDates": 31,
       "evidenceQualified": false,
       "flatNetUnits": -12.7394,
@@ -26317,52 +26774,6 @@
     },
     {
       "alpha": 0.0,
-      "candidatesToday": 6,
-      "distinctDates": 0,
-      "evidenceQualified": false,
-      "flatNetUnits": 0,
-      "flatRoi": null,
-      "gates": {
-        "distinctPriorDates": {
-          "actual": 0,
-          "passed": false,
-          "required": 15
-        },
-        "positiveFlatRoi": {
-          "actual": null,
-          "passed": false,
-          "required": 0.0
-        },
-        "probabilityPositiveEv": {
-          "actual": 0.5,
-          "passed": false,
-          "required": 0.7
-        },
-        "sourceSamples": {
-          "actual": 0,
-          "passed": false,
-          "required": 150
-        },
-        "stableChronologicalHalves": {
-          "actual": true,
-          "passed": false,
-          "required": true
-        }
-      },
-      "gatesPassed": 0,
-      "gatesTotal": 5,
-      "liveToday": 0,
-      "losses": 0,
-      "mode": "player",
-      "probabilityPositiveEv": 0.5,
-      "samples": 0,
-      "source": "Covers \u00b7 Luc LeBlanc",
-      "sourceKey": "covers_experts_mlb",
-      "sport": "mlb",
-      "wins": 0
-    },
-    {
-      "alpha": 0.0,
       "candidatesToday": 12,
       "distinctDates": 0,
       "evidenceQualified": false,
@@ -26403,6 +26814,52 @@
       "probabilityPositiveEv": 0.5,
       "samples": 0,
       "source": "Covers \u00b7 Quinn Allen",
+      "sourceKey": "covers_experts_mlb",
+      "sport": "mlb",
+      "wins": 0
+    },
+    {
+      "alpha": 0.0,
+      "candidatesToday": 6,
+      "distinctDates": 0,
+      "evidenceQualified": false,
+      "flatNetUnits": 0,
+      "flatRoi": null,
+      "gates": {
+        "distinctPriorDates": {
+          "actual": 0,
+          "passed": false,
+          "required": 15
+        },
+        "positiveFlatRoi": {
+          "actual": null,
+          "passed": false,
+          "required": 0.0
+        },
+        "probabilityPositiveEv": {
+          "actual": 0.5,
+          "passed": false,
+          "required": 0.7
+        },
+        "sourceSamples": {
+          "actual": 0,
+          "passed": false,
+          "required": 150
+        },
+        "stableChronologicalHalves": {
+          "actual": true,
+          "passed": false,
+          "required": true
+        }
+      },
+      "gatesPassed": 0,
+      "gatesTotal": 5,
+      "liveToday": 0,
+      "losses": 0,
+      "mode": "player",
+      "probabilityPositiveEv": 0.5,
+      "samples": 0,
+      "source": "Covers \u00b7 Luc LeBlanc",
       "sourceKey": "covers_experts_mlb",
       "sport": "mlb",
       "wins": 0
@@ -26450,6 +26907,52 @@
       "samples": 0,
       "source": "Covers Props (BAT X)",
       "sourceKey": "covers_props_mlb",
+      "sport": "mlb",
+      "wins": 0
+    },
+    {
+      "alpha": 0.0,
+      "candidatesToday": 4,
+      "distinctDates": 0,
+      "evidenceQualified": false,
+      "flatNetUnits": 0,
+      "flatRoi": null,
+      "gates": {
+        "distinctPriorDates": {
+          "actual": 0,
+          "passed": false,
+          "required": 15
+        },
+        "positiveFlatRoi": {
+          "actual": null,
+          "passed": false,
+          "required": 0.0
+        },
+        "probabilityPositiveEv": {
+          "actual": 0.5,
+          "passed": false,
+          "required": 0.7
+        },
+        "sourceSamples": {
+          "actual": 0,
+          "passed": false,
+          "required": 150
+        },
+        "stableChronologicalHalves": {
+          "actual": true,
+          "passed": false,
+          "required": true
+        }
+      },
+      "gatesPassed": 0,
+      "gatesTotal": 5,
+      "liveToday": 0,
+      "losses": 0,
+      "mode": "team",
+      "probabilityPositiveEv": 0.5,
+      "samples": 0,
+      "source": "ForebetMLB",
+      "sourceKey": "forebet_mlb",
       "sport": "mlb",
       "wins": 0
     },
@@ -26961,13 +27464,13 @@
     }
   ],
   "summary": {
-    "avoid": 15,
-    "candidateCount": 172,
-    "candidatesEvaluated": 172,
-    "deduplicatedPicks": 19,
+    "avoid": 16,
+    "candidateCount": 175,
+    "candidatesEvaluated": 175,
+    "deduplicatedPicks": 21,
     "edgeQualified": 0,
     "evidenceRows": 1803,
-    "inputPicks": 191,
+    "inputPicks": 196,
     "livePortfolioCandidates": 3,
     "liveQualified": 18,
     "liveRecord": {
@@ -27014,23 +27517,23 @@
         "watchlist": 52
       },
       "team": {
-        "avoid": 13,
-        "candidateCount": 100,
-        "candidates": 100,
-        "candidatesEvaluated": 100,
+        "avoid": 14,
+        "candidateCount": 103,
+        "candidates": 103,
+        "candidatesEvaluated": 103,
         "edgeQualified": 0,
         "evidenceRows": 1245,
         "liveQualified": 0,
-        "observedPriceCandidates": 87,
+        "observedPriceCandidates": 89,
         "portfolioCandidates": 0,
         "researchQualified": 0,
         "selected": 0,
         "shadowQualified": 0,
         "valueQualified": 0,
-        "watchlist": 87
+        "watchlist": 89
       }
     },
-    "observedPriceCandidates": 157,
+    "observedPriceCandidates": 159,
     "portfolioCandidates": 3,
     "researchQualified": 18,
     "researchRecord": {
@@ -27060,8 +27563,8 @@
       "stakedUnits": 0.0,
       "wins": 0
     },
-    "sourcesTracked": 34,
+    "sourcesTracked": 35,
     "valueQualified": 18,
-    "watchlist": 139
+    "watchlist": 141
   }
 }
