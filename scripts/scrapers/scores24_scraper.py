@@ -83,7 +83,9 @@ CLOUDFLARE_SIGNALS = (
 TEAM_TEXT_ALIASES = {
     "cleveland gardians": "cleveland guardians",
     "czech republic": "czechia",
+    "los angeles fc": "lafc",
     "oakland athletics": "athletics",
+    "saint louis": "st louis",
     "turkiye": "turkey",
     "usa": "united states",
 }
@@ -180,8 +182,12 @@ def _row_matches_target_date(row: dict[str, Any], date_iso: str) -> bool:
     return True
 
 
-def _cache_matchups(sport: str, date_iso: str) -> list[dict[str, str]]:
-    config = SPORT_CONFIG[sport]
+def _cache_matchups(
+    sport: str,
+    date_iso: str,
+    config: dict[str, Any] | None = None,
+) -> list[dict[str, str]]:
+    config = config or SPORT_CONFIG[sport]
     for path in (MODEL_CACHE_DIR / f"{date_iso}.json", MODEL_CACHE_DIR / "latest.json"):
         try:
             payload = json.loads(path.read_text(encoding="utf-8"))
@@ -223,14 +229,16 @@ def fetch_daily_matchups(
     sport: str,
     date_iso: str,
     session: requests.Session | None = None,
+    config: dict[str, Any] | None = None,
 ) -> tuple[list[dict[str, str]], bool]:
     """Return official daily matchups and whether the slate was resolved.
 
     The second value is True when ESPN returned a scoreboard for the date or
     committed cache supplied fallback matchups. A successful ESPN response with
-    zero events is still resolved (off-day).
+    zero events is still resolved (off-day). `config` lets other scrapers
+    (e.g. Forebet) reuse this slate resolution with their own sport table.
     """
-    config = SPORT_CONFIG[sport]
+    config = config or SPORT_CONFIG[sport]
     url = (
         "https://site.api.espn.com/apis/site/v2/sports/"
         f"{config['espn_sport']}/{config['espn_league']}/scoreboard?dates={date_iso.replace('-', '')}"
@@ -273,7 +281,7 @@ def fetch_daily_matchups(
                 "start_time": _norm_space(event.get("date") or competition.get("date")),
             }
 
-    cached = _cache_matchups(sport, date_iso)
+    cached = _cache_matchups(sport, date_iso, config=config)
     for matchup in cached:
         key = _matchup_key(matchup["away"], matchup["home"])
         if key:

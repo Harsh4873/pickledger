@@ -5981,14 +5981,14 @@ def _external_pick_market_metadata(sport: str, pick_text: str) -> dict[str, Any]
 
     if _external_team_selection_mismatch(pick_text):
         return {"market_type": "external_team_mismatch", "grade_supported": False}
-    if sport == "FIFA WC":
+    if sport in ("FIFA WC", "MLS"):
         return _soccer_external_market_metadata(pick_text)
     return {}
 
 
 def apply_external_pick_metadata(pick: dict[str, Any]) -> int:
     source = str(pick.get("source") or "").strip()
-    if not source.startswith(("SportyTrader", "SportsGambler", "Scores24")):
+    if not source.startswith(("SportyTrader", "SportsGambler", "Scores24", "Forebet")):
         return 0
 
     changed = 0

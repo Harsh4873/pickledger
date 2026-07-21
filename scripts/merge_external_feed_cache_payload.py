@@ -32,6 +32,7 @@ EXTERNAL_FEED_MODEL_KEYS = {
     "scores24_wnba",
     "scores24_mlb",
     "scores24_fifa_world_cup",
+    "forebet_mls",
 }
 SPLIT_EXTERNAL_FEED_LEGACY_KEYS = {"sportytrader", "sportsgambler"}
 EXTERNAL_FEED_SPORT_KEYS = {

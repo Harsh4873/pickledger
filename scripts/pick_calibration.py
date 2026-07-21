@@ -23,7 +23,7 @@ ACTIVE_CALIBRATION_PATH = CALIBRATION_DIR / "active.json"
 LEDGER_PATH = CALIBRATION_DIR / "outcome_ledger.json"
 CALIBRATION_SCHEMA_VERSION = 1
 MIN_GROUP_SAMPLES = 30
-CALIBRATION_EXCLUDED_MODEL_KEYS = {"fifa_world_cup", "mls"}
+CALIBRATION_EXCLUDED_MODEL_KEYS = {"fifa_world_cup", "mls", "forebet_mls"}
 # Research models with no real market (settlement at an assumed price only)
 # keep their calibrated probabilities for display, but the model's own
 # decision and stake publish untouched — there is no executable price for
