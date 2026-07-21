@@ -29,6 +29,29 @@ After the script finishes, report:
 If Scores24 blocks the cloud IP, say so clearly in the run summary. Do not add AI co-author lines to commits.
 ```
 
+## 1b. Forebet publish (required — GitHub Actions get Cloudflare-challenged)
+
+**Schedule (UTC cron):** `40 14 * * *` and `40 20 * * *` (~9:40 AM and 3:40 PM America/Chicago during CDT — shortly after Scores24).
+
+**Instructions:**
+
+```
+Run scripts/scrapers/forebet_publish.sh from the PickLedger repo root.
+Use `scripts/scrapers/forebet_publish.sh --date YYYY-MM-DD` when backfilling a missed slate.
+
+Never open the deployed website or a browser to verify output.
+
+Run the Codex upkeep guard above before the final summary.
+
+After the script finishes, report:
+- exit code
+- whether a commit was pushed
+- ForebetMLB, ForebetWNBA, and ForebetMLS pick counts for today (America/Chicago) with officialMatchups vs matchedPicks
+- any scrape, Cloudflare, or push errors
+
+If Forebet Cloudflare-challenges the cloud IP, say so clearly in the run summary. Do not add AI co-author lines to commits.
+```
+
 ## 2. Production health check (optional daily sanity)
 
 **Schedule (UTC cron):** `0 21 * * *` (~4:00 PM America/Chicago during CDT).
