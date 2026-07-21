@@ -353,8 +353,11 @@
   .log-pick-main { font-weight: 600; line-height: 1.25; }
   .log-pick-sub { margin-top: 4px; font-size: 11px; color: var(--muted); font-family: 'DM Mono', monospace; line-height: 1.35; }
 
-  /* === Home tab === */
-  .home-shell { display: flex; flex-direction: column; gap: 18px; }
+  /* === Home tab ===
+     Home reads as a single centered column at every width. The old auto-fit
+     feed grid packed 3-4 matchup cards across a wide laptop, which squeezed
+     each card to ~340px and truncated team names, pick text, and odds. */
+  .home-shell { display: flex; flex-direction: column; gap: 18px; width: 100%; max-width: 1000px; margin-inline: auto; }
   .home-hero {
     position: relative;
     overflow: hidden;
@@ -1158,7 +1161,7 @@
   }
   .home-feed-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+    grid-template-columns: minmax(0, 1fr);
     gap: 18px;
   }
   .home-game-card {
@@ -2820,7 +2823,6 @@
     .home-mode-btn { padding: 0 8px; font-size: 10px; }
     .home-summary-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     .home-filter-shell { padding: 16px; }
-    .home-feed-grid { grid-template-columns: 1fr; }
     .home-game-top { grid-template-columns: 1fr; }
     .home-game-right-stack { align-items: flex-start; min-width: 0; width: 100%; margin-left: 0; }
     .home-game-pl-wrap, .home-game-caption { text-align: left; }
