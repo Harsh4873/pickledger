@@ -1099,6 +1099,11 @@ function renderRankingFilters(comparablePicks: Pick[], scopedPicks: Pick[]): voi
   const sourceNames = byCount(sources, rankingSourceFilters);
   const isPlayer = activePickMode === 'player';
 
+  const sub = document.getElementById('rank-filter-sub');
+  if (sub) {
+    sub.textContent = `Pick a sport, then one or more ${rankingSourceNoun(true)}. Overall Stats above always stay all-time; the three boards below follow this selection.`;
+  }
+
   container.innerHTML = `<div class="rank-filter-row">
       <div class="rank-filter-row-label">Sport</div>
       <div class="rank-filter-pills">

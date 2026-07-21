@@ -5391,10 +5391,12 @@ body[data-theme="light"] .rank-scope-summary { background: rgba(255,255,255,0.75
 .rank-scope-value { color: var(--text); font: 800 13px/1.35 'DM Mono', monospace; overflow-wrap: anywhere; }
 .rank-scope-meta { color: var(--muted); font: 9px/1.5 'DM Mono', monospace; letter-spacing: 0.4px; }
 .rank-filter-groups { display: flex; flex-direction: column; gap: 12px; }
-.rank-filter-row { display: flex; align-items: baseline; gap: 12px; }
+/* flex-start, not baseline: the pills wrap to several rows, and baseline
+   alignment lifts the label out of the row to meet the first pill's text. */
+.rank-filter-row { display: flex; align-items: flex-start; gap: 12px; }
 .rank-filter-row-label {
   flex: 0 0 58px;
-  padding-top: 7px;
+  padding-top: 9px;
   color: var(--muted);
   font: 800 9px 'DM Mono', monospace;
   letter-spacing: 0.9px;
@@ -5434,7 +5436,7 @@ body[data-theme="light"] .rank-filter-btn { background: rgba(255,255,255,0.9); }
 }
 .rank-filter-btn.active .rank-filter-count { background: rgba(4,19,26,0.16); opacity: 1; }
 body[data-theme="light"] .rank-filter-count { background: rgba(15,25,40,0.07); }
-.rank-filter-empty { color: var(--muted); font: 10px/2.6 'DM Mono', monospace; }
+.rank-filter-empty { align-self: center; color: var(--muted); font: 10px 'DM Mono', monospace; }
 
 @media (max-width: 768px) {
   .rank-scope-summary { width: 100%; margin-left: 0; text-align: left; }
