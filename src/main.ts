@@ -955,8 +955,397 @@ function renderHome(): void {
   void refreshHomeScores(selectedDate, picks);
 }
 
+// --- Market lanes ---------------------------------------------------------
+// A game card used to be one flat column of rows: ten picks from six sources
+// with nothing saying which ones were even betting the same thing. Lanes group
+// a card's picks by the market they bet and then by the side each source takes,
+// so a card answers "what do they like, and where do they disagree" without
+// reading every row. Everything is derived from the pick itself — the stamped
+// market type when an in-house model publishes one, the selection text when a
+// scraper feed does not — so a new league or an unorthodox market lands in a
+// labelled lane instead of distorting the layout.
+
+type LaneTone = 'consensus' | 'split' | 'stack' | 'solo';
+
+interface MarketFamily {
+  key: string;
+  label: string;
+  order: number;
+  // Exclusive markets have mutually exclusive sides: two sources on opposite
+  // sides genuinely contradict each other. Non-exclusive lanes (innings, props,
+  // leftovers) just stack unrelated bets, so multiple sides are not a conflict.
+  exclusive: boolean;
+}
+
+interface MarketSide {
+  key: string;
+  label: string;
+  picks: Pick[];
+}
+
+interface MarketGroup {
+  key: string;
+  label: string;
+  exclusive: boolean;
+  sides: MarketSide[];
+  sourceCount: number;
+  pickCount: number;
+  showSides: boolean;
+  tone: LaneTone;
+  badge: string;
+}
+
+interface MarketLane {
+  key: string;
+  label: string;
+  order: number;
+  groups: MarketGroup[];
+  sourceCount: number;
+  pickCount: number;
+  tone: LaneTone;
+  badge: string;
+  mix: string;
+  wide: boolean;
+}
+
+interface MarketSlot {
+  laneKey: string;
+  laneLabel: string;
+  laneOrder: number;
+  groupKey: string;
+  groupLabel: string;
+  exclusive: boolean;
+  sideKey: string;
+  sideLabel: string;
+}
+
+const MARKET_FAMILIES: Record<string, MarketFamily> = {
+  moneyline: { key: 'moneyline', label: 'Moneyline', order: 1, exclusive: true },
+  spread: { key: 'spread', label: 'Spread', order: 2, exclusive: true },
+  total: { key: 'total', label: 'Game Total', order: 3, exclusive: true },
+  team_total: { key: 'team_total', label: 'Team Total', order: 4, exclusive: true },
+  f5_side: { key: 'f5_side', label: 'First 5 Side', order: 5, exclusive: true },
+  f5_total: { key: 'f5_total', label: 'First 5 Total', order: 6, exclusive: true },
+  inning: { key: 'inning', label: 'Innings', order: 7, exclusive: false },
+  prop: { key: 'prop', label: 'Props & Specials', order: 8, exclusive: false },
+  other: { key: 'other', label: 'Other Markets', order: 9, exclusive: false },
+};
+
+const MARKET_TYPE_FAMILIES: Record<string, string> = {
+  h2h: 'moneyline', moneyline: 'moneyline', ml: 'moneyline', '1x2': 'moneyline', money_line: 'moneyline',
+  spread: 'spread', spreads: 'spread', handicap: 'spread', run_line: 'spread', runline: 'spread', puck_line: 'spread',
+  total: 'total', totals: 'total', over_under: 'total', game_total: 'total',
+  team_total: 'team_total', team_totals: 'team_total',
+  f5_side: 'f5_side', f5_total: 'f5_total',
+  no_run_inning: 'inning', inning: 'inning',
+  external_player_prop: 'prop',
+  // "Brewers to win and over 7.5 runs" is two markets in one ticket; it belongs
+  // beside the other oddities rather than pretending to be a team total.
+  compound: 'other',
+};
+
+// Stat nouns that turn a "total" into a prop — "Mets Total Hits - Under 5.5"
+// is a team prop, not the game total. Runs, points and goals stay off the list
+// on purpose: those are the units a game or team total is quoted in, so
+// matching them would swallow every legitimate total.
+const PROP_STAT_PATTERN = /(?:^| )(hits?|strikeouts?|walks?|home runs?|rbis?|bases|rebounds?|assists?|threes?|3pm|corners?|cards?|saves?|steals?|blocks?|touchdowns?|yards?|shots?)(?: |$)/;
+
+const MARKET_TOKEN_CASING: Record<string, string> = {
+  rbi: 'RBI', rbis: 'RBIs', ml: 'ML', hr: 'HR', pra: 'PRA', f5: 'F5', '3pm': '3PM', ks: 'Ks',
+};
+
+function humanizeMarketToken(value: unknown): string {
+  return String(value ?? '')
+    .trim()
+    .replace(/[_-]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .split(' ')
+    .filter(Boolean)
+    .map(word => MARKET_TOKEN_CASING[word.toLowerCase()] || word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ');
+}
+
+function truncateLabel(value: string, max: number): string {
+  const text = String(value || '').trim();
+  return text.length > max ? `${text.slice(0, max - 1).trimEnd()}…` : text;
+}
+
+// The matchup is already the card's title, so it only adds noise inside a lane.
+function pickSelectionText(pick: Pick): string {
+  const text = String(pick.pick || '').trim();
+  return text.replace(/\s*\([^()]*(?:\bvs\.?\b|@)[^()]*\)\s*$/i, '').trim() || text;
+}
+
+function textNamesTeam(normalizedText: string, team: string): boolean {
+  const token = canonicalTeamToken(team);
+  if (!token) return false;
+  return new RegExp(`(?:^| )${token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?: |$)`).test(normalizedText);
+}
+
+// Scraper feeds ship no market type, so the selection text is the only signal:
+// "Aces -11.5", "Total Under (9,5)", "Seattle Mariners to Win" all arrive bare.
+function marketFamilyFromSelection(selection: string, teams: [string, string] | null): string {
+  // "Over 11.5 runs to hit" is SportyTrader's phrasing for a game total; left in
+  // place the trailing "hit" reads as a hits prop and hides the pick from the
+  // total lane it belongs to.
+  const text = normalizeTeam(selection).replace(/(?:^| )to hit(?= |$)/, '');
+  const named = Boolean(teams && teams.some(team => textNamesTeam(text, team)));
+  // Only the no-run-inning market and bare "Inning N" selections: a specialty
+  // like "Both Teams To Score 3+ Runs in 1st 7 Innings" is not that market.
+  if (/(?:^| )no run(?: |$)/.test(text) || /^inning \d/.test(text)) return 'inning';
+  if (/(?:^| )(?:f5|first five|1st 5)(?: |$)/.test(text)) {
+    return /(?:^| )(?:over|under|total)(?: |$)/.test(text) ? 'f5_total' : 'f5_side';
+  }
+  if (PROP_STAT_PATTERN.test(text)) return 'prop';
+  if (/(?:^| )(?:handicap|spread|run line|puck line)(?: |$)/.test(text)) return 'spread';
+  if (/(?:^| )(?:over|under|total)(?: |$)/.test(text)) return named ? 'team_total' : 'total';
+  if (/(?:^| )(?:ml|moneyline|money line|to win|win the match|draw|tie)(?: |$)/.test(text)) return 'moneyline';
+  // Runs last so an explicit market word always wins: normalizeTeam strips the
+  // sign, so this one test reads the raw selection.
+  if (/[+-]\s?\d/.test(selection)) return 'spread';
+  return named ? 'moneyline' : 'other';
+}
+
+function marketFamilyFor(pick: Pick, selection: string): MarketFamily {
+  const stamped = String(pick.market || pick.market_type || '').trim().toLowerCase();
+  const mapped = MARKET_TYPE_FAMILIES[stamped];
+  if (mapped) return MARKET_FAMILIES[mapped];
+  return MARKET_FAMILIES[marketFamilyFromSelection(selection, teamsForPick(pick))] || MARKET_FAMILIES.other;
+}
+
+// The side is what two sources actually agree or disagree about. "Aces -11.5"
+// and "Tempo +11.5" are opposite sides of one spread; "Under 173.5" and
+// "Under 176.5" are the same side at different lines.
+function marketSideFor(pick: Pick, family: MarketFamily, selection: string): { key: string; label: string } {
+  const text = normalizeTeam(selection);
+  const teams = teamsForPick(pick);
+  const named = teams?.find(team => textNamesTeam(text, team)) || '';
+  const overUnder = /(?:^| )over(?: |$)/.test(text) ? 'Over' : /(?:^| )under(?: |$)/.test(text) ? 'Under' : '';
+  if ((family.key === 'total' || family.key === 'f5_total') && overUnder) {
+    return { key: overUnder.toLowerCase(), label: overUnder };
+  }
+  if (family.key === 'team_total') {
+    const team = named || String(pick.team || '').trim();
+    if (team) return { key: `${canonicalTeamToken(team)}:${overUnder}`.toLowerCase(), label: `${team} ${overUnder}`.trim() };
+  }
+  if (family.key === 'moneyline' || family.key === 'spread' || family.key === 'f5_side') {
+    if (named) return { key: canonicalTeamToken(named), label: named };
+    // The soccer feeds call the same outcome "Draw" and "Tie"; one side key
+    // keeps a three-way market from looking like a four-way split.
+    if (/(?:^| )(?:draw|tie)(?: |$)/.test(text)) return { key: 'draw', label: 'Draw' };
+  }
+  const label = truncateLabel(selection, 34);
+  return { key: text || label.toLowerCase(), label };
+}
+
+function teamMarketSlot(pick: Pick): MarketSlot {
+  const selection = pickSelectionText(pick);
+  const family = marketFamilyFor(pick, selection);
+  const side = marketSideFor(pick, family, selection);
+  return {
+    laneKey: family.key,
+    laneLabel: family.label,
+    laneOrder: family.order,
+    groupKey: '',
+    groupLabel: '',
+    exclusive: family.exclusive,
+    sideKey: side.key,
+    sideLabel: side.label,
+  };
+}
+
+function playerStatLabel(pick: Pick): string {
+  const stamped = humanizeMarketToken(pick.stat_key ?? pick.market_type ?? pick.market);
+  if (stamped) return stamped;
+  const trailing = pickSelectionText(pick).replace(/^.*?\b(?:over|under)\b\s*[\d.]*\s*/i, '').trim();
+  return truncateLabel(trailing || 'Prop', 28);
+}
+
+// Player props compare within one player's stat line: two sources on Soto's
+// walks contradict each other, Soto's walks and Judge's bases do not.
+function playerMarketSlot(pick: Pick): MarketSlot {
+  const stat = playerStatLabel(pick);
+  const selection = pickSelectionText(pick);
+  // An unnamed prop still needs a group label, or the sub-header renders blank.
+  const player = String(pick.player || pick.player_name || '').trim() || truncateLabel(selection, 28);
+  const text = normalizeTeam(selection);
+  const side = /(?:^| )over(?: |$)/.test(text) ? 'Over' : /(?:^| )under(?: |$)/.test(text) ? 'Under' : '';
+  return {
+    laneKey: stat.toLowerCase(),
+    laneLabel: stat,
+    laneOrder: playerModelRank(pick) ?? 9999,
+    groupKey: player.toLowerCase(),
+    groupLabel: player,
+    exclusive: true,
+    sideKey: side.toLowerCase() || truncateLabel(text, 34),
+    sideLabel: side || truncateLabel(selection, 34),
+  };
+}
+
+function distinctSources(picks: Pick[]): number {
+  return new Set(picks.map(sourceName)).size;
+}
+
+function marketGroupTone(sides: MarketSide[], exclusive: boolean, picks: Pick[]): { tone: LaneTone; badge: string } {
+  const sources = distinctSources(picks);
+  if (sides.length <= 1) {
+    if (sources > 1) return { tone: 'consensus', badge: `${sources} AGREE` };
+    // One source quoting the same side at several lines is a ladder, not a
+    // consensus — say so rather than implying corroboration.
+    return { tone: 'solo', badge: picks.length > 1 ? `${picks.length} LINES` : '1 SOURCE' };
+  }
+  // Two no-run-inning bets are two bets, never two "sides", so non-exclusive
+  // lanes are settled before any talk of splits.
+  if (!exclusive) return { tone: 'stack', badge: `${sides.length} SELECTIONS` };
+  // A model that grades both sides of a market (mlb_new publishes an
+  // evaluation for each moneyline) is showing its board, not disagreeing with
+  // anyone — a split needs two sources actually taking opposite sides.
+  if (sources < 2) return { tone: 'solo', badge: `1 SOURCE | ${sides.length} SIDES` };
+  const counts = sides.map(side => distinctSources(side.picks)).sort((left, right) => right - left);
+  return { tone: 'split', badge: `SPLIT ${counts.join('–')}` };
+}
+
+function rollupTone(tones: LaneTone[]): LaneTone {
+  if (tones.includes('split')) return 'split';
+  if (tones.includes('consensus')) return 'consensus';
+  if (tones.includes('stack')) return 'stack';
+  return 'solo';
+}
+
+function buildMarketLanes(picks: Pick[]): MarketLane[] {
+  const slotFor = activePickMode === 'player' ? playerMarketSlot : teamMarketSlot;
+  const lanes = new Map<string, {
+    label: string;
+    order: number;
+    groups: Map<string, { label: string; exclusive: boolean; sides: Map<string, MarketSide> }>;
+  }>();
+
+  picks.forEach(pick => {
+    const slot = slotFor(pick);
+    const lane = lanes.get(slot.laneKey) || { label: slot.laneLabel, order: slot.laneOrder, groups: new Map() };
+    lane.order = Math.min(lane.order, slot.laneOrder);
+    const group = lane.groups.get(slot.groupKey)
+      || { label: slot.groupLabel, exclusive: slot.exclusive, sides: new Map() };
+    const side = group.sides.get(slot.sideKey) || { key: slot.sideKey, label: slot.sideLabel, picks: [] };
+    side.picks.push(pick);
+    group.sides.set(slot.sideKey, side);
+    lane.groups.set(slot.groupKey, group);
+    lanes.set(slot.laneKey, lane);
+  });
+
+  return [...lanes.entries()].map(([key, lane]) => {
+    const groups: MarketGroup[] = [...lane.groups.entries()].map(([groupKey, group]) => {
+      const sides = [...group.sides.values()]
+        .map(side => ({ ...side, picks: [...side.picks].sort(compareHomePickRows) }))
+        .sort((left, right) => (
+          distinctSources(right.picks) - distinctSources(left.picks)
+          || right.picks.length - left.picks.length
+          || left.label.localeCompare(right.label)
+        ));
+      const groupPicks = sides.flatMap(side => side.picks);
+      const { tone, badge } = marketGroupTone(sides, group.exclusive, groupPicks);
+      return {
+        key: groupKey,
+        label: group.label,
+        exclusive: group.exclusive,
+        sides,
+        sourceCount: distinctSources(groupPicks),
+        pickCount: groupPicks.length,
+        // A column per side only earns its header when the sides are rivals or
+        // one of them stacks more than a single row.
+        showSides: sides.length > 1 && (group.exclusive || sides.some(side => side.picks.length > 1)),
+        tone,
+        badge,
+      };
+    }).sort((left, right) => right.pickCount - left.pickCount || left.label.localeCompare(right.label));
+
+    const lanePicks = groups.flatMap(group => group.sides.flatMap(side => side.picks));
+    const laneSides = groups.flatMap(group => group.sides);
+    const tone = rollupTone(groups.map(group => group.tone));
+    const splitGroups = groups.filter(group => group.tone === 'split').length;
+    // Only player lanes carry more than one group, and there a group is a
+    // player — the roll-up counts them rather than repeating a side badge.
+    const badge = groups.length === 1
+      ? groups[0].badge
+      : splitGroups ? `${splitGroups} SPLIT` : `${groups.length} ${activePickMode === 'player' ? 'PLAYERS' : 'LINES'}`;
+    // Tallied by label, not by side, so a player lane reads "5 Under / 1 Over"
+    // instead of listing each player's Under as its own entry.
+    const mixCounts = new Map<string, number>();
+    laneSides.forEach(side => mixCounts.set(side.label, (mixCounts.get(side.label) || 0) + side.picks.length));
+    const mix = [...mixCounts.entries()]
+      .sort((left, right) => right[1] - left[1] || left[0].localeCompare(right[0]));
+    return {
+      key,
+      label: lane.label,
+      order: lane.order,
+      groups,
+      sourceCount: distinctSources(lanePicks),
+      pickCount: lanePicks.length,
+      tone,
+      badge,
+      // The side mix is the fastest read on the card: "3 Aces / 1 Tempo" says
+      // more about a split than any badge can.
+      mix: mix.length > 1 ? mix.slice(0, 3).map(([label, count]) => `${count} ${label}`).join(' / ') : '',
+      // Only lanes that actually render facing columns need the full row; a
+      // stacked lane in a half-width column wastes none of it.
+      wide: groups.some(group => group.showSides) || lanePicks.length > 3,
+    };
+  }).sort((left, right) => left.order - right.order || right.pickCount - left.pickCount || left.label.localeCompare(right.label));
+}
+
+function marketSideHtml(side: MarketSide, showHead: boolean): string {
+  return `<div class="home-lane-side">
+    ${showHead ? `<div class="home-lane-side-head"><span class="home-lane-side-label">${escapeHtml(side.label)}</span><span class="home-lane-side-count">${side.picks.length}</span></div>` : ''}
+    <div class="home-lane-side-rows">${side.picks.map(renderPickRow).join('')}</div>
+  </div>`;
+}
+
+function marketGroupHtml(group: MarketGroup, showHead: boolean): string {
+  // Exactly two rival sides face each other across a divider; anything else
+  // flows into as many equal columns as the lane width allows.
+  const versus = group.showSides && group.exclusive && group.sides.length === 2;
+  const sides = group.sides.map(side => marketSideHtml(side, group.showSides));
+  const columns = versus
+    ? [sides[0], '<div class="home-lane-vs" aria-hidden="true"><span>VS</span></div>', sides[1]]
+    : sides;
+  return `<div class="home-lane-group">
+    ${showHead ? `<div class="home-lane-group-head"><span class="home-lane-group-title">${escapeHtml(group.label)}</span><span class="home-lane-badge tone-${group.tone} is-small">${escapeHtml(group.badge)}</span></div>` : ''}
+    <div class="home-lane-sides count-${group.showSides ? Math.min(group.sides.length, 3) : 1}${versus ? ' is-versus' : ''}">${columns.join('')}</div>
+  </div>`;
+}
+
+function marketLaneHtml(lane: MarketLane): string {
+  const showGroupHeads = lane.groups.length > 1;
+  // A one-pick lane says everything in its badge already; repeating
+  // "1 pick | 1 source" underneath is the clutter this view exists to remove.
+  const meta = lane.pickCount === 1 ? '' : [
+    `${lane.pickCount} picks`,
+    `${lane.sourceCount} ${lane.sourceCount === 1 ? 'source' : 'sources'}`,
+    lane.mix,
+  ].filter(Boolean).join(' | ');
+  return `<section class="home-market-lane tone-${lane.tone}${lane.wide ? ' is-wide' : ''}">
+    <div class="home-lane-head">
+      <div class="home-lane-heading">
+        <span class="home-lane-title">${escapeHtml(lane.label)}</span>
+        ${meta ? `<span class="home-lane-meta">${escapeHtml(meta)}</span>` : ''}
+      </div>
+      <span class="home-lane-badge tone-${lane.tone}">${escapeHtml(lane.badge)}</span>
+    </div>
+    ${lane.groups.map(group => marketGroupHtml(group, showGroupHeads)).join('')}
+  </section>`;
+}
+
+function laneConsensusPill(lanes: MarketLane[]): string {
+  const splits = lanes.filter(lane => lane.tone === 'split').length;
+  const agrees = lanes.filter(lane => lane.tone === 'consensus').length;
+  if (!splits && !agrees) return '';
+  const label = [agrees ? `${agrees} AGREE` : '', splits ? `${splits} SPLIT` : ''].filter(Boolean).join(' | ');
+  return `<span class="home-consensus-pill tone-${splits ? 'split' : 'consensus'}">${escapeHtml(label)}</span>`;
+}
+
 function renderGameCard(picks: Pick[]): string {
   const sortedPicks = [...picks].sort(compareHomePickRows);
+  const lanes = buildMarketLanes(sortedPicks);
   const stats = statsFor(picks);
   const pending = stats.pending > 0;
   const start = picks.map(pick => pick.start_time).filter(Boolean).sort()[0];
@@ -964,11 +1353,11 @@ function renderGameCard(picks: Pick[]): string {
   const itemLabel = activePickMode === 'player' ? 'props' : 'picks';
   return `<article class="home-game-card status-${statusClass(picks)}">
     <div class="home-game-top">
-      <div class="home-game-kicker"><span class="home-sport-pill">${escapeHtml(picks[0]?.sport)}</span><span class="home-status-pill ${statusClass(picks)}">${pending ? 'OPEN' : `${stats.wins}-${stats.losses}${stats.pushes ? `-${stats.pushes}` : ''}`}</span></div>
+      <div class="home-game-kicker"><span class="home-sport-pill">${escapeHtml(picks[0]?.sport)}</span><span class="home-status-pill ${statusClass(picks)}">${pending ? 'OPEN' : `${stats.wins}-${stats.losses}${stats.pushes ? `-${stats.pushes}` : ''}`}</span>${laneConsensusPill(lanes)}</div>
       <div class="home-game-right-stack">${scoreChip}<div class="home-game-pl ${trackedUnitsClass(stats)}">${pending ? `${stats.pending} open` : trackedUnits(stats)}</div><div class="home-game-caption">${formatStart(start)}</div></div>
     </div>
-    <div><div class="home-game-title">${escapeHtml(gameName(picks[0]))}</div><div class="home-game-meta">${escapeHtml(dateLabel(pickDateKey(picks[0])))} | ${picks.length} ${itemLabel} | ${new Set(picks.map(sourceName)).size} sources</div></div>
-    <div class="home-game-picks">${sortedPicks.map(renderPickRow).join('')}</div>
+    <div><div class="home-game-title">${escapeHtml(gameName(picks[0]))}</div><div class="home-game-meta">${escapeHtml(dateLabel(pickDateKey(picks[0])))} | ${picks.length} ${itemLabel} | ${new Set(picks.map(sourceName)).size} sources | ${lanes.length} ${lanes.length === 1 ? 'market' : 'markets'}</div></div>
+    <div class="home-game-picks home-market-lanes">${lanes.length ? lanes.map(marketLaneHtml).join('') : sortedPicks.map(renderPickRow).join('')}</div>
   </article>`;
 }
 
@@ -999,7 +1388,7 @@ function renderPickRow(pick: Pick): string {
       : ' data-home-pick-text role="button" tabindex="0" aria-expanded="false"';
   return `<div class="home-feed-row result-${pick.result}${isPlayer ? ' player-row' : ''}${hasResearch ? ' is-expandable' : ''}${expanded ? ' expanded' : ''}"${researchAttrs}>
     ${isPlayer ? '' : `<span class="home-feed-row-sport">${escapeHtml(pick.sport)}</span>`}
-    <div class="home-feed-row-body"><div class="home-feed-row-source">${escapeHtml(sourceName(pick))}</div><div class="home-feed-row-pick"${pickTextAttrs}>${escapeHtml(pick.pick)}</div><div class="home-feed-row-meta">${escapeHtml([formatOdds(pick), pick.odds != null && pick.price_verified !== true ? 'price unverified' : '', decision === 'PASS' ? '' : `${pick.units}u`, quarterKellyLabel(pick), formatStart(pick.start_time), activePickMode === 'player' ? '' : pick.decision].filter(Boolean).join(' | '))}</div>${researchDetailsHtml(pick, expanded)}</div>
+    <div class="home-feed-row-body"><div class="home-feed-row-source">${escapeHtml(sourceName(pick))}</div><div class="home-feed-row-pick"${pickTextAttrs} title="${escapeHtml(pick.pick)}">${escapeHtml(pickSelectionText(pick))}</div><div class="home-feed-row-meta">${escapeHtml([formatOdds(pick), pick.odds != null && pick.price_verified !== true ? 'price unverified' : '', decision === 'PASS' ? '' : `${pick.units}u`, quarterKellyLabel(pick), formatStart(pick.start_time), activePickMode === 'player' ? '' : pick.decision].filter(Boolean).join(' | '))}</div>${researchDetailsHtml(pick, expanded)}</div>
     <div class="home-feed-row-pl ${pick.pl > 0 ? 'positive' : pick.pl < 0 ? 'negative' : 'neutral'}">${isUnsupportedPendingPick(pick) || (pick.result !== 'pending' && pick.price_verified !== true) ? 'P/L untracked' : pick.result === 'pending' ? decision === 'PASS' ? 'Pass' : `${pick.units}u risk` : signedUnits(pick.pl)}</div>
     <div class="home-feed-row-control">${pickResultBadge(pick)}</div>
   </div>`;

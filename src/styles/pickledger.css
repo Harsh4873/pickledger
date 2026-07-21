@@ -1332,6 +1332,209 @@
   }
   .home-game-picks { display: flex; flex-direction: column; gap: 10px; }
 
+  /* Market lanes.
+     A card's picks are grouped by market, then by the side each source takes.
+     Colour carries agreement (green = every source on one side, amber = they
+     disagree, blue = unrelated bets stacked, grey = a single source), and the
+     badge always spells the same thing out in words. */
+  .home-game-picks.home-market-lanes {
+    --lane-agree: var(--accent);
+    --lane-split: var(--push);
+    --lane-stack: var(--accent3);
+    --lane-solo: var(--muted);
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 12px;
+  }
+  @media (min-width: 1024px) {
+    .home-game-picks.home-market-lanes { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    /* Split lanes and busy lanes take the full row so the facing columns of
+       rival sides get enough width to stay readable. */
+    .home-market-lane.is-wide { grid-column: 1 / -1; }
+  }
+  .home-market-lane {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 12px 13px 13px 16px;
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    background: rgba(255,255,255,0.018);
+    overflow: hidden;
+  }
+  .home-market-lane::before {
+    content: '';
+    position: absolute;
+    inset: 0 auto 0 0;
+    width: 3px;
+    background: var(--lane-solo);
+    opacity: 0.55;
+  }
+  .home-market-lane.tone-consensus::before { background: var(--lane-agree); opacity: 0.9; }
+  .home-market-lane.tone-split::before     { background: var(--lane-split); opacity: 0.9; }
+  .home-market-lane.tone-stack::before     { background: var(--lane-stack); opacity: 0.75; }
+  .home-market-lane.tone-consensus { border-color: rgba(0,229,160,0.2); }
+  .home-market-lane.tone-split     { border-color: rgba(255,215,0,0.24); }
+  .home-market-lane.tone-stack     { border-color: rgba(77,166,255,0.2); }
+  .home-lane-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+  .home-lane-heading { min-width: 0; }
+  .home-lane-title {
+    display: block;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 1.1px;
+    text-transform: uppercase;
+    color: var(--text);
+  }
+  .home-lane-meta {
+    display: block;
+    margin-top: 3px;
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.4px;
+    color: var(--muted);
+  }
+  .home-lane-badge {
+    flex: 0 0 auto;
+    padding: 4px 9px;
+    border-radius: 999px;
+    border: 1px solid var(--border);
+    background: rgba(255,255,255,0.03);
+    color: var(--muted);
+    font-family: 'DM Mono', monospace;
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.9px;
+    text-transform: uppercase;
+    white-space: nowrap;
+  }
+  .home-lane-badge.is-small { padding: 3px 7px; font-size: 8px; }
+  .home-lane-badge.tone-consensus { border-color: rgba(0,229,160,0.34); background: rgba(0,229,160,0.1); color: var(--lane-agree); }
+  .home-lane-badge.tone-split     { border-color: rgba(255,215,0,0.34); background: rgba(255,215,0,0.1); color: var(--lane-split); }
+  .home-lane-badge.tone-stack     { border-color: rgba(77,166,255,0.3); background: rgba(77,166,255,0.1); color: var(--lane-stack); }
+  .home-lane-group { display: flex; flex-direction: column; gap: 8px; }
+  .home-lane-group + .home-lane-group { padding-top: 9px; border-top: 1px dashed var(--border); }
+  .home-lane-group-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+  }
+  .home-lane-group-title {
+    min-width: 0;
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.9px;
+    text-transform: uppercase;
+    color: var(--text);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  /* count-1 covers both a lone side and headerless sides, which read as one
+     list rather than a set of unlabelled columns. */
+  .home-lane-sides { display: grid; gap: 10px; }
+  .home-lane-sides.count-2,
+  .home-lane-sides.count-3 { grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); }
+  .home-lane-sides.count-2.is-versus { grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: start; }
+  .home-lane-side { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+  .home-lane-side-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 0 2px;
+  }
+  .home-lane-side-label {
+    min-width: 0;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.6px;
+    text-transform: uppercase;
+    color: var(--text);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .home-lane-side-count {
+    flex: 0 0 auto;
+    min-width: 18px;
+    padding: 1px 6px;
+    border-radius: 999px;
+    background: rgba(255,255,255,0.06);
+    color: var(--muted);
+    font-family: 'DM Mono', monospace;
+    font-size: 9px;
+    text-align: center;
+  }
+  .home-lane-side-rows { display: flex; flex-direction: column; gap: 6px; }
+  /* The rival divider: a hairline down the gap with the marker sitting on it. */
+  .home-lane-vs {
+    position: relative;
+    align-self: stretch;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 3px;
+  }
+  .home-lane-vs::before {
+    content: '';
+    position: absolute;
+    top: 4px;
+    bottom: 4px;
+    left: 50%;
+    width: 1px;
+    background: linear-gradient(180deg, transparent, rgba(255,215,0,0.4), transparent);
+  }
+  .home-lane-vs > span {
+    position: relative;
+    padding: 3px 5px;
+    border-radius: 999px;
+    border: 1px solid rgba(255,215,0,0.28);
+    background: var(--card);
+    color: var(--lane-split);
+    font-family: 'DM Mono', monospace;
+    font-size: 8px;
+    font-weight: 700;
+    letter-spacing: 0.8px;
+  }
+  /* Inside a lane the sport tag is triply redundant — the section, the card
+     pill and the lane title all already say it — and it costs 54px of the
+     column width that the facing sides need. */
+  .home-lane-side-rows .home-feed-row-sport { display: none; }
+  .home-lane-side-rows .home-feed-row { grid-template-columns: minmax(0, 1fr) auto auto; }
+  @media (max-width: 720px) {
+    .home-lane-sides.count-2.is-versus { grid-template-columns: minmax(0, 1fr); }
+    .home-lane-vs { display: none; }
+    .home-lane-side-rows .home-feed-row { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto auto; }
+  }
+  .home-consensus-pill {
+    display: inline-flex;
+    align-items: center;
+    min-height: 34px;
+    padding: 7px 12px;
+    border-radius: 999px;
+    border: 1px solid var(--border);
+    background: rgba(255,255,255,0.03);
+    color: var(--muted);
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.8px;
+    text-transform: uppercase;
+    white-space: nowrap;
+  }
+  .home-consensus-pill.tone-consensus { border-color: rgba(0,229,160,0.3); background: rgba(0,229,160,0.1); color: var(--win); }
+  .home-consensus-pill.tone-split { border-color: rgba(255,215,0,0.28); background: rgba(255,215,0,0.1); color: var(--push); }
+
   /* Compact pulse-log style rows for the home pick feed.
      Mirrors .pulse-log-row visuals so the "live board" picks read
      the same way as the bottom Grade & Review log. */
@@ -1788,6 +1991,30 @@
     background: linear-gradient(180deg, rgba(37,99,235,0.06), transparent 70%), #ffffff;
     box-shadow: 0 12px 28px rgba(15,25,40,0.08);
   }
+  body[data-theme="light"] .home-market-lane {
+    background: rgba(248,250,252,0.9);
+  }
+  body[data-theme="light"] .home-market-lane.tone-consensus { border-color: rgba(0,168,112,0.28); }
+  body[data-theme="light"] .home-market-lane.tone-split     { border-color: rgba(176,136,0,0.32); }
+  body[data-theme="light"] .home-market-lane.tone-stack     { border-color: rgba(37,99,235,0.24); }
+  body[data-theme="light"] .home-lane-badge {
+    background: rgba(255,255,255,0.9);
+  }
+  body[data-theme="light"] .home-lane-badge.tone-consensus { border-color: rgba(0,168,112,0.34); background: rgba(0,168,112,0.1); }
+  body[data-theme="light"] .home-lane-badge.tone-split     { border-color: rgba(176,136,0,0.36); background: rgba(176,136,0,0.12); }
+  body[data-theme="light"] .home-lane-badge.tone-stack     { border-color: rgba(37,99,235,0.3); background: rgba(37,99,235,0.1); }
+  body[data-theme="light"] .home-lane-side-count {
+    background: rgba(15,25,40,0.06);
+  }
+  body[data-theme="light"] .home-lane-vs::before {
+    background: linear-gradient(180deg, transparent, rgba(176,136,0,0.45), transparent);
+  }
+  body[data-theme="light"] .home-lane-vs > span {
+    border-color: rgba(176,136,0,0.34);
+    background: #ffffff;
+  }
+  body[data-theme="light"] .home-consensus-pill.tone-consensus { border-color: rgba(0,168,112,0.32); background: rgba(0,168,112,0.1); }
+  body[data-theme="light"] .home-consensus-pill.tone-split { border-color: rgba(176,136,0,0.34); background: rgba(176,136,0,0.12); }
   body[data-theme="light"] .home-date-trigger,
   body[data-theme="light"] .home-date-popover {
     background:
@@ -4651,6 +4878,21 @@
   body.mobile-app-mode .pulse-log-control .result-select {
     width: 100%;
     min-width: 0;
+  }
+  /* Lanes drop the hidden sport column, so the phone layout collapses to one
+     column instead of leaving the P/L and badge stranded in a column 2 that
+     no longer exists. */
+  body.mobile-app-mode .home-lane-side-rows .home-feed-row {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto auto;
+  }
+  body.mobile-app-mode .home-lane-side-rows .home-feed-row-pl,
+  body.mobile-app-mode .home-lane-side-rows .home-feed-row-control {
+    grid-column: 1;
+  }
+  body.mobile-app-mode .home-market-lane {
+    padding: 11px 11px 12px 14px;
+    border-radius: 14px;
   }
   @media (max-width: 720px) {
     body.mobile-app-mode[data-pick-mode="player"] .home-feed-row {

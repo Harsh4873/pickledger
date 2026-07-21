@@ -1397,3 +1397,60 @@ def test_fade_board_is_wired_and_conflict_aware():
     assert "FADE_BLOCK_DAY_RATE = 0.55" in main
     assert "'fade'" in main
     assert ".daily-fade-card" in css
+
+
+def test_home_game_cards_organize_picks_into_market_lanes():
+    """A game card groups its picks by market and then by the side each source
+    takes, so agreement and disagreement are visible without reading rows.
+    Classification falls back to the selection text because the scraper feeds
+    ship no market type, and anything unrecognized lands in a labelled
+    'Other Markets' lane rather than a main one."""
+    main = (ROOT / "src" / "main.ts").read_text(encoding="utf-8")
+    css = (ROOT / "src" / "styles" / "pickledger.css").read_text(encoding="utf-8")
+
+    assert "function buildMarketLanes(" in main
+    assert "function marketFamilyFor(" in main
+    assert "function marketFamilyFromSelection(" in main
+    assert "function marketSideFor(" in main
+    assert "function marketLaneHtml(" in main
+    assert "const lanes = buildMarketLanes(sortedPicks)" in main
+    assert "lanes.map(marketLaneHtml).join('')" in main
+    # A card with no classifiable lanes still renders its rows.
+    assert "sortedPicks.map(renderPickRow).join('')" in main
+
+    # Every main market is exclusive (opposite sides contradict) and every
+    # catch-all lane is not (unrelated bets merely stack).
+    for family in ("moneyline", "spread", "total", "team_total", "f5_side", "f5_total"):
+        assert f"{family}: {{ key: '{family}'" in main
+    assert "inning: { key: 'inning', label: 'Innings', order: 7, exclusive: false }" in main
+    assert "other: { key: 'other', label: 'Other Markets', order: 9, exclusive: false }" in main
+
+    # The four agreement states, each labelled in words as well as colour.
+    assert "type LaneTone = 'consensus' | 'split' | 'stack' | 'solo'" in main
+    assert "badge: `${sources} AGREE`" in main
+    assert "badge: `SPLIT ${counts.join('–')}`" in main
+    assert "`${picks.length} LINES`" in main
+    assert "badge: `1 SOURCE | ${sides.length} SIDES`" in main
+    assert "badge: `${sides.length} SELECTIONS`" in main
+    # One source grading both sides is not a disagreement, and unrelated bets
+    # are never "sides" at all — non-exclusive lanes resolve first.
+    assert "if (!exclusive) return { tone: 'stack'" in main
+    assert "if (sources < 2) return { tone: 'solo'" in main
+    assert main.index("if (!exclusive) return { tone: 'stack'") < main.index("if (sources < 2) return { tone: 'solo'")
+    # A side is a source's position, so distinct sources drive the split count.
+    assert "function distinctSources(" in main
+
+    assert ".home-game-picks.home-market-lanes" in css
+    assert ".home-market-lane.tone-consensus::before" in css
+    assert ".home-market-lane.tone-split::before" in css
+    assert ".home-lane-badge.tone-consensus" in css
+    assert ".home-lane-sides.count-2.is-versus" in css
+    assert ".home-lane-vs" in css
+    assert ".home-consensus-pill" in css
+    # Lanes drop the redundant sport column, so the row grid is re-declared for
+    # every layout instead of stranding the P/L in a column that is gone.
+    assert ".home-lane-side-rows .home-feed-row-sport { display: none; }" in css
+    assert ".home-lane-side-rows .home-feed-row { grid-template-columns: minmax(0, 1fr) auto auto; }" in css
+    assert "body.mobile-app-mode .home-lane-side-rows .home-feed-row" in css
+    assert 'body[data-theme="light"] .home-market-lane' in css
+    assert ".home-market-lane.is-wide" in css
