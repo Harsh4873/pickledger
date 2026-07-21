@@ -20,21 +20,36 @@ def _forebet_row(
     away: str,
     sign: str,
     probs: str,
-    odds: tuple[str, str, str],
+    odds: tuple[str, ...],
+    kickoff: str = "23/07/2026 01:30",
+    two_way: bool = False,
 ) -> str:
     prob_spans = " ".join(f"<span>{p}</span>" for p in probs.split())
-    odds_spans = "".join(f"<span>{o}</span>" for o in (*odds, "no", "no", "no"))
+    odds_spans = "".join(f"<span>{o}</span>" for o in (*odds, *([""] if two_way else ["no", "no", "no"])))
+    fprc_class = "fprc bsk" if two_way else "fprc"
+    # Soccer rows carry schema.org microdata; baseball/basketball rows hold
+    # bare spans — mirror that so the selectors stay honest.
+    if two_way:
+        teams = (
+            f'<span class="homeTeam"><span>{home}</span></span>'
+            f'<span class="awayTeam"><span>{away}</span></span>'
+            f'<span class="date_bah">{kickoff}</span>'
+        )
+    else:
+        teams = (
+            f'<span class="homeTeam" itemprop="homeTeam"><span itemprop="name">{home}</span></span>'
+            f'<span class="awayTeam" itemprop="awayTeam"><span itemprop="name">{away}</span></span>'
+            f'<time datetime="2026-07-23" itemprop="startDate"><span class="date_bah">{kickoff}</span></time>'
+        )
     return f"""
     <div class="rcnt tr_0">
       <div class="stcn"><a>Us1</a></div>
-      <div class="tnms"><div itemscope itemtype="http://schema.org/SportsEvent">
-        <a class="tnmscn" href="/en/football/matches/{home.lower().replace(' ', '-')}-{away.lower().replace(' ', '-')}-2465432">
-          <span class="homeTeam" itemprop="homeTeam"><span itemprop="name">{home}</span></span>
-          <span class="awayTeam" itemprop="awayTeam"><span itemprop="name">{away}</span></span>
-          <time datetime="2026-07-23" itemprop="startDate"><span class="date_bah">23/07/2026 01:30</span></time>
+      <div class="tnms"><div>
+        <a class="tnmscn" href="/en/matches/{home.lower().replace(' ', '-')}-{away.lower().replace(' ', '-')}-2465432">
+          {teams}
         </a>
       </div></div>
-      <div class="fprc">{prob_spans}</div>
+      <div class="{fprc_class}">{prob_spans}</div>
       <div class="predict"><span class="forepr"><span>{sign}</span></span>
         <span class="scrmobpred ex_sc">1 <span class="scrmobpreddash">-</span> 2</span></div>
       <div class="ex_sc tabonly">1 - 2</div>
@@ -162,15 +177,90 @@ def test_scrape_forebet_confirmed_off_day_skips_listing_fetch(monkeypatch):
     assert result["meta"]["officialMatchups"] == 0
 
 
-def test_forebet_mls_is_registered_across_the_pipeline():
+MLB_HISTORY_HTML = "<html><body><div class='schema'>" + "".join(
+    (
+        # Same series matchup on consecutive days: only the row nearest the
+        # official start may match, never the stale one.
+        _forebet_row("Boston Red Sox", "Baltimore Orioles", "1", "62 38", ("-155", "+130"), kickoff="20/07/2026 23:10", two_way=True),
+        _forebet_row("Boston Red Sox", "Baltimore Orioles", "2", "49 51", ("-110", "-105"), kickoff="21/07/2026 23:10", two_way=True),
+        # W-suffixed basketball naming.
+        _forebet_row("Toronto Tempo W", "Las Vegas Aces W", "2", "29 71", ("-", "-"), kickoff="21/07/2026 02:00", two_way=True),
+        # Two-way rows never carry an X sign; a malformed one must be dropped.
+        _forebet_row("Chicago Cubs", "Detroit Tigers", "X", "50 50", ("-110", "-110"), kickoff="21/07/2026 23:10", two_way=True),
+    )
+) + "</div></body></html>"
+
+MLB_SLATE = [
+    {"away": "Baltimore Orioles", "home": "Boston Red Sox", "start_time": "2026-07-21T23:10Z"},
+    {"away": "Las Vegas Aces", "home": "Toronto Tempo", "start_time": "2026-07-21T02:00Z"},
+    {"away": "Detroit Tigers", "home": "Chicago Cubs", "start_time": "2026-07-21T23:10Z"},
+]
+
+
+def test_parse_forebet_rows_decodes_two_way_layout():
+    module = _module()
+    rows = module.parse_forebet_rows(MLB_HISTORY_HTML)
+    # The malformed X-sign two-way row is dropped.
+    assert len(rows) == 3
+    first = rows[0]
+    assert first["two_way"] is True
+    assert (first["prob_home"], first["prob_draw"], first["prob_away"]) == (62, None, 38)
+    assert (first["odds_home"], first["odds_draw"], first["odds_away"]) == (-155, None, 130)
+
+
+def test_scrape_forebet_two_way_disambiguates_series_games(monkeypatch):
+    module = _module()
+    monkeypatch.setattr(module, "fetch_daily_matchups", lambda sport, date_iso, config=None: (MLB_SLATE, True))
+    result = module.scrape_forebet("mlb", "2026-07-21", html=MLB_HISTORY_HTML)
+    assert result["ok"] is True
+    picks = {pick["matchup"]: pick for pick in result["picks"]}
+
+    series = picks["Baltimore Orioles @ Boston Red Sox"]
+    # The 21/07 row (away tip, -105) must win over the stale 20/07 row (home tip).
+    assert series["tip"] == "Baltimore Orioles ML"
+    assert series["odds"] == -105
+    assert series["probability"] == 0.51
+    # Two-way picks are calibrated like other MLB/WNBA external feeds and use
+    # the generic moneyline grade path — no soccer metadata.
+    assert "calibration_excluded" not in series
+    assert "market_type" not in series
+
+    wnba = picks["Las Vegas Aces @ Toronto Tempo"]
+    assert wnba["tip"] == "Las Vegas Aces ML"
+    assert wnba["odds"] is None
+    assert wnba["probability"] == 0.71
+
+    # The Cubs game only had the malformed X row, so it goes unpublished.
+    assert result["meta"]["unpublishedMatchups"] == ["Detroit Tigers @ Chicago Cubs"]
+
+
+def test_scrape_forebet_rejects_rows_outside_the_kickoff_window(monkeypatch):
+    module = _module()
+    slate = [{"away": "Baltimore Orioles", "home": "Boston Red Sox", "start_time": "2026-07-23T23:10Z"}]
+    monkeypatch.setattr(module, "fetch_daily_matchups", lambda sport, date_iso, config=None: (slate, True))
+    result = module.scrape_forebet("mlb", "2026-07-23", html=MLB_HISTORY_HTML)
+    assert result["picks"] == []
+    assert result["meta"]["unpublishedMatchups"] == ["Baltimore Orioles @ Boston Red Sox"]
+
+
+def test_forebet_feeds_are_registered_across_the_pipeline():
     refresh = _load_module("refresh_external_feeds_test", ROOT / "scripts" / "refresh_external_feeds.py")
-    assert "forebet_mls" in refresh.FEED_RUNNERS
-    assert "forebet_mls" not in refresh.SPLIT_PROVIDER_FEEDS
+    for key in ("forebet_mls", "forebet_mlb", "forebet_wnba"):
+        assert key in refresh.FEED_RUNNERS
+        assert key not in refresh.SPLIT_PROVIDER_FEEDS
 
     merge = _load_module("merge_external_feed_test", ROOT / "scripts" / "merge_external_feed_cache_payload.py")
-    assert "forebet_mls" in merge.EXTERNAL_FEED_MODEL_KEYS
+    assert {"forebet_mls", "forebet_mlb", "forebet_wnba"} <= merge.EXTERNAL_FEED_MODEL_KEYS
 
     calibration = _load_module("pick_calibration_test", ROOT / "scripts" / "pick_calibration.py")
     assert "forebet_mls" in calibration.CALIBRATION_EXCLUDED_MODEL_KEYS
+    # Two-way US-sport feeds calibrate like the other external feeds.
+    assert "forebet_mlb" not in calibration.CALIBRATION_EXCLUDED_MODEL_KEYS
+    assert "forebet_wnba" not in calibration.CALIBRATION_EXCLUDED_MODEL_KEYS
 
-    assert "forebet_mls: 'ForebetMLS'" in (ROOT / "src" / "data.ts").read_text(encoding="utf-8")
+    data_ts = (ROOT / "src" / "data.ts").read_text(encoding="utf-8")
+    for label in ("forebet_mls: 'ForebetMLS'", "forebet_mlb: 'ForebetMLB'", "forebet_wnba: 'ForebetWNBA'"):
+        assert label in data_ts
+
+    workflow = (ROOT / ".github" / "workflows" / "external-feed-refresh.yml").read_text(encoding="utf-8")
+    assert "forebet_mls,forebet_mlb,forebet_wnba" in workflow

@@ -1,18 +1,24 @@
 #!/usr/bin/env python3
-"""Scrape Forebet 1X2 predictions by official slate matchup.
+"""Scrape Forebet predictions by official slate matchup.
 
 Forebet renders predictions as div-based rows (`div.rcnt`), not a table.
 Each row decodes as:
 
   .stcn   league short code            .fprc    "44 34 22" = P(home/draw/away) %
-  .tnms   teams + kickoff (schema.org) .forepr  1X2 tip: 1=home, X=draw, 2=away
-  .ex_sc  predicted correct score      .avg_sc  expected total goals
+  .tnms   teams + kickoff (schema.org) .forepr  tip sign: 1=home, X=draw, 2=away
+  .ex_sc  predicted correct score      .avg_sc  expected total goals/runs/points
   .haodd  American odds [home, draw, away] ("no"/"-" when unposted)
   .lmin_td match status (minute/FT/Postp.)  .lscr_td live/final score
 
+Two-way sports (baseball/basketball) use the same layout with a `bsk`-classed
+probability cell holding just "56 44" = P(home/away), signs limited to 1/2,
+and a two-entry odds list.
+
 Rows are matched against the official ESPN slate for the target date (same
-identity-based convention as the Scores24 scraper); grading then runs through
-the standard ESPN auto-grade path, so Forebet's own score cells are unused.
+identity-based convention as the Scores24 scraper), disambiguated by kickoff
+time because Forebet league pages carry weeks of history and series opponents
+repeat on consecutive days. Grading then runs through the standard ESPN
+auto-grade path, so Forebet's own score cells are unused.
 """
 
 from __future__ import annotations
@@ -21,7 +27,7 @@ import argparse
 import json
 import re
 import sys
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -56,11 +62,35 @@ SPORT_CONFIG = {
         "source": "ForebetMLS",
         "label": "MLS",
         "cache_keys": ("mls",),
+        "market": "soccer_1x2",
+    },
+    "mlb": {
+        "espn_sport": "baseball",
+        "espn_league": "mlb",
+        "listing_url": f"{BASE_URL}/en/baseball/usa/mlb",
+        "source": "ForebetMLB",
+        "label": "MLB",
+        "cache_keys": ("mlb_first_five", "mlb_inning", "mlb_new"),
+        "market": "two_way",
+    },
+    "wnba": {
+        "espn_sport": "basketball",
+        "espn_league": "wnba",
+        "listing_url": f"{BASE_URL}/en/basketball/usa/wnba",
+        "source": "ForebetWNBA",
+        "label": "WNBA",
+        "cache_keys": ("wnba",),
+        "market": "two_way",
     },
 }
 SIGN_INDEX = {"1": 0, "X": 1, "2": 2}
+TWO_WAY_SIGN_INDEX = {"1": 0, "2": 1}
 SCORE_RE = re.compile(r"(\d{1,2})\s*-\s*(\d{1,2})")
 AMERICAN_ODDS_RE = re.compile(r"^[+-]\d+$")
+KICKOFF_RE = re.compile(r"(\d{1,2})/(\d{1,2})/(\d{4})(?:\s+(\d{1,2}):(\d{2}))?")
+# Forebet timestamps sit within a few hours of UTC; series games are >=20h
+# apart, so this window disambiguates them regardless of the exact site zone.
+KICKOFF_MATCH_WINDOW_SECONDS = 8 * 3600
 
 
 def _cell_text(row: Any, selector: str) -> str:
@@ -73,35 +103,62 @@ def _american_odds(token: str) -> int | None:
     return int(token) if AMERICAN_ODDS_RE.match(token) else None
 
 
+def _parse_kickoff(text: str) -> datetime | None:
+    match = KICKOFF_RE.search(text or "")
+    if not match:
+        return None
+    day, month, year, hour, minute = match.groups()
+    if hour is None:
+        return None
+    try:
+        return datetime(int(year), int(month), int(day), int(hour), int(minute))
+    except ValueError:
+        return None
+
+
 def parse_forebet_rows(html: str) -> list[dict[str, Any]]:
     """Extract normalized prediction rows from a Forebet listing page."""
     soup = BeautifulSoup(html, "html.parser")
     rows: list[dict[str, Any]] = []
     for row in soup.select("div.rcnt"):
-        home = _cell_text(row, ".homeTeam [itemprop=name]")
-        away = _cell_text(row, ".awayTeam [itemprop=name]")
+        # Soccer rows wrap names in schema.org microdata; baseball/basketball
+        # rows carry bare spans, so select the container and take its text.
+        home = _cell_text(row, ".homeTeam")
+        away = _cell_text(row, ".awayTeam")
         sign = _cell_text(row, ".forepr span")
         if not home or not away or sign not in SIGN_INDEX:
             continue
 
+        fprc = row.select_one(".fprc")
+        two_way = bool(fprc is not None and "bsk" in (fprc.get("class") or []))
+        if two_way and sign == "X":
+            continue
         prob_ints = [int(tok) for tok in re.findall(r"\d{1,3}", _cell_text(row, ".fprc"))]
-        probs: list[int | None] = (
-            list(prob_ints[:3]) if len(prob_ints) >= 3 and 90 <= sum(prob_ints[:3]) <= 110 else [None, None, None]
-        )
+        width = 2 if two_way else 3
+        valid = len(prob_ints) >= width and 90 <= sum(prob_ints[:width]) <= 110
+        if two_way:
+            probs = [prob_ints[0], None, prob_ints[1]] if valid else [None, None, None]
+        else:
+            probs = list(prob_ints[:3]) if valid else [None, None, None]
 
+        # .haodd spans hold [home, draw, away] for soccer and [home, away, ""]
+        # for two-way sports; normalize both to the home/draw/away triple.
         odds: list[int | None] = [None, None, None]
         haodd = row.select_one(".haodd")
         if haodd:
             tokens = [span.get_text(strip=True) for span in haodd.find_all("span")][:3]
-            odds = [_american_odds(token) for token in tokens] + [None] * (3 - len(tokens))
+            parsed = [_american_odds(token) for token in tokens] + [None] * (3 - len(tokens))
+            odds = [parsed[0], None, parsed[1]] if two_way else parsed
 
         predicted = SCORE_RE.search(_cell_text(row, ".ex_sc"))
         avg_goals = re.search(r"\d+\.\d+", _cell_text(row, ".avg_sc"))
+        kickoff = _cell_text(row, ".date_bah")
         rows.append(
             {
                 "home": home,
                 "away": away,
                 "sign": sign,
+                "two_way": two_way,
                 "prob_home": probs[0],
                 "prob_draw": probs[1],
                 "prob_away": probs[2],
@@ -110,7 +167,8 @@ def parse_forebet_rows(html: str) -> list[dict[str, Any]]:
                 "odds_away": odds[2],
                 "predicted_score": f"{predicted.group(1)}-{predicted.group(2)}" if predicted else None,
                 "avg_goals": float(avg_goals.group()) if avg_goals else None,
-                "kickoff": _cell_text(row, ".date_bah"),
+                "kickoff": kickoff,
+                "kickoff_dt": _parse_kickoff(kickoff),
             }
         )
     return rows
@@ -130,12 +188,36 @@ def _fetch_listing_html(url: str) -> tuple[str, str]:
     return response.text, ""
 
 
+def _parse_slate_start(value: Any) -> datetime | None:
+    text = str(value or "").strip()
+    if not text:
+        return None
+    try:
+        parsed = datetime.fromisoformat(text.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    return parsed.replace(tzinfo=None) if parsed.tzinfo is None else parsed.astimezone(timezone.utc).replace(tzinfo=None)
+
+
 def _match_row(matchup: dict[str, str], rows: list[dict[str, Any]]) -> dict[str, Any] | None:
-    # Strict orientation: the 1X2 sign is only meaningful relative to the home
+    # Strict orientation: the tip sign is only meaningful relative to the home
     # side, so a swapped-orientation match must not count.
-    for row in rows:
-        if _team_matches(matchup["home"], row["home"]) and _team_matches(matchup["away"], row["away"]):
-            return row
+    candidates = [
+        row
+        for row in rows
+        if _team_matches(matchup["home"], row["home"]) and _team_matches(matchup["away"], row["away"])
+    ]
+    if not candidates:
+        return None
+    slate_start = _parse_slate_start(matchup.get("start_time"))
+    timed = [row for row in candidates if row["kickoff_dt"] is not None]
+    if slate_start is None or not timed:
+        return candidates[0]
+    # League pages list weeks of history and series opponents repeat daily;
+    # only the row nearest the official start (within the window) is the game.
+    best = min(timed, key=lambda row: abs((row["kickoff_dt"] - slate_start).total_seconds()))
+    if abs((best["kickoff_dt"] - slate_start).total_seconds()) <= KICKOFF_MATCH_WINDOW_SECONDS:
+        return best
     return None
 
 
@@ -171,9 +253,13 @@ def _pick_payload(
         "forebet_prob_away": row["prob_away"],
         "forebet_predicted_score": row["predicted_score"],
         "forebet_avg_goals": row["avg_goals"],
-        "calibration_excluded": True,
     }
-    payload.update(_soccer_market_metadata(payload["pick"]))
+    if config["market"] == "soccer_1x2":
+        # Soccer sources are calibration-excluded and carry 3-way market
+        # metadata; two-way ML picks grade through the generic path like the
+        # other MLB/WNBA external feeds and need neither.
+        payload["calibration_excluded"] = True
+        payload.update(_soccer_market_metadata(payload["pick"]))
     return payload
 
 
@@ -261,6 +347,14 @@ def scrape_forebet(sport: str, date_iso: str, *, html: str | None = None) -> dic
 
 def run_forebet_mls(date_iso: str, _sports: list[str] | None = None) -> dict[str, Any]:
     return scrape_forebet("mls", date_iso)
+
+
+def run_forebet_mlb(date_iso: str, _sports: list[str] | None = None) -> dict[str, Any]:
+    return scrape_forebet("mlb", date_iso)
+
+
+def run_forebet_wnba(date_iso: str, _sports: list[str] | None = None) -> dict[str, Any]:
+    return scrape_forebet("wnba", date_iso)
 
 
 def main() -> int:

@@ -21,7 +21,11 @@ from scripts.cache_manifest import write_cache_manifest  # noqa: E402
 from scripts.market_odds import apply_market_odds_to_payload  # noqa: E402
 from scripts.merge_external_feed_cache_payload import merge_payload  # noqa: E402
 from scripts.pick_calibration import apply_calibration_to_payload  # noqa: E402
-from scripts.scrapers.forebet_scraper import run_forebet_mls  # noqa: E402
+from scripts.scrapers.forebet_scraper import (  # noqa: E402
+    run_forebet_mlb,
+    run_forebet_mls,
+    run_forebet_wnba,
+)
 from scripts.scrapers.scores24_scraper import (  # noqa: E402
     run_scores24_fifa_world_cup,
     run_scores24_mlb,
@@ -38,6 +42,8 @@ FEED_RUNNERS: dict[str, Callable[[str, list[str]], dict[str, Any]]] = {
     "scores24_mlb": run_scores24_mlb,
     "scores24_fifa_world_cup": run_scores24_fifa_world_cup,
     "forebet_mls": run_forebet_mls,
+    "forebet_mlb": run_forebet_mlb,
+    "forebet_wnba": run_forebet_wnba,
 }
 SPLIT_PROVIDER_FEEDS = {"sportytrader", "sportsgambler"}
 SPLIT_PROVIDER_MODEL_KEYS = {
