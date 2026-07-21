@@ -35,6 +35,12 @@ EXTERNAL_FEED_MODEL_KEYS = {
     "forebet_mls",
     "forebet_mlb",
     "forebet_wnba",
+    "covers_experts_mlb",
+    "covers_experts_wnba",
+    "covers_computer_mlb",
+    "covers_consensus_mlb",
+    "covers_consensus_wnba",
+    "covers_props_mlb",
 }
 SPLIT_EXTERNAL_FEED_LEGACY_KEYS = {"sportytrader", "sportsgambler"}
 EXTERNAL_FEED_SPORT_KEYS = {

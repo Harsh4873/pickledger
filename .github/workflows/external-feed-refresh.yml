@@ -62,7 +62,7 @@ jobs:
         run: |
           python scripts/refresh_external_feeds.py \
             --date "${{ github.event.inputs.date || '' }}" \
-            --feeds "${{ github.event.inputs.feeds || 'sportytrader,sportsgambler,forebet_mls,forebet_mlb,forebet_wnba' }}" \
+            --feeds "${{ github.event.inputs.feeds || 'sportytrader,sportsgambler,forebet_mls,forebet_mlb,forebet_wnba,covers_experts_mlb,covers_experts_wnba,covers_computer_mlb,covers_consensus_mlb,covers_consensus_wnba,covers_props_mlb' }}" \
             --sports "nba,mlb,wnba" \
             --skip-firestore
 

@@ -501,6 +501,11 @@ def _attach_pick(
     captured_at: str,
 ) -> bool:
     markets = game.get("markets") or {}
+    if _text(pick.get("scope")).lower() == "player":
+        # Player props never take game-market prices: a strikeout/outs line
+        # that happens to equal the game-total line must not inherit its
+        # over/under odds and no-vig baseline.
+        return False
     direction = _pick_direction(pick)
     # Replace assumed model prices, and keep refreshing an already replaced
     # price while the game remains pregame.

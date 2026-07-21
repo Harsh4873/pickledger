@@ -552,7 +552,9 @@ class TrailingExcess:
                 decision = _clean_text(pick.get("decision")).upper()
                 if decision not in TEAM_VISIBLE_DECISIONS:
                     continue
-                if player_props and pick.get("market_priced") is not True:
+                if (
+                    player_props or _clean_text(pick.get("scope")).lower() == "player"
+                ) and pick.get("market_priced") is not True:
                     continue
                 if _pick_date(pick, fallback_date) >= target_date:
                     continue
@@ -647,7 +649,11 @@ def collect_legs(
             # Shadow-mode models accumulate ledger evidence without any
             # public surface — including parlay legs.
             continue
-        if player_props and pick.get("market_priced") is not True:
+        # scope=player rows in the TEAM payload (external prop feeds) face
+        # the same market_priced gate as player-cache props.
+        if (
+            player_props or _clean_text(pick.get("scope")).lower() == "player"
+        ) and pick.get("market_priced") is not True:
             continue
         if pick.get("grade_supported") is False:
             continue

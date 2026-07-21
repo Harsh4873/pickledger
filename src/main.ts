@@ -338,6 +338,10 @@ function playerRankingEpoch(pick: Pick): string {
 
 function playerRankingPickIdentity(pick: Pick): string {
   return [
+    // External prop feeds rank per-source; without this, two external
+    // sources (or an external source vs an in-house ml_rank'd pick) on the
+    // same market would erase each other from rankings.
+    pick.external_player_feed === true ? sourceName(pick) : '',
     pick.sport,
     pickDateKey(pick),
     pick.game_id || pick.event_id || gameName(pick),

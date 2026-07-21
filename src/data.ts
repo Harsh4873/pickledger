@@ -39,6 +39,7 @@ export interface Pick {
   player_name?: string;
   market?: string;
   scope?: string;
+  external_player_feed?: boolean;
   ml_rank?: number | string | null;
   model_rank?: number | string | null;
   rank?: number | string | null;
@@ -414,6 +415,14 @@ const SOURCE_LABELS: Record<string, string> = {
   forebet_mls: 'ForebetMLS',
   forebet_mlb: 'ForebetMLB',
   forebet_wnba: 'ForebetWNBA',
+  // Covers buckets carry per-row source labels ("Covers · <Author>",
+  // "Covers Computer MLB", …); these are fallbacks for rows missing one.
+  covers_experts_mlb: 'Covers Expert',
+  covers_experts_wnba: 'Covers Expert',
+  covers_computer_mlb: 'Covers Computer MLB',
+  covers_consensus_mlb: 'Covers Consensus MLB',
+  covers_consensus_wnba: 'Covers Consensus WNBA',
+  covers_props_mlb: 'Covers Props (BAT X)',
 };
 
 const SOURCE_ALIASES: Record<string, string> = {
@@ -836,8 +845,11 @@ export async function loadAllData(): Promise<Pick[]> {
   });
   playerPayloads.flatMap(picksFromPlayerProps).forEach(pick => playerById.set(pick.id, pick));
   teamPicks = sortPicks([...teamById.values()].filter(pick => !ARCHIVED_SPORTS.has(pick.sport) && !SHADOW_SPORTS.has(pick.sport)));
+  // External player-prop feeds (scope=player rows in the team cache, e.g.
+  // Covers) render in Player mode alongside the in-house ML-era props; the
+  // scope routing above already keeps them out of Team mode and rankings.
   playerPicks = sortPicks([...playerById.values()].filter(
-    pick => !ARCHIVED_SPORTS.has(pick.sport) && isMlEraPlayerProp(pick),
+    pick => !ARCHIVED_SPORTS.has(pick.sport) && (isMlEraPlayerProp(pick) || pick.external_player_feed === true),
   ));
   return getAllPicks();
 }
