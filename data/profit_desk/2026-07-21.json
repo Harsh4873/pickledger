@@ -3388,6 +3388,154 @@
     },
     {
       "blockers": [
+        "edge_insufficient_source_samples",
+        "edge_insufficient_segment_samples",
+        "edge_insufficient_distinct_prior_dates",
+        "edge_probability_positive_ev_below_0.80",
+        "edge_conservative_probability_margin_below_0.02",
+        "edge_non_positive_conservative_ev",
+        "value_insufficient_source_samples",
+        "value_insufficient_distinct_prior_dates",
+        "value_negative_chronological_evidence_half",
+        "value_non_positive_flat_roi",
+        "value_probability_positive_ev_below_0.70"
+      ],
+      "canonicalGame": "2026-07-21:mlb:cleveland guardians|minnesota twins",
+      "consensusSources": [],
+      "date": "2026-07-21",
+      "decimalOdds": 1.952381,
+      "decision": "LEAN",
+      "dedupeRule": "exact_market_identity_best_executable_price",
+      "direction": "under",
+      "duplicateCount": 1,
+      "duplicateSources": [
+        "MLB Model"
+      ],
+      "edgeQualified": false,
+      "estimate": {
+        "alpha": -0.002375,
+        "alphaStdError": 0.1,
+        "breakEvenProbability": 0.512195,
+        "conservativeExpectedValue": -0.29782,
+        "expectedValue": -0.047612,
+        "lowerProbability": 0.359653,
+        "marketProbability": 0.490183,
+        "method": "market_baseline_plus_hierarchically_shrunk_prior_residual",
+        "probability": 0.487808,
+        "probabilityPositiveEv": 0.403667,
+        "sourceAlpha": -0.002375,
+        "value": {
+          "alpha": -0.002375,
+          "alphaStdError": 0.074602,
+          "conservativeExpectedValue": -0.191296,
+          "expectedValue": -0.004636,
+          "lowerProbability": 0.414214,
+          "method": "source_flat_roi_shrunk_residual_vs_break_even",
+          "probability": 0.509821,
+          "probabilityPositiveEv": 0.487304
+        }
+      },
+      "evidence": {
+        "chronologicalHalvesNonnegative": true,
+        "cutoffExclusive": "2026-07-21",
+        "distinctDates": 0,
+        "firstHalfFlatNetUnits": 0,
+        "flatNetUnits": 0,
+        "flatRoi": null,
+        "losses": 0,
+        "modelVersion": "MLB:mlb_team_consensus_v1.2.0:mlb_new",
+        "policyVersion": "profit_desk_policy_v2",
+        "priorOnly": true,
+        "pushes": 0,
+        "secondHalfFlatNetUnits": 0,
+        "segmentDistinctDates": 0,
+        "segmentEvidenceKey": "team|mlb_new|mlb|MLB:mlb_team_consensus_v1.2.0:mlb_new|totals|under|0.45_0.50",
+        "segmentSamples": 0,
+        "sourceChronologicalHalvesNonnegative": false,
+        "sourceDistinctDates": 2,
+        "sourceEvidenceKey": "team|mlb_new|mlb",
+        "sourceFirstHalfFlatNetUnits": 0.8197,
+        "sourceFlatNetUnits": -0.2279,
+        "sourceFlatRoi": -0.037991,
+        "sourceLosses": 3,
+        "sourceSamples": 6,
+        "sourceSecondHalfFlatNetUnits": -1.0476,
+        "sourceWins": 3,
+        "wins": 0
+      },
+      "game": "Minnesota Twins @ Cleveland Guardians",
+      "gradeSupportSource": "repository_grader_default",
+      "gradeSupported": true,
+      "id": "profit-118a2d49f8995bc0f9f414df",
+      "lane": null,
+      "laneBlockers": {
+        "edge": [
+          "edge_insufficient_source_samples",
+          "edge_insufficient_segment_samples",
+          "edge_insufficient_distinct_prior_dates",
+          "edge_probability_positive_ev_below_0.80",
+          "edge_conservative_probability_margin_below_0.02",
+          "edge_non_positive_conservative_ev"
+        ],
+        "structural": [],
+        "value": [
+          "value_insufficient_source_samples",
+          "value_insufficient_distinct_prior_dates",
+          "value_negative_chronological_evidence_half",
+          "value_non_positive_flat_roi",
+          "value_probability_positive_ev_below_0.70"
+        ]
+      },
+      "line": 8.0,
+      "liveQualified": false,
+      "market": "totals",
+      "marketFamily": "totals",
+      "marketIdentity": "market:db9ee309e05fcd9bf1420d5c",
+      "mode": "team",
+      "modelVersion": "MLB:mlb_team_consensus_v1.2.0:mlb_new",
+      "oddsAmerican": -105,
+      "pick": "Under 8.0 (Minnesota Twins vs Cleveland Guardians)",
+      "player": null,
+      "policyVersion": "profit_desk_policy_v2",
+      "price": {
+        "ageHours": 8.234,
+        "breakEvenProbability": 0.512195,
+        "decimalOdds": 1.952381,
+        "eligibleForAlphaEstimate": true,
+        "fresh": true,
+        "freshPregame": true,
+        "maxAgeHours": 24.0,
+        "noVigInputs": {
+          "field": "market_no_vig_selected_probability"
+        },
+        "noVigMethod": "explicit:pick.market_no_vig_selected_probability",
+        "noVigProbability": 0.490183,
+        "noVigVerified": true,
+        "observedExecutable": true,
+        "oddsAmerican": -105,
+        "quality": "verified_no_vig",
+        "source": "espn_scoreboard:DraftKings",
+        "sourceField": "pick.price_source",
+        "startTime": "2026-07-21T22:40:00Z",
+        "tier": "A",
+        "tierLabel": "certified_executable",
+        "timestamp": "2026-07-21T14:25:57.755147Z",
+        "timestampField": "pick.market_updated_at",
+        "twoSided": true,
+        "updatedAt": "2026-07-21T14:25:57.755147Z"
+      },
+      "rawModelProbabilityIgnored": 0.5958,
+      "result": "pending",
+      "shadowQualified": false,
+      "source": "MLB Model",
+      "sourceKey": "mlb_new",
+      "sport": "MLB",
+      "stakeUnits": 0.0,
+      "tier": "watch",
+      "valueQualified": false
+    },
+    {
+      "blockers": [
         "edge_requires_two_sided_price",
         "edge_insufficient_segment_samples",
         "edge_insufficient_distinct_prior_dates",
@@ -3860,7 +4008,7 @@
       "player": null,
       "policyVersion": "profit_desk_policy_v2",
       "price": {
-        "ageHours": 8.235,
+        "ageHours": 7.755,
         "breakEvenProbability": 0.545455,
         "decimalOdds": 1.833333,
         "eligibleForAlphaEstimate": false,
@@ -3879,10 +4027,10 @@
         "startTime": "2026-07-21T22:40:00Z",
         "tier": "D",
         "tierLabel": "assumed_proxy_or_synthetic",
-        "timestamp": "2026-07-21T14:25:54.852220Z",
+        "timestamp": "2026-07-21T14:54:41.511786Z",
         "timestampField": "pick.certification_timing.data_as_of",
         "twoSided": false,
-        "updatedAt": "2026-07-21T14:25:54.852220Z"
+        "updatedAt": "2026-07-21T14:54:41.511786Z"
       },
       "rawModelProbabilityIgnored": 0.604,
       "result": "pending",
@@ -3969,7 +4117,7 @@
       "player": null,
       "policyVersion": "profit_desk_policy_v2",
       "price": {
-        "ageHours": 11.235,
+        "ageHours": 10.755,
         "breakEvenProbability": 0.545455,
         "decimalOdds": 1.833333,
         "eligibleForAlphaEstimate": false,
@@ -3988,10 +4136,10 @@
         "startTime": "2026-07-22T01:40:00Z",
         "tier": "D",
         "tierLabel": "assumed_proxy_or_synthetic",
-        "timestamp": "2026-07-21T14:25:54.852220Z",
+        "timestamp": "2026-07-21T14:54:41.511786Z",
         "timestampField": "pick.certification_timing.data_as_of",
         "twoSided": false,
-        "updatedAt": "2026-07-21T14:25:54.852220Z"
+        "updatedAt": "2026-07-21T14:54:41.511786Z"
       },
       "rawModelProbabilityIgnored": 0.6,
       "result": "pending",
@@ -4078,7 +4226,7 @@
       "player": null,
       "policyVersion": "profit_desk_policy_v2",
       "price": {
-        "ageHours": 9.651,
+        "ageHours": 9.172,
         "breakEvenProbability": 0.545455,
         "decimalOdds": 1.833333,
         "eligibleForAlphaEstimate": false,
@@ -4097,10 +4245,10 @@
         "startTime": "2026-07-22T00:05:00Z",
         "tier": "D",
         "tierLabel": "assumed_proxy_or_synthetic",
-        "timestamp": "2026-07-21T14:25:54.852220Z",
+        "timestamp": "2026-07-21T14:54:41.511786Z",
         "timestampField": "pick.certification_timing.data_as_of",
         "twoSided": false,
-        "updatedAt": "2026-07-21T14:25:54.852220Z"
+        "updatedAt": "2026-07-21T14:54:41.511786Z"
       },
       "rawModelProbabilityIgnored": 0.564,
       "result": "pending",
@@ -4187,7 +4335,7 @@
       "player": null,
       "policyVersion": "profit_desk_policy_v2",
       "price": {
-        "ageHours": 11.201,
+        "ageHours": 10.722,
         "breakEvenProbability": 0.545455,
         "decimalOdds": 1.833333,
         "eligibleForAlphaEstimate": false,
@@ -4206,10 +4354,10 @@
         "startTime": "2026-07-22T01:38:00Z",
         "tier": "D",
         "tierLabel": "assumed_proxy_or_synthetic",
-        "timestamp": "2026-07-21T14:25:54.852220Z",
+        "timestamp": "2026-07-21T14:54:41.511786Z",
         "timestampField": "pick.certification_timing.data_as_of",
         "twoSided": false,
-        "updatedAt": "2026-07-21T14:25:54.852220Z"
+        "updatedAt": "2026-07-21T14:54:41.511786Z"
       },
       "rawModelProbabilityIgnored": 0.606,
       "result": "pending",
@@ -4296,7 +4444,7 @@
       "player": null,
       "policyVersion": "profit_desk_policy_v2",
       "price": {
-        "ageHours": 9.235,
+        "ageHours": 8.755,
         "breakEvenProbability": 0.545455,
         "decimalOdds": 1.833333,
         "eligibleForAlphaEstimate": false,
@@ -4315,10 +4463,10 @@
         "startTime": "2026-07-21T23:40:00Z",
         "tier": "D",
         "tierLabel": "assumed_proxy_or_synthetic",
-        "timestamp": "2026-07-21T14:25:54.852220Z",
+        "timestamp": "2026-07-21T14:54:41.511786Z",
         "timestampField": "pick.certification_timing.data_as_of",
         "twoSided": false,
-        "updatedAt": "2026-07-21T14:25:54.852220Z"
+        "updatedAt": "2026-07-21T14:54:41.511786Z"
       },
       "rawModelProbabilityIgnored": 0.625,
       "result": "pending",
@@ -4405,7 +4553,7 @@
       "player": null,
       "policyVersion": "profit_desk_policy_v2",
       "price": {
-        "ageHours": 11.235,
+        "ageHours": 10.755,
         "breakEvenProbability": 0.545455,
         "decimalOdds": 1.833333,
         "eligibleForAlphaEstimate": false,
@@ -4424,10 +4572,10 @@
         "startTime": "2026-07-22T01:40:00Z",
         "tier": "D",
         "tierLabel": "assumed_proxy_or_synthetic",
-        "timestamp": "2026-07-21T14:25:54.852220Z",
+        "timestamp": "2026-07-21T14:54:41.511786Z",
         "timestampField": "pick.certification_timing.data_as_of",
         "twoSided": false,
-        "updatedAt": "2026-07-21T14:25:54.852220Z"
+        "updatedAt": "2026-07-21T14:54:41.511786Z"
       },
       "rawModelProbabilityIgnored": 0.56,
       "result": "pending",
@@ -4555,7 +4703,7 @@
   "date": "2026-07-21",
   "engineVersion": "profit_desk_v2_live",
   "firstLiveDate": "2026-07-11",
-  "generatedAt": "2026-07-21T14:44:53.906960Z",
+  "generatedAt": "2026-07-21T14:54:41.511786Z",
   "notices": [
     "Qualified picks carry real flat stakes: EDGE 1.0u, VALUE 0.5u; everything else stays 0u.",
     "The market price is the baseline; historical residual alpha is shrunk and uncertainty-adjusted.",
@@ -6715,7 +6863,7 @@
     },
     {
       "alpha": -0.002375,
-      "candidatesToday": 0,
+      "candidatesToday": 1,
       "distinctDates": 2,
       "evidenceQualified": false,
       "flatNetUnits": -0.2279,
@@ -6754,7 +6902,7 @@
       "mode": "team",
       "probabilityPositiveEv": 0.487304,
       "samples": 6,
-      "source": "mlb_new",
+      "source": "MLB Model",
       "sourceKey": "mlb_new",
       "sport": "mlb",
       "wins": 3
@@ -7130,12 +7278,12 @@
   ],
   "summary": {
     "avoid": 8,
-    "candidateCount": 35,
-    "candidatesEvaluated": 35,
+    "candidateCount": 36,
+    "candidatesEvaluated": 36,
     "deduplicatedPicks": 3,
     "edgeQualified": 0,
     "evidenceRows": 1803,
-    "inputPicks": 38,
+    "inputPicks": 39,
     "livePortfolioCandidates": 3,
     "liveQualified": 12,
     "liveRecord": {
@@ -7183,22 +7331,22 @@
       },
       "team": {
         "avoid": 8,
-        "candidateCount": 23,
-        "candidates": 23,
-        "candidatesEvaluated": 23,
+        "candidateCount": 24,
+        "candidates": 24,
+        "candidatesEvaluated": 24,
         "edgeQualified": 0,
         "evidenceRows": 1245,
         "liveQualified": 0,
-        "observedPriceCandidates": 15,
+        "observedPriceCandidates": 16,
         "portfolioCandidates": 0,
         "researchQualified": 0,
         "selected": 0,
         "shadowQualified": 0,
         "valueQualified": 0,
-        "watchlist": 15
+        "watchlist": 16
       }
     },
-    "observedPriceCandidates": 27,
+    "observedPriceCandidates": 28,
     "portfolioCandidates": 3,
     "researchQualified": 12,
     "researchRecord": {
@@ -7230,6 +7378,6 @@
     },
     "sourcesTracked": 29,
     "valueQualified": 12,
-    "watchlist": 15
+    "watchlist": 16
   }
 }
