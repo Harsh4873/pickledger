@@ -415,6 +415,8 @@ const SOURCE_LABELS: Record<string, string> = {
   forebet_mls: 'ForebetMLS',
   forebet_mlb: 'ForebetMLB',
   forebet_wnba: 'ForebetWNBA',
+  scores24_tennis: 'Scores24Tennis',
+  tennistonic_tennis: 'TennisTonic',
   // Covers buckets carry per-row source labels ("Covers · <Author>",
   // "Covers Computer MLB", …); these are fallbacks for rows missing one.
   covers_experts_mlb: 'Covers Expert',

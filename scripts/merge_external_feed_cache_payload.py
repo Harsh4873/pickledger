@@ -41,6 +41,8 @@ EXTERNAL_FEED_MODEL_KEYS = {
     "covers_consensus_mlb",
     "covers_consensus_wnba",
     "covers_props_mlb",
+    "tennistonic_tennis",
+    "scores24_tennis",
 }
 SPLIT_EXTERNAL_FEED_LEGACY_KEYS = {"sportytrader", "sportsgambler"}
 EXTERNAL_FEED_SPORT_KEYS = {

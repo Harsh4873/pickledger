@@ -52,6 +52,34 @@ After the script finishes, report:
 If Forebet Cloudflare-challenges the cloud IP, say so clearly in the run summary. Do not add AI co-author lines to commits.
 ```
 
+## 1c. Tennis publish (soft-launched — Scores24 tennis needs a non-Actions IP)
+
+**Schedule (UTC cron):** `45 14 * * *` and `45 20 * * *` (~9:45 AM and 3:45 PM America/Chicago during CDT — shortly after Forebet).
+
+**Instructions:**
+
+```
+Run scripts/scrapers/tennis_publish.sh from the PickLedger repo root.
+Use `scripts/scrapers/tennis_publish.sh --date YYYY-MM-DD` when backfilling a missed slate.
+
+Never open the deployed website or a browser to verify output.
+
+Run the Codex upkeep guard above before the final summary.
+
+After the script finishes, report:
+- exit code
+- whether a commit was pushed
+- TennisTonic and Scores24Tennis pick counts for today (America/Chicago) with officialMatchups vs matchedPicks
+- any scrape, Cloudflare, or push errors
+
+Tennis is soft-launched and best-effort: a large singles slate with only partial
+prediction coverage is healthy, and a zero-pick Scores24Tennis bucket is normal
+(Scores24 Cloudflare-challenges the cloud IP). TennisTonic (plain HTTP) also runs
+on Actions via external-feed-refresh, so this publisher's main job is the
+Scores24 tennis odds and a local TennisTonic fallback. Do not add AI co-author
+lines to commits.
+```
+
 ## 2. Production health check (optional daily sanity)
 
 **Schedule (UTC cron):** `0 21 * * *` (~4:00 PM America/Chicago during CDT).

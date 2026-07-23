@@ -21,6 +21,7 @@ PLAYER_PROPS_SNAPSHOT_DIR = REPO_ROOT / "data" / "player_props_snapshots"
 sys.path.insert(0, str(REPO_ROOT))
 
 import pickgrader_server  # noqa: E402
+from scripts.scrapers.tennis_scraper import grade_tennis_picks, is_tennis_pick  # noqa: E402
 
 
 def _read_json(path: Path) -> dict[str, Any] | None:
@@ -101,11 +102,36 @@ def _grade_id(scope: str, index: int, pick: dict[str, Any]) -> str:
     return f"grade-{hashlib.sha1(raw.encode('utf-8')).hexdigest()[:16]}"
 
 
+def _apply_tennis_grades(
+    candidates: list[dict[str, Any]],
+    refs: dict[str, dict[str, Any]],
+) -> int:
+    """Grade intercepted tennis picks against the ESPN winner flag."""
+    graded = grade_tennis_picks(candidates)
+    changed = 0
+    for grade_id, pick in refs.items():
+        entry = graded.get(grade_id) if isinstance(graded, dict) else None
+        if not isinstance(entry, dict):
+            continue
+        result = str(entry.get("result") or "pending").lower()
+        if result in {"win", "loss", "push"} and pick.get("result") != result:
+            pick["result"] = result
+            changed += 1
+        start_time = str(entry.get("start_time") or "").strip()
+        if start_time and pick.get("start_time") != start_time:
+            pick["start_time"] = start_time
+            pick["game_start_time"] = start_time
+            changed += 1
+    return changed
+
+
 def grade_payload(payload: dict[str, Any], *, ml_player_props_only: bool = False) -> int:
     fallback_date = str(payload.get("date") or payload.get("slate_date") or payload.get("as_of") or "").strip()
     fallback_timestamp = payload.get("generatedAt") or payload.get("updatedAt")
     pending: list[dict[str, Any]] = []
     refs: dict[str, dict[str, Any]] = {}
+    tennis_pending: list[dict[str, Any]] = []
+    tennis_refs: dict[str, dict[str, Any]] = {}
     changed = 0
     is_ml_era_pick = None
     if ml_player_props_only:
@@ -127,8 +153,19 @@ def grade_payload(payload: dict[str, Any], *, ml_player_props_only: bool = False
             candidate["id"] = grade_id
             candidate["date"] = str(candidate.get("date") or fallback_date)
             candidate["result"] = "pending"
+            # Tennis is player-vs-player: ESPN's tennis JSON is structurally
+            # different from the team scoreboards the shared engine parses, so
+            # grade it in an isolated winner-flag path and keep it out of the
+            # team grader entirely.
+            if is_tennis_pick(pick):
+                tennis_pending.append(candidate)
+                tennis_refs[grade_id] = pick
+                continue
             pending.append(candidate)
             refs[grade_id] = pick
+
+    if tennis_pending:
+        changed += _apply_tennis_grades(tennis_pending, tennis_refs)
 
     if not pending:
         return changed

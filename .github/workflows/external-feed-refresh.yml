@@ -20,7 +20,7 @@ on:
       feeds:
         description: "Comma-separated feeds, or all"
         required: false
-        default: "sportytrader,sportsgambler,forebet_mls,forebet_mlb,forebet_wnba,covers_experts_mlb,covers_experts_wnba,covers_computer_mlb,covers_consensus_mlb,covers_consensus_wnba,covers_props_mlb"
+        default: "sportytrader,sportsgambler,forebet_mls,forebet_mlb,forebet_wnba,covers_experts_mlb,covers_experts_wnba,covers_computer_mlb,covers_consensus_mlb,covers_consensus_wnba,covers_props_mlb,tennistonic_tennis"
 
 permissions:
   contents: write
@@ -62,7 +62,7 @@ jobs:
         run: |
           python scripts/refresh_external_feeds.py \
             --date "${{ github.event.inputs.date || '' }}" \
-            --feeds "${{ github.event.inputs.feeds || 'sportytrader,sportsgambler,forebet_mls,forebet_mlb,forebet_wnba,covers_experts_mlb,covers_experts_wnba,covers_computer_mlb,covers_consensus_mlb,covers_consensus_wnba,covers_props_mlb' }}" \
+            --feeds "${{ github.event.inputs.feeds || 'sportytrader,sportsgambler,forebet_mls,forebet_mlb,forebet_wnba,covers_experts_mlb,covers_experts_wnba,covers_computer_mlb,covers_consensus_mlb,covers_consensus_wnba,covers_props_mlb,tennistonic_tennis' }}" \
             --sports "nba,mlb,wnba" \
             --skip-firestore
 

@@ -40,6 +40,10 @@ from scripts.scrapers.scores24_scraper import (  # noqa: E402
     run_scores24_nba_summer,
     run_scores24_wnba,
 )
+from scripts.scrapers.tennis_scraper import (  # noqa: E402
+    run_scores24_tennis,
+    run_tennistonic_tennis,
+)
 
 
 FEED_RUNNERS: dict[str, Callable[[str, list[str]], dict[str, Any]]] = {
@@ -58,6 +62,8 @@ FEED_RUNNERS: dict[str, Callable[[str, list[str]], dict[str, Any]]] = {
     "covers_consensus_mlb": run_covers_consensus_mlb,
     "covers_consensus_wnba": run_covers_consensus_wnba,
     "covers_props_mlb": run_covers_props_mlb,
+    "tennistonic_tennis": run_tennistonic_tennis,
+    "scores24_tennis": run_scores24_tennis,
 }
 SPLIT_PROVIDER_FEEDS = {"sportytrader", "sportsgambler"}
 SPLIT_PROVIDER_MODEL_KEYS = {

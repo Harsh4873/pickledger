@@ -79,7 +79,7 @@ def test_shadow_containment_across_surfaces():
     profit = (root / "scripts" / "build_profit_desk.py").read_text(encoding="utf-8")
     assert 'record.get("shadow_mode") is True' in profit
     main_ts = (root / "src" / "main.ts").read_text(encoding="utf-8")
-    assert "'MLS']" in main_ts and "'NFL'" not in main_ts.split("PRIMARY_FILTERS")[1][:80]
+    assert "'TENNIS']" in main_ts and "'NFL'" not in main_ts.split("PRIMARY_FILTERS")[1][:80]
 
 
 def test_registration_and_grading_slug():

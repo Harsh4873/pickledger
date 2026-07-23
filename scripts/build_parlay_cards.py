@@ -112,6 +112,8 @@ SOURCE_LABELS: dict[str, str] = {
     "scores24_wnba": "Scores24WNBA",
     "scores24_mlb": "Scores24MLB",
     "scores24_fifa_world_cup": "Scores24FIFAWorldCup",
+    "scores24_tennis": "Scores24Tennis",
+    "tennistonic_tennis": "TennisTonic",
 }
 
 PLAYER_PROP_SOURCE_LABELS: dict[str, str] = {
@@ -364,7 +366,7 @@ def _result(pick: dict[str, Any]) -> str:
 def _source_type(source_key: str, pick: dict[str, Any], *, player_props: bool) -> str:
     if player_props or _clean_text(pick.get("scope")).lower() == "player":
         return "player_prop"
-    if source_key.startswith(("sportytrader", "sportsgambler", "scores24")):
+    if source_key.startswith(("sportytrader", "sportsgambler", "scores24", "tennistonic")):
         return "external"
     return "model"
 
