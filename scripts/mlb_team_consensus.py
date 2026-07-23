@@ -562,6 +562,44 @@ def _inning_signals(pick: dict[str, Any], game: dict[str, Any], signals: list[di
         _add_travel_signals(signals, _travel_context_for(game, side), f"{side} team")
 
 
+def _team_total_detail(pick: dict[str, Any], game: dict[str, Any]) -> dict[str, Any]:
+    """The per-side team-total projection row that backs this pick.
+
+    The team-total model writes each side's offense/pitching/park inputs into
+    ``game["team_totals"]`` keyed by the same ``pick`` string, so we match on
+    that to surface the model's real evidence as gate signals.
+    """
+    target = str(pick.get("pick") or "").strip().lower()
+    if not target:
+        return {}
+    for entry in game.get("team_totals") or []:
+        if isinstance(entry, dict) and str(entry.get("pick") or "").strip().lower() == target:
+            return entry
+    return {}
+
+
+def _team_total_signals(pick: dict[str, Any], game: dict[str, Any], signals: list[dict[str, Any]]) -> None:
+    detail = _team_total_detail(pick, game)
+    if _number(pick.get("edge_pp")) is not None or _number(detail.get("edge_pp")) is not None:
+        _add_signal(signals, "run_environment_gap", "projected team total differs from the market line", 0.8, category="model_edge")
+    offense_games = _number(detail.get("offense_sample_games"))
+    if offense_games is not None and offense_games >= 10:
+        _add_signal(signals, "team_offense_form", f"team offense sampled over {int(offense_games)} game(s)", 0.8, category="team_form")
+    else:
+        _add_missing_signal(signals, "team_offense_missing", "team offense sample thin or missing", "team_form")
+    pitching = detail.get("pitching") if isinstance(detail.get("pitching"), dict) else {}
+    if pitching and _number(pitching.get("multiplier")) is not None:
+        _add_signal(signals, "opposing_pitching", "opposing starter/bullpen run-rate multiplier applied", 0.7, category="starting_pitcher")
+        if _number(pitching.get("bullpen_ratio")) is not None:
+            _add_signal(signals, "bullpen_workload", "opposing bullpen run-rate included", 0.5, category="bullpen")
+    else:
+        _add_missing_signal(signals, "opposing_pitching_missing", "opposing pitching context missing", "starting_pitcher")
+    if _number(detail.get("park_factor")) is not None:
+        _add_signal(signals, "park_factor", "park run factor applied to the projection", 0.6, category="park_weather")
+    else:
+        _add_missing_signal(signals, "park_factor_missing", "park factor context not available", "park_weather")
+
+
 def _base_signals(
     pick: dict[str, Any],
     model_key: str,
@@ -598,6 +636,8 @@ def _base_signals(
         _f5_signals(pick, game, signals)
     elif model_key == "mlb_inning":
         _inning_signals(pick, game, signals)
+    elif model_key == "mlb_team_total":
+        _team_total_signals(pick, game, signals)
     return signals
 
 
@@ -635,7 +675,11 @@ def evaluate_mlb_team_pick(
     if edge is None or edge <= 0:
         hard_blockers.append("non_positive_calibrated_edge")
     calibration = pick.get("calibration") if isinstance(pick.get("calibration"), dict) else {}
-    if calibration and int(calibration.get("samples") or 0) < 30:
+    # An identity "bootstrap" calibration carries zero samples by design (the
+    # model has not earned its own group yet); requiring 30 calibration samples
+    # here would re-impose the exact deadlock the identity fallback exists to
+    # break, so the walk-forward bootstrap lane governs its exposure instead.
+    if calibration and not calibration.get("bootstrap") and int(calibration.get("samples") or 0) < 30:
         hard_blockers.append("insufficient_calibration_samples")
     walk_forward_samples = int(family_performance.get("samples") or 0)
     walk_forward_bootstrap = walk_forward_samples < MIN_WALK_FORWARD_SAMPLES

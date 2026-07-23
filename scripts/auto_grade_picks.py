@@ -35,6 +35,38 @@ def _write_json(path: Path, payload: dict[str, Any]) -> None:
     path.write_text(json.dumps(payload, indent=2, sort_keys=True, default=str) + "\n", encoding="utf-8")
 
 
+def _sync_top_level_model_aliases(payload: dict[str, Any]) -> int:
+    """Re-point the vestigial top-level model aliases at their graded bucket.
+
+    model_cache files carry each in-house team model twice: the canonical
+    ``models[<key>]`` bucket that the static site and the outcome ledger read,
+    and a legacy top-level alias (``payload[<alias>]``) written by the merge and
+    consensus steps for external/legacy consumers. Grading only touches
+    ``models[]``, so the top-level alias goes stale. Re-point each existing alias
+    at its graded bucket so the duplicate always mirrors the graded record.
+    """
+    models = payload.get("models")
+    if not isinstance(models, dict):
+        return 0
+    try:
+        from scripts.merge_model_cache_payload import MODEL_ALIAS_TO_MODEL_KEY
+    except Exception:
+        return 0
+    changed = 0
+    for alias_key, model_key in MODEL_ALIAS_TO_MODEL_KEY.items():
+        bucket = models.get(model_key)
+        if not isinstance(bucket, dict) or alias_key not in payload:
+            continue
+        current = payload.get(alias_key)
+        if current is bucket:
+            continue
+        if json.dumps(current, sort_keys=True, default=str) == json.dumps(bucket, sort_keys=True, default=str):
+            continue
+        payload[alias_key] = bucket
+        changed += 1
+    return changed
+
+
 def _iter_pick_lists(payload: dict[str, Any]) -> Iterator[tuple[str, list[dict[str, Any]]]]:
     direct = payload.get("picks")
     if isinstance(direct, list):
@@ -140,6 +172,8 @@ def grade_file(path: Path, *, ml_player_props_only: bool = False) -> int:
         print(f"[auto-grade] skipped unreadable {path.relative_to(REPO_ROOT)}")
         return 0
     changed = grade_payload(payload, ml_player_props_only=ml_player_props_only)
+    if path.parent == MODEL_CACHE_DIR:
+        changed += _sync_top_level_model_aliases(payload)
     if changed:
         _write_json(path, payload)
     print(f"[auto-grade] {path.relative_to(REPO_ROOT)}: {changed} update(s)")

@@ -29,6 +29,16 @@ CALIBRATION_EXCLUDED_MODEL_KEYS = {"fifa_world_cup", "mls", "forebet_mls"}
 # decision and stake publish untouched — there is no executable price for
 # the edge-based downgrade to protect.
 DECISION_DOWNGRADE_EXEMPT_MODEL_KEYS = {"mlb_inning"}
+# Models still accruing their own decided history must NOT inherit the pooled
+# "global" calibration. The global fit is dominated by other models/markets
+# (mostly mlb_new moneyline); applying that cross-market probability shrink to
+# a brand-new model can push every structurally sound projection below the
+# market line and PASS the entire slate — a deadlock that also starves the
+# ledger of the very samples a real per-group calibration would need. These
+# models calibrate as identity (no shift) until their own calibration group
+# reaches minimum_group_samples, then graduate to genuine per-group
+# calibration automatically.
+GLOBAL_FALLBACK_EXEMPT_MODEL_KEYS = {"mlb_team_total"}
 ML_OWNED_PROBABILITY_SOURCE = "player_props_ml_v1"
 
 SNAPSHOT_EXCLUDED_FIELDS = {
@@ -193,6 +203,11 @@ def _calibration_parameters(
     group = groups.get(group_key)
     if isinstance(group, dict) and int(group.get("samples") or 0) >= int(active.get("minimum_group_samples") or MIN_GROUP_SAMPLES):
         return group_key, group
+    if str(model_key or "").strip().lower() in GLOBAL_FALLBACK_EXEMPT_MODEL_KEYS:
+        # Identity parameters (intercept 0 / slope 1) leave the raw probability
+        # untouched, so an exempt model publishes on its own signal instead of
+        # a borrowed cross-market shift until it earns its own group.
+        return "identity_bootstrap", {}
     return "global", active.get("global") or {}
 
 
@@ -260,6 +275,7 @@ def apply_calibration_to_pick(
         "key": key,
         "samples": int(parameters.get("samples") or 0),
         "probability_delta": round(probability_delta, 6),
+        "bootstrap": key == "identity_bootstrap",
     }
     return pick
 
