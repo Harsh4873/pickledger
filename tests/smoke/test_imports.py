@@ -38,6 +38,7 @@ def test_locked_runtime_imports_still_resolve(monkeypatch):
         ("FIFAWorldCupPredictionModel.fifa_world_cup_model", (REPO_ROOT,)),
         ("NBAPlayerBettingModel.run_props", (REPO_ROOT / "NBAPlayerBettingModel", REPO_ROOT)),
         ("NBAPlayoffsPredictionModel.run_live", (REPO_ROOT,)),
+        ("TennisPredictionModel.tennis_model", (REPO_ROOT,)),
         ("models.mlb_inning.mlb_inning_model", (REPO_ROOT,)),
         ("models.mlb_first_five.mlb_first_five_model", (REPO_ROOT,)),
         ("ipl.run_api", (REPO_ROOT,)),

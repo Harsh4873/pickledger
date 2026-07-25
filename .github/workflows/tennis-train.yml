@@ -1,0 +1,86 @@
+name: Tennis Model Training
+
+# Manual only. Retraining downloads ~35 MB of third-party archive, runs the
+# walk-forward protocol end to end and rewrites the committed artifacts, so it
+# must never ride the daily cron — the serving path reads whatever is committed.
+#
+# The daily model-cache refresh already rolls the ratings forward from the
+# current-season workbook, so a retrain is only needed when the model itself
+# changes or the snapshot has drifted more than a season behind.
+
+on:
+  workflow_dispatch:
+    inputs:
+      commit:
+        description: "Commit the retrained artifacts to main"
+        required: false
+        type: boolean
+        default: false
+      tune:
+        description: "Re-run the Elo hyper-parameter search (slower)"
+        required: false
+        type: boolean
+        default: true
+
+permissions:
+  contents: write
+
+concurrency:
+  group: tennis-train
+  cancel-in-progress: false
+
+jobs:
+  train:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install training dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r TennisPredictionModel/requirements.txt
+
+      - name: Train
+        run: |
+          python -m TennisPredictionModel.tennis_train \
+            --refresh ${{ github.event.inputs.tune == 'false' && '--no-tune' || '' }}
+
+      - name: Show held-out metrics
+        run: python -c "import json;m=json.load(open('TennisPredictionModel/artifacts/metrics.json'));print(json.dumps(m['held_out'],indent=2))"
+
+      - name: Run tennis smoke tests
+        run: |
+          pip install pytest
+          python -m pytest tests/smoke/test_tennis_model.py -q
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: tennis-artifacts
+          path: TennisPredictionModel/artifacts/
+          retention-days: 30
+          if-no-files-found: error
+
+      - name: Commit retrained artifacts
+        if: ${{ github.event.inputs.commit == 'true' }}
+        run: |
+          ACTOR_EMAIL="${GITHUB_ACTOR_ID:-41898282}+${GITHUB_ACTOR}@users.noreply.github.com"
+          git config user.name  "${GITHUB_ACTOR}"
+          git config user.email "${ACTOR_EMAIL}"
+          if [ -z "$(git status --porcelain -- TennisPredictionModel/artifacts)" ]; then
+            echo "Artifacts unchanged — nothing to commit."
+            exit 0
+          fi
+          git add TennisPredictionModel/artifacts
+          git commit -m "chore(tennis): retrain model artifacts"
+          git fetch origin main
+          git rebase origin/main
+          git push origin HEAD:main

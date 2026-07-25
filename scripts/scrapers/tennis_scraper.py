@@ -163,10 +163,20 @@ def espn_tennis_matches(
                 round_name = _norm_space((grouping.get("grouping") or {}).get("displayName"))
                 if "singles" not in round_name.lower():
                     continue
+                event_name = _norm_space(event.get("name") or event.get("shortName"))
+                event_venue = _norm_space(
+                    (event.get("venue") or {}).get("displayName") if isinstance(event.get("venue"), dict) else ""
+                )
                 for comp in grouping.get("competitions", []) if isinstance(grouping.get("competitions"), list) else []:
                     match = _espn_competition_to_match(comp, league, round_name, target)
                     if match is None:
                         continue
+                    # Tournament and venue live on the event, not the
+                    # competition. The in-house model needs both to resolve
+                    # surface and tier — the venue city is the stable one,
+                    # since sponsor names change from season to season.
+                    match["tournament"] = event_name
+                    match["venue"] = event_venue
                     key = _match_key(match["away"], match["home"])
                     if key and key not in matches:
                         matches[key] = match
@@ -215,7 +225,10 @@ def _espn_competition_to_match(
         "away": away,
         "home": home,
         "start_time": _norm_space(comp.get("date")) or None,
+        # `round` stays the grouping label ("Men's Singles") the existing feeds
+        # were built against; the draw position lives beside it.
         "round": round_name,
+        "round_display": _norm_space(((comp.get("round") or {}) if isinstance(comp.get("round"), dict) else {}).get("displayName")) or None,
         "status": status,
         "winner": winner or None,
     }

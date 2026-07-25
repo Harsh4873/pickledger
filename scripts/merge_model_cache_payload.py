@@ -57,6 +57,7 @@ DEPLOYED_MODEL_KEYS = {
     "fifa_world_cup",
     "mls",
     "nfl",
+    "tennis",
     *EXTERNAL_FEED_MODEL_KEYS,
 }
 MODEL_ALIAS_KEYS = {

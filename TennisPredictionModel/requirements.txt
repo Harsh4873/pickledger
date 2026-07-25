@@ -1,0 +1,9 @@
+# Training-only dependencies. The serving path (tennis_model.py, tennis_core.py,
+# tennis_infer.py) deliberately runs on the standard library alone, so the daily
+# cache refresh never needs any of this.
+numpy>=1.26
+scipy>=1.11
+scikit-learn>=1.5
+# Reads the pre-2013 seasons, which tennis-data.co.uk still serves as legacy
+# BIFF .xls behind an .xlsx URL. Without it training simply starts at 2013.
+xlrd>=2.0

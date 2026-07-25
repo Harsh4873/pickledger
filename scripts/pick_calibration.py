@@ -23,7 +23,11 @@ ACTIVE_CALIBRATION_PATH = CALIBRATION_DIR / "active.json"
 LEDGER_PATH = CALIBRATION_DIR / "outcome_ledger.json"
 CALIBRATION_SCHEMA_VERSION = 1
 MIN_GROUP_SAMPLES = 30
-CALIBRATION_EXCLUDED_MODEL_KEYS = {"fifa_world_cup", "mls", "forebet_mls"}
+# The tennis model ships its own out-of-sample isotonic calibration (ECE ~1.3%
+# over 22,912 held-out matches), so re-shrinking it here would calibrate a
+# calibrated number twice. Its rows also carry calibration_excluded; the model
+# key is listed for belt-and-braces.
+CALIBRATION_EXCLUDED_MODEL_KEYS = {"fifa_world_cup", "mls", "forebet_mls", "tennis"}
 # Research models with no real market (settlement at an assumed price only)
 # keep their calibrated probabilities for display, but the model's own
 # decision and stake publish untouched — there is no executable price for

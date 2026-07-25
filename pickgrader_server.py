@@ -5010,6 +5010,24 @@ def run_nfl_model(date_str: str | None = None) -> dict[str, Any]:
         return {"ok": False, "error": str(exc)}
 
 
+def run_tennis_model(date_str: str | None = None) -> dict[str, Any]:
+    """Execute the in-house tennis model (Elo/WElo ratings + calibrated ML)."""
+    target_iso, _ = _parse_model_date_arg(date_str)
+    tennis_dir = os.path.join(BASE_DIR, "TennisPredictionModel")
+    if not os.path.exists(tennis_dir):
+        return {"ok": False, "error": "Tennis model directory not found"}
+    try:
+        from TennisPredictionModel import generate_tennis_picks
+
+        result = generate_tennis_picks(target_iso)
+        if not isinstance(result, dict):
+            return {"ok": False, "error": "Tennis model returned an invalid payload"}
+        _save_admin_picks_doc("tennis", result, target_iso)
+        return result
+    except Exception as exc:
+        return {"ok": False, "error": str(exc)}
+
+
 def run_mls_model(date_str: str | None = None) -> dict[str, Any]:
     """Execute the player-centric MLS algorithmic model."""
     target_iso, _ = _parse_model_date_arg(date_str)
