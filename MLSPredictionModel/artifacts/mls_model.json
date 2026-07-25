@@ -1,0 +1,36 @@
+{
+  "model_version": "mls_dixon_coles_v2.0",
+  "trained_at": "2026-07-25",
+  "data_through": "2026-07-23",
+  "config": {
+    "half_life_days": 365.0,
+    "ridge": 0.02
+  },
+  "calibration": {
+    "vector_scaling": {
+      "gamma": 0.6005987099807802,
+      "bias_home": 0.22972554387384148,
+      "bias_away": 0.02904290580860203
+    },
+    "total": {
+      "intercept": 1.6952469472205498,
+      "slope": 0.43442451826071304
+    },
+    "fit_on": "validation+test out-of-sample walk (reported metrics used validation-only fits)"
+  },
+  "market_blend_weight": 0.6,
+  "gates": {
+    "moneyline": {
+      "bet_blended_probability": 0.6,
+      "lean_blended_probability": 0.55
+    },
+    "grid_markets": {
+      "bet_blended_probability": 0.58,
+      "lean_blended_probability": 0.545
+    },
+    "max_decided_american_price": -250,
+    "max_decided_implied_probability": 0.7143,
+    "basis": "confidence gates on the market-blended probability; edge is published as information, never required (see backtest.json edge_gate_rejected)"
+  },
+  "min_effective_games": 8.0
+}
