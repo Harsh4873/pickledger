@@ -52,8 +52,21 @@ def test_frontend_player_mode_is_persisted_isolated_and_team_defaulted():
     assert "let playerPicks: Pick[] = []" in data
     assert "function isPlayerScopedPick(" in data
     assert "if (isPlayerScopedPick(pick)) playerById.set(pick.id, pick)" in data
-    assert "return activePickMode === 'player' ? playerPicks : teamPicks" in data
+    # getAllPicks still routes strictly by mode, so the two pools never mix.
+    assert "activePickMode === 'player' ? playerPicks : teamPicks" in data
     assert "decision === 'BET' || decision === 'LEAN' || decision === 'PASS'" in data
+
+    # Scraped-feed toggle: a view filter over the mode-selected pool and
+    # nothing else. It must default to off, must only ever filter (never
+    # reassign teamPicks/playerPicks), and must leave the underlying rows
+    # loaded so flipping it back restores them.
+    assert "const HIDE_SCRAPED_KEY = 'pickledger_hide_scraped'" in data
+    assert "let hideScrapedPicks = false" in data
+    assert "hideScrapedPicks ? picks.filter(pick => pick.scraped !== true) : picks" in data
+    assert "function isScrapedBucket(" in data
+    assert 'id="scraped-mode-toggle"' in html
+    assert "toggleScrapedPicks" in main
+    assert "hide-scraped" in css
 
     assert "const activeFilters = new Set<string>()" in main
     assert "activeFilters.clear()" in main

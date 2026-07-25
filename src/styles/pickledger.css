@@ -99,10 +99,18 @@
 
   /* Theme toggle */
   .theme-toggle,
+  .scraped-mode-toggle,
   .mobile-mode-toggle { display: flex; align-items: center; gap: 7px; background: var(--card); border: 1px solid var(--border); border-radius: 20px; padding: 5px 10px 5px 8px; color: var(--muted); cursor: pointer; transition: border-color 0.2s, background-color 0.3s, color 0.2s; user-select: none; }
   .theme-toggle:hover,
+  .scraped-mode-toggle:hover,
   .mobile-mode-toggle:hover { border-color: var(--accent); color: var(--text); }
+  .scraped-mode-toggle,
   .mobile-mode-toggle { padding: 5px 9px 5px 8px; gap: 6px; }
+  .scraped-feed-icon { width: 15px; height: 15px; flex-shrink: 0; }
+  /* On-state mirrors the mobile toggle, driven by body.hide-scraped. */
+  body.hide-scraped .scraped-mode-toggle { border-color: rgba(0,229,160,0.42); color: var(--text); }
+  body.hide-scraped .scraped-mode-toggle .mobile-toggle-track { background: var(--accent); }
+  body.hide-scraped .scraped-mode-toggle .mobile-toggle-thumb { transform: translateX(14px); background: #fff; }
   .pick-mode-segment {
     display: inline-grid;
     grid-template-columns: repeat(2, minmax(58px, 1fr));
@@ -154,6 +162,7 @@
   body.mobile-app-mode .mobile-toggle-thumb { transform: translateX(14px); background: #fff; }
   body.mobile-app-mode #mobile-mode-label { color: var(--accent); }
   body[data-theme="light"] .theme-toggle,
+  body[data-theme="light"] .scraped-mode-toggle,
   body[data-theme="light"] .mobile-mode-toggle,
   body[data-theme="light"] .pick-mode-segment,
   body[data-theme="light"] .refresh-btn,
@@ -4554,6 +4563,7 @@
     gap: 6px;
   }
   body.mobile-app-mode .theme-toggle,
+  body.mobile-app-mode .scraped-mode-toggle,
   body.mobile-app-mode .mobile-mode-toggle,
   body.mobile-app-mode .pick-mode-segment {
     min-height: 34px;
@@ -4570,6 +4580,7 @@
     font-size: 9px;
   }
   body.mobile-app-mode .theme-toggle .toggle-label,
+  body.mobile-app-mode .scraped-mode-toggle .toggle-label,
   body.mobile-app-mode .mobile-mode-toggle .toggle-label {
     display: none;
   }

@@ -23,6 +23,10 @@ export interface Pick {
   matchup?: string;
   game?: string;
   decision?: string;
+  // True for rows that came from a scraped tipster feed rather than an
+  // in-house model. Display-only: it drives the header's feed toggle and
+  // nothing else.
+  scraped?: boolean;
   edge?: number | null;
   market_edge?: number | null;
   line?: number | null;
@@ -372,6 +376,8 @@ export interface ProfitDeskPayload {
   [key: string]: unknown;
 }
 
+const HIDE_SCRAPED_KEY = 'pickledger_hide_scraped';
+let hideScrapedPicks = false;
 const RESULT_STORAGE_KEY = 'pickledger_static_results_v2';
 const GAME_TIME_STORAGE_KEY = 'pickledger_static_game_times_v2';
 // NBA Summer League and the FIFA World Cup archived 2026-07-19: both
@@ -427,6 +433,26 @@ const SOURCE_LABELS: Record<string, string> = {
   covers_consensus_wnba: 'Covers Consensus WNBA',
   covers_props_mlb: 'Covers Props (BAT X)',
 };
+
+// Bucket-key prefixes that identify a scraped tipster feed rather than an
+// in-house model. Prefix-matched on purpose: the providers keep splitting into
+// per-sport buckets (covers_experts_mlb, covers_experts_wnba, …), and a new
+// split should be covered without editing this list. In-house model keys
+// (mlb_*, nba*, wnba, mls, nfl, tennis, fifa_world_cup, ipl) share no prefix
+// with any provider, so there is nothing to collide with.
+const SCRAPED_BUCKET_PREFIXES = [
+  'scores24_',
+  'sportytrader_',
+  'sportsgambler_',
+  'forebet_',
+  'covers_',
+  'tennistonic_',
+];
+
+function isScrapedBucket(modelKey: string): boolean {
+  const key = String(modelKey || '').trim().toLowerCase();
+  return SCRAPED_BUCKET_PREFIXES.some(prefix => key.startsWith(prefix));
+}
 
 const SOURCE_ALIASES: Record<string, string> = {
   'MLB NEW': 'MLB Model',
@@ -691,6 +717,7 @@ function picksFromCache(payload: ModelCachePayload): Pick[] {
 
   for (const [modelKey, bucket] of Object.entries(models)) {
     if (!bucket || typeof bucket !== 'object' || bucket.ok === false) continue;
+    const scraped = isScrapedBucket(modelKey);
     const gameByMatchup = new Map<string, Record<string, unknown>>();
     if (Array.isArray(bucket.games)) {
       for (const item of bucket.games) {
@@ -709,7 +736,10 @@ function picksFromCache(payload: ModelCachePayload): Pick[] {
       // split actually lands.
       const input = MARKET_SOURCE_LABELS[modelKey] ? { ...rawRecord, source } : rawRecord;
       const pick = normalizePick(input, date, source, gameByMatchup);
-      if (pick && isTrackedPick(pick)) picks.push(pick);
+      if (pick && isTrackedPick(pick)) {
+        if (scraped) pick.scraped = true;
+        picks.push(pick);
+      }
     }
   }
   return picks;
@@ -883,8 +913,36 @@ export async function loadAllData(): Promise<Pick[]> {
   return getAllPicks();
 }
 
+export function initHideScrapedPicks(): boolean {
+  try {
+    hideScrapedPicks = localStorage.getItem(HIDE_SCRAPED_KEY) === 'hidden';
+  } catch {
+    hideScrapedPicks = false;
+  }
+  return hideScrapedPicks;
+}
+
+export function getHideScrapedPicks(): boolean {
+  return hideScrapedPicks;
+}
+
+export function setHideScrapedPicks(hidden: boolean): void {
+  hideScrapedPicks = hidden;
+  try {
+    localStorage.setItem(HIDE_SCRAPED_KEY, hidden ? 'hidden' : 'shown');
+  } catch {
+    // The viewer remains usable when storage is blocked.
+  }
+}
+
 export function getAllPicks(): Pick[] {
-  return activePickMode === 'player' ? playerPicks : teamPicks;
+  const picks = activePickMode === 'player' ? playerPicks : teamPicks;
+  // A view filter and nothing more. Applied at the single point every view
+  // reads from, so hidden feeds disappear consistently — home, search,
+  // rankings, trends, counts — without any view needing to know about it.
+  // The rows stay loaded, graded and in the cache; flipping this back restores
+  // them exactly. Default off, so an untouched viewer behaves as before.
+  return hideScrapedPicks ? picks.filter(pick => pick.scraped !== true) : picks;
 }
 
 export function getParlayCardsPayload(date?: string): ParlayCardsPayload | null {

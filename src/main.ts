@@ -1,6 +1,9 @@
 import { initMobileMode, initPickMode, initSettingsUI, initTheme, type PickMode } from './settings';
 import {
   getAllPicks,
+  getHideScrapedPicks,
+  setHideScrapedPicks,
+  initHideScrapedPicks,
   getCacheStatus,
   getParlayCardsPayload,
   getParlayCardPayloads,
@@ -3769,8 +3772,32 @@ function goHome(event?: Event): void {
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
+function applyScrapedToggleUI(hidden: boolean): void {
+  document.body.classList.toggle('hide-scraped', hidden);
+  const button = document.getElementById('scraped-mode-toggle');
+  const label = document.getElementById('scraped-mode-label');
+  if (button) {
+    button.setAttribute('aria-pressed', hidden ? 'true' : 'false');
+    button.setAttribute(
+      'title',
+      hidden ? 'Scraped feed picks hidden — click to show' : 'Hide picks from scraped tipster feeds',
+    );
+  }
+  if (label) label.textContent = hidden ? 'IN-HOUSE' : 'FEEDS';
+}
+
+/** Hide or show every scraped-feed pick. Purely a view filter — the rows stay
+ *  loaded and graded, and flipping it back restores them untouched. */
+function toggleScrapedPicks(): void {
+  const hidden = !getHideScrapedPicks();
+  setHideScrapedPicks(hidden);
+  applyScrapedToggleUI(hidden);
+  render();
+}
+
 Object.assign(window, {
   switchTab,
+  toggleScrapedPicks,
   goHome,
   setHomeResultMode,
   setDailyView,
@@ -3825,6 +3852,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   initMobileMode();
   activePickMode = initPickMode();
   setDataPickMode(activePickMode);
+  applyScrapedToggleUI(initHideScrapedPicks());
   initSettingsUI();
   await loadAllData();
   lastCentralDate = centralDateKey();
