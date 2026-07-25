@@ -788,6 +788,32 @@ def _game_props(
     return select_top_props(selection_pool)
 
 
+# Competition types whose rosters are assembled for the event itself.
+EXHIBITION_COMPETITION_TYPES = {"ALLSTAR", "EXHIBITION"}
+
+
+def _is_exhibition(event: dict[str, Any]) -> bool:
+    """True for All-Star and other exhibition competitions.
+
+    These have no rateable team: the squads are ad-hoc, so ESPN's team
+    statistics endpoint 404s for them and the scorer cannot produce a single
+    candidate. Counting one as a scheduled game leaves the props publication
+    contract demanding picks that cannot exist, which fails the deploy
+    readiness gate for the whole All-Star break — the 2026 WNBA All-Star Game
+    deferred six consecutive deploys that way.
+
+    The season type is no help: ESPN tags the WNBA All-Star Game with season
+    slug "regular-season". The competition type is what distinguishes it.
+    """
+    for competition in event.get("competitions") or []:
+        if not isinstance(competition, dict):
+            continue
+        kind = str((competition.get("type") or {}).get("abbreviation") or "").strip().upper()
+        if kind in EXHIBITION_COMPETITION_TYPES:
+            return True
+    return False
+
+
 def _basketball_schedule(
     client: Any,
     league: str,
@@ -798,7 +824,13 @@ def _basketball_schedule(
         scoreboard = client.basketball_scoreboard(league, date_iso)
     except Exception as exc:
         return None, [], {}, int(date_iso[:4]), [str(exc)]
-    events = scoreboard.get("events") or []
+    # Dropped here rather than downstream so `games` never counts a slate the
+    # scorer is structurally unable to rate. A real game with zero picks still
+    # fails the contract, which is the check worth keeping.
+    events = [
+        event for event in (scoreboard.get("events") or [])
+        if isinstance(event, dict) and not _is_exhibition(event)
+    ]
     if not events:
         return scoreboard, [], {}, int(((scoreboard.get("season") or {}).get("year")) or date_iso[:4]), []
     try:

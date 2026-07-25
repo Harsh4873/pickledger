@@ -1111,3 +1111,88 @@ def test_variant_selection_caps_each_game_instead_of_the_entire_sport():
         (pick["ml_expected_value"] for pick in published),
         reverse=True,
     )
+
+
+class AllStarOnlyClient(EmptyClient):
+    """A slate whose only WNBA event is the All-Star Game."""
+
+    def basketball_scoreboard(self, league, date_iso):
+        if league == "nba":
+            return {"events": [], "season": {"year": 2026}}
+        return {
+            "season": {"year": 2026, "slug": "regular-season"},
+            "events": [
+                {
+                    "id": "allstar",
+                    "date": "2026-07-25T23:30Z",
+                    "name": "AT&T WNBA All-Star Game",
+                    "competitions": [
+                        {
+                            "type": {"id": "6", "abbreviation": "ALLSTAR"},
+                            "competitors": [
+                                {"homeAway": "away", "team": {"id": "133383", "displayName": "TEAM SPOON"}},
+                                {"homeAway": "home", "team": {"id": "133384", "displayName": "TEAM COOP"}},
+                            ],
+                        }
+                    ],
+                }
+            ],
+        }
+
+
+def test_allstar_slate_is_not_a_rateable_props_game():
+    """An All-Star exhibition must not count as a scheduled props game.
+
+    Its squads are ad-hoc, so ESPN has no team statistics for them and the
+    scorer can never produce a candidate. If it counted, the publication
+    contract would demand picks that cannot exist and the deploy readiness
+    gate would defer for the whole All-Star break.
+    """
+    from player_props.basketball import generate_basketball_model
+
+    result = generate_basketball_model(AllStarOnlyClient(), "wnba", "WNBA", "2026-07-25")
+    assert result["ok"] is True
+    assert result["games"] == 0, "the All-Star Game must not be counted as a scheduled game"
+    assert result["picks"] == []
+    assert "empty slate is healthy" in str(result.get("note") or "")
+
+
+def test_real_games_are_still_counted_alongside_an_allstar_event():
+    """The exclusion must be surgical — a genuine game still counts."""
+    from player_props.basketball import _basketball_schedule
+
+    class MixedClient(AllStarOnlyClient):
+        def basketball_scoreboard(self, league, date_iso):
+            board = AllStarOnlyClient.basketball_scoreboard(self, league, date_iso)
+            if league == "nba":
+                return board
+            board["events"] = list(board["events"]) + [
+                {
+                    "id": "real",
+                    "date": "2026-07-25T23:30Z",
+                    "competitions": [
+                        {
+                            "type": {"id": "1", "abbreviation": "STD"},
+                            "competitors": [
+                                {"homeAway": "away", "team": {"id": "10", "displayName": "Away Club"}},
+                                {"homeAway": "home", "team": {"id": "20", "displayName": "Home Club"}},
+                            ],
+                        }
+                    ],
+                }
+            ]
+            return board
+
+    _, events, _, _, errors = _basketball_schedule(MixedClient(), "wnba", "WNBA", "2026-07-25")
+    assert errors == []
+    assert [event["id"] for event in events] == ["real"]
+
+
+def test_untyped_competitions_are_never_treated_as_exhibitions():
+    """Most ESPN competitions carry no `type`; those must still be rated."""
+    from player_props.basketball import _is_exhibition
+
+    assert _is_exhibition({"competitions": [{"competitors": []}]}) is False
+    assert _is_exhibition({}) is False
+    assert _is_exhibition({"competitions": [{"type": {"abbreviation": "STD"}}]}) is False
+    assert _is_exhibition({"competitions": [{"type": {"abbreviation": "allstar"}}]}) is True
