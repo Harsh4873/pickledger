@@ -181,6 +181,33 @@ study concludes "the market itself encompasses our model." A tennis model that
 appeared to beat closing Pinnacle would be far more likely to have a leak than
 an edge.
 
+## Known limitations
+
+**Main draw only.** The archive covers ATP and WTA main-tour singles — no
+Challenger, ITF or qualifying results. Players therefore appear from nowhere at
+their first main-draw match, and a returning player whose recent work has been
+at Challenger level looks inactive. The daily payload reports this directly as
+`meta.unknownPlayers`, which on a qualifying-heavy Monday can be half the slate.
+
+The failure mode is asymmetric in the safe direction: an unrated player starts
+at 1500 with zero experience, and the model has learned from training that a
+1500 rating backed by no matches is weak. On a sample slate with 22 of 44
+players unrated, **no BET pick backed an unrated player** — eight of eleven
+backed a rated player *against* one. But the converse case is real: a former
+top-30 player returning after three years out is pruned from the snapshot and
+gets treated as an unknown, so the model can favour a modest but active
+opponent. Treat high `unknownPlayers` days as lower-confidence.
+
+**Two players can share a key.** Identity is surname + first initial, which is
+all the archive itself provides. Two genuine collisions exist across 118k
+matches (Hsu C.-Y./C.-W. and Lee Y.-R./Y.-H., ~15 matches total). Splitting on
+the second initial would be worse: it would fragment the far more common case
+where one player is written both ways ("Ferrero J." and "Ferrero J.C.").
+
+**No point-level data.** Serve and return statistics would enable the
+point-based hierarchical models in the literature, but they are not in this
+archive. The scoreline-derived margin weight (WElo) is the available proxy.
+
 ## Retraining
 
 ```bash
