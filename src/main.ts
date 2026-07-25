@@ -152,6 +152,12 @@ const LEGACY_RECORD_SOURCES = new Set(['MLB ML', 'MLB Total', 'MLB Model']);
 // WNBA ML; the rebuilt spread/total variants (and any stray legacy label)
 // restart from the redesign date.
 const WNBA_RESET_SOURCES = new Set(['WNBA Model', 'WNBA Spread', 'WNBA Total']);
+// MLS v2 (2026-07-25): the trained Dixon-Coles engine replaced the
+// FIFA-derived heuristic wholesale, so the tracked record restarts at the
+// cutover. The legacy 'MLS Model' label is included so a row that misses
+// the per-market split can never carry the old engine's record forward.
+const MLS_RESET_SOURCES = new Set(['MLS Model', 'MLS ML', 'MLS Spread', 'MLS Total']);
+const MLS_RANKING_START_DATE = '2026-07-25';
 const PRIMARY_FILTERS = ['ALL', 'MLB', 'WNBA', 'MLS', 'TENNIS'];
 let lastCentralDate = '';
 
@@ -410,11 +416,14 @@ function rankingComparablePicks(picks: Pick[]): Pick[] {
       const source = sourceName(pick);
       const isConsensusSource = String(pick.sport || '').toUpperCase() === 'MLB'
         && MLB_TEAM_CONSENSUS_SOURCES.has(source);
-      // The 2026-07-19 record reset applies ONLY to the in-house MLB and
-      // WNBA model variants. External feeds and every other source keep
-      // their full history.
+      // Record resets apply ONLY to in-house model variants (MLB/WNBA at
+      // the 2026-07-19 redesign, MLS at the 2026-07-25 v2 cutover).
+      // External feeds and every other source keep their full history.
       if (WNBA_RESET_SOURCES.has(source)) {
         return pickDateKey(pick) >= TEAM_RANKING_START_DATE;
+      }
+      if (MLS_RESET_SOURCES.has(source)) {
+        return pickDateKey(pick) >= MLS_RANKING_START_DATE;
       }
       if (!isConsensusSource) return true;
       const epoch = String(pick.ml_rank_epoch || pick.ranking_epoch || pick.model_epoch || '').trim();
