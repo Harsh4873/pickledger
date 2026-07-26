@@ -1,50 +1,56 @@
 {
-  "decided_count": 2774,
-  "evaluated_at": "2026-07-25T03:23:06.058287Z",
+  "decided_count": 3041,
+  "evaluated_at": "2026-07-26T20:42:04.539628Z",
   "global": {
-    "intercept": -0.09584948,
-    "samples": 131,
+    "intercept": -0.12455437,
+    "samples": 154,
     "shrinkage_prior_samples": 120.0,
-    "slope": 0.89808899
+    "slope": 0.88320871
   },
   "groups": {
+    "model:mlb_first_five|source:mlb first five|sport:mlb|bet:f5_total": {
+      "intercept": -0.14202633,
+      "samples": 36,
+      "shrinkage_prior_samples": 80.0,
+      "slope": 0.86654921
+    },
     "model:nba_summer|source:nba summer league|sport:nba summer|bet:h2h": {
-      "intercept": -0.19347743,
+      "intercept": -0.21608407,
       "samples": 72,
       "shrinkage_prior_samples": 80.0,
-      "slope": 0.80265751
+      "slope": 0.7950097
     }
   },
   "holdout": {
     "challenger": {
-      "brier_score": 0.25451928,
-      "calibration_error": 0.05785672,
-      "log_loss": 0.70338039,
-      "qualified_bets": 21,
-      "roi": 0.0861647,
-      "samples": 22
+      "brier_score": 0.27802204,
+      "calibration_error": 0.16679429,
+      "log_loss": 0.75063924,
+      "qualified_bets": 19,
+      "roi": -0.13896178,
+      "samples": 23
     },
     "champion": {
-      "brier_score": 0.2548137,
-      "calibration_error": 0.06029865,
-      "log_loss": 0.70403873,
-      "qualified_bets": 22,
-      "roi": 0.11410716,
-      "samples": 22
+      "brier_score": 0.28036763,
+      "calibration_error": 0.17354192,
+      "log_loss": 0.75564426,
+      "qualified_bets": 21,
+      "roi": -0.13856635,
+      "samples": 23
     }
   },
   "minimum_group_samples": 30,
   "promotion": {
-    "approved": false,
+    "approved": true,
     "reasons": [
       "brier_improved=True",
-      "calibration_improved=False",
+      "calibration_improved=True",
       "log_loss_safe=True",
-      "roi_safe=False"
+      "roi_safe=True"
     ]
   },
   "schema_version": 1,
-  "trainable_decided_count": 131,
+  "trainable_decided_count": 154,
   "training_contract_version": 2,
-  "version": "cal-v2-2774-2026-07-25"
+  "version": "cal-v2-3041-2026-07-26"
 }
