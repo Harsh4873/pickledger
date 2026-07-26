@@ -152,6 +152,11 @@ const LEGACY_RECORD_SOURCES = new Set(['MLB ML', 'MLB Total', 'MLB Model']);
 // WNBA ML; the rebuilt spread/total variants (and any stray legacy label)
 // restart from the redesign date.
 const WNBA_RESET_SOURCES = new Set(['WNBA Model', 'WNBA Spread', 'WNBA Total']);
+// WNBA totals v2 (2026-07-26): the totals projection was retrained after
+// the v1 run finished 24-44 (93% Unders — the model carried a systematic
+// low-total bias). The WNBA Total record and rankings restart at the v2
+// cutover; ML and Spread keep their 2026-07-19 reset above.
+const WNBA_TOTAL_RANKING_START_DATE = '2026-07-26';
 // MLS v2 (2026-07-25): the trained Dixon-Coles engine replaced the
 // FIFA-derived heuristic wholesale, so the tracked record restarts at the
 // cutover. The legacy 'MLS Model' label is included so a row that misses
@@ -417,8 +422,12 @@ function rankingComparablePicks(picks: Pick[]): Pick[] {
       const isConsensusSource = String(pick.sport || '').toUpperCase() === 'MLB'
         && MLB_TEAM_CONSENSUS_SOURCES.has(source);
       // Record resets apply ONLY to in-house model variants (MLB/WNBA at
-      // the 2026-07-19 redesign, MLS at the 2026-07-25 v2 cutover).
-      // External feeds and every other source keep their full history.
+      // the 2026-07-19 redesign, MLS at the 2026-07-25 v2 cutover, WNBA
+      // totals again at the 2026-07-26 v2 retrain). External feeds and
+      // every other source keep their full history.
+      if (source === 'WNBA Total') {
+        return pickDateKey(pick) >= WNBA_TOTAL_RANKING_START_DATE;
+      }
       if (WNBA_RESET_SOURCES.has(source)) {
         return pickDateKey(pick) >= TEAM_RANKING_START_DATE;
       }

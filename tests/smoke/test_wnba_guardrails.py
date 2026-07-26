@@ -83,8 +83,11 @@ def test_away_b2b_shaves_projected_total():
 
 
 def test_tightened_spread_and_total_gates():
-    """2026-07-19 tightening: spread ran 10-20 and totals 22-37 at the old
-    gates, so both markets now demand materially larger disagreement."""
+    """Spread gates keep the 2026-07-19 tightening (10-20 at the old gates).
+    Totals run the v2 gate: the 7-point v1 minimum was measuring the model's
+    own -8 point bias, not real disagreement; v2 removes the bias, uses an
+    honest 2026 sigma (~21), and demands a genuine 6-point gap at LEAN-only
+    stakes while the fresh record is established."""
     from WNBAPredictionModel.wnba_picks import (
         WNBA_SPREAD_BET_EDGE,
         WNBA_SPREAD_LEAN_EDGE,
@@ -92,6 +95,7 @@ def test_tightened_spread_and_total_gates():
         WNBA_SPREAD_LEAN_COVER,
         WNBA_TOTAL_LEAN_EDGE,
         WNBA_TOTAL_MIN_GAP,
+        WNBA_TOTAL_RMSE,
     )
 
     assert WNBA_SPREAD_BET_EDGE >= 0.06
@@ -99,7 +103,10 @@ def test_tightened_spread_and_total_gates():
     assert WNBA_SPREAD_BET_COVER >= 3.5
     assert WNBA_SPREAD_LEAN_COVER >= 2.5
     assert WNBA_TOTAL_LEAN_EDGE >= 0.045
-    assert WNBA_TOTAL_MIN_GAP >= 7.0
+    assert WNBA_TOTAL_MIN_GAP >= 6.0
+    # Sigma must stay honest: 2026 totals scatter ~21-22 points around
+    # their mean. Understating it converts noise into phantom edges.
+    assert WNBA_TOTAL_RMSE >= 20.0
 
 
 def test_wnba_away_favorite_confidence_uses_favorite_side():
@@ -185,17 +192,27 @@ def test_wnba_units_scale_with_conviction():
 def test_wnba_total_falls_back_to_ppg_when_ortg_missing():
     """When ORtg is unavailable but rolling_pts / pts_per_game exist, the
     projected total should still be emitted instead of None."""
-    from WNBAPredictionModel.wnba_probability_layers import compute_projected_total
+    from WNBAPredictionModel.wnba_probability_layers import (
+        WNBA_TOTAL_CEIL,
+        WNBA_TOTAL_FLOOR,
+        compute_projected_total,
+    )
 
     home = {"Pace": 72.0, "rolling_pts": 84.0}
     away = {"Pace": 70.0, "pts_per_game": 78.5}
     total = compute_projected_total(home, away)
     assert total is not None
-    assert 130.0 <= total <= 185.0
+    assert WNBA_TOTAL_FLOOR <= total <= WNBA_TOTAL_CEIL
 
 
 def test_wnba_total_injury_adjustment_is_bounded():
-    from WNBAPredictionModel.wnba_probability_layers import compute_projected_total
+    """Totals v2 caps the always-negative injury deduction at 4 points —
+    v1's 8-point ceiling (fed by season-long absences already priced into
+    the ratings) was a major driver of its systematic Under bias."""
+    from WNBAPredictionModel.wnba_probability_layers import (
+        WNBA_TOTAL_INJURY_ADJ_CAP,
+        compute_projected_total,
+    )
 
     home = {"ORtg": 108.0, "Pace": 80.0}
     away = {"ORtg": 104.0, "Pace": 80.0}
@@ -208,7 +225,81 @@ def test_wnba_total_injury_adjustment_is_bounded():
     )
 
     assert baseline is not None and injured is not None
-    assert baseline - injured == 8.0
+    assert baseline - injured == WNBA_TOTAL_INJURY_ADJ_CAP == 4.0
+
+
+def test_wnba_total_league_anchor_lifts_shrink_prior():
+    """A measured league ORtg above the hardcoded 105 must raise the
+    projection: v1 shrank every rating toward the 2024-25 constant while
+    the 2026 league ran ~108, dragging all totals low."""
+    from WNBAPredictionModel.wnba_probability_layers import compute_projected_total
+
+    home = {"ORtg": 108.0, "DRtg": 108.0, "Pace": 79.0, "W": 10, "L": 10}
+    away = {"ORtg": 108.0, "DRtg": 108.0, "Pace": 79.0, "W": 10, "L": 10}
+    stale_anchor = compute_projected_total(home, away)
+    live_anchor = compute_projected_total(
+        home, away, league_averages={"ORtg": 108.0, "Pace": 79.0}
+    )
+
+    assert stale_anchor is not None and live_anchor is not None
+    assert live_anchor > stale_anchor
+
+
+def test_wnba_total_scoring_blend_tracks_hot_environment():
+    """When per-game scoring runs hotter than the ratings imply, the v2
+    blend must pull the projection up toward the measured scoring level."""
+    from WNBAPredictionModel.wnba_probability_layers import compute_projected_total
+
+    ratings_only = {"ORtg": 104.0, "DRtg": 104.0, "Pace": 78.0, "W": 12, "L": 8}
+    with_scoring = dict(ratings_only, pts_pg=90.0, opp_pts_pg=88.0)
+
+    cold = compute_projected_total(ratings_only, dict(ratings_only))
+    hot = compute_projected_total(with_scoring, dict(with_scoring))
+
+    assert cold is not None and hot is not None
+    assert hot > cold
+
+
+def test_wnba_gameday_injury_filter_drops_out_players():
+    """The totals injury input must exclude "Out" listings (already priced
+    into season ratings) while keeping true game-day uncertainty."""
+    from WNBAPredictionModel.wnba_picks import _gameday_injury_report
+
+    report = {
+        "long term star": {"team_abbr": "IND", "status": "Out"},
+        "gtd guard": {"team_abbr": "IND", "status": "Questionable"},
+        "dtd forward": {"team_abbr": "IND", "status": "Day-To-Day"},
+        "doubtful center": {"team_abbr": "IND", "status": "Doubtful"},
+    }
+    filtered = _gameday_injury_report(report)
+
+    assert "long term star" not in filtered
+    assert set(filtered) == {"gtd guard", "dtd forward", "doubtful center"}
+
+
+def test_wnba_total_market_row_carries_v2_version():
+    from WNBAPredictionModel.wnba_market import MarketOdds
+    from WNBAPredictionModel.wnba_picks import (
+        WNBA_TOTALS_MODEL_VERSION,
+        assess_wnba_total_market,
+    )
+
+    market = MarketOdds(
+        home_team_nickname="Wings",
+        away_team_nickname="Mercury",
+        home_ml=-150,
+        away_ml=130,
+        spread_home=-3.5,
+        spread_away=3.5,
+        total_line=165.5,
+        fetched_at="2026-07-26T12:00:00Z",
+        total_odds=-110,
+    )
+    stats = {"NRtg": 4.0, "W": 8, "L": 4}
+    graded = assess_wnba_total_market({"projected_total": 155.0}, market, stats, stats, {})
+
+    assert graded["model_version"] == WNBA_TOTALS_MODEL_VERSION
+    assert WNBA_TOTALS_MODEL_VERSION.startswith("wnba_total_v2")
 
 
 def test_wnba_market_vig_removal_and_kelly():

@@ -425,7 +425,26 @@ def build_rolling_stats_as_of(
     ortg = 100.0 * pts_pg / possessions
     drtg = 100.0 * opp_pts_pg / possessions
 
-    return {
+    # Last-10 rolling scoring (same no-lookahead window) so the totals
+    # model's scoring blend sees the recent-form fields the live profiles
+    # carry. Falls back naturally when fewer than 10 prior games exist.
+    recent = window[-10:]
+    recent_pts: list[float] = []
+    recent_opp: list[float] = []
+    for _date, game in recent:
+        home = _normalize_abbr(game.get("home_team", ""))
+        home_score = _safe_float(game.get("home_team_score"))
+        away_score = _safe_float(game.get("visitor_team_score"))
+        if home_score is None or away_score is None:
+            continue
+        if abbr == home:
+            recent_pts.append(home_score)
+            recent_opp.append(away_score)
+        else:
+            recent_pts.append(away_score)
+            recent_opp.append(home_score)
+
+    profile = {
         "NRtg": nrtg,
         "ORtg": ortg,
         "DRtg": drtg,
@@ -435,6 +454,11 @@ def build_rolling_stats_as_of(
         "games_used": len(window),
         "low_sample": len(window) < n,
     }
+    if recent_pts and recent_opp:
+        profile["rolling_pts"] = sum(recent_pts) / len(recent_pts)
+        profile["rolling_opp_pts"] = sum(recent_opp) / len(recent_opp)
+        profile["rolling_games_used"] = len(recent_pts)
+    return profile
 
 
 # ---------------------------------------------------------------------------
@@ -488,6 +512,58 @@ def _rest_days_as_of(all_games: list[dict], team_abbr: str, as_of_date: str) -> 
     return delta if delta > 0 else None
 
 
+_LEAGUE_AVERAGES_AS_OF_CACHE: dict[tuple, dict] = {}
+
+
+def league_averages_as_of(all_games: list[dict], as_of_date: str) -> dict:
+    """League-mean ORtg / Pace across every team's as-of profile.
+
+    Mirrors wnba_picks.compute_league_averages for the live pipeline: the
+    totals model anchors its shrinkage prior and pace compounding on the
+    scoring environment actually measured up to (but not including) the
+    game date. Memoized per (games list fingerprint, date) — the backtest
+    revisits each slate date once per team pair otherwise, and repeated
+    runs over different season subsets must not share entries.
+    """
+    fingerprint = (
+        len(all_games),
+        str(all_games[0].get("id")) if all_games else "",
+        str(all_games[-1].get("id")) if all_games else "",
+        as_of_date,
+    )
+    cached = _LEAGUE_AVERAGES_AS_OF_CACHE.get(fingerprint)
+    if cached is not None:
+        return cached
+
+    teams: set[str] = set()
+    for game in all_games:
+        if (game.get("date") or "") >= as_of_date:
+            continue
+        teams.add(_normalize_abbr(game.get("home_team", "")))
+        teams.add(_normalize_abbr(game.get("visitor_team", "")))
+    teams.discard("")
+
+    ortgs: list[float] = []
+    paces: list[float] = []
+    for team in teams:
+        profile = build_rolling_stats_as_of(all_games, team, as_of_date)
+        if not profile:
+            continue
+        if profile.get("ORtg") is not None:
+            ortgs.append(float(profile["ORtg"]))
+        if profile.get("Pace") is not None:
+            paces.append(float(profile["Pace"]))
+
+    averages: dict = {}
+    if len(ortgs) >= 8:
+        averages["ORtg"] = sum(ortgs) / len(ortgs)
+    if len(paces) >= 8:
+        averages["Pace"] = sum(paces) / len(paces)
+
+    _LEAGUE_AVERAGES_AS_OF_CACHE[fingerprint] = averages
+    return averages
+
+
 def backtest_single_game(game: dict, all_games: list[dict]) -> dict | None:
     """Run the probability stack against one historical game using only
     pre-game data. Returns None when either team lacks enough prior
@@ -522,6 +598,7 @@ def backtest_single_game(game: dict, all_games: list[dict]) -> dict | None:
         "home_rest_days": home_rest,
         "away_rest_days": away_rest,
         "away_is_b2b": away_rest == 1,
+        "league_averages": league_averages_as_of(all_games, date),
     }
 
     result = calculate_wnba_matchup(
@@ -595,6 +672,7 @@ def _zero_metrics() -> dict:
         "log_loss": 0.0,
         "calibration_bins": [],
         "total_mae": 0.0,
+        "total_rmse": 0.0,
         "total_bias": 0.0,
         "early_accuracy": 0.0,
         "mid_accuracy": 0.0,
@@ -713,6 +791,10 @@ def run_full_backtest(
         sum(r["total_error"] for r in totals_rows) / len(totals_rows)
         if totals_rows else 0.0
     )
+    total_rmse = (
+        (sum(r["total_error"] ** 2 for r in totals_rows) / len(totals_rows)) ** 0.5
+        if totals_rows else 0.0
+    )
     total_bias = (
         sum(float(r["predicted_total"]) - float(r["actual_total"]) for r in totals_rows)
         / len(totals_rows)
@@ -749,6 +831,7 @@ def run_full_backtest(
         "log_loss": log_loss,
         "calibration_bins": calibration_bins,
         "total_mae": total_mae,
+        "total_rmse": total_rmse,
         "total_bias": total_bias,
         "early_accuracy": _pct(early_correct, len(early)),
         "mid_accuracy": _pct(mid_correct, len(mid)),
@@ -787,6 +870,7 @@ def print_calibration_report(metrics: dict) -> None:
     brier = float(m.get("brier_score", 0.0) or 0.0)
     log_loss = float(m.get("log_loss", 0.0) or 0.0)
     total_mae = float(m.get("total_mae", 0.0) or 0.0)
+    total_rmse = float(m.get("total_rmse", 0.0) or 0.0)
     total_bias = float(m.get("total_bias", 0.0) or 0.0)
     early = float(m.get("early_accuracy", 0.0) or 0.0)
     mid = float(m.get("mid_accuracy", 0.0) or 0.0)
@@ -811,7 +895,8 @@ def print_calibration_report(metrics: dict) -> None:
     print(f"║ Spread MAE / RMSE:   {mae:.2f} / {rmse:.2f} pts")
     print(f"║ Margin Bias (home):  {bias:+.2f} pts")
     print(f"║ Brier / Log Loss:    {brier:.4f} / {log_loss:.4f}")
-    print(f"║ Totals MAE / Bias:   {total_mae:.2f} / {total_bias:+.2f} pts")
+    print(f"║ Totals MAE / RMSE:   {total_mae:.2f} / {total_rmse:.2f} pts")
+    print(f"║ Totals Bias:         {total_bias:+.2f} pts")
     print("╠══════════════════════════════════════════╣")
     for bucket in m.get("calibration_bins", []) or []:
         print(

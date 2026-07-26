@@ -28,6 +28,7 @@ try:
         get_team_stats,
     )
     from .wnba_injuries import (
+        compute_team_injury_penalty,
         get_injury_report,
         get_team_injury_penalty,
     )
@@ -55,6 +56,7 @@ except ImportError:
         get_team_stats,
     )
     from wnba_injuries import (
+        compute_team_injury_penalty,
         get_injury_report,
         get_team_injury_penalty,
     )
@@ -79,6 +81,79 @@ _REST_LOOKBACK_DAYS = 7
 # Per-run memo so we only fetch each past-date schedule once even when
 # building contexts for many games in the same run.
 _SCHEDULE_DATE_CACHE: dict[str, list[WNBAGame]] = {}
+
+# Totals v2 model identity — stamped on every totals market row so the
+# frontend and any future record reset can tell v2 picks from the retired
+# v1 (24-44) run without relying on dates alone.
+WNBA_TOTALS_MODEL_VERSION = "wnba_total_v2_2026-07-26"
+
+# Statuses that describe tonight's availability question rather than a
+# long-running absence. Players listed plain "Out" are excluded from the
+# totals injury input: a multi-week absence is already priced into the
+# team's season ratings and per-game scoring, so deducting again was
+# double-counting (one of the drivers of v1's systematic Under bias).
+_GAMEDAY_UNCERTAIN_STATUSES = {"Doubtful", "Questionable", "Day-To-Day"}
+
+# Per-run memo for the league scoring environment.
+_LEAGUE_AVERAGES_MEMO: dict[str, dict] = {}
+
+
+def _gameday_injury_report(report: dict | None) -> dict:
+    """Filter an injury report down to game-day-uncertain listings."""
+    if not isinstance(report, dict):
+        return {}
+    return {
+        key: info
+        for key, info in report.items()
+        if isinstance(info, dict) and info.get("status") in _GAMEDAY_UNCERTAIN_STATUSES
+    }
+
+
+def compute_league_averages(all_stats: dict | None) -> dict:
+    """League-mean ORtg / Pace from the current team profiles.
+
+    Feeds the totals model's shrinkage prior and pace anchor so they track
+    the season actually being played instead of a hardcoded historical
+    constant (2026 league ORtg runs ~108 against v1's 105 prior — that gap
+    alone shaved points off every projected total). Requires at least 8
+    reporting teams; returns {} otherwise so callers fall back to the
+    module constants.
+    """
+    profiles = list((all_stats or {}).values())
+    ortgs: list[float] = []
+    paces: list[float] = []
+    for profile in profiles:
+        if not isinstance(profile, dict):
+            continue
+        try:
+            if profile.get("ORtg") is not None:
+                ortgs.append(float(profile["ORtg"]))
+        except (TypeError, ValueError):
+            pass
+        try:
+            if profile.get("Pace") is not None:
+                paces.append(float(profile["Pace"]))
+        except (TypeError, ValueError):
+            pass
+
+    averages: dict = {}
+    if len(ortgs) >= 8:
+        averages["ORtg"] = sum(ortgs) / len(ortgs)
+    if len(paces) >= 8:
+        averages["Pace"] = sum(paces) / len(paces)
+    return averages
+
+
+def _league_averages_cached() -> dict:
+    """Per-run memoized league averages from the shared stats cache."""
+    if "value" in _LEAGUE_AVERAGES_MEMO:
+        return _LEAGUE_AVERAGES_MEMO["value"]
+    try:
+        averages = compute_league_averages(get_all_team_stats())
+    except Exception:
+        averages = {}
+    _LEAGUE_AVERAGES_MEMO["value"] = averages
+    return averages
 
 
 def _schedule_for_date(date_str: str) -> list[WNBAGame]:
@@ -188,12 +263,30 @@ def build_game_context(game: WNBAGame) -> dict:
     home_inj_total = (home_injury_penalty or 0.0) + home_lineup.minutes_restriction_penalty
     away_inj_total = (away_injury_penalty or 0.0) + away_lineup.minutes_restriction_penalty
 
+    # Totals v2: the totals path gets its own injury input limited to
+    # game-day-uncertain statuses. "Out" players are excluded — their
+    # absence is already reflected in season ratings and scoring rates, so
+    # v1's full-report deduction charged the total twice for the same
+    # missing player (roughly -2.8 points on an average 2026 slate).
+    gameday_report = _gameday_injury_report(injury_report)
+    try:
+        home_gameday_penalty = compute_team_injury_penalty(home_abbr, gameday_report)
+    except Exception:
+        home_gameday_penalty = 0.0
+    try:
+        away_gameday_penalty = compute_team_injury_penalty(away_abbr, gameday_report)
+    except Exception:
+        away_gameday_penalty = 0.0
+
     return {
         "home_rest_days": home_rest_days,
         "away_rest_days": away_rest_days,
         "away_is_b2b": away_is_b2b,
         "home_injury_penalty": home_inj_total,
         "away_injury_penalty": away_inj_total,
+        "home_total_injury_penalty": home_gameday_penalty + home_lineup.minutes_restriction_penalty,
+        "away_total_injury_penalty": away_gameday_penalty + away_lineup.minutes_restriction_penalty,
+        "league_averages": _league_averages_cached(),
         "home_last5_NRtg": _last5_nrtg(home_abbr),
         "away_last5_NRtg": _last5_nrtg(away_abbr),
         "h2h_games": h2h_games,
@@ -237,14 +330,14 @@ def should_generate_spread_pick(
 
 
 def should_generate_totals_pick(result: dict, market_total: float | None) -> bool:
-    """True when our projected total differs from the market by >= 4.0."""
+    """True when the projected total clears the v2 model-to-line gap gate."""
     if not isinstance(result, dict):
         return False
     projected = result.get("projected_total")
     if projected is None or market_total is None:
         return False
     try:
-        return abs(float(projected) - float(market_total)) >= 4.0
+        return abs(float(projected) - float(market_total)) >= WNBA_TOTAL_MIN_GAP
     except (TypeError, ValueError):
         return False
 
@@ -301,10 +394,15 @@ def _team_full_name(team_abbr: str) -> str:
 
 MARKET_EDGE_BET_THRESHOLD = 0.030   # 3% vig-removed edge required for BET
 MARKET_EDGE_LEAN_THRESHOLD = 0.015  # 1.5% edge qualifies for LEAN
-# Measured on the 2024-26 backtest (650 games): spread RMSE 13.3, totals
-# RMSE 18.2. Understating these inflates every cover/total probability.
+# Measured on the 2024-26 backtest (650 games): spread RMSE 13.3. Understating
+# sigma inflates every cover/total probability.
 WNBA_SPREAD_RMSE = 13.3
-WNBA_TOTAL_RMSE = 18.0
+# Totals v2: sigma re-measured on the 2026 validation season after the
+# retrain (RMSE 21.2 on 197 held-out games). 2026 final totals alone show a
+# 22.3-point spread around their mean, so v1's 18.0 was optimistic even
+# before model error — it converted the model's own bias into phantom 6%+
+# edges.
+WNBA_TOTAL_RMSE = 21.0
 # 2026-07-19 tightening: at the old gates the live spread record ran
 # 10-20 and totals 22-37 while the moneyline ran 35-11 — the expansion
 # markets were publishing on edges the model cannot actually resolve.
@@ -315,7 +413,13 @@ WNBA_TOTAL_BET_EDGE = 0.060
 WNBA_TOTAL_LEAN_EDGE = 0.045
 WNBA_SPREAD_BET_COVER = 3.5
 WNBA_SPREAD_LEAN_COVER = 2.5
-WNBA_TOTAL_MIN_GAP = 7.0
+# Totals v2 gate: v1's 7-point minimum gap looked strict but was a mirage —
+# the projection itself sat ~8 points under the market, so the "gap" was
+# model bias, not disagreement worth betting (63 of its 68 published picks
+# were Unders, 22-41). With the bias removed and sigma honest, a 6-point gap
+# is a genuinely rare, real disagreement; totals stay capped at LEAN until
+# the v2 live record proves out.
+WNBA_TOTAL_MIN_GAP = 6.0
 
 def _units_for_conviction(
     decision: str,
@@ -665,6 +769,7 @@ def assess_wnba_total_market(
         "market_implied_probability": round(implied, 4),
         "edge": round(edge, 4),
         "projected_total": round(projected_total, 1),
+        "model_version": WNBA_TOTALS_MODEL_VERSION,
         "reasons": reasons,
     }
 
@@ -902,6 +1007,8 @@ def generate_wnba_picks(
                 "decision": total_market["decision"],
                 "units": total_market["units"],
                 "market_source": market_odds.source if market_odds else None,
+                "model_epoch": WNBA_TOTALS_MODEL_VERSION,
+                "model_version": WNBA_TOTALS_MODEL_VERSION,
                 "guardrail_reasons": total_market["reasons"],
             })
         pick = {

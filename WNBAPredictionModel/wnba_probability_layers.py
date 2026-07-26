@@ -46,8 +46,45 @@ WNBA_FORM_ADJ_CAP    = 2.0         # max recent-form points in either direction
 WNBA_H2H_MARGIN_COEF = 0.40        # fraction of avg H2H margin treated as evidence
 WNBA_H2H_ADJ_CAP     = 3.5         # max H2H points in either direction
 WNBA_H2H_BASE_RMSE   = 11.0        # WNBA per-game margin sigma (regular season)
-WNBA_TOTAL_INJURY_SCALE = 8.0      # total-points reduction per combined injury-penalty unit
-WNBA_TOTAL_INJURY_ADJ_CAP = 8.0    # never remove more than 8 points from a game total
+
+# --- Totals v2 (2026-07-26 retrain) -----------------------------------------
+# v1 shipped a 24-44 live totals record built almost entirely of Unders: the
+# projection averaged 7.9 points BELOW the market line because every one of
+# its systematic errors pointed down. The v2 constants below were re-fit on
+# the 2024-25 train / 2026 validation backtest split after the 2026 season
+# jumped to a 172.3-point average total (2024-25: 163.7).
+#
+# WNBA_TOTAL_INJURY_SCALE: v1 charged 8 points per unit of combined injury
+# penalty, including players listed "Out" — but most Out listings are
+# multi-week absences already reflected in the team's season ratings, so the
+# game total was being debited twice for the same missing scorer. The picks
+# layer now feeds this term a game-day-uncertainty penalty (Questionable /
+# Doubtful / Day-To-Day + minutes restrictions, "Out" excluded) and the
+# scale drops to 3.0 capped at 4.0: absences move spreads far more than
+# totals, because a depleted offense is usually paired with a depleted
+# defense on the other end of the same lineup.
+WNBA_TOTAL_INJURY_SCALE = 3.0      # total-points reduction per game-day injury-penalty unit
+WNBA_TOTAL_INJURY_ADJ_CAP = 4.0    # never remove more than 4 points from a game total
+# Sanity clamp, not a modeling device: 2026 has 17 finals of 200+ points
+# (max 247) and books hang totals in the 180s, so v1's 185 ceiling made an
+# Over pick structurally impossible on exactly the slates driving the new
+# scoring environment while leaving Unders free to fire.
+WNBA_TOTAL_FLOOR = 125.0           # reject projections below this as data errors
+WNBA_TOTAL_CEIL  = 205.0           # reject projections above this as data errors
+# Blend weight on the direct scoring estimate (points for/against per game,
+# rolling-first). Season ratings lag a moving environment — per-game scoring
+# tracks it by construction. Fit by grid on 2024-25 (530 games), validated
+# on 2026 (197 games): w=0.65 cut the validation Under-bias from -8.6 to
+# -5.0 in the trailing-window harness and re-centered the June-July
+# projection-vs-market-line gap from v1's -7.9 to about -1.2, while keeping
+# a third of the weight on the ratings structure the score-only backtest
+# cannot evaluate. Heavier weights kept improving the harness only because
+# its possession fallback makes every backtest ORtg 105 by construction.
+WNBA_TOTAL_SCORING_WEIGHT = 0.65   # weight on scoring estimate at full sample
+WNBA_TOTAL_SCORING_FULL_SAMPLE = 10.0  # games needed for the full blend weight
+# Away-B2B shave, re-fit on the same grid: 0.75 edged out the old 1.5 and
+# halves yet another always-negative deduction.
+WNBA_TOTAL_B2B_PENALTY = 0.75      # away-B2B shave on the game total (points)
 
 
 # ---------------------------------------------------------------------------
@@ -91,7 +128,7 @@ def margin_to_win_prob(margin: float) -> float:
 # Section 3 — Pace Blending
 # ---------------------------------------------------------------------------
 
-def blend_pace(home_pace, away_pace) -> float:
+def blend_pace(home_pace, away_pace, league_avg_pace=None) -> float:
     """
     Blend two team paces into a single projected game pace.
 
@@ -104,18 +141,28 @@ def blend_pace(home_pace, away_pace) -> float:
       grinders play slower — a weighted average systematically shaved
       the tails, which biased every totals projection toward the middle.
 
+    ``league_avg_pace`` lets the caller anchor the compounding on the
+    *current* season's measured league pace instead of the hardcoded
+    constant — a stale anchor shifts every blended pace by the drift.
+    Callers that pass nothing keep the historical constant.
+
     Result is clamped to [55.0, 85.0] — anything outside that range is
     almost certainly a data error (WNBA paces realistically live inside it).
     """
+    try:
+        anchor = float(league_avg_pace) if league_avg_pace is not None else WNBA_LEAGUE_AVG_PACE
+    except (TypeError, ValueError):
+        anchor = WNBA_LEAGUE_AVG_PACE
+
     if home_pace is None and away_pace is None:
-        return WNBA_LEAGUE_AVG_PACE
+        return anchor
 
     if home_pace is None:
         blended = float(away_pace)
     elif away_pace is None:
         blended = float(home_pace)
     else:
-        blended = float(home_pace) + float(away_pace) - WNBA_LEAGUE_AVG_PACE
+        blended = float(home_pace) + float(away_pace) - anchor
 
     if blended < 55.0:
         blended = 55.0
@@ -522,46 +569,128 @@ def _ppg_fallback(stats: dict | None) -> float | None:
     return None
 
 
+def _scoring_rate(stats: dict | None, scored: bool = True) -> tuple[float | None, float]:
+    """Per-game points scored (or allowed) with a rolling-first lookup.
+
+    Returns ``(points_per_game, games_in_sample)``. Prefers the last-N
+    rolling figure when it exists with a real sample (recent form tracks a
+    moving scoring environment), otherwise the season per-game figure.
+    Values outside 50-130 are treated as data errors and ignored.
+    """
+    stats = stats or {}
+    rolling_key = "rolling_pts" if scored else "rolling_opp_pts"
+    season_keys = ("pts_pg",) if scored else ("opp_pts_pg",)
+
+    rolling_games = 0.0
+    try:
+        rolling_games = float(stats.get("rolling_games_used") or 0.0)
+    except (TypeError, ValueError):
+        rolling_games = 0.0
+
+    if rolling_games >= 5:
+        try:
+            value = float(stats.get(rolling_key))
+            if 50.0 <= value <= 130.0:
+                return value, rolling_games
+        except (TypeError, ValueError):
+            pass
+
+    for key in season_keys:
+        try:
+            value = float(stats.get(key))
+        except (TypeError, ValueError):
+            continue
+        if 50.0 <= value <= 130.0:
+            games = games_played(stats)
+            return value, float(games if games is not None else 0.0)
+    return None, 0.0
+
+
+def _scoring_total_estimate(home_stats: dict, away_stats: dict) -> tuple[float | None, float]:
+    """Symmetric offense-meets-defense total from per-game scoring.
+
+    Each side's expected points are the average of what its offense scores
+    and what the opposing defense allows; the game total is the sum. Built
+    from actual points per game, so it is centered on the current scoring
+    environment by construction — no possession model, no stale priors.
+
+    Returns ``(estimate, min_sample_games)``; estimate is None when any of
+    the four scoring rates is unavailable.
+    """
+    home_scored, hs_n = _scoring_rate(home_stats, scored=True)
+    home_allowed, ha_n = _scoring_rate(home_stats, scored=False)
+    away_scored, as_n = _scoring_rate(away_stats, scored=True)
+    away_allowed, aa_n = _scoring_rate(away_stats, scored=False)
+
+    if None in (home_scored, home_allowed, away_scored, away_allowed):
+        return None, 0.0
+
+    home_expected = (home_scored + away_allowed) / 2.0
+    away_expected = (away_scored + home_allowed) / 2.0
+    return home_expected + away_expected, min(hs_n, ha_n, as_n, aa_n)
+
+
 def compute_projected_total(
     home_stats: dict,
     away_stats: dict,
     home_injury_penalty: float = 0.0,
     away_injury_penalty: float = 0.0,
     b2b_penalty: float = 0.0,
+    league_averages: dict | None = None,
 ) -> float | None:
     """
-    Project total points scored in the game.
+    Project total points scored in the game (totals model v2).
 
-    Preferred formula (offense meets defense, symmetric):
-        home_pts_per100 = (home_ORtg + away_DRtg) / 2
-        away_pts_per100 = (away_ORtg + home_DRtg) / 2
-        projected = (home_pts_per100 + away_pts_per100) * blended_pace / 100
-        projected -= bounded combined injury adjustment
+    Two estimates are blended:
 
-    When DRtg is missing on either side we fall back to the ORtg-sum
-    formula (equivalent to assuming league-average defenses), and when
-    either ORtg is missing, to direct points-per-game averages so we
-    always emit a usable total. Ratings are shrunk toward the league
-    average by games played, mirroring the margin model.
+    1. Ratings estimate (offense meets defense, symmetric):
+           home_pts_per100 = (home_ORtg + away_DRtg) / 2
+           away_pts_per100 = (away_ORtg + home_DRtg) / 2
+           ratings_est = (home_pts_per100 + away_pts_per100) * pace / 100
+       Ratings are shrunk toward the *measured* league-average ORtg and the
+       pace compounding is anchored on the measured league pace when the
+       caller provides ``league_averages`` (keys "ORtg" / "Pace") — v1
+       shrank toward a hardcoded 2024-25 prior (105) in a 2026 season whose
+       real league ORtg runs ~108, which dragged every projection down.
 
-    Clamped to [130.0, 185.0]. Anything outside this range indicates a
-    data problem upstream — we refuse to emit an obviously broken total.
+    2. Scoring estimate: the same symmetric matchup math on raw points
+       per game (rolling-first). Centered on the current environment by
+       construction, so the blend tracks a season whose scoring level has
+       moved away from the ratings priors.
+
+    The blend weight ramps in with sample size (a 3-game scoring average is
+    noise). When DRtg is missing on either side we fall back to the
+    ORtg-sum formula, and when either ORtg is missing, to direct
+    points-per-game averages so we always emit a usable total.
+
+    Clamped to [WNBA_TOTAL_FLOOR, WNBA_TOTAL_CEIL]. Anything outside that
+    range indicates a data problem upstream — we refuse to emit an
+    obviously broken total.
     """
     home_stats = home_stats or {}
     away_stats = away_stats or {}
+    league_averages = league_averages or {}
 
     home_games = games_played(home_stats)
     away_games = games_played(away_stats)
 
+    try:
+        ortg_prior = float(league_averages.get("ORtg"))
+    except (TypeError, ValueError):
+        ortg_prior = WNBA_LEAGUE_AVG_ORTG
+    league_pace = league_averages.get("Pace")
+
     def _rating(stats: dict, key: str, games) -> float | None:
-        return shrink_rating(stats.get(key), games, prior=WNBA_LEAGUE_AVG_ORTG)
+        return shrink_rating(stats.get(key), games, prior=ortg_prior)
 
     home_ortg = _rating(home_stats, "ORtg", home_games)
     away_ortg = _rating(away_stats, "ORtg", away_games)
     home_drtg = _rating(home_stats, "DRtg", home_games)
     away_drtg = _rating(away_stats, "DRtg", away_games)
 
-    blended_pace = blend_pace(home_stats.get("Pace"), away_stats.get("Pace"))
+    blended_pace = blend_pace(
+        home_stats.get("Pace"), away_stats.get("Pace"), league_avg_pace=league_pace
+    )
 
     if None not in (home_ortg, away_ortg, home_drtg, away_drtg):
         home_pts_per100 = (home_ortg + away_drtg) / 2.0
@@ -577,6 +706,12 @@ def compute_projected_total(
         if home_pts is None or away_pts is None:
             return None
         projected = home_pts + away_pts
+
+    scoring_est, scoring_sample = _scoring_total_estimate(home_stats, away_stats)
+    if scoring_est is not None and scoring_sample > 0:
+        sample_ramp = min(1.0, scoring_sample / WNBA_TOTAL_SCORING_FULL_SAMPLE)
+        weight = WNBA_TOTAL_SCORING_WEIGHT * sample_ramp
+        projected = (1.0 - weight) * projected + weight * scoring_est
 
     try:
         hi = float(home_injury_penalty) if home_injury_penalty is not None else 0.0
@@ -597,10 +732,10 @@ def compute_projected_total(
     except (TypeError, ValueError):
         pass
 
-    if projected < 130.0:
-        projected = 130.0
-    elif projected > 185.0:
-        projected = 185.0
+    if projected < WNBA_TOTAL_FLOOR:
+        projected = WNBA_TOTAL_FLOOR
+    elif projected > WNBA_TOTAL_CEIL:
+        projected = WNBA_TOTAL_CEIL
     return projected
 
 
@@ -655,12 +790,24 @@ def calculate_wnba_matchup(
 
     win_prob = margin_to_win_prob(adjusted_margin)
 
+    # Totals v2: prefer the game-day-uncertainty injury inputs (built by the
+    # picks layer with "Out" players excluded — their absence is already in
+    # the season ratings). Callers that only supply the margin-path
+    # penalties keep working, they just see the bounded v2 scale.
+    home_total_inj = context.get("home_total_injury_penalty")
+    if home_total_inj is None:
+        home_total_inj = context.get("home_injury_penalty", 0.0) or 0.0
+    away_total_inj = context.get("away_total_injury_penalty")
+    if away_total_inj is None:
+        away_total_inj = context.get("away_injury_penalty", 0.0) or 0.0
+
     projected_total = compute_projected_total(
         home_stats,
         away_stats,
-        home_injury_penalty=context.get("home_injury_penalty", 0.0) or 0.0,
-        away_injury_penalty=context.get("away_injury_penalty", 0.0) or 0.0,
-        b2b_penalty=1.5 if context.get("away_is_b2b") is True else 0.0,
+        home_injury_penalty=home_total_inj,
+        away_injury_penalty=away_total_inj,
+        b2b_penalty=WNBA_TOTAL_B2B_PENALTY if context.get("away_is_b2b") is True else 0.0,
+        league_averages=context.get("league_averages"),
     )
 
     data_quality = (
@@ -733,7 +880,7 @@ if __name__ == "__main__":
             f"win_prob out of range: {result}"
         )
         total = result["projected_total"]
-        assert total is None or 130.0 <= total <= 185.0, (
+        assert total is None or WNBA_TOTAL_FLOOR <= total <= WNBA_TOTAL_CEIL, (
             f"projected_total out of range: {result}"
         )
 
