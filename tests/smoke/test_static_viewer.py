@@ -1467,3 +1467,79 @@ def test_home_game_cards_organize_picks_into_market_lanes():
     assert "body.mobile-app-mode .home-lane-side-rows .home-feed-row" in css
     assert 'body[data-theme="light"] .home-market-lane' in css
     assert ".home-market-lane.is-wide" in css
+
+
+def _core_team_model_keys_from_guard() -> set[str]:
+    """The `required = {...}` team-model set inside the freshness guard workflow."""
+    import re
+
+    text = (ROOT / ".github" / "workflows" / "model-cache-freshness-guard.yml").read_text(encoding="utf-8")
+    match = re.search(r'required = \{("mlb_new".*?)\}', text, re.S)
+    assert match, "freshness guard no longer declares a team-model required set"
+    return set(re.findall(r'"([a-z0-9_]+)"', match.group(1)))
+
+
+def test_core_team_model_required_sets_do_not_drift():
+    """Three places encode "today's core team models"; they must agree.
+
+    They rotted apart once: nba_summer and fifa_world_cup were archived
+    2026-07-19 when their seasons ended, and site_upcheck plus the freshness
+    guard were pruned while the external-feed merger's copy was not. Because
+    that copy gates promotion to latest.json, the stale entries pinned
+    latest_updated to False — every local publisher could write {date}.json but
+    none could update latest.json, so a day's scraped feeds only reached the
+    site if a model-cache refresh happened to run after them. It failed silently
+    and in the worst direction, so the sets are pinned together here.
+    """
+    merger = _load_module(
+        "merge_external_feed_cache_payload_drift",
+        ROOT / "scripts" / "merge_external_feed_cache_payload.py",
+    )
+    upcheck = _load_module("site_upcheck_drift", ROOT / "scripts" / "site_upcheck.py")
+
+    assert merger.REQUIRED_TEAM_MODEL_KEYS == upcheck.REQUIRED_MODEL_KEYS
+    assert merger.REQUIRED_TEAM_MODEL_KEYS == _core_team_model_keys_from_guard()
+    # Archived sports must never creep back in: they stop publishing entirely,
+    # so requiring one is equivalent to disabling the gate's success path.
+    assert not (merger.REQUIRED_TEAM_MODEL_KEYS & {"nba_summer", "fifa_world_cup"})
+
+
+def test_external_feed_publish_promotes_latest_without_archived_sports(tmp_path):
+    """A publisher must be able to update latest.json on today's real model set.
+
+    This is the regression: the day's live in-house models are all ok, and no
+    archived sport is present because none is produced any more.
+    """
+    module = _load_module(
+        "merge_external_feed_cache_payload_archived",
+        ROOT / "scripts" / "merge_external_feed_cache_payload.py",
+    )
+    cache_dir = tmp_path / "data" / "model_cache"
+    cache_dir.mkdir(parents=True)
+    live_models = ["mlb_new", "mlb_inning", "mlb_first_five", "wnba", "nba", "nba_playoffs", "mls", "nfl", "tennis"]
+    payload = {
+        "date": "2026-07-27",
+        "models": {key: {"ok": True, "picks": []} for key in live_models},
+        "external_feeds": {"scores24_mlb": {"ok": True, "date": "2026-07-27", "picks": []}},
+    }
+
+    assert module.write_merged_payload(payload, cache_dir) is True
+    assert json.loads((cache_dir / "latest.json").read_text(encoding="utf-8"))["date"] == "2026-07-27"
+
+
+def test_external_feed_publish_still_refuses_a_day_without_team_models(tmp_path):
+    """The guard the gate exists for must survive the fix."""
+    module = _load_module(
+        "merge_external_feed_cache_payload_guard",
+        ROOT / "scripts" / "merge_external_feed_cache_payload.py",
+    )
+    cache_dir = tmp_path / "data" / "model_cache"
+    cache_dir.mkdir(parents=True)
+    feeds_only = {
+        "date": "2026-07-28",
+        "models": {"tennis": {"ok": True, "picks": []}},
+        "external_feeds": {"scores24_mlb": {"ok": True, "date": "2026-07-28", "picks": []}},
+    }
+
+    assert module.write_merged_payload(feeds_only, cache_dir) is False
+    assert not (cache_dir / "latest.json").exists()

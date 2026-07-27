@@ -68,6 +68,19 @@ EXTERNAL_FEED_SOURCE_LABELS = {
         "FIFA WC": "SportsGamblerFIFAWorldCup",
     },
 }
+# The in-house team models that must be present before an external-feed publish
+# may promote a day to latest.json. The gate exists so a feed writer cannot
+# advance the site to a date whose team models have not run yet — that is what
+# left 2026-07-25 briefly showing a tennis-only slate.
+#
+# Keep this identical to site_upcheck.REQUIRED_MODEL_KEYS and to the required
+# set in model-cache-freshness-guard.yml; a drift test pins all three together.
+# It matters because a stale entry here fails silently in the worst direction:
+# nba_summer and fifa_world_cup were archived 2026-07-19 when their seasons
+# ended and were never published again, which pinned latest_updated to False
+# from that day on. Every local publisher could still write {date}.json but
+# none could ever update latest.json, so today's scraped feeds only reached the
+# site if a model-cache refresh happened to run afterwards.
 REQUIRED_TEAM_MODEL_KEYS = {
     "mlb_new",
     "mlb_inning",
@@ -75,8 +88,6 @@ REQUIRED_TEAM_MODEL_KEYS = {
     "wnba",
     "nba",
     "nba_playoffs",
-    "nba_summer",
-    "fifa_world_cup",
 }
 PICK_METADATA_FIELDS = {"result", "start_time", "game_start_time", "pregame_snapshot"}
 MARKET_ODDS_METADATA_FIELDS = {
