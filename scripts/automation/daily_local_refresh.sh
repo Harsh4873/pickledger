@@ -178,4 +178,23 @@ else
 fi
 
 log "=== ${STATE} — ${TARGET_DATE} — HEAD ${HEAD_SHA:0:8} ==="
+
+# Record the outcome where a status check can read it without parsing logs.
+# Written even on failure — "the run died early" has to be distinguishable from
+# "the run never started", which is the failure mode cron actually has.
+if ! $DRY_RUN; then
+  printf '{"date":"%s","state":"%s","head":"%s","finished_at":"%s"}\n' \
+    "$TARGET_DATE" "$STATE" "${HEAD_SHA:0:8}" "$(TZ=America/Chicago date -Iseconds)" \
+    > "${PICKLEDGER_CRON_STATUS:-$HOME/pickledger-cron/last_run.json}"
+fi
+
+# Optional push alert on failure. Set PICKLEDGER_ALERT_WEBHOOK to any
+# Discord-compatible webhook to be told rather than having to look; without it
+# the run is silent and the status command is the only way to notice.
+if [[ "$STATE" != "HEALTHY" && "$STATE" != "DRY_RUN" && -n "${PICKLEDGER_ALERT_WEBHOOK:-}" ]]; then
+  curl -sS -m 20 -H 'Content-Type: application/json' \
+    -d "{\"content\":\"PickLedger daily refresh ${STATE} for ${TARGET_DATE} (HEAD ${HEAD_SHA:0:8}). Log: ${LOG}\"}" \
+    "$PICKLEDGER_ALERT_WEBHOOK" >/dev/null 2>&1 && log "alert sent" || log "alert delivery failed"
+fi
+
 [[ "$STATE" == "HEALTHY" || "$STATE" == "DRY_RUN" ]] && exit 0 || exit 1

@@ -141,3 +141,35 @@ confirmed to have executed — a green run is not a deploy.
   novel defect — when it reports anything but `HEALTHY`, run `/refresh` and read
   the log.
 - Dry run: `daily_local_refresh.sh --dry-run` (verifies wiring, takes no action).
+
+### Knowing whether it worked
+
+`scripts/automation/pickledger_status.sh`, symlinked to `~/bin/pl-status`:
+
+```
+pl-status        # one line: OK, or the specific problems
+pl-status -v     # adds context and the log path
+```
+
+It checks the **published** state, not the automation's own opinion of itself —
+because the dangerous failure is silent. If cron never fires, a job that reports
+on its own runs says nothing at all, and the site just keeps serving yesterday
+while looking completely normal. So the checks are:
+
+1. Is the committed slate (and props) dated today? Data dated *ahead* of today is
+   healthy — a late-evening refresh legitimately generates the next Central day —
+   so only "behind" counts.
+2. Is the **live** site serving today? This resolves the most recent deploy whose
+   `deploy` job actually executed and reads the slate date out of the commit that
+   deploy shipped. Deliberately not "does the newest commit have a deploy":
+   auto-grade commits land all day and each is briefly undeployed, which would
+   cry wolf constantly.
+3. Did an automated run record itself today, and how did it end? No record at all
+   means cron did not fire — the one failure a self-reporting job can never
+   surface.
+
+Exit code is 0 for OK and 1 for any problem, so it can be used in a check.
+
+**Optional push alert.** Set `PICKLEDGER_ALERT_WEBHOOK` to a Discord-compatible
+webhook and the daily job will message it on any non-HEALTHY outcome. Without it
+the run is silent by design and `pl-status` is the only way to notice.
