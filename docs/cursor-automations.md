@@ -101,3 +101,43 @@ If code fixes are required: test, commit without AI/co-author taglines, push as 
 
 Summarize health, bucket counts, workflow status, and any blockers.
 ```
+
+---
+
+## Local daily refresh (cron, 06:53 America/Chicago)
+
+`scripts/automation/daily_local_refresh.sh`, installed in the owner's crontab on
+the machine that holds the publisher credentials.
+
+**Why it is not a GitHub `schedule:` trigger.** Two independent reasons:
+
+1. **Scrapers cannot run in Actions.** Scores24 and Forebet Cloudflare-403 every
+   GitHub-hosted runner IP, which is why the runbook makes them local-only. No
+   cloud-hosted trigger can publish them — the host has to have a
+   non-datacenter IP and Camoufox.
+2. **`schedule:` is unreliable here.** GitHub treats cron as best-effort. Over
+   2026-07-25…28 the writers failed to fire on the 25th and the 28th, and the
+   27th's was cancelled on the shared `pick-cache-writer` group. Each time the
+   site silently served the previous day, because deploy readiness correctly
+   refuses to promote stale data. The scheduled workflows are still in place;
+   this job is the belt to their braces.
+
+**Order.** Team models and props are dispatched first because they create the
+day's cache entry; only then can an external-feed publish promote `latest.json`
+(see `merge_external_feed_cache_payload.REQUIRED_TEAM_MODEL_KEYS`), so each
+publisher afterwards can ship its own feeds live instead of stranding them in
+the dated file. Then external feeds, then a deploy whose `deploy` **job** is
+confirmed to have executed — a green run is not a deploy.
+
+**Operational notes.**
+- Requires the machine to be powered on and networked at 06:53, and `gh` to stay
+  authenticated. It exits non-zero on anything but a verified deploy.
+- `flock` prevents overlapping runs.
+- A failing publisher degrades that feed only; the run continues, because the
+  team models and the deploy still matter.
+- Logs: `~/pickledger-cron/logs/<date>.log`, plus `cron.log` for scheduler-level
+  output. Check these first when the morning slate looks wrong.
+- It automates the mechanical half of `/refresh` only. It cannot diagnose a
+  novel defect — when it reports anything but `HEALTHY`, run `/refresh` and read
+  the log.
+- Dry run: `daily_local_refresh.sh --dry-run` (verifies wiring, takes no action).
