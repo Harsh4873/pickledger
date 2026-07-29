@@ -19,6 +19,16 @@ VERBOSE=false
 problems=()
 details=()
 
+# The daily job holds this lock for its whole run, so a held lock is the only
+# reliable way to tell "still working" from "never started" — the status file is
+# not written until the run ends.
+run_in_progress() {
+  local lock="${PICKLEDGER_CRON_LOCK:-$HOME/pickledger-cron/.lock}"
+  [[ -e "$lock" ]] || return 1
+  # flock succeeds => nobody holds it => no run in progress.
+  ! flock -n 9 2>/dev/null 9<"$lock"
+}
+
 # --- 1. is the committed slate current? -----------------------------------
 cache_date=""
 if git -C "$REPO" fetch --quiet origin main 2>/dev/null; then
@@ -72,10 +82,23 @@ if [[ -f "$STATUS_FILE" ]]; then
   run_date="$(python3 -c 'import json,sys;print(json.load(open(sys.argv[1])).get("date",""))' "$STATUS_FILE" 2>/dev/null)"
   run_state="$(python3 -c 'import json,sys;print(json.load(open(sys.argv[1])).get("state",""))' "$STATUS_FILE" 2>/dev/null)"
   details+=("last refresh ${run_date} ${run_state}")
-  [[ "$run_state" != "HEALTHY" ]] && problems+=("last refresh ended ${run_state} (${LOG_DIR}/${run_date}.log)")
+  [[ "$run_state" != "HEALTHY" && "$run_date" == "$TODAY" ]] &&
+    problems+=("last refresh ended ${run_state} (${LOG_DIR}/${run_date}.log)")
   # Silence is the dangerous case: no run recorded for today means cron did not
-  # fire, which no self-reporting job can tell you about.
-  [[ "$run_date" != "$TODAY" ]] && problems+=("no automated run recorded today (cron may not have fired)")
+  # fire, which no self-reporting job can tell you about. But "in progress" and
+  # "never started" look identical from the status file alone — the outcome is
+  # only written at the end — so ask the lock before calling it missed. The full
+  # refresh takes about an hour, which would otherwise mean a false alarm every
+  # single morning.
+  if [[ "$run_date" != "$TODAY" ]]; then
+    if run_in_progress; then
+      details+=("a refresh is running right now")
+    else
+      problems+=("no automated run recorded today (cron may not have fired)")
+    fi
+  fi
+elif run_in_progress; then
+  details+=("a refresh is running right now")
 else
   details+=("no automated run recorded yet")
 fi
