@@ -62,9 +62,14 @@ fi
 
 sync_repo() {
   git -C "$REPO" fetch --quiet origin main || return 1
-  # A disposable mirror, never the owner's working copy, so forcing the branch
-  # to origin is safe and avoids inheriting a half-applied merge.
-  git -C "$REPO" checkout -q -B main origin/main || return 1
+  # -f discards any local modification. This clone is a disposable mirror, never
+  # the owner's working copy, so there is nothing here worth preserving — and a
+  # plain checkout aborts on a dirty tree, which is worse than it sounds: the
+  # run continues against a stale checkout and then "verifies" a deploy for an
+  # old HEAD. That happened on 2026-07-29 and the job reported HEALTHY off a
+  # commit that was no longer tip.
+  git -C "$REPO" checkout -qf -B main origin/main || return 1
+  git -C "$REPO" clean -qfd -e .venv || true
 }
 
 wait_for_run() {  # run_id, label, timeout_seconds
