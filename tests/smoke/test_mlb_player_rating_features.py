@@ -22,6 +22,7 @@ from player_rating_features import (
     matchup_player_rating_features,
     pregame_batting_stat,
 )
+from train_player_rating_challenger import validate_dataset
 
 
 def _batting_stat(
@@ -218,3 +219,102 @@ def test_oracle_builder_deduplicates_repeated_schedule_game_pks():
 
     assert [game["game_pk"] for game in games] == [123]
     assert builder.client.prefetched == [123]
+
+
+def test_oracle_builder_withholds_an_overlapping_game_until_its_verified_end_time():
+    def team(team_id: int) -> dict[str, object]:
+        return {"id": team_id, "name": f"Team {team_id}", "abbreviation": f"T{team_id}"}
+
+    def feed(
+        *,
+        away_id: int,
+        home_id: int,
+        away_score: int,
+        home_score: int,
+        end_time: str,
+    ) -> dict[str, object]:
+        empty_box = {"batters": [], "pitchers": [], "players": {}, "battingOrder": []}
+        return {
+            "gameData": {"teams": {"away": team(away_id), "home": team(home_id)}},
+            "liveData": {
+                "boxscore": {"teams": {"away": empty_box, "home": empty_box}},
+                "linescore": {
+                    "teams": {
+                        "away": {"runs": away_score},
+                        "home": {"runs": home_score},
+                    }
+                },
+                "plays": {"allPlays": [{"about": {"endTime": end_time}}]},
+            },
+        }
+
+    class FakeClient:
+        def __init__(self):
+            self.feeds = {
+                1: feed(
+                    away_id=2,
+                    home_id=1,
+                    away_score=0,
+                    home_score=1,
+                    end_time="2025-03-27T22:21:56Z",
+                ),
+                2: feed(
+                    away_id=3,
+                    home_id=1,
+                    away_score=1,
+                    home_score=0,
+                    end_time="2025-03-27T22:28:55Z",
+                ),
+                3: feed(
+                    away_id=4,
+                    home_id=1,
+                    away_score=1,
+                    home_score=2,
+                    end_time="2025-03-28T01:00:00Z",
+                ),
+            }
+
+        def get_game_feed(self, game_pk):
+            return self.feeds[game_pk]
+
+    builder = object.__new__(PlayerRatingOracleDatasetBuilder)
+    builder.seasons = [2025]
+    builder.client = FakeClient()
+    builder.odds = None
+    builder._season_games = lambda _season: [
+        {"game_pk": 1, "game_start": pd.Timestamp("2025-03-27T19:05:00Z")},
+        {"game_pk": 2, "game_start": pd.Timestamp("2025-03-27T19:07:00Z")},
+        {"game_pk": 3, "game_start": pd.Timestamp("2025-03-27T23:00:00Z")},
+    ]
+
+    frame = builder.build().set_index("game_pk")
+
+    # Game 1 was still live at Game 2's first pitch, so its final result must
+    # not affect the second row. Before Game 3, both completed results are fair
+    # game for the state because their verified end times are earlier.
+    assert frame.loc[2, "home_team_win_pct"] == 0.5
+    assert frame.loc[2, "team_games_adv"] == 0.0
+    assert frame.loc[3, "team_games_adv"] == 2.0
+
+
+def test_full_v2_challenger_trainer_rejects_final_boxscore_only_rows():
+    frame = pd.DataFrame(
+        [
+            {
+                "game_date": "2026-04-01",
+                "home_win": 1,
+                "home_lineup_rating_available": 1,
+                "away_lineup_rating_available": 1,
+                "lineup_batting_rating_adv": 0.01,
+                "lineup_power_rating_adv": 0.02,
+                "lineup_rating_reliability_adv": 0.03,
+            }
+        ]
+    )
+
+    try:
+        validate_dataset(frame)
+    except ValueError as error:
+        assert "timestamped pregame lineup/starter snapshot archive" in str(error)
+    else:
+        raise AssertionError("Final-boxscore rows must not pass the V2 challenger gate.")

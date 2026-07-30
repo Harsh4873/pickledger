@@ -1,11 +1,12 @@
 """Strict historical data builder for the MLB player-lineup research test.
 
 StatsAPI's historical game feeds retain the lineup and starter that ultimately
-played, but not a timestamped lineup announcement.  This module therefore
-builds an explicitly *oracle-lineup* dataset: player and team statistics are
-updated only after each game's first-pitch group is scored, while lineup and
-starter identity are known retrospectively.  It is useful for measuring the
-upside of a player layer, never as evidence that it is safe to publish live.
+played, but not a timestamped lineup announcement. This module therefore
+builds an explicitly *oracle-lineup* dataset. Player and team state advances
+only when a prior game's verified final-play time is before the next game's
+scheduled first-pitch time; lineup and starter identity are still known
+retrospectively. It is useful for measuring the upside of a player layer,
+never as evidence that it is safe to publish live.
 """
 
 from __future__ import annotations
@@ -13,7 +14,6 @@ from __future__ import annotations
 import argparse
 import json
 from collections import defaultdict
-from datetime import datetime
 from pathlib import Path
 from typing import Any, Mapping
 
@@ -32,7 +32,8 @@ from player_rating_features import (
 BASE_DIR = Path(__file__).resolve().parent
 DATA_DIR = BASE_DIR / "data"
 DEFAULT_OUTPUT_PATH = DATA_DIR / "mlb_player_rating_oracle_dataset.csv"
-ORACLE_DATASET_SCHEMA = "mlb_player_rating_oracle_dataset_v1"
+ORACLE_DATASET_SCHEMA = "mlb_player_rating_oracle_dataset_v2"
+ORACLE_STATE_UPDATE_POLICY = "verified_game_end_before_next_scheduled_start_v1"
 
 _BATTING_UPDATE_FIELDS = (
     "runs",
@@ -99,6 +100,34 @@ def _team_name(meta: Mapping[str, Any]) -> str:
 
 def _team_short_name(meta: Mapping[str, Any]) -> str:
     return str(meta.get("abbreviation") or meta.get("teamName") or "").upper()
+
+
+def _utc_timestamp(value: Any) -> pd.Timestamp | None:
+    """Parse a StatsAPI timestamp into a timezone-aware UTC timestamp."""
+    if value in (None, ""):
+        return None
+    try:
+        timestamp = pd.Timestamp(value)
+    except (TypeError, ValueError):
+        return None
+    if timestamp.tzinfo is None:
+        return timestamp.tz_localize("UTC")
+    return timestamp.tz_convert("UTC")
+
+
+def _verified_game_end_utc(payload: Mapping[str, Any]) -> pd.Timestamp | None:
+    """Return the final recorded play end time, without guessing an outcome time.
+
+    A missing timestamp deliberately returns ``None``. Its final statistics
+    then remain out of all later pregame state rather than risking leakage.
+    """
+    plays = ((payload.get("liveData") or {}).get("plays") or {}).get("allPlays") or []
+    for play in reversed(plays):
+        about = play.get("about") or {}
+        completed_at = _utc_timestamp(about.get("endTime"))
+        if completed_at is not None:
+            return completed_at
+    return None
 
 
 def _lineup_from_state(
@@ -194,6 +223,62 @@ def _update_team_state(
     target["runs_allowed"] = float(target.get("runs_allowed", 0.0)) + float(runs_allowed)
 
 
+def _apply_update(
+    update: Mapping[str, Any],
+    *,
+    batting_state: dict[int, dict[str, float]],
+    pitching_state: dict[int, dict[str, float]],
+    team_state: dict[int, dict[str, float]],
+) -> None:
+    _update_batting_state(batting_state, update["away_box"])
+    _update_batting_state(batting_state, update["home_box"])
+    _update_pitching_state(pitching_state, update["away_box"])
+    _update_pitching_state(pitching_state, update["home_box"])
+    _update_team_state(
+        team_state,
+        int(update["away_team_id"]),
+        won=bool(update["away_score"] > update["home_score"]),
+        runs_scored=int(update["away_score"]),
+        runs_allowed=int(update["home_score"]),
+    )
+    _update_team_state(
+        team_state,
+        int(update["home_team_id"]),
+        won=bool(update["home_score"] > update["away_score"]),
+        runs_scored=int(update["home_score"]),
+        runs_allowed=int(update["away_score"]),
+    )
+
+
+def _apply_completed_updates(
+    pending_updates: list[dict[str, Any]],
+    *,
+    before_game_start: pd.Timestamp,
+    batting_state: dict[int, dict[str, float]],
+    pitching_state: dict[int, dict[str, float]],
+    team_state: dict[int, dict[str, float]],
+) -> list[dict[str, Any]]:
+    """Apply only outcomes known before a new game's scheduled start.
+
+    Final scores are available from the historical feed, so using first-pitch
+    groups alone is unsafe: two staggered games can overlap. A missing end
+    timestamp stays pending for the rest of the build, which is conservative.
+    """
+    still_pending: list[dict[str, Any]] = []
+    for update in pending_updates:
+        completed_at = update.get("game_end_utc")
+        if completed_at is not None and completed_at < before_game_start:
+            _apply_update(
+                update,
+                batting_state=batting_state,
+                pitching_state=pitching_state,
+                team_state=team_state,
+            )
+        else:
+            still_pending.append(update)
+    return still_pending
+
+
 class PlayerRatingOracleDatasetBuilder:
     """Build a date-safe player-state dataset from StatsAPI game feeds."""
 
@@ -226,10 +311,9 @@ class PlayerRatingOracleDatasetBuilder:
             # builder replay multi-season data without retaining thousands of
             # full JSON payloads in memory.
             datetime_text = str(game.get("game_datetime") or game.get("game_date") or "")
-            try:
-                game_start = pd.Timestamp(datetime.fromisoformat(datetime_text.replace("Z", "+00:00")))
-            except ValueError:
-                game_start = pd.Timestamp(datetime_text)
+            game_start = _utc_timestamp(datetime_text)
+            if game_start is None:
+                continue
             output.append({"game_pk": game_pk, "game_start": game_start})
         return sorted(output, key=lambda game: (game["game_start"], game["game_pk"]))
 
@@ -267,18 +351,26 @@ class PlayerRatingOracleDatasetBuilder:
             team_state: dict[int, dict[str, float]] = {}
             games = self._season_games(season)
 
-            # Exact same-start games form one pregame snapshot.  Nothing from
-            # one of those games can affect another in the group.
+            # Exact same-start games form one pregame snapshot. Results from
+            # earlier groups are applied only if their actual final-play time
+            # was before this group began, so overlapping games cannot leak.
             grouped: dict[pd.Timestamp, list[dict[str, Any]]] = defaultdict(list)
             for game in games:
                 grouped[game["game_start"]].append(game)
 
+            pending_updates: list[dict[str, Any]] = []
             for game_start in sorted(grouped):
-                pending_updates: list[dict[str, Any]] = []
+                pending_updates = _apply_completed_updates(
+                    pending_updates,
+                    before_game_start=game_start,
+                    batting_state=batting_state,
+                    pitching_state=pitching_state,
+                    team_state=team_state,
+                )
                 for game in grouped[game_start]:
-                    # Fetch one cached feed at a time.  It is released after
-                    # this same-start group has been scored and then updates
-                    # the rolling state, preserving the no-lookahead contract.
+                    # Fetch one cached feed at a time. It is released after
+                    # this group has been scored; its result stays pending
+                    # until a later game begins after the verified final play.
                     payload = self.client.get_game_feed(game["game_pk"])
                     game_data = payload.get("gameData") or {}
                     teams = game_data.get("teams") or {}
@@ -304,6 +396,7 @@ class PlayerRatingOracleDatasetBuilder:
                     row = {
                         "dataset_schema": ORACLE_DATASET_SCHEMA,
                         "player_rating_schema": RATING_SCHEMA,
+                        "state_update_policy": ORACLE_STATE_UPDATE_POLICY,
                         "oracle_lineup_known": 1,
                         "oracle_starter_known": 1,
                         "lineup_source": "historical_final_boxscore_actual_lineup",
@@ -347,6 +440,7 @@ class PlayerRatingOracleDatasetBuilder:
                     rows.append(row)
                     pending_updates.append(
                         {
+                            "game_end_utc": _verified_game_end_utc(payload),
                             "away_box": away_box,
                             "home_box": home_box,
                             "away_team_id": away_team_id,
@@ -354,26 +448,6 @@ class PlayerRatingOracleDatasetBuilder:
                             "away_score": away_score,
                             "home_score": home_score,
                         }
-                    )
-
-                for update in pending_updates:
-                    _update_batting_state(batting_state, update["away_box"])
-                    _update_batting_state(batting_state, update["home_box"])
-                    _update_pitching_state(pitching_state, update["away_box"])
-                    _update_pitching_state(pitching_state, update["home_box"])
-                    _update_team_state(
-                        team_state,
-                        update["away_team_id"],
-                        won=update["away_score"] > update["home_score"],
-                        runs_scored=update["away_score"],
-                        runs_allowed=update["home_score"],
-                    )
-                    _update_team_state(
-                        team_state,
-                        update["home_team_id"],
-                        won=update["home_score"] > update["away_score"],
-                        runs_scored=update["home_score"],
-                        runs_allowed=update["away_score"],
                     )
 
         return pd.DataFrame(rows).sort_values(["game_start_utc", "game_pk"]).reset_index(drop=True)

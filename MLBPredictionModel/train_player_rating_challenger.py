@@ -1,15 +1,14 @@
-"""Train and evaluate the isolated MLB player-lineup rating challenger.
+"""Future trainer for a timestamped MLB player-lineup rating challenger.
 
 This script intentionally never writes a ``*_new`` artifact and is not wired
 to ``run_today.py``, the model cache, calibration, consensus, or the public
-ledger.  It answers one narrow research question: do dated, ordered hitter
-ratings improve MLB New's raw, pre-calibration home-win forecasts over the
-same walk-forward games?
+ledger. It is deliberately gated on an archive of genuinely pregame lineup
+and starter snapshots. Final StatsAPI box-score lineups do not meet that
+contract and must use ``backtest_player_rating_oracle.py`` only as a labeled
+sensitivity test, never as production-comparison training data.
 
-Run from ``MLBPredictionModel`` after building a dataset with:
-
-    python build_historical_dataset.py --seasons 2025 2026 --include-player-ratings
-    python train_player_rating_challenger.py --market-only
+When a snapshot archive exists, run from ``MLBPredictionModel`` with a dataset
+that supplies every lineup/starter snapshot timestamp before first pitch.
 """
 
 from __future__ import annotations
@@ -54,6 +53,11 @@ REQUIRED_RATING_COLUMNS = [
     "home_lineup_rating_available",
     "away_lineup_rating_available",
     *PLAYER_RATING_FEATURES,
+]
+PREGAME_SNAPSHOT_COLUMNS = [
+    "game_start_utc",
+    "pregame_lineup_snapshot_utc",
+    "pregame_starter_snapshot_utc",
 ]
 
 
@@ -108,12 +112,17 @@ def _numeric_series(frame: pd.DataFrame, column: str, default: float = 0.0) -> p
 
 
 def validate_dataset(frame: pd.DataFrame) -> dict[str, Any]:
-    missing = [column for column in REQUIRED_RATING_COLUMNS if column not in frame.columns]
+    missing = [
+        column
+        for column in [*REQUIRED_RATING_COLUMNS, *PREGAME_SNAPSHOT_COLUMNS]
+        if column not in frame.columns
+    ]
     if missing:
         raise ValueError(
-            "Dataset is missing player-rating columns: "
+            "Dataset is missing pregame player-rating/snapshot columns: "
             + ", ".join(missing)
-            + ". Rebuild it with --include-player-ratings."
+            + ". Final box-score lineups are intentionally rejected; provide a timestamped "
+            "pregame lineup/starter snapshot archive instead."
         )
     if "game_date" not in frame.columns or "home_win" not in frame.columns:
         raise ValueError("Dataset must contain game_date and home_win.")
@@ -124,6 +133,14 @@ def validate_dataset(frame: pd.DataFrame) -> dict[str, Any]:
     if "game_pk" in frame.columns and frame["game_pk"].duplicated().any():
         duplicates = int(frame["game_pk"].duplicated().sum())
         raise ValueError(f"Dataset has {duplicates} duplicate game_pk rows.")
+
+    game_start = pd.to_datetime(frame["game_start_utc"], utc=True, errors="coerce")
+    lineup_snapshot = pd.to_datetime(frame["pregame_lineup_snapshot_utc"], utc=True, errors="coerce")
+    starter_snapshot = pd.to_datetime(frame["pregame_starter_snapshot_utc"], utc=True, errors="coerce")
+    if game_start.isna().any() or lineup_snapshot.isna().any() or starter_snapshot.isna().any():
+        raise ValueError("Dataset contains an invalid pregame snapshot timestamp.")
+    if (lineup_snapshot >= game_start).any() or (starter_snapshot >= game_start).any():
+        raise ValueError("Every lineup and starter snapshot must precede first pitch.")
 
     confirmed = (
         (_numeric_series(frame, "home_lineup_rating_available") >= 1.0)

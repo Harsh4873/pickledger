@@ -21,7 +21,11 @@ from sklearn.ensemble import HistGradientBoostingClassifier
 from sklearn.metrics import accuracy_score, brier_score_loss, log_loss
 
 from player_rating_features import RATING_SCHEMA
-from player_rating_oracle_data import DEFAULT_OUTPUT_PATH, ORACLE_DATASET_SCHEMA
+from player_rating_oracle_data import (
+    DEFAULT_OUTPUT_PATH,
+    ORACLE_DATASET_SCHEMA,
+    ORACLE_STATE_UPDATE_POLICY,
+)
 
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -42,7 +46,7 @@ PLAYER_FEATURES = [
     "lineup_rating_reliability_adv",
 ]
 CHALLENGER_FEATURES = [*CONTROL_FEATURES, *PLAYER_FEATURES]
-BACKTEST_SCHEMA = "mlb_player_rating_oracle_backtest_v1"
+BACKTEST_SCHEMA = "mlb_player_rating_oracle_backtest_v2"
 
 
 def _build_model() -> HistGradientBoostingClassifier:
@@ -95,6 +99,7 @@ def _bootstrap_log_loss_delta(
 def _validate_and_prepare(frame: pd.DataFrame, *, market_only: bool) -> tuple[pd.DataFrame, dict[str, Any]]:
     required = {
         "dataset_schema",
+        "state_update_policy",
         "game_pk",
         "game_start_utc",
         "home_win",
@@ -109,6 +114,8 @@ def _validate_and_prepare(frame: pd.DataFrame, *, market_only: bool) -> tuple[pd
         raise ValueError("Dataset is missing required oracle columns: " + ", ".join(missing))
     if set(frame["dataset_schema"].dropna().unique()) != {ORACLE_DATASET_SCHEMA}:
         raise ValueError("Dataset schema is not the strict player-rating oracle schema.")
+    if set(frame["state_update_policy"].dropna().unique()) != {ORACLE_STATE_UPDATE_POLICY}:
+        raise ValueError("Dataset does not use verified game-end state updates.")
     if frame["game_pk"].duplicated().any():
         raise ValueError("Oracle dataset has duplicate game_pk rows.")
 
@@ -138,6 +145,7 @@ def _validate_and_prepare(frame: pd.DataFrame, *, market_only: bool) -> tuple[pd
         "date_end": str(prepared["game_start_utc"].max().date()),
         "duplicate_game_pks": 0,
         "oracle_lineup_known_rate": float((prepared["oracle_lineup_known"] == 1).mean()),
+        "state_update_policy": ORACLE_STATE_UPDATE_POLICY,
     }
     return prepared, quality
 
@@ -318,9 +326,10 @@ def main(argv: list[str] | None = None) -> int:
         "quality": quality,
         "walk_forward_evaluation": evaluation,
         "critical_caveat": (
-            "The player and team state is pregame/date-safe, but lineup and starter identity "
-            "come from the final historical boxscore. This is an oracle-lineup sensitivity "
-            "test, not an MLB New production backtest or promotion decision."
+            "Player, pitcher, and team state uses only outcomes with a verified final-play "
+            "timestamp before the next game's scheduled first pitch. Lineup and starter "
+            "identity still come from the final historical boxscore. This is an oracle-lineup "
+            "sensitivity test, not an MLB New production backtest or promotion decision."
         ),
     }
     if not args.no_save:

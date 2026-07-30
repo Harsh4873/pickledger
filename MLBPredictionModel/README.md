@@ -35,10 +35,11 @@ python player_rating_oracle_data.py --seasons 2026
 python backtest_player_rating_oracle.py
 ```
 
-It updates player, starter, and team state only after a game has been scored,
-then runs a date-boundary walk-forward comparison between a team/starter
-control and the same control plus lineup ratings. Historical StatsAPI feeds do
-not preserve a timestamped lineup announcement, so the identity of the final
+It updates player, starter, and team state only when a prior game's verified
+final-play timestamp is before the next game's scheduled first pitch, then
+runs a date-boundary walk-forward comparison between a team/starter control
+and the same control plus lineup ratings. Historical StatsAPI feeds do not
+preserve a timestamped lineup announcement, so the identity of the final
 lineup and starter is explicitly labeled **oracle knowledge**. A positive
 oracle result measures upside only; it cannot promote the feature to live
 predictions.
