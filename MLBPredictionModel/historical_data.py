@@ -13,6 +13,11 @@ import pandas as pd
 
 from mlb_api import HistoricalOddsArchive, StatsAPIClient, ensure_data_dirs
 from park_factors import get_park_factor
+from player_rating_features import (
+    RATING_SCHEMA,
+    lineup_batting_rating_from_boxscore,
+    matchup_player_rating_features,
+)
 
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -270,10 +275,19 @@ class TeamHistoryRecord:
 
 
 class HistoricalDatasetBuilder:
-    def __init__(self, seasons: list[int], include_odds: bool = True) -> None:
+    def __init__(
+        self,
+        seasons: list[int],
+        include_odds: bool = True,
+        include_player_ratings: bool = False,
+    ) -> None:
         ensure_data_dirs()
         self.seasons = seasons
         self.include_odds = include_odds
+        # Player ratings are intentionally an offline/challenger-only data
+        # contract.  The established v2 training path remains unchanged until
+        # a like-for-like live-lineup evaluation earns a promotion.
+        self.include_player_ratings = include_player_ratings
         self.client = StatsAPIClient()
         self.odds = HistoricalOddsArchive() if include_odds else None
         self.pitching_stats_by_season: dict[int, dict[int, dict[str, Any]]] = {}
@@ -386,8 +400,25 @@ class HistoricalDatasetBuilder:
             was_starter=True,
         )
 
-        away_lineup = self._lineup_proxy(away_box, season - 1)
-        home_lineup = self._lineup_proxy(home_box, season - 1)
+        previous_season = season - 1
+        away_lineup = self._lineup_proxy(away_box, previous_season)
+        home_lineup = self._lineup_proxy(home_box, previous_season)
+        away_player_rating: dict[str, Any] | None = None
+        home_player_rating: dict[str, Any] | None = None
+        if self.include_player_ratings:
+            prior_hitting = self.hitting_stats_by_season.get(previous_season, {})
+            away_player_rating = lineup_batting_rating_from_boxscore(
+                away_box,
+                prior_hitting,
+                subtract_current_game=True,
+                source="historical_final_boxscore",
+            )
+            home_player_rating = lineup_batting_rating_from_boxscore(
+                home_box,
+                prior_hitting,
+                subtract_current_game=True,
+                source="historical_final_boxscore",
+            )
 
         away_record = self._pregame_team_record(away_team_meta, away_score > home_score)
         home_record = self._pregame_team_record(home_team_meta, home_score > away_score)
@@ -395,7 +426,6 @@ class HistoricalDatasetBuilder:
         away_bullpen = self._extract_bullpen_game_stats(away_box)
         home_bullpen = self._extract_bullpen_game_stats(home_box)
 
-        previous_season = season - 1
         away_prior_pitching = self.pitching_stats_by_season.get(previous_season, {}).get(away_pitcher_id, {})
         home_prior_pitching = self.pitching_stats_by_season.get(previous_season, {}).get(home_pitcher_id, {})
 
@@ -417,6 +447,7 @@ class HistoricalDatasetBuilder:
             "game_pk": game_pk,
             "season": season,
             "game_date": game_date.isoformat(),
+            "game_start_utc": game_data.get("datetime", {}).get("dateTime"),
             "away_team_id": safe_int(away_team_meta.get("id")),
             "home_team_id": safe_int(home_team_meta.get("id")),
             "away_team": away_team_meta.get("name"),
@@ -505,6 +536,26 @@ class HistoricalDatasetBuilder:
             # TODO: lineup-level handedness splits need a dedicated archived lineup source.
             # This OPS/OBP/SLG blend is an explicit proxy, not a full projected wRC+ model.
         }
+
+        if away_player_rating is not None and home_player_rating is not None:
+            row.update(
+                {
+                    "player_rating_schema": RATING_SCHEMA,
+                    "away_lineup_batting_rating": away_player_rating["batting_rating"],
+                    "home_lineup_batting_rating": home_player_rating["batting_rating"],
+                    "away_lineup_power_rating": away_player_rating["power_rating"],
+                    "home_lineup_power_rating": home_player_rating["power_rating"],
+                    "away_lineup_rating_reliability": away_player_rating["reliability"],
+                    "home_lineup_rating_reliability": home_player_rating["reliability"],
+                    "away_lineup_rating_coverage": away_player_rating["coverage"],
+                    "home_lineup_rating_coverage": home_player_rating["coverage"],
+                    "away_lineup_rating_available": away_player_rating["available"],
+                    "home_lineup_rating_available": home_player_rating["available"],
+                    "away_lineup_rating_source": away_player_rating["source"],
+                    "home_lineup_rating_source": home_player_rating["source"],
+                }
+            )
+            row.update(matchup_player_rating_features(home_player_rating, away_player_rating))
 
         odds_row: dict[str, Any] = {}
         if self.odds is not None:
@@ -736,8 +787,13 @@ def build_historical_dataset(
     *,
     output_path: Path = DATASET_PATH,
     include_odds: bool = True,
+    include_player_ratings: bool = False,
 ) -> pd.DataFrame:
-    builder = HistoricalDatasetBuilder(seasons, include_odds=include_odds)
+    builder = HistoricalDatasetBuilder(
+        seasons,
+        include_odds=include_odds,
+        include_player_ratings=include_player_ratings,
+    )
     frame = builder.build()
     frame = add_context_features(frame)
     frame = frame.sort_values(["season", "game_date", "game_pk"]).reset_index(drop=True)
@@ -765,6 +821,14 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="Skip optional historical odds enrichment.",
     )
+    parser.add_argument(
+        "--include-player-ratings",
+        action="store_true",
+        help=(
+            "Add research-only, pregame player-lineup rating columns for the "
+            "separate challenger trainer. Does not alter the production v2 schema."
+        ),
+    )
     return parser.parse_args()
 
 
@@ -774,6 +838,7 @@ def main() -> None:
         args.seasons,
         output_path=Path(args.output),
         include_odds=not args.skip_odds,
+        include_player_ratings=args.include_player_ratings,
     )
     print(f"Saved {len(dataset):,} rows to {args.output}")
     print(f"Columns: {len(dataset.columns)}")

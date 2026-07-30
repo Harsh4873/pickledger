@@ -25,6 +25,15 @@ data/tennis/processed/
 # Cached API data
 data/wnba_*.json
 
+# Rebuildable MLB player-rating research datasets and isolated artifacts.
+# These are retained by the manual GitHub Actions research workflow, never
+# loaded by the public pick pipeline.
+MLBPredictionModel/data/mlb_player_rating_oracle_dataset.csv
+MLBPredictionModel/artifacts/mlb_player_rating_challenger*.joblib
+MLBPredictionModel/artifacts/mlb_player_rating_challenger*_metadata.json
+MLBPredictionModel/artifacts/mlb_player_rating_oracle_challenger*.joblib
+MLBPredictionModel/artifacts/mlb_player_rating_oracle_challenger*_metadata.json
+
 # Local config with API keys
 config.py
 
