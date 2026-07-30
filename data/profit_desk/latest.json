@@ -382,7 +382,7 @@
       "player": null,
       "policyVersion": "profit_desk_policy_v2",
       "price": {
-        "ageHours": 3.534,
+        "ageHours": 3.617,
         "breakEvenProbability": 0.52381,
         "decimalOdds": 1.909091,
         "eligibleForAlphaEstimate": false,
@@ -398,7 +398,7 @@
         "quality": "one_sided",
         "source": "scraped_feed:scores24_tennis",
         "sourceField": "source_registry.scraped_odds",
-        "startTime": "2026-07-30T16:00Z",
+        "startTime": "2026-07-30T16:05Z",
         "tier": "C",
         "tierLabel": "posted_one_sided",
         "timestamp": "2026-07-30T12:27:58.387004Z",
@@ -1242,7 +1242,7 @@
         "quality": "verified_two_sided",
         "source": "posted_market",
         "sourceField": "pick.odds_source",
-        "startTime": "2026-07-31T01:40:00Z",
+        "startTime": "2026-07-31T01:40Z",
         "tier": "B",
         "tierLabel": "posted_two_sided",
         "timestamp": "2026-07-30T18:32Z",
@@ -4804,7 +4804,7 @@
         "quality": "verified_no_vig",
         "source": "espn_scoreboard:DraftKings",
         "sourceField": "pick.price_source",
-        "startTime": "2026-07-30T16:10:00Z",
+        "startTime": "2026-07-30T16:10Z",
         "tier": "A",
         "tierLabel": "certified_executable",
         "timestamp": "2026-07-30T16:03:48.596992Z",
@@ -16177,6 +16177,156 @@
         "value_non_positive_flat_roi",
         "value_probability_positive_ev_below_0.70"
       ],
+      "canonicalGame": "2026-07-30:wnba:las vegas aces|new york liberty",
+      "consensusSources": [],
+      "date": "2026-07-30",
+      "decimalOdds": 1.892857,
+      "decision": "LEAN",
+      "dedupeRule": "exact_market_identity_best_executable_price",
+      "direction": "under",
+      "duplicateCount": 1,
+      "duplicateSources": [
+        "WNBA Model"
+      ],
+      "edgeQualified": false,
+      "estimate": {
+        "alpha": -0.100569,
+        "alphaStdError": 0.090765,
+        "breakEvenProbability": 0.528302,
+        "conservativeExpectedValue": -0.455917,
+        "expectedValue": -0.235739,
+        "lowerProbability": 0.28744,
+        "marketProbability": 0.50433,
+        "method": "market_baseline_plus_hierarchically_shrunk_prior_residual",
+        "probability": 0.403761,
+        "probabilityPositiveEv": 0.085013,
+        "sourceAlpha": -0.092031,
+        "value": {
+          "alpha": -0.092031,
+          "alphaStdError": 0.049697,
+          "conservativeExpectedValue": -0.294757,
+          "expectedValue": -0.174202,
+          "lowerProbability": 0.372581,
+          "method": "source_flat_roi_shrunk_residual_vs_break_even",
+          "probability": 0.436271,
+          "probabilityPositiveEv": 0.032024
+        }
+      },
+      "evidence": {
+        "chronologicalHalvesNonnegative": false,
+        "cutoffExclusive": "2026-07-30",
+        "distinctDates": 2,
+        "firstHalfFlatNetUnits": -1.0,
+        "flatNetUnits": -1.0909,
+        "flatRoi": -0.363636,
+        "losses": 2,
+        "modelVersion": "wnba_total_v2_2026-07-26",
+        "policyVersion": "profit_desk_policy_v2",
+        "priorOnly": true,
+        "pushes": 0,
+        "secondHalfFlatNetUnits": -0.0909,
+        "segmentDistinctDates": 2,
+        "segmentEvidenceKey": "team|wnba|wnba|wnba_total_v2_2026-07-26|totals|under|0.50_0.55",
+        "segmentSamples": 3,
+        "sourceChronologicalHalvesNonnegative": false,
+        "sourceDistinctDates": 10,
+        "sourceEvidenceKey": "team|wnba|wnba",
+        "sourceFirstHalfFlatNetUnits": -11.4245,
+        "sourceFlatNetUnits": -17.7672,
+        "sourceFlatRoi": -0.386244,
+        "sourceLosses": 30,
+        "sourceSamples": 46,
+        "sourceSecondHalfFlatNetUnits": -6.3427,
+        "sourceWins": 16,
+        "wins": 1
+      },
+      "game": "New York Liberty @ Las Vegas Aces",
+      "gradeSupportSource": "repository_grader_default",
+      "gradeSupported": true,
+      "id": "profit-5c74e9276e21a2e77bd734a0",
+      "lane": null,
+      "laneBlockers": {
+        "edge": [
+          "edge_insufficient_source_samples",
+          "edge_insufficient_segment_samples",
+          "edge_insufficient_distinct_prior_dates",
+          "edge_negative_chronological_evidence_half",
+          "edge_probability_positive_ev_below_0.80",
+          "edge_conservative_probability_margin_below_0.02",
+          "edge_non_positive_conservative_ev"
+        ],
+        "structural": [],
+        "value": [
+          "value_insufficient_source_samples",
+          "value_insufficient_distinct_prior_dates",
+          "value_negative_chronological_evidence_half",
+          "value_non_positive_flat_roi",
+          "value_probability_positive_ev_below_0.70"
+        ]
+      },
+      "line": 182.5,
+      "liveQualified": false,
+      "market": "totals",
+      "marketFamily": "totals",
+      "marketIdentity": "market:49648b8373e1f65395811a9f",
+      "mode": "team",
+      "modelVersion": "wnba_total_v2_2026-07-26",
+      "oddsAmerican": -112,
+      "pick": "Under 182.5 (New York Liberty vs Las Vegas Aces)",
+      "player": null,
+      "policyVersion": "profit_desk_policy_v2",
+      "price": {
+        "ageHours": 8.907,
+        "breakEvenProbability": 0.528302,
+        "decimalOdds": 1.892857,
+        "eligibleForAlphaEstimate": true,
+        "fresh": true,
+        "freshPregame": true,
+        "maxAgeHours": 24.0,
+        "noVigInputs": {
+          "field": "market_no_vig_selected_probability"
+        },
+        "noVigMethod": "explicit:pick.market_no_vig_selected_probability",
+        "noVigProbability": 0.50433,
+        "noVigVerified": true,
+        "observedExecutable": true,
+        "oddsAmerican": -112,
+        "quality": "verified_no_vig",
+        "source": "espn_scoreboard:DraftKings",
+        "sourceField": "pick.price_source",
+        "startTime": "2026-07-31T02:00Z",
+        "tier": "A",
+        "tierLabel": "certified_executable",
+        "timestamp": "2026-07-30T17:05:33.554321Z",
+        "timestampField": "pick.market_updated_at",
+        "twoSided": true,
+        "updatedAt": "2026-07-30T17:05:33.554321Z"
+      },
+      "rawModelProbabilityIgnored": 0.6197,
+      "result": "pending",
+      "shadowQualified": false,
+      "source": "WNBA Model",
+      "sourceKey": "wnba",
+      "sport": "WNBA",
+      "stakeUnits": 0.0,
+      "tier": "watch",
+      "valueQualified": false
+    },
+    {
+      "blockers": [
+        "edge_insufficient_source_samples",
+        "edge_insufficient_segment_samples",
+        "edge_insufficient_distinct_prior_dates",
+        "edge_negative_chronological_evidence_half",
+        "edge_probability_positive_ev_below_0.80",
+        "edge_conservative_probability_margin_below_0.02",
+        "edge_non_positive_conservative_ev",
+        "value_insufficient_source_samples",
+        "value_insufficient_distinct_prior_dates",
+        "value_negative_chronological_evidence_half",
+        "value_non_positive_flat_roi",
+        "value_probability_positive_ev_below_0.70"
+      ],
       "canonicalGame": "2026-07-30:wnba:minnesota lynx|toronto tempo",
       "consensusSources": [],
       "date": "2026-07-30",
@@ -17021,7 +17171,7 @@
         "quality": "verified_two_sided",
         "source": "posted_market",
         "sourceField": "pick.odds_source",
-        "startTime": "2026-07-30T17:40:00Z",
+        "startTime": "2026-07-30T17:40Z",
         "tier": "B",
         "tierLabel": "posted_two_sided",
         "timestamp": "2026-07-30T17:56Z",
@@ -17176,159 +17326,6 @@
       "source": "MLBPlayerProps",
       "sourceKey": "mlb_player_props",
       "sport": "MLB",
-      "stakeUnits": 0.0,
-      "tier": "avoid",
-      "valueQualified": false
-    },
-    {
-      "blockers": [
-        "missing_or_invalid_game_start_time",
-        "edge_insufficient_source_samples",
-        "edge_insufficient_segment_samples",
-        "edge_insufficient_distinct_prior_dates",
-        "edge_negative_chronological_evidence_half",
-        "edge_probability_positive_ev_below_0.80",
-        "edge_conservative_probability_margin_below_0.02",
-        "edge_non_positive_conservative_ev",
-        "value_insufficient_source_samples",
-        "value_insufficient_distinct_prior_dates",
-        "value_negative_chronological_evidence_half",
-        "value_non_positive_flat_roi",
-        "value_probability_positive_ev_below_0.70"
-      ],
-      "canonicalGame": "2026-07-30:wnba:las vegas aces|new york liberty",
-      "consensusSources": [],
-      "date": "2026-07-30",
-      "decimalOdds": 1.892857,
-      "decision": "LEAN",
-      "dedupeRule": "exact_market_identity_best_executable_price",
-      "direction": "under",
-      "duplicateCount": 1,
-      "duplicateSources": [
-        "WNBA Model"
-      ],
-      "edgeQualified": false,
-      "estimate": {
-        "alpha": -0.100569,
-        "alphaStdError": 0.090765,
-        "breakEvenProbability": 0.528302,
-        "conservativeExpectedValue": -0.455917,
-        "expectedValue": -0.235739,
-        "lowerProbability": 0.28744,
-        "marketProbability": 0.50433,
-        "method": "market_baseline_plus_hierarchically_shrunk_prior_residual",
-        "probability": 0.403761,
-        "probabilityPositiveEv": 0.085013,
-        "sourceAlpha": -0.092031,
-        "value": {
-          "alpha": -0.092031,
-          "alphaStdError": 0.049697,
-          "conservativeExpectedValue": -0.294757,
-          "expectedValue": -0.174202,
-          "lowerProbability": 0.372581,
-          "method": "source_flat_roi_shrunk_residual_vs_break_even",
-          "probability": 0.436271,
-          "probabilityPositiveEv": 0.032024
-        }
-      },
-      "evidence": {
-        "chronologicalHalvesNonnegative": false,
-        "cutoffExclusive": "2026-07-30",
-        "distinctDates": 2,
-        "firstHalfFlatNetUnits": -1.0,
-        "flatNetUnits": -1.0909,
-        "flatRoi": -0.363636,
-        "losses": 2,
-        "modelVersion": "wnba_total_v2_2026-07-26",
-        "policyVersion": "profit_desk_policy_v2",
-        "priorOnly": true,
-        "pushes": 0,
-        "secondHalfFlatNetUnits": -0.0909,
-        "segmentDistinctDates": 2,
-        "segmentEvidenceKey": "team|wnba|wnba|wnba_total_v2_2026-07-26|totals|under|0.50_0.55",
-        "segmentSamples": 3,
-        "sourceChronologicalHalvesNonnegative": false,
-        "sourceDistinctDates": 10,
-        "sourceEvidenceKey": "team|wnba|wnba",
-        "sourceFirstHalfFlatNetUnits": -11.4245,
-        "sourceFlatNetUnits": -17.7672,
-        "sourceFlatRoi": -0.386244,
-        "sourceLosses": 30,
-        "sourceSamples": 46,
-        "sourceSecondHalfFlatNetUnits": -6.3427,
-        "sourceWins": 16,
-        "wins": 1
-      },
-      "game": "New York Liberty @ Las Vegas Aces",
-      "gradeSupportSource": "repository_grader_default",
-      "gradeSupported": true,
-      "id": "profit-5c74e9276e21a2e77bd734a0",
-      "lane": null,
-      "laneBlockers": {
-        "edge": [
-          "edge_insufficient_source_samples",
-          "edge_insufficient_segment_samples",
-          "edge_insufficient_distinct_prior_dates",
-          "edge_negative_chronological_evidence_half",
-          "edge_probability_positive_ev_below_0.80",
-          "edge_conservative_probability_margin_below_0.02",
-          "edge_non_positive_conservative_ev"
-        ],
-        "structural": [
-          "missing_or_invalid_game_start_time"
-        ],
-        "value": [
-          "value_insufficient_source_samples",
-          "value_insufficient_distinct_prior_dates",
-          "value_negative_chronological_evidence_half",
-          "value_non_positive_flat_roi",
-          "value_probability_positive_ev_below_0.70"
-        ]
-      },
-      "line": 182.5,
-      "liveQualified": false,
-      "market": "totals",
-      "marketFamily": "totals",
-      "marketIdentity": "market:49648b8373e1f65395811a9f",
-      "mode": "team",
-      "modelVersion": "wnba_total_v2_2026-07-26",
-      "oddsAmerican": -112,
-      "pick": "Under 182.5 (New York Liberty vs Las Vegas Aces)",
-      "player": null,
-      "policyVersion": "profit_desk_policy_v2",
-      "price": {
-        "ageHours": null,
-        "breakEvenProbability": 0.528302,
-        "decimalOdds": 1.892857,
-        "eligibleForAlphaEstimate": true,
-        "fresh": false,
-        "freshPregame": false,
-        "maxAgeHours": 24.0,
-        "noVigInputs": {
-          "field": "market_no_vig_selected_probability"
-        },
-        "noVigMethod": "explicit:pick.market_no_vig_selected_probability",
-        "noVigProbability": 0.50433,
-        "noVigVerified": true,
-        "observedExecutable": true,
-        "oddsAmerican": -112,
-        "quality": "verified_no_vig",
-        "source": "espn_scoreboard:DraftKings",
-        "sourceField": "pick.price_source",
-        "startTime": null,
-        "tier": "A",
-        "tierLabel": "certified_executable",
-        "timestamp": "2026-07-30T17:05:33.554321Z",
-        "timestampField": "pick.market_updated_at",
-        "twoSided": true,
-        "updatedAt": "2026-07-30T17:05:33.554321Z"
-      },
-      "rawModelProbabilityIgnored": 0.6197,
-      "result": "pending",
-      "shadowQualified": false,
-      "source": "WNBA Model",
-      "sourceKey": "wnba",
-      "sport": "WNBA",
       "stakeUnits": 0.0,
       "tier": "avoid",
       "valueQualified": false
@@ -18520,7 +18517,7 @@
       "player": null,
       "policyVersion": "profit_desk_policy_v2",
       "price": {
-        "ageHours": -1.009,
+        "ageHours": -0.925,
         "breakEvenProbability": null,
         "decimalOdds": null,
         "eligibleForAlphaEstimate": false,
@@ -18536,7 +18533,7 @@
         "quality": "missing",
         "source": null,
         "sourceField": "missing",
-        "startTime": "2026-07-30T16:00Z",
+        "startTime": "2026-07-30T16:05Z",
         "tier": "D",
         "tierLabel": "assumed_proxy_or_synthetic",
         "timestamp": "2026-07-30T17:00:30.922093Z",
@@ -18668,7 +18665,6 @@
     {
       "blockers": [
         "missing_executable_odds",
-        "price_not_pregame",
         "edge_no_usable_price_baseline",
         "value_no_usable_price_baseline"
       ],
@@ -18727,8 +18723,7 @@
           "edge_no_usable_price_baseline"
         ],
         "structural": [
-          "missing_executable_odds",
-          "price_not_pregame"
+          "missing_executable_odds"
         ],
         "value": [
           "value_no_usable_price_baseline"
@@ -18746,12 +18741,12 @@
       "player": null,
       "policyVersion": "profit_desk_policy_v2",
       "price": {
-        "ageHours": -0.009,
+        "ageHours": 0.491,
         "breakEvenProbability": null,
         "decimalOdds": null,
         "eligibleForAlphaEstimate": false,
-        "fresh": false,
-        "freshPregame": false,
+        "fresh": true,
+        "freshPregame": true,
         "maxAgeHours": 24.0,
         "noVigInputs": {},
         "noVigMethod": "unverified_single_side",
@@ -18762,7 +18757,7 @@
         "quality": "missing",
         "source": null,
         "sourceField": "missing",
-        "startTime": "2026-07-30T17:00Z",
+        "startTime": "2026-07-30T17:30Z",
         "tier": "D",
         "tierLabel": "assumed_proxy_or_synthetic",
         "timestamp": "2026-07-30T17:00:30.922093Z",
@@ -20983,7 +20978,7 @@
         "updatedAt": "2026-07-30T13:02:56.080181Z"
       },
       "rawModelProbabilityIgnored": null,
-      "result": "pending",
+      "result": "win",
       "shadowQualified": false,
       "source": "TennisTonic",
       "sourceKey": "tennistonic_tennis",
@@ -21768,7 +21763,6 @@
     {
       "blockers": [
         "missing_executable_odds",
-        "price_not_pregame",
         "edge_no_usable_price_baseline",
         "value_no_usable_price_baseline"
       ],
@@ -21827,8 +21821,7 @@
           "edge_no_usable_price_baseline"
         ],
         "structural": [
-          "missing_executable_odds",
-          "price_not_pregame"
+          "missing_executable_odds"
         ],
         "value": [
           "value_no_usable_price_baseline"
@@ -21846,12 +21839,12 @@
       "player": null,
       "policyVersion": "profit_desk_policy_v2",
       "price": {
-        "ageHours": -0.009,
+        "ageHours": 0.158,
         "breakEvenProbability": null,
         "decimalOdds": null,
         "eligibleForAlphaEstimate": false,
-        "fresh": false,
-        "freshPregame": false,
+        "fresh": true,
+        "freshPregame": true,
         "maxAgeHours": 24.0,
         "noVigInputs": {},
         "noVigMethod": "unverified_single_side",
@@ -21862,7 +21855,7 @@
         "quality": "missing",
         "source": null,
         "sourceField": "missing",
-        "startTime": "2026-07-30T17:00Z",
+        "startTime": "2026-07-30T17:10Z",
         "tier": "D",
         "tierLabel": "assumed_proxy_or_synthetic",
         "timestamp": "2026-07-30T17:00:30.922093Z",
@@ -24306,7 +24299,7 @@
     }
   ],
   "summary": {
-    "avoid": 47,
+    "avoid": 46,
     "candidateCount": 164,
     "candidatesEvaluated": 164,
     "deduplicatedPicks": 25,
@@ -24359,7 +24352,7 @@
         "watchlist": 52
       },
       "team": {
-        "avoid": 44,
+        "avoid": 43,
         "candidateCount": 109,
         "candidates": 109,
         "candidatesEvaluated": 109,
@@ -24372,7 +24365,7 @@
         "selected": 0,
         "shadowQualified": 0,
         "valueQualified": 0,
-        "watchlist": 65
+        "watchlist": 66
       }
     },
     "observedPriceCandidates": 120,
@@ -24407,6 +24400,6 @@
     },
     "sourcesTracked": 44,
     "valueQualified": 0,
-    "watchlist": 117
+    "watchlist": 118
   }
 }
