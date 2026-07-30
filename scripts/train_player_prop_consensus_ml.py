@@ -8,8 +8,8 @@ import gzip
 import hashlib
 import json
 import math
-import os
 import sys
+from datetime import date, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -36,6 +36,7 @@ from player_props.schema import safe_float  # noqa: E402
 DEFAULT_MARKETS = REPO_ROOT / "data" / "player_props_training" / "market_history_2026.jsonl"
 DEFAULT_OUTCOMES = REPO_ROOT / "data" / "player_props_training" / "outcome_history_2022_2026.jsonl.gz"
 TARGET_ACCURACY = 0.70
+EVALUATION_WINDOW_DAYS = 14
 COUNT_GATE_FEATURES = [
     "season_margin",
     "history_margin",
@@ -685,17 +686,103 @@ def _evaluate_count_gate(frame: Any, gate: Any, threshold: float) -> dict[str, A
     return _metrics(_one_per_event(selected, score="consensus_score"))
 
 
-def _windows(sport: str) -> tuple[tuple[str, str, str], tuple[str, str, str]]:
-    """Chronological (train_cutoff, eval_start, eval_end) windows over the freshest month."""
-    return ("2026-06-21", "2026-06-22", "2026-07-05"), ("2026-07-05", "2026-07-06", "2026-07-19")
+def _windows(
+    sport: str,
+    market_rows: list[dict[str, Any]],
+) -> tuple[tuple[str, str, str], tuple[str, str, str]]:
+    """Build two non-overlapping rolling-origin windows from graded market history.
+
+    Each tuple is ``(train_cutoff, evaluation_start, evaluation_end)``. The
+    previous implementation embedded June/July 2026 dates, so a daily retrain
+    could score a candidate on stale evidence after new results arrived.
+    """
+    dates: list[date] = []
+    for row in market_rows:
+        if str(row.get("sport") or "").upper() != sport:
+            continue
+        try:
+            dates.append(date.fromisoformat(str(row.get("date") or "")))
+        except ValueError:
+            continue
+    if not dates:
+        raise ValueError(f"No dated {sport} market rows are available for consensus validation")
+
+    holdout_end = max(dates)
+    holdout_start = holdout_end - timedelta(days=EVALUATION_WINDOW_DAYS - 1)
+    validation_end = holdout_start - timedelta(days=1)
+    validation_start = validation_end - timedelta(days=EVALUATION_WINDOW_DAYS - 1)
+    return (
+        ((validation_start - timedelta(days=1)).isoformat(), validation_start.isoformat(), validation_end.isoformat()),
+        ((holdout_start - timedelta(days=1)).isoformat(), holdout_start.isoformat(), holdout_end.isoformat()),
+    )
+
+
+def _sport_is_active(metadata: dict[str, Any] | None, sport: str) -> bool:
+    if not isinstance(metadata, dict):
+        return False
+    sports = metadata.get("sports")
+    if not isinstance(sports, dict):
+        return False
+    sport_metadata = sports.get(sport)
+    return isinstance(sport_metadata, dict) and sport_metadata.get("active") is True
+
+
+def _publication_plan(
+    candidate_metadata: dict[str, Any],
+    existing_metadata: dict[str, Any] | None,
+) -> tuple[dict[str, Any], set[str]]:
+    """Keep each sport's last validated artifact when its new candidate fails."""
+    candidate_sports = candidate_metadata.get("sports")
+    if not isinstance(candidate_sports, dict):
+        raise ValueError("Candidate consensus metadata must include per-sport results")
+
+    existing_sports = (
+        existing_metadata.get("sports")
+        if isinstance(existing_metadata, dict) and isinstance(existing_metadata.get("sports"), dict)
+        else {}
+    )
+    publication_sports: dict[str, Any] = {}
+    publish_artifacts_for: set[str] = set()
+    preserved_sports: list[str] = []
+    for sport, candidate_sport in candidate_sports.items():
+        if not isinstance(candidate_sport, dict):
+            raise ValueError(f"Candidate consensus metadata for {sport} is invalid")
+        existing_sport = existing_sports.get(sport)
+        if candidate_sport.get("active") is True:
+            publication_sports[sport] = candidate_sport
+            publish_artifacts_for.add(sport)
+        elif isinstance(existing_sport, dict) and existing_sport.get("active") is True:
+            publication_sports[sport] = existing_sport
+            preserved_sports.append(sport)
+        else:
+            publication_sports[sport] = candidate_sport
+
+    publication_metadata = dict(candidate_metadata)
+    publication_metadata["sports"] = publication_sports
+    publication_metadata["active"] = any(
+        sport_metadata.get("active") is True
+        for sport_metadata in publication_sports.values()
+        if isinstance(sport_metadata, dict)
+    )
+    if preserved_sports:
+        publication_metadata["preserved_sports"] = preserved_sports
+    else:
+        publication_metadata.pop("preserved_sports", None)
+    return publication_metadata, publish_artifacts_for
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--markets", type=Path, default=DEFAULT_MARKETS)
     parser.add_argument("--outcomes", type=Path, default=DEFAULT_OUTCOMES)
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Train and evaluate the candidate without replacing published artifacts.",
+    )
     args = parser.parse_args()
     market_rows = _read_jsonl(args.markets.resolve())
+    evaluation_windows = {sport: _windows(sport, market_rows) for sport in POLICIES}
     outcome_rows = [
         row for row in _read_jsonl(args.outcomes.resolve())
         if str(row.get("stat_key") or "") in TARGET_STATS.get(str(row.get("sport") or "").upper(), set())
@@ -745,7 +832,7 @@ def main() -> int:
     validation_results: dict[str, dict[str, dict[str, Any]]] = {"MLB": {}, "WNBA": {}}
     count_gate_models: dict[str, Any] = {}
     for sport, sport_policies in POLICIES.items():
-        validation_window, holdout_window = _windows(sport)
+        validation_window, holdout_window = evaluation_windows[sport]
         for stat_key, policy in sport_policies.items():
             if sport == "WNBA" and stat_key in {"assists", "three_pointers_made"}:
                 prediction_frames: list[Any] = []
@@ -1087,6 +1174,21 @@ def main() -> int:
         "training_fingerprint": fingerprint,
         "market_rows": len(market_rows),
         "outcome_rows": len(outcome_rows),
+        "evaluation_windows": {
+            sport: {
+                "validation": {
+                    "train_through": windows[0][0],
+                    "start": windows[0][1],
+                    "end": windows[0][2],
+                },
+                "holdout": {
+                    "train_through": windows[1][0],
+                    "start": windows[1][1],
+                    "end": windows[1][2],
+                },
+            }
+            for sport, windows in evaluation_windows.items()
+        },
         "activation_requirements": {
             "minimum_accuracy": TARGET_ACCURACY,
             "chronological_validation_and_later_holdout": True,
@@ -1094,33 +1196,39 @@ def main() -> int:
             "sport_specific_three_or_five_year_window_selected_by_holdout": True,
         },
     }
-    debug_path = Path(os.environ.get("PICKLEDGER_CONSENSUS_DEBUG_PATH", "/tmp/consensus_metadata_new.json"))
-    try:
-        debug_path.write_text(json.dumps(metadata, indent=2, sort_keys=True) + "\n", encoding="utf-8")
-    except OSError:
-        pass
-    ARTIFACT_DIR.mkdir(parents=True, exist_ok=True)
-    for key, artifact in final_artifacts.items():
-        joblib.dump(artifact, MODEL_PATHS[key], compress=3)
     existing_metadata: dict[str, Any] | None = None
     if CONSENSUS_METADATA_PATH.exists():
         try:
             existing_metadata = json.loads(CONSENSUS_METADATA_PATH.read_text(encoding="utf-8"))
         except json.JSONDecodeError:
             existing_metadata = None
-    if metadata.get("active") is not True:
+    if args.dry_run:
+        print(json.dumps(metadata, indent=2, sort_keys=True))
+        return 0 if metadata.get("active") is True else 2
+    publication_metadata, publish_artifacts_for = _publication_plan(metadata, existing_metadata)
+    if not publish_artifacts_for:
         if isinstance(existing_metadata, dict) and existing_metadata.get("active") is True:
             print(
-                "[player-prop-consensus] activation gate failed; preserving existing active metadata",
+                "[player-prop-consensus] activation gate failed; preserving existing active artifacts",
                 file=sys.stderr,
             )
             print(json.dumps(existing_metadata, indent=2, sort_keys=True))
             return 2
-        CONSENSUS_METADATA_PATH.write_text(json.dumps(metadata, indent=2, sort_keys=True) + "\n", encoding="utf-8")
-        print(json.dumps(metadata, indent=2, sort_keys=True))
+        CONSENSUS_METADATA_PATH.write_text(
+            json.dumps(publication_metadata, indent=2, sort_keys=True) + "\n",
+            encoding="utf-8",
+        )
+        print(json.dumps(publication_metadata, indent=2, sort_keys=True))
         return 2
-    CONSENSUS_METADATA_PATH.write_text(json.dumps(metadata, indent=2, sort_keys=True) + "\n", encoding="utf-8")
-    print(json.dumps(metadata, indent=2, sort_keys=True))
+    ARTIFACT_DIR.mkdir(parents=True, exist_ok=True)
+    for key, artifact in final_artifacts.items():
+        if key[0] in publish_artifacts_for:
+            joblib.dump(artifact, MODEL_PATHS[key], compress=3)
+    CONSENSUS_METADATA_PATH.write_text(
+        json.dumps(publication_metadata, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    print(json.dumps(publication_metadata, indent=2, sort_keys=True))
     return 0
 
 

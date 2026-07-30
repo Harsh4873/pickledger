@@ -66,7 +66,7 @@ jobs:
             --max-workers 20
 
       - name: Train or verify player-prop ML artifacts
-        run: python scripts/train_player_prop_ml.py
+        run: python scripts/train_player_prop_ml.py --force
 
       - name: Train and validate four-model consensus
         run: python scripts/train_player_prop_consensus_ml.py
