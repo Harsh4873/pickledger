@@ -1635,6 +1635,144 @@
     },
     {
       "blockers": [
+        "edge_insufficient_distinct_prior_dates",
+        "edge_negative_chronological_evidence_half",
+        "edge_probability_positive_ev_below_0.80",
+        "edge_conservative_probability_margin_below_0.02",
+        "edge_non_positive_conservative_ev",
+        "value_negative_chronological_evidence_half"
+      ],
+      "canonicalGame": "2026-08-01:mlb:colorado rockies|kansas city royals",
+      "consensusSources": [],
+      "date": "2026-08-01",
+      "decimalOdds": 1.374532,
+      "decision": "LEAN",
+      "dedupeRule": "exact_market_identity_best_executable_price",
+      "direction": "under",
+      "duplicateCount": 1,
+      "duplicateSources": [
+        "MLBPlayerProps"
+      ],
+      "edgeQualified": false,
+      "estimate": {
+        "alpha": 0.052645,
+        "alphaStdError": 0.043717,
+        "breakEvenProbability": 0.72752,
+        "conservativeExpectedValue": -0.074226,
+        "expectedValue": 0.002783,
+        "lowerProbability": 0.673519,
+        "marketProbability": 0.6769,
+        "method": "market_baseline_plus_hierarchically_shrunk_prior_residual",
+        "probability": 0.729545,
+        "probabilityPositiveEv": 0.51847,
+        "sourceAlpha": 0.021224,
+        "value": {
+          "alpha": 0.021224,
+          "alphaStdError": 0.022699,
+          "conservativeExpectedValue": -0.010811,
+          "expectedValue": 0.029174,
+          "lowerProbability": 0.719655,
+          "method": "source_flat_roi_shrunk_residual_vs_break_even",
+          "probability": 0.748745,
+          "probabilityPositiveEv": 0.82512
+        }
+      },
+      "evidence": {
+        "chronologicalHalvesNonnegative": false,
+        "cutoffExclusive": "2026-08-01",
+        "distinctDates": 12,
+        "firstHalfFlatNetUnits": 3.3572,
+        "flatNetUnits": 0.8171,
+        "flatRoi": 0.014857,
+        "losses": 11,
+        "modelVersion": "player_props_consensus_v2.0.0",
+        "policyVersion": "profit_desk_policy_v2",
+        "priorOnly": true,
+        "pushes": 0,
+        "secondHalfFlatNetUnits": -2.54,
+        "segmentDistinctDates": 12,
+        "segmentEvidenceKey": "player|mlb_player_props|mlb|player_props_consensus_v2.0.0|batter walks|under|gte_0.60",
+        "segmentSamples": 55,
+        "sourceChronologicalHalvesNonnegative": false,
+        "sourceDistinctDates": 35,
+        "sourceEvidenceKey": "player|mlb_player_props|mlb",
+        "sourceFirstHalfFlatNetUnits": 18.3426,
+        "sourceFlatNetUnits": 17.5465,
+        "sourceFlatRoi": 0.042692,
+        "sourceLosses": 195,
+        "sourceSamples": 411,
+        "sourceSecondHalfFlatNetUnits": -0.796,
+        "sourceWins": 216,
+        "wins": 44
+      },
+      "game": "Kansas City Royals @ Colorado Rockies",
+      "gradeSupportSource": "repository_grader_default",
+      "gradeSupported": true,
+      "id": "profit-d7e25139e2b03c157147b76b",
+      "lane": null,
+      "laneBlockers": {
+        "edge": [
+          "edge_insufficient_distinct_prior_dates",
+          "edge_negative_chronological_evidence_half",
+          "edge_probability_positive_ev_below_0.80",
+          "edge_conservative_probability_margin_below_0.02",
+          "edge_non_positive_conservative_ev"
+        ],
+        "structural": [],
+        "value": [
+          "value_negative_chronological_evidence_half"
+        ]
+      },
+      "line": 0.5,
+      "liveQualified": false,
+      "market": "Total Walks (Batter)",
+      "marketFamily": "batter walks",
+      "marketIdentity": "market:ec0544648ca55c05b69bbee0",
+      "mode": "player",
+      "modelVersion": "player_props_consensus_v2.0.0",
+      "oddsAmerican": -267,
+      "pick": "Josh Rojas Under 0.5 Walks",
+      "player": "Josh Rojas",
+      "policyVersion": "profit_desk_policy_v2",
+      "price": {
+        "ageHours": 7.45,
+        "breakEvenProbability": 0.72752,
+        "decimalOdds": 1.374532,
+        "eligibleForAlphaEstimate": true,
+        "fresh": true,
+        "freshPregame": true,
+        "maxAgeHours": 24.0,
+        "noVigInputs": {
+          "field": "market_no_vig_selected_probability"
+        },
+        "noVigMethod": "explicit:pick.market_no_vig_selected_probability",
+        "noVigProbability": 0.6769,
+        "noVigVerified": true,
+        "observedExecutable": true,
+        "oddsAmerican": -267,
+        "quality": "verified_two_sided",
+        "source": "posted_market",
+        "sourceField": "pick.odds_source",
+        "startTime": "2026-08-02T00:10:00Z",
+        "tier": "B",
+        "tierLabel": "posted_two_sided",
+        "timestamp": "2026-08-01T16:43Z",
+        "timestampField": "pick.market_updated_at",
+        "twoSided": true,
+        "updatedAt": "2026-08-01T16:43Z"
+      },
+      "rawModelProbabilityIgnored": 0.7686,
+      "result": "pending",
+      "shadowQualified": false,
+      "source": "MLBPlayerProps",
+      "sourceKey": "mlb_player_props",
+      "sport": "MLB",
+      "stakeUnits": 0.0,
+      "tier": "watch",
+      "valueQualified": false
+    },
+    {
+      "blockers": [
         "edge_negative_chronological_evidence_half",
         "edge_probability_positive_ev_below_0.80",
         "edge_conservative_probability_margin_below_0.02",
@@ -36312,7 +36450,7 @@
   "date": "2026-08-01",
   "engineVersion": "profit_desk_v2_live",
   "firstLiveDate": "2026-07-11",
-  "generatedAt": "2026-08-01T14:20:14.540602Z",
+  "generatedAt": "2026-08-01T14:36:35.093072Z",
   "notices": [
     "Qualified picks carry real flat stakes: EDGE 1.0u, VALUE 0.5u; everything else stays 0u.",
     "The market price is the baseline; historical residual alpha is shrunk and uncertainty-adjusted.",
@@ -37604,7 +37742,7 @@
     },
     {
       "alpha": 0.021224,
-      "candidatesToday": 1,
+      "candidatesToday": 2,
       "distinctDates": 35,
       "evidenceQualified": false,
       "flatNetUnits": 17.5465,
@@ -39629,12 +39767,12 @@
   ],
   "summary": {
     "avoid": 112,
-    "candidateCount": 278,
-    "candidatesEvaluated": 278,
+    "candidateCount": 279,
+    "candidatesEvaluated": 279,
     "deduplicatedPicks": 54,
     "edgeQualified": 0,
     "evidenceRows": 3363,
-    "inputPicks": 332,
+    "inputPicks": 333,
     "livePortfolioCandidates": 3,
     "liveQualified": 5,
     "liveRecord": {
@@ -39666,19 +39804,19 @@
     "modes": {
       "player": {
         "avoid": 0,
-        "candidateCount": 48,
-        "candidates": 48,
-        "candidatesEvaluated": 48,
+        "candidateCount": 49,
+        "candidates": 49,
+        "candidatesEvaluated": 49,
         "edgeQualified": 0,
         "evidenceRows": 1142,
         "liveQualified": 0,
-        "observedPriceCandidates": 48,
+        "observedPriceCandidates": 49,
         "portfolioCandidates": 0,
         "researchQualified": 0,
         "selected": 0,
         "shadowQualified": 0,
         "valueQualified": 0,
-        "watchlist": 48
+        "watchlist": 49
       },
       "team": {
         "avoid": 112,
@@ -39697,7 +39835,7 @@
         "watchlist": 113
       }
     },
-    "observedPriceCandidates": 166,
+    "observedPriceCandidates": 167,
     "portfolioCandidates": 3,
     "researchQualified": 5,
     "researchRecord": {
@@ -39729,6 +39867,6 @@
     },
     "sourcesTracked": 45,
     "valueQualified": 5,
-    "watchlist": 161
+    "watchlist": 162
   }
 }
