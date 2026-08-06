@@ -240,7 +240,7 @@ def fetch_daily_matchups(
     """
     config = config or SPORT_CONFIG[sport]
     url = (
-        "https://site.api.espn.com/apis/site/v2/sports/"
+        "http://site.api.espn.com/apis/site/v2/sports/"
         f"{config['espn_sport']}/{config['espn_league']}/scoreboard?dates={date_iso.replace('-', '')}"
     )
     client = session or requests.Session()

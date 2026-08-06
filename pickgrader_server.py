@@ -1566,7 +1566,7 @@ def parse_pick_date(date_text: str, year: int) -> str | None:
 
 def fetch_scoreboard(sport: str, league: str, yyyymmdd: str) -> dict[str, Any] | None:
     url = (
-        f"https://site.api.espn.com/apis/site/v2/sports/{sport}/{league}/scoreboard"
+        f"http://site.api.espn.com/apis/site/v2/sports/{sport}/{league}/scoreboard"
         f"?dates={yyyymmdd}"
     )
     req = Request(url, headers={"User-Agent": USER_AGENT})
@@ -1599,7 +1599,7 @@ def fetch_event_summary(sport: str, league: str, event_id: str) -> dict[str, Any
     if not event_id:
         return None
     url = (
-        f"https://site.api.espn.com/apis/site/v2/sports/{sport}/{league}/summary"
+        f"http://site.api.espn.com/apis/site/v2/sports/{sport}/{league}/summary"
         f"?event={event_id}"
     )
     req = Request(url, headers={"User-Agent": USER_AGENT})

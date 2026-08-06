@@ -58,7 +58,7 @@ from .mls_data import (
     merge_matches,
 )
 
-ESPN_SITE_API = "https://site.api.espn.com/apis/site/v2/sports/soccer"
+ESPN_SITE_API = "http://site.api.espn.com/apis/site/v2/sports/soccer"
 USER_AGENT = "PickLedgerMLSModel/2.0"
 MODEL_PATH = ARTIFACT_DIR / "mls_model.json"
 # ESPN backfill covers the window between the committed archive / workbook and

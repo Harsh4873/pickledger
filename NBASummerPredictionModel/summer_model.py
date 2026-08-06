@@ -22,7 +22,7 @@ from urllib.request import Request, urlopen
 
 
 ESPN_SUMMER_SCOREBOARD_URL = (
-    "https://site.api.espn.com/apis/site/v2/sports/basketball/nba-summer/scoreboard"
+    "http://site.api.espn.com/apis/site/v2/sports/basketball/nba-summer/scoreboard"
 )
 USER_AGENT = "Mozilla/5.0 PickLedgerPro NBASummer/1.0"
 

@@ -58,7 +58,7 @@ from scripts.scrapers.scores24_scraper import (  # noqa: E402
 
 CENTRAL = ZoneInfo("America/Chicago")
 ESPN_SCOREBOARD_URL = (
-    "https://site.api.espn.com/apis/site/v2/sports/tennis/{league}/scoreboard?dates={date}"
+    "http://site.api.espn.com/apis/site/v2/sports/tennis/{league}/scoreboard?dates={date}"
 )
 TENNISTONIC_BASE = "https://tennistonic.com"
 SCORES24_BASE = "https://scores24.live"

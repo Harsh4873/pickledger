@@ -362,7 +362,7 @@ def _event_rows(sport: str, slate_date: str, event: dict[str, Any]) -> list[dict
     provider_id, provider_name = _event_provider(event)
     client = DirectApiClient(timeout=25.0, attempts=3)
     summary = client._get(  # noqa: SLF001 - direct archived ESPN endpoint
-        f"https://site.api.espn.com/apis/site/v2/sports/{config['segment']}/{config['league']}/summary",
+        f"http://site.api.espn.com/apis/site/v2/sports/{config['segment']}/{config['league']}/summary",
         {"event": event_id},
     )
     try:

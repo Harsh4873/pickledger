@@ -53,7 +53,7 @@ if not BDL_API_KEY:
 # Constants
 # ---------------------------------------------------------------------------
 ESPN_INJURY_URL = (
-    "https://site.api.espn.com/apis/site/v2/sports/basketball/wnba/injuries"
+    "http://site.api.espn.com/apis/site/v2/sports/basketball/wnba/injuries"
     "?team={espn_id}"
 )
 ROTOWIRE_INJURY_URL = (

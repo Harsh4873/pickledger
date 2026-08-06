@@ -45,7 +45,7 @@ from run_live import (  # noqa: E402
 MODEL_SOURCE = "NBA Playoffs"
 DEFAULT_SEASON = os.environ.get("NBA_MODEL_SEASON", "2025-26").strip() or "2025-26"
 ESPN_SCOREBOARD_URL = (
-    "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard"
+    "http://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard"
 )
 USER_AGENT = "Mozilla/5.0 PickLedgerPro NBAPlayoffs/1.0"
 LEAGUE_AVG_RATING = 114.0

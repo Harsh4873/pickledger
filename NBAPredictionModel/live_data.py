@@ -24,8 +24,8 @@ from nba_api.stats.endpoints import (
 _nba_teams = teams.get_teams()
 _GARBAGE_TIME_MARGIN_CAP = 15.0
 REQUEST_PAUSE_SECONDS = 0.1 if os.environ.get("RENDER", "").strip().lower() == "true" else 0.6
-ESPN_NBA_TEAMS_URL = "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/teams"
-ESPN_NBA_SCOREBOARD_URL = "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard"
+ESPN_NBA_TEAMS_URL = "http://site.api.espn.com/apis/site/v2/sports/basketball/nba/teams"
+ESPN_NBA_SCOREBOARD_URL = "http://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard"
 ESPN_USER_AGENT = "Mozilla/5.0 PickLedgerPro NBA fallback/1.0"
 
 
@@ -726,7 +726,7 @@ def fetch_espn_total_lines(date_str: str = None) -> dict:
         return {}
 
     url = (
-        'https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard'
+        'http://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard'
         f'?dates={yyyymmdd}'
     )
 
