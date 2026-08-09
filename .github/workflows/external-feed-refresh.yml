@@ -1,6 +1,6 @@
 name: External Feed Refresh
 
-# Runs SportyTrader, SportsGambler, Forebet, and Covers scrapers on a daily
+# Runs SportyTrader, SportsGambler, Forebet, and TennisTonic scrapers on a daily
 # schedule and publishes their results into data/model_cache so GitHub Pages
 # can serve them without waiting on the cloud backend.
 
@@ -20,7 +20,7 @@ on:
       feeds:
         description: "Comma-separated feeds, or all"
         required: false
-        default: "sportytrader,sportsgambler,forebet_mls,forebet_mlb,forebet_wnba,covers_experts_mlb,covers_experts_wnba,covers_computer_mlb,covers_consensus_mlb,covers_consensus_wnba,covers_props_mlb,tennistonic_tennis"
+        default: "sportytrader,sportsgambler,forebet_mls,forebet_mlb,forebet_wnba,tennistonic_tennis"
 
 permissions:
   contents: write
@@ -62,7 +62,7 @@ jobs:
         run: |
           python scripts/refresh_external_feeds.py \
             --date "${{ github.event.inputs.date || '' }}" \
-            --feeds "${{ github.event.inputs.feeds || 'sportytrader,sportsgambler,forebet_mls,forebet_mlb,forebet_wnba,covers_experts_mlb,covers_experts_wnba,covers_computer_mlb,covers_consensus_mlb,covers_consensus_wnba,covers_props_mlb,tennistonic_tennis' }}" \
+            --feeds "${{ github.event.inputs.feeds || 'sportytrader,sportsgambler,forebet_mls,forebet_mlb,forebet_wnba,tennistonic_tennis' }}" \
             --sports "nba,mlb,wnba" \
             --skip-firestore
 

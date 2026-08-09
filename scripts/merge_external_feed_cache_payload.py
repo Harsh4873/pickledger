@@ -35,15 +35,18 @@ EXTERNAL_FEED_MODEL_KEYS = {
     "forebet_mls",
     "forebet_mlb",
     "forebet_wnba",
+    "tennistonic_tennis",
+    "scores24_tennis",
+}
+RETIRED_MODEL_KEYS = {
     "covers_experts_mlb",
     "covers_experts_wnba",
     "covers_computer_mlb",
     "covers_consensus_mlb",
     "covers_consensus_wnba",
     "covers_props_mlb",
-    "tennistonic_tennis",
-    "scores24_tennis",
 }
+RETIRED_MODEL_PREFIXES = ("covers_",)
 SPLIT_EXTERNAL_FEED_LEGACY_KEYS = {"sportytrader", "sportsgambler"}
 EXTERNAL_FEED_SPORT_KEYS = {
     "NBA": "nba",
@@ -135,11 +138,36 @@ def _write_json(path: Path, payload: dict[str, Any]) -> None:
         handle.write("\n")
 
 
+def _is_retired_model_key(value: Any) -> bool:
+    return str(value or "").strip().lower().startswith(RETIRED_MODEL_PREFIXES)
+
+
+def _without_retired_buckets(payload: dict[str, Any]) -> dict[str, Any]:
+    """Drop retired feeds from every cache representation."""
+    cleaned = dict(payload)
+    for container_key in ("models", "external_feeds"):
+        container = payload.get(container_key)
+        if isinstance(container, dict):
+            cleaned[container_key] = {
+                key: value
+                for key, value in container.items()
+                if not _is_retired_model_key(key)
+            }
+    for key in list(cleaned):
+        if _is_retired_model_key(key):
+            cleaned.pop(key, None)
+    return cleaned
+
+
 def _seed_external_feeds_from_latest(latest_payload: dict[str, Any]) -> dict[str, Any]:
     seeded: dict[str, Any] = {}
     external_feeds = latest_payload.get("external_feeds")
     if isinstance(external_feeds, dict):
-        seeded.update(external_feeds)
+        seeded.update({
+            key: value
+            for key, value in external_feeds.items()
+            if not _is_retired_model_key(key)
+        })
     models = latest_payload.get("models")
     if isinstance(models, dict):
         for key in EXTERNAL_FEED_MODEL_KEYS:
@@ -318,7 +346,8 @@ def merge_payload(generated: dict[str, Any], cache_dir: Path) -> dict[str, Any]:
     if not date_iso:
         raise SystemExit("Generated external feed cache is missing date")
 
-    current = _current_payload(cache_dir, date_iso)
+    current = _without_retired_buckets(_current_payload(cache_dir, date_iso))
+    generated = _without_retired_buckets(generated)
     merged = dict(current)
     for key in ("date", "updatedAt", "externalFeedsUpdatedAt", "external_feed_errors"):
         if key in generated:
@@ -374,7 +403,7 @@ def merge_payload(generated: dict[str, Any], cache_dir: Path) -> dict[str, Any]:
             else:
                 merged[split_key] = split_bucket
 
-    return merged
+    return _without_retired_buckets(merged)
 
 
 def write_merged_payload(merged: dict[str, Any], cache_dir: Path) -> bool:

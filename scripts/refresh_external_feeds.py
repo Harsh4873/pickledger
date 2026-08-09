@@ -21,14 +21,6 @@ from scripts.cache_manifest import write_cache_manifest  # noqa: E402
 from scripts.market_odds import apply_market_odds_to_payload  # noqa: E402
 from scripts.merge_external_feed_cache_payload import merge_payload  # noqa: E402
 from scripts.pick_calibration import apply_calibration_to_payload  # noqa: E402
-from scripts.scrapers.covers_scraper import (  # noqa: E402
-    run_covers_computer_mlb,
-    run_covers_consensus_mlb,
-    run_covers_consensus_wnba,
-    run_covers_experts_mlb,
-    run_covers_experts_wnba,
-    run_covers_props_mlb,
-)
 from scripts.scrapers.forebet_scraper import (  # noqa: E402
     run_forebet_mlb,
     run_forebet_mls,
@@ -56,12 +48,6 @@ FEED_RUNNERS: dict[str, Callable[[str, list[str]], dict[str, Any]]] = {
     "forebet_mls": run_forebet_mls,
     "forebet_mlb": run_forebet_mlb,
     "forebet_wnba": run_forebet_wnba,
-    "covers_experts_mlb": run_covers_experts_mlb,
-    "covers_experts_wnba": run_covers_experts_wnba,
-    "covers_computer_mlb": run_covers_computer_mlb,
-    "covers_consensus_mlb": run_covers_consensus_mlb,
-    "covers_consensus_wnba": run_covers_consensus_wnba,
-    "covers_props_mlb": run_covers_props_mlb,
     "tennistonic_tennis": run_tennistonic_tennis,
     "scores24_tennis": run_scores24_tennis,
 }

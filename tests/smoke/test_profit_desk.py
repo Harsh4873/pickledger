@@ -79,6 +79,55 @@ def make_payload(picks: list[dict], *, slate_date: str = DATE, source_key: str =
     }
 
 
+def test_retired_covers_sources_never_enter_profit_desk_candidates_or_evidence():
+    prior_date = (date.fromisoformat(DATE) - timedelta(days=1)).isoformat()
+    current = {
+        "date": DATE,
+        "models": {
+            "test": {"ok": True, "picks": [make_pick(pick="Keep ML", slate_date=DATE)]},
+            "covers_experts_mlb": {
+                "ok": True,
+                "picks": [make_pick(pick="Retired ML", source="Covers Expert", slate_date=DATE)],
+            },
+        },
+    }
+    history = {
+        "date": prior_date,
+        "models": {
+            "test": {
+                "ok": True,
+                "picks": [make_pick(pick="Keep History ML", slate_date=prior_date, result="win")],
+            },
+            "covers_future_mlb": {
+                "ok": True,
+                "picks": [make_pick(
+                    pick="Retired History ML",
+                    source="Covers Future",
+                    slate_date=prior_date,
+                    result="win",
+                )],
+            },
+        },
+    }
+
+    built = desk.build_profit_desk_payload(
+        DATE,
+        current,
+        None,
+        team_history=[history],
+        prop_history=[],
+    )
+
+    assert built["summary"]["inputPicks"] == 1
+    assert built["summary"]["evidenceRows"] == 1
+    assert built["summary"]["candidateCount"] == 1
+    assert built["candidates"][0]["sourceKey"] == "test"
+    assert built["candidates"][0]["evidence"]["sourceSamples"] == 1
+    assert all(not row["sourceKey"].startswith("covers_") for row in built["sources"])
+    for rows in built["portfolio"].values():
+        assert all(not row["sourceKey"].startswith("covers_") for row in rows)
+
+
 def history_payloads(
     *,
     wins_per_date: int = 5,

@@ -257,6 +257,7 @@ export interface ProfitDeskBlocker {
 
 export interface ProfitDeskCandidate {
   id?: string;
+  sourceKey?: string;
   mode?: PickMode;
   tier?: ProfitDeskTier | string;
   portfolioSelected?: boolean;
@@ -424,19 +425,11 @@ const SOURCE_LABELS: Record<string, string> = {
   scores24_tennis: 'Scores24Tennis',
   tennistonic_tennis: 'TennisTonic',
   tennis: 'Tennis Model',
-  // Covers buckets carry per-row source labels ("Covers · <Author>",
-  // "Covers Computer MLB", …); these are fallbacks for rows missing one.
-  covers_experts_mlb: 'Covers Expert',
-  covers_experts_wnba: 'Covers Expert',
-  covers_computer_mlb: 'Covers Computer MLB',
-  covers_consensus_mlb: 'Covers Consensus MLB',
-  covers_consensus_wnba: 'Covers Consensus WNBA',
-  covers_props_mlb: 'Covers Props (BAT X)',
 };
 
 // Bucket-key prefixes that identify a scraped tipster feed rather than an
 // in-house model. Prefix-matched on purpose: the providers keep splitting into
-// per-sport buckets (covers_experts_mlb, covers_experts_wnba, …), and a new
+// per-sport buckets (sportytrader_mlb, sportsgambler_wnba, …), and a new
 // split should be covered without editing this list. In-house model keys
 // (mlb_*, nba*, wnba, mls, nfl, tennis, fifa_world_cup, ipl) share no prefix
 // with any provider, so there is nothing to collide with.
@@ -445,9 +438,17 @@ const SCRAPED_BUCKET_PREFIXES = [
   'sportytrader_',
   'sportsgambler_',
   'forebet_',
-  'covers_',
   'tennistonic_',
 ];
+
+// Retired providers remain in immutable historical cache files, but their
+// buckets must never enter any viewer, ranking, search result, or prop mode.
+const RETIRED_BUCKET_PREFIXES = ['covers_'];
+
+function isRetiredBucket(modelKey: string): boolean {
+  const key = String(modelKey || '').trim().toLowerCase();
+  return RETIRED_BUCKET_PREFIXES.some(prefix => key.startsWith(prefix));
+}
 
 function isScrapedBucket(modelKey: string): boolean {
   const key = String(modelKey || '').trim().toLowerCase();
@@ -513,7 +514,7 @@ const PLAYER_PROP_SOURCE_LABELS: Record<string, string> = {
 const MLB_PLAYER_PROPS_MODEL_KEY = 'mlb_player_props';
 const MLB_WALKS_SOURCE = 'MLBWalks';
 
-// Covers batter walks and the pitcher walks-allowed line; both are walk
+// Includes batter walks and the pitcher walks-allowed line; both are walk
 // markets and neither carries enough volume to stand on its own.
 function isWalkPropMarket(raw: Record<string, unknown>): boolean {
   return String(raw.stat_key || raw.market_type || raw.market || '')
@@ -716,6 +717,7 @@ function picksFromCache(payload: ModelCachePayload): Pick[] {
   const picks: Pick[] = [];
 
   for (const [modelKey, bucket] of Object.entries(models)) {
+    if (isRetiredBucket(modelKey)) continue;
     if (!bucket || typeof bucket !== 'object' || bucket.ok === false) continue;
     const scraped = isScrapedBucket(modelKey);
     const gameByMatchup = new Map<string, Record<string, unknown>>();
@@ -849,13 +851,49 @@ async function loadParlayCardFiles(): Promise<ParlayCardsPayload[]> {
   return payloads;
 }
 
+function isRetiredProviderName(value: unknown): boolean {
+  const normalized = String(value || '').trim().toLowerCase();
+  return isRetiredBucket(normalized)
+    || normalized === 'covers'
+    || normalized.startsWith('covers ')
+    || normalized.startsWith('covers ·');
+}
+
+function withoutRetiredProfitDeskSources(payload: ProfitDeskPayload): ProfitDeskPayload {
+  const sanitizeCandidate = (candidate: ProfitDeskCandidate): ProfitDeskCandidate => ({
+    ...candidate,
+    consensusSources: Array.isArray(candidate.consensusSources)
+      ? candidate.consensusSources.filter(source => !isRetiredProviderName(source))
+      : candidate.consensusSources,
+  });
+  const keepCandidate = (candidate: ProfitDeskCandidate): boolean => (
+    !isRetiredProviderName(candidate.sourceKey) && !isRetiredProviderName(candidate.source)
+  );
+  const candidates = Array.isArray(payload.candidates)
+    ? payload.candidates.filter(keepCandidate).map(sanitizeCandidate)
+    : payload.candidates;
+  const portfolio = payload.portfolio && typeof payload.portfolio === 'object'
+    ? Object.fromEntries(Object.entries(payload.portfolio).map(([key, rows]) => [
+      key,
+      Array.isArray(rows) ? rows.filter(keepCandidate).map(sanitizeCandidate) : rows,
+    ])) as ProfitDeskPayload['portfolio']
+    : payload.portfolio;
+  const sources = Array.isArray(payload.sources)
+    ? payload.sources.filter(source => (
+      !isRetiredProviderName(source.sourceKey) && !isRetiredProviderName(source.source)
+    ))
+    : payload.sources;
+  return { ...payload, candidates, portfolio, sources };
+}
+
 async function loadProfitDeskFiles(): Promise<ProfitDeskPayload[]> {
   const manifest = await fetchJson<CacheManifest>('./data/profit_desk/index.json');
   const files = Array.isArray(manifest?.files)
     ? manifest.files.filter(file => /^\d{4}-\d{2}-\d{2}\.json$/.test(file))
     : [];
   if (!files.length) {
-    const fallback = await fetchJson<ProfitDeskPayload>('./data/profit_desk/latest.json');
+    const rawFallback = await fetchJson<ProfitDeskPayload>('./data/profit_desk/latest.json');
+    const fallback = rawFallback ? withoutRetiredProfitDeskSources(rawFallback) : null;
     profitDeskPayloads = fallback?.date ? [fallback] : [];
     latestProfitDeskPayload = profitDeskPayloads[0] || null;
     return profitDeskPayloads;
@@ -863,7 +901,8 @@ async function loadProfitDeskFiles(): Promise<ProfitDeskPayload[]> {
 
   const payloads = (await Promise.all(
     files.map(file => fetchJson<ProfitDeskPayload>(`./data/profit_desk/${file}`)),
-  )).filter((payload): payload is ProfitDeskPayload => Boolean(payload?.date));
+  )).filter((payload): payload is ProfitDeskPayload => Boolean(payload?.date))
+    .map(withoutRetiredProfitDeskSources);
   payloads.sort((a, b) => String(a.date || '').localeCompare(String(b.date || '')));
   profitDeskPayloads = payloads;
   latestProfitDeskPayload = payloads[payloads.length - 1] || null;
@@ -904,8 +943,8 @@ export async function loadAllData(): Promise<Pick[]> {
   });
   playerPayloads.flatMap(picksFromPlayerProps).forEach(pick => playerById.set(pick.id, pick));
   teamPicks = sortPicks([...teamById.values()].filter(pick => !ARCHIVED_SPORTS.has(pick.sport) && !SHADOW_SPORTS.has(pick.sport)));
-  // External player-prop feeds (scope=player rows in the team cache, e.g.
-  // Covers) render in Player mode alongside the in-house ML-era props; the
+  // External player-prop feeds (scope=player rows in the team cache) render
+  // in Player mode alongside the in-house ML-era props; the
   // scope routing above already keeps them out of Team mode and rankings.
   playerPicks = sortPicks([...playerById.values()].filter(
     pick => !ARCHIVED_SPORTS.has(pick.sport) && (isMlEraPlayerProp(pick) || pick.external_player_feed === true),

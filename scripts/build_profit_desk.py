@@ -83,7 +83,8 @@ LOWER_BOUND_Z = 1.2815515655446004  # one-sided 90% lower bound
 # records carry a real scraped price but no per-record provenance markers,
 # so provenance is declared here at the source level (Tier C: posted,
 # one-sided).  Model feeds that invent assumed prices are NOT listed.
-SCRAPED_ODDS_SOURCE_PREFIXES = ("scores24_", "sportsgambler_", "sportytrader_", "covers_", "forebet_", "tennistonic_")
+SCRAPED_ODDS_SOURCE_PREFIXES = ("scores24_", "sportsgambler_", "sportytrader_", "forebet_", "tennistonic_")
+RETIRED_SOURCE_KEY_PREFIXES = ("covers_",)
 
 _NON_EXECUTABLE_MARKERS = (
     "assumed",
@@ -696,6 +697,8 @@ def _iter_records(payload: Mapping[str, Any] | None, mode: str) -> Iterable[Reco
         if not isinstance(raw_bucket, Mapping) or raw_bucket.get("ok") is False:
             continue
         source_key = _text(raw_source_key)
+        if source_key.startswith(RETIRED_SOURCE_KEY_PREFIXES):
+            continue
         for raw_record in raw_bucket.get("picks") or []:
             if not isinstance(raw_record, Mapping):
                 continue

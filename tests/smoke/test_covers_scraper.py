@@ -683,7 +683,7 @@ def test_wnba_has_no_computer_or_props_engines():
         module.scrape_covers("wnba", "props", DATE, pages=PAGES)
 
 
-def test_covers_feeds_are_registered_across_the_pipeline():
+def test_covers_feeds_are_retired_across_the_pipeline(tmp_path):
     refresh = _load_module("refresh_external_feeds_covers_test", ROOT / "scripts" / "refresh_external_feeds.py")
     keys = (
         "covers_experts_mlb",
@@ -694,50 +694,77 @@ def test_covers_feeds_are_registered_across_the_pipeline():
         "covers_props_mlb",
     )
     for key in keys:
-        assert key in refresh.FEED_RUNNERS
+        assert key not in refresh.FEED_RUNNERS
         assert key not in refresh.SPLIT_PROVIDER_FEEDS
 
     merge = _load_module("merge_external_feed_covers_test", ROOT / "scripts" / "merge_external_feed_cache_payload.py")
-    assert set(keys) <= merge.EXTERNAL_FEED_MODEL_KEYS
+    assert not (set(keys) & merge.EXTERNAL_FEED_MODEL_KEYS)
+    assert set(keys) <= merge.RETIRED_MODEL_KEYS
 
     model_merge = _load_module("merge_model_cache_covers_test", ROOT / "scripts" / "merge_model_cache_payload.py")
-    assert set(keys) <= model_merge.EXTERNAL_FEED_MODEL_KEYS
-    # The forebet keys were retrofitted into the model-refresh merge at the
-    # same time; keep both registries aligned.
+    assert not (set(keys) & model_merge.EXTERNAL_FEED_MODEL_KEYS)
+    assert set(keys) <= model_merge.RETIRED_MODEL_KEYS
     assert {"forebet_mls", "forebet_mlb", "forebet_wnba"} <= model_merge.EXTERNAL_FEED_MODEL_KEYS
 
-    calibration = _load_module("pick_calibration_covers_test", ROOT / "scripts" / "pick_calibration.py")
-    # Covers picks publish no probabilities, so calibration must stay a
-    # no-op stamp — none of the keys belong in the exclusion set.
-    assert not (set(keys) & calibration.CALIBRATION_EXCLUDED_MODEL_KEYS)
+    current = {
+        "date": DATE,
+        "models": {
+            "mlb_new": {"ok": True, "picks": [{"pick": "Keep model"}]},
+            "covers_future_mlb": {"ok": True, "picks": [{"pick": "Drop model"}]},
+        },
+        "external_feeds": {
+            "covers_experts_mlb": {"ok": True, "picks": [{"pick": "Drop feed"}]},
+        },
+        "covers_props_mlb": {"ok": True, "picks": [{"pick": "Drop alias"}]},
+    }
+    generated = {
+        "date": DATE,
+        "models": {
+            "wnba": {"ok": True, "picks": [{"pick": "Keep generated"}]},
+            "covers_consensus_wnba": {"ok": True, "picks": [{"pick": "Drop generated"}]},
+        },
+        "external_feeds": {
+            "covers_computer_mlb": {"ok": True, "picks": [{"pick": "Drop generated feed"}]},
+        },
+        "covers_future_wnba": {"ok": True, "picks": [{"pick": "Drop generated alias"}]},
+    }
+    cache_dir = tmp_path / "model-cache"
+    cache_dir.mkdir()
+    (cache_dir / f"{DATE}.json").write_text(json.dumps(current), encoding="utf-8")
+    for module in (merge, model_merge):
+        merged = module.merge_payload(generated, cache_dir)
+        assert not any(key.startswith("covers_") for key in merged)
+        assert not any(key.startswith("covers_") for key in merged.get("models", {}))
+        assert not any(key.startswith("covers_") for key in merged.get("external_feeds", {}))
+
+    rollover_dir = tmp_path / "rollover-cache"
+    rollover_dir.mkdir()
+    previous = {**current, "date": "2026-07-19"}
+    (rollover_dir / "latest.json").write_text(json.dumps(previous), encoding="utf-8")
+    rollover_generated = {**generated, "date": DATE}
+    for module in (merge, model_merge):
+        rolled = module.merge_payload(rollover_generated, rollover_dir)
+        assert not any(key.startswith("covers_") for key in rolled)
+        assert not any(key.startswith("covers_") for key in rolled.get("models", {}))
+        assert not any(key.startswith("covers_") for key in rolled.get("external_feeds", {}))
 
     profit_desk_text = (ROOT / "scripts" / "build_profit_desk.py").read_text(encoding="utf-8")
-    assert '"covers_"' in profit_desk_text
+    assert 'RETIRED_SOURCE_KEY_PREFIXES = ("covers_",)' in profit_desk_text
+    assert '"covers_", "forebet_"' not in profit_desk_text
     assert '"forebet_"' in profit_desk_text
 
     data_ts = (ROOT / "src" / "data.ts").read_text(encoding="utf-8")
-    for label in (
-        "covers_experts_mlb: 'Covers Expert'",
-        "covers_computer_mlb: 'Covers Computer MLB'",
-        "covers_consensus_mlb: 'Covers Consensus MLB'",
-        "covers_consensus_wnba: 'Covers Consensus WNBA'",
-        "covers_props_mlb: 'Covers Props (BAT X)'",
-    ):
-        assert label in data_ts
-    assert "pick.external_player_feed === true" in data_ts
-    assert "isMlEraPlayerProp(pick)" in data_ts
-
-    main_ts = (ROOT / "src" / "main.ts").read_text(encoding="utf-8")
-    assert "pick.external_player_feed === true ? sourceName(pick)" in main_ts
+    assert "const RETIRED_BUCKET_PREFIXES = ['covers_']" in data_ts
+    assert "if (isRetiredBucket(modelKey)) continue" in data_ts
+    assert "withoutRetiredProfitDeskSources" in data_ts
+    assert "covers_experts_mlb: 'Covers Expert'" not in data_ts
 
     workflow = (ROOT / ".github" / "workflows" / "external-feed-refresh.yml").read_text(encoding="utf-8")
     default_feeds = (
         "sportytrader,sportsgambler,forebet_mls,forebet_mlb,forebet_wnba,"
-        "covers_experts_mlb,covers_experts_wnba,covers_computer_mlb,"
-        "covers_consensus_mlb,covers_consensus_wnba,covers_props_mlb"
+        "tennistonic_tennis"
     )
-    # Both the workflow_dispatch input default and the schedule fallback must
-    # include Forebet + Covers; otherwise a bare `gh workflow run` refresh
-    # silently drops them.
+    # Both the dispatch default and schedule fallback retain the active feeds,
+    # while a bare refresh can never reactivate a retired provider.
     assert workflow.count(default_feeds) >= 2
-    assert "forebet_mls,forebet_mlb,forebet_wnba" in workflow
+    assert "covers_" not in workflow
