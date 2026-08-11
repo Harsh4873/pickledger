@@ -353,12 +353,12 @@ ENABLE_SPORTYTRADER_REMOTE = _sportytrader_env not in {"0", "false", "no", "off"
 PLAYWRIGHT_PROXY_CONFIGURED = bool(os.environ.get("PLAYWRIGHT_PROXY_SERVER", "").strip())
 _require_auth_env = os.environ.get("PICKLEDGER_REQUIRE_AUTH", "true").strip().lower()
 PICKLEDGER_REQUIRE_AUTH = _require_auth_env not in {"0", "false", "no", "off"}
+# Admin allowlist is configuration only: this repository is public, so no address
+# is ever baked in. Set PICKLEDGER_ADMIN_EMAILS (comma-separated) in the runtime
+# environment or a secret. Unset means no admins, and admin routes stay closed.
 PICKLEDGER_ADMIN_EMAILS = {
     email.strip().lower()
-    for email in os.environ.get(
-        "PICKLEDGER_ADMIN_EMAILS",
-        "hdav4873@gmail.com,hdav3228@gmail.com",
-    ).split(",")
+    for email in os.environ.get("PICKLEDGER_ADMIN_EMAILS", "").split(",")
     if email.strip()
 }
 
@@ -7166,6 +7166,8 @@ def main() -> None:
     class ThreadedHTTPServer(socketserver.ThreadingMixIn, HTTPServer):
         daemon_threads = True
     server = ThreadedHTTPServer((HOST, PORT), Handler)
+    if not PICKLEDGER_ADMIN_EMAILS:
+        print("[AUTH] PICKLEDGER_ADMIN_EMAILS is unset; admin-only routes are closed to everyone.")
     print(f"Pickgrader running on http://{HOST}:{PORT}")
     print("Press Ctrl+C to stop.")
     try:

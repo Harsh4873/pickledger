@@ -36,7 +36,7 @@ Set these via the Cloud Run console under **Edit & Deploy > Variables & Secrets*
 - `FIREBASE_PROJECT_ID`: Firebase project id used by Firebase Admin SDK.
 - `FIREBASE_CLIENT_EMAIL`: Service-account client email for Firebase Admin SDK.
 - `FIREBASE_PRIVATE_KEY`: Service-account private key; Cloud Run should inject it as a secret.
-- `PICKLEDGER_ADMIN_EMAILS`: Comma-separated emails allowed to call admin-only routes.
+- `PICKLEDGER_ADMIN_EMAILS`: Comma-separated emails allowed to call admin-only routes. There is no built-in default; leaving it unset closes admin routes to everyone.
 - `PICKLEDGER_REQUIRE_AUTH`: Keep `true` so backend model routes require Firebase sign-in.
 - `ENABLE_SPORTYTRADER_REMOTE`: Set `false` unless remote scraper dependencies/proxy are configured.
 
