@@ -19,6 +19,11 @@
     --panel-tint: linear-gradient(180deg, rgba(255,255,255,0.95), rgba(247,249,252,0.98));
   }
 
+  /* The pre-paint resolver stamps the theme on <html> first, so the page canvas
+     and form controls are correct from the very first frame. */
+  :root[data-theme="dark"]  { background: #080b0f; color-scheme: dark; }
+  :root[data-theme="light"] { background: #f0f2f5; color-scheme: light; }
+
   body { background: var(--bg); color: var(--text); font-family: 'DM Sans', sans-serif; min-height: 100vh; overflow-x: hidden; transition: background-color 0.3s, color 0.3s; }
   body::before {
     content: '';
@@ -5712,3 +5717,83 @@ body.mobile-app-mode .rank-filter-btn { padding: 6px 11px; font-size: 10px; }
 .daily-fade-card .daily-model-kicker { color: var(--loss); letter-spacing: 0.08em; }
 .daily-fade-rate { color: var(--loss); font-weight: 700; letter-spacing: 0.06em; }
 .daily-fade-intro { border-left: 3px solid var(--loss); }
+
+  /* ──────────────────────────────────────────────────────────────────────
+     Light theme: gaps found once light mode became reachable
+
+     Light mode was previously only reachable by toggling, so these rules were
+     never exercised. Two classes of defect are fixed here.
+
+     1. Surfaces and text that assume a dark canvas. A white-alpha fill is a
+        no-op on white, and a neon accent picked for contrast against near-black
+        drops to ~1.3:1 on it, so the element is either invisible or unreadable.
+     2. Specificity collisions. A `body[data-theme="light"] .card` rule scores
+        (0,2,1) and therefore beats a bare state modifier like `.card.is-pricey`
+        at (0,2,0) no matter the source order, silently erasing state colour.
+        Restated here at modifier specificity so the state survives.
+     ────────────────────────────────────────────────────────────────────── */
+
+  /* Home feed rows: the primary pick list. Both the fill and the hairline were
+     white-alpha, so in light mode every row lost its card. */
+  body[data-theme="light"] .home-feed-row {
+    border-color: var(--border);
+    background: var(--card);
+  }
+  body[data-theme="light"] .home-feed-row:hover {
+    border-color: rgba(11,157,116,0.42);
+    background: rgba(11,157,116,0.05);
+  }
+  body[data-theme="light"] .home-feed-row-sport,
+  body[data-theme="light"] .home-status-pill,
+  body[data-theme="light"] .home-consensus-pill,
+  body[data-theme="light"] .home-calendar-day-count,
+  body[data-theme="light"] .daily-model-records span,
+  body[data-theme="light"] .profit-view-tabs button,
+  body[data-theme="light"] .profit-method-steps article {
+    background: rgba(15,25,40,0.05);
+  }
+  body[data-theme="light"] .profit-candidate {
+    background: linear-gradient(145deg, rgba(37,99,235,0.06), transparent 60%), var(--card);
+  }
+  body[data-theme="light"] .home-mode-btn:hover {
+    background: rgba(15,25,40,0.06);
+  }
+  body[data-theme="light"] .model-card:hover {
+    border-color: rgba(15,25,40,0.2);
+    background: rgba(15,25,40,0.03);
+  }
+
+  /* Day-of-week breakdown: gridlines and hit-rate cells. */
+  body[data-theme="light"] .dow-table th,
+  body[data-theme="light"] .dow-table td {
+    border-color: var(--border);
+  }
+  body[data-theme="light"] .dow-cell-green  { background: rgba(0,168,112,0.16); color: #046046; }
+  body[data-theme="light"] .dow-cell-yellow { background: rgba(176,136,0,0.18);  color: #6f5500; }
+  body[data-theme="light"] .dow-cell-red    { background: rgba(229,48,79,0.14);  color: #a8172f; }
+  body[data-theme="light"] .dow-cell-gray   { background: rgba(15,25,40,0.06);   color: #4d5a68; }
+
+  /* Podium medals: silver and bronze were tuned for a dark card. */
+  body[data-theme="light"] .daily-ranking-row.rank-2 .daily-ranking-rank { color: #6f7680; }
+  body[data-theme="light"] .daily-ranking-row.rank-3 .daily-ranking-rank { color: #a2621f; }
+
+  /* Sibling rows were already patched to this surface; this one was missed. */
+  body[data-theme="light"] .daily-model-picks div {
+    background: #f7f9fc;
+  }
+
+  /* State colour restored above the blanket light-theme card rules. */
+  body[data-theme="light"] .daily-bet-card.is-pricey     { border-color: rgba(176,136,0,0.5); }
+  body[data-theme="light"] .daily-consensus-card         { border-color: rgba(11,157,116,0.42); }
+  body[data-theme="light"] .daily-dayform-spotlight      { border-color: rgba(11,157,116,0.42); }
+
+  /* Shadows keyed to a dark canvas read as heavy smudges on a light page. */
+  body[data-theme="light"] .home-date-trigger:hover  { box-shadow: 0 16px 30px rgba(15,25,40,0.12); }
+  body[data-theme="light"] .home-date-trigger.is-open { box-shadow: 0 18px 34px rgba(15,25,40,0.14); }
+  body[data-theme="light"] .daily-view-tab.active    { box-shadow: 0 10px 22px rgba(15,25,40,0.1); }
+
+  /* Border shorthands here reset the colour the light theme sets elsewhere. */
+  body.mobile-app-mode[data-theme="light"] .pulse-stat {
+    border-right-color: var(--border);
+    border-bottom-color: var(--border);
+  }

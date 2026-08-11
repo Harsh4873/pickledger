@@ -1,28 +1,69 @@
 const MOBILE_MODE_KEY = 'pickledger_mobile_mode';
 const PICK_MODE_KEY = 'pickledger_pick_mode';
+const THEME_KEY = 'pickledger_theme';
 
 export type PickMode = 'team' | 'player';
+export type Theme = 'light' | 'dark';
+
+const LIGHT_QUERY = '(prefers-color-scheme: light)';
+
+function storedTheme(): Theme | null {
+  try {
+    const saved = localStorage.getItem(THEME_KEY);
+    return saved === 'light' || saved === 'dark' ? saved : null;
+  } catch {
+    return null;
+  }
+}
+
+function systemTheme(): Theme {
+  try {
+    return matchMedia(LIGHT_QUERY).matches ? 'light' : 'dark';
+  } catch {
+    return 'dark';
+  }
+}
+
+/**
+ * An explicit saved choice wins; with none, follow the OS; dark is the final
+ * fallback. Mirrors the pre-paint resolver inlined in index.html.
+ */
+export function resolveTheme(): Theme {
+  return storedTheme() ?? systemTheme();
+}
+
+function applyTheme(theme: Theme): void {
+  document.documentElement.dataset.theme = theme;
+  if (theme === 'light') document.body.setAttribute('data-theme', 'light');
+  else document.body.removeAttribute('data-theme');
+
+  const label = document.getElementById('theme-label');
+  if (label) label.textContent = theme === 'light' ? 'LIGHT' : 'DARK';
+  const toggle = document.querySelector('.theme-toggle');
+  if (toggle) toggle.setAttribute('aria-pressed', String(theme === 'light'));
+}
 
 export function initTheme(): void {
-  if ((localStorage.getItem('pickledger_theme') || 'dark') === 'light') {
-    document.body.setAttribute('data-theme', 'light');
-    const label = document.getElementById('theme-label');
-    if (label) label.textContent = 'LIGHT';
+  applyTheme(resolveTheme());
+  try {
+    matchMedia(LIGHT_QUERY).addEventListener('change', event => {
+      // A saved preference always outranks the OS.
+      if (storedTheme()) return;
+      applyTheme(event.matches ? 'light' : 'dark');
+    });
+  } catch {
+    // Browsers without matchMedia listeners keep the theme resolved at load.
   }
 }
 
 export function toggleTheme(): void {
-  const label = document.getElementById('theme-label');
-  const light = document.body.getAttribute('data-theme') === 'light';
-  if (light) {
-    document.body.removeAttribute('data-theme');
-    localStorage.setItem('pickledger_theme', 'dark');
-    if (label) label.textContent = 'DARK';
-  } else {
-    document.body.setAttribute('data-theme', 'light');
-    localStorage.setItem('pickledger_theme', 'light');
-    if (label) label.textContent = 'LIGHT';
+  const next: Theme = document.body.getAttribute('data-theme') === 'light' ? 'dark' : 'light';
+  try {
+    localStorage.setItem(THEME_KEY, next);
+  } catch {
+    // Preference cannot be persisted, but the theme still applies for this visit.
   }
+  applyTheme(next);
 }
 
 function applyMobileMode(enabled: boolean): void {
