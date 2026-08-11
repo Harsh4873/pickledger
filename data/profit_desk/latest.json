@@ -1265,6 +1265,144 @@
         "edge_non_positive_conservative_ev",
         "value_negative_chronological_evidence_half"
       ],
+      "canonicalGame": "2026-08-11:mlb:houston astros|san francisco giants",
+      "consensusSources": [],
+      "date": "2026-08-11",
+      "decimalOdds": 1.257732,
+      "decision": "LEAN",
+      "dedupeRule": "exact_market_identity_best_executable_price",
+      "direction": "under",
+      "duplicateCount": 1,
+      "duplicateSources": [
+        "MLBPlayerProps"
+      ],
+      "edgeQualified": false,
+      "estimate": {
+        "alpha": 0.053154,
+        "alphaStdError": 0.039965,
+        "breakEvenProbability": 0.795082,
+        "conservativeExpectedValue": -0.06219,
+        "expectedValue": 0.002229,
+        "lowerProbability": 0.745636,
+        "marketProbability": 0.7437,
+        "method": "market_baseline_plus_hierarchically_shrunk_prior_residual",
+        "probability": 0.796854,
+        "probabilityPositiveEv": 0.517681,
+        "sourceAlpha": 0.020557,
+        "value": {
+          "alpha": 0.020557,
+          "alphaStdError": 0.022025,
+          "conservativeExpectedValue": -0.009645,
+          "expectedValue": 0.025855,
+          "lowerProbability": 0.787413,
+          "method": "source_flat_roi_shrunk_residual_vs_break_even",
+          "probability": 0.815639,
+          "probabilityPositiveEv": 0.824685
+        }
+      },
+      "evidence": {
+        "chronologicalHalvesNonnegative": false,
+        "cutoffExclusive": "2026-08-11",
+        "distinctDates": 18,
+        "firstHalfFlatNetUnits": 3.6118,
+        "flatNetUnits": 1.0842,
+        "flatRoi": 0.014651,
+        "losses": 15,
+        "modelVersion": "player_props_consensus_v2.0.0",
+        "policyVersion": "profit_desk_policy_v2",
+        "priorOnly": true,
+        "pushes": 0,
+        "secondHalfFlatNetUnits": -2.5277,
+        "segmentDistinctDates": 18,
+        "segmentEvidenceKey": "player|mlb_player_props|mlb|player_props_consensus_v2.0.0|batter walks|under|gte_0.60",
+        "segmentSamples": 74,
+        "sourceChronologicalHalvesNonnegative": false,
+        "sourceDistinctDates": 42,
+        "sourceEvidenceKey": "player|mlb_player_props|mlb",
+        "sourceFirstHalfFlatNetUnits": 20.3574,
+        "sourceFlatNetUnits": 16.0931,
+        "sourceFlatRoi": 0.036996,
+        "sourceLosses": 202,
+        "sourceSamples": 435,
+        "sourceSecondHalfFlatNetUnits": -4.2643,
+        "sourceWins": 233,
+        "wins": 59
+      },
+      "game": "Houston Astros @ San Francisco Giants",
+      "gradeSupportSource": "repository_grader_default",
+      "gradeSupported": true,
+      "id": "profit-fa8e13da7a516b50f335076d",
+      "lane": null,
+      "laneBlockers": {
+        "edge": [
+          "edge_insufficient_distinct_prior_dates",
+          "edge_negative_chronological_evidence_half",
+          "edge_probability_positive_ev_below_0.80",
+          "edge_conservative_probability_margin_below_0.02",
+          "edge_non_positive_conservative_ev"
+        ],
+        "structural": [],
+        "value": [
+          "value_negative_chronological_evidence_half"
+        ]
+      },
+      "line": 0.5,
+      "liveQualified": false,
+      "market": "Total Walks (Batter)",
+      "marketFamily": "batter walks",
+      "marketIdentity": "market:0655e38943616abbe5905acc",
+      "mode": "player",
+      "modelVersion": "player_props_consensus_v2.0.0",
+      "oddsAmerican": -388,
+      "pick": "Osleivis Basabe Under 0.5 Walks",
+      "player": "Osleivis Basabe",
+      "policyVersion": "profit_desk_policy_v2",
+      "price": {
+        "ageHours": 7.45,
+        "breakEvenProbability": 0.795082,
+        "decimalOdds": 1.257732,
+        "eligibleForAlphaEstimate": true,
+        "fresh": true,
+        "freshPregame": true,
+        "maxAgeHours": 24.0,
+        "noVigInputs": {
+          "field": "market_no_vig_selected_probability"
+        },
+        "noVigMethod": "explicit:pick.market_no_vig_selected_probability",
+        "noVigProbability": 0.7437,
+        "noVigVerified": true,
+        "observedExecutable": true,
+        "oddsAmerican": -388,
+        "quality": "verified_two_sided",
+        "source": "posted_market",
+        "sourceField": "pick.odds_source",
+        "startTime": "2026-08-12T01:45:00Z",
+        "tier": "B",
+        "tierLabel": "posted_two_sided",
+        "timestamp": "2026-08-11T18:18Z",
+        "timestampField": "pick.market_updated_at",
+        "twoSided": true,
+        "updatedAt": "2026-08-11T18:18Z"
+      },
+      "rawModelProbabilityIgnored": 0.8422,
+      "result": "pending",
+      "shadowQualified": false,
+      "source": "MLBPlayerProps",
+      "sourceKey": "mlb_player_props",
+      "sport": "MLB",
+      "stakeUnits": 0.0,
+      "tier": "watch",
+      "valueQualified": false
+    },
+    {
+      "blockers": [
+        "edge_insufficient_distinct_prior_dates",
+        "edge_negative_chronological_evidence_half",
+        "edge_probability_positive_ev_below_0.80",
+        "edge_conservative_probability_margin_below_0.02",
+        "edge_non_positive_conservative_ev",
+        "value_negative_chronological_evidence_half"
+      ],
       "canonicalGame": "2026-08-11:mlb:boston red sox|toronto blue jays",
       "consensusSources": [],
       "date": "2026-08-11",
@@ -16154,7 +16292,7 @@
   "date": "2026-08-11",
   "engineVersion": "profit_desk_v2_live",
   "firstLiveDate": "2026-07-11",
-  "generatedAt": "2026-08-11T15:17:17.748367Z",
+  "generatedAt": "2026-08-11T15:30:10.164111Z",
   "notices": [
     "Qualified picks carry real flat stakes: EDGE 1.0u, VALUE 0.5u; everything else stays 0u.",
     "The market price is the baseline; historical residual alpha is shrunk and uncertainty-adjusted.",
@@ -16314,7 +16452,7 @@
     },
     {
       "alpha": 0.020557,
-      "candidatesToday": 6,
+      "candidatesToday": 7,
       "distinctDates": 42,
       "evidenceQualified": false,
       "flatNetUnits": 16.0931,
@@ -17879,12 +18017,12 @@
   ],
   "summary": {
     "avoid": 71,
-    "candidateCount": 128,
-    "candidatesEvaluated": 128,
+    "candidateCount": 129,
+    "candidatesEvaluated": 129,
     "deduplicatedPicks": 33,
     "edgeQualified": 0,
     "evidenceRows": 2783,
-    "inputPicks": 161,
+    "inputPicks": 162,
     "livePortfolioCandidates": 0,
     "liveQualified": 0,
     "liveRecord": {
@@ -17916,19 +18054,19 @@
     "modes": {
       "player": {
         "avoid": 0,
-        "candidateCount": 6,
-        "candidates": 6,
-        "candidatesEvaluated": 6,
+        "candidateCount": 7,
+        "candidates": 7,
+        "candidatesEvaluated": 7,
         "edgeQualified": 0,
         "evidenceRows": 672,
         "liveQualified": 0,
-        "observedPriceCandidates": 6,
+        "observedPriceCandidates": 7,
         "portfolioCandidates": 0,
         "researchQualified": 0,
         "selected": 0,
         "shadowQualified": 0,
         "valueQualified": 0,
-        "watchlist": 6
+        "watchlist": 7
       },
       "team": {
         "avoid": 71,
@@ -17947,7 +18085,7 @@
         "watchlist": 51
       }
     },
-    "observedPriceCandidates": 62,
+    "observedPriceCandidates": 63,
     "portfolioCandidates": 0,
     "researchQualified": 0,
     "researchRecord": {
@@ -17979,6 +18117,6 @@
     },
     "sourcesTracked": 36,
     "valueQualified": 0,
-    "watchlist": 57
+    "watchlist": 58
   }
 }
