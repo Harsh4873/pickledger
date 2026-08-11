@@ -5560,146 +5560,6 @@
     },
     {
       "blockers": [
-        "edge_insufficient_segment_samples",
-        "edge_insufficient_distinct_prior_dates",
-        "edge_negative_chronological_evidence_half",
-        "edge_probability_positive_ev_below_0.80",
-        "edge_conservative_probability_margin_below_0.02",
-        "edge_non_positive_conservative_ev",
-        "value_negative_chronological_evidence_half"
-      ],
-      "canonicalGame": "2026-08-11:mlb:baltimore orioles|minnesota twins",
-      "consensusSources": [],
-      "date": "2026-08-11",
-      "decimalOdds": 1.568182,
-      "decision": "LEAN",
-      "dedupeRule": "exact_market_identity_best_executable_price",
-      "direction": "under",
-      "duplicateCount": 1,
-      "duplicateSources": [
-        "MLBPlayerProps"
-      ],
-      "edgeQualified": false,
-      "estimate": {
-        "alpha": 0.00397,
-        "alphaStdError": 0.073165,
-        "breakEvenProbability": 0.637681,
-        "conservativeExpectedValue": -0.20508,
-        "expectedValue": -0.05804,
-        "lowerProbability": 0.506906,
-        "marketProbability": 0.5967,
-        "method": "market_baseline_plus_hierarchically_shrunk_prior_residual",
-        "probability": 0.60067,
-        "probabilityPositiveEv": 0.306479,
-        "sourceAlpha": 0.020557,
-        "value": {
-          "alpha": 0.020557,
-          "alphaStdError": 0.022025,
-          "conservativeExpectedValue": -0.012026,
-          "expectedValue": 0.032237,
-          "lowerProbability": 0.630012,
-          "method": "source_flat_roi_shrunk_residual_vs_break_even",
-          "probability": 0.658238,
-          "probabilityPositiveEv": 0.824685
-        }
-      },
-      "evidence": {
-        "chronologicalHalvesNonnegative": false,
-        "cutoffExclusive": "2026-08-11",
-        "distinctDates": 15,
-        "firstHalfFlatNetUnits": 1.11,
-        "flatNetUnits": -1.8549,
-        "flatRoi": -0.088331,
-        "losses": 9,
-        "modelVersion": "player_props_consensus_v2.0.0",
-        "policyVersion": "profit_desk_policy_v2",
-        "priorOnly": true,
-        "pushes": 0,
-        "secondHalfFlatNetUnits": -2.9649,
-        "segmentDistinctDates": 15,
-        "segmentEvidenceKey": "player|mlb_player_props|mlb|player_props_consensus_v2.0.0|hits runs rbis|under|0.55_0.60",
-        "segmentSamples": 21,
-        "sourceChronologicalHalvesNonnegative": false,
-        "sourceDistinctDates": 42,
-        "sourceEvidenceKey": "player|mlb_player_props|mlb",
-        "sourceFirstHalfFlatNetUnits": 20.3574,
-        "sourceFlatNetUnits": 16.0931,
-        "sourceFlatRoi": 0.036996,
-        "sourceLosses": 202,
-        "sourceSamples": 435,
-        "sourceSecondHalfFlatNetUnits": -4.2643,
-        "sourceWins": 233,
-        "wins": 12
-      },
-      "game": "Baltimore Orioles @ Minnesota Twins",
-      "gradeSupportSource": "repository_grader_default",
-      "gradeSupported": true,
-      "id": "profit-7eb0892c7b67f215e1269094",
-      "lane": null,
-      "laneBlockers": {
-        "edge": [
-          "edge_insufficient_segment_samples",
-          "edge_insufficient_distinct_prior_dates",
-          "edge_negative_chronological_evidence_half",
-          "edge_probability_positive_ev_below_0.80",
-          "edge_conservative_probability_margin_below_0.02",
-          "edge_non_positive_conservative_ev"
-        ],
-        "structural": [],
-        "value": [
-          "value_negative_chronological_evidence_half"
-        ]
-      },
-      "line": 1.5,
-      "liveQualified": false,
-      "market": "Total Hits + Runs + RBIs",
-      "marketFamily": "hits runs rbis",
-      "marketIdentity": "market:4bc3d608234cef0d795f4745",
-      "mode": "player",
-      "modelVersion": "player_props_consensus_v2.0.0",
-      "oddsAmerican": -176,
-      "pick": "Yohel Pozo Under 1.5 Hits + Runs + RBIs",
-      "player": "Yohel Pozo",
-      "policyVersion": "profit_desk_policy_v2",
-      "price": {
-        "ageHours": 7.767,
-        "breakEvenProbability": 0.637681,
-        "decimalOdds": 1.568182,
-        "eligibleForAlphaEstimate": true,
-        "fresh": true,
-        "freshPregame": true,
-        "maxAgeHours": 24.0,
-        "noVigInputs": {
-          "field": "market_no_vig_selected_probability"
-        },
-        "noVigMethod": "explicit:pick.market_no_vig_selected_probability",
-        "noVigProbability": 0.5967,
-        "noVigVerified": true,
-        "observedExecutable": true,
-        "oddsAmerican": -176,
-        "quality": "verified_two_sided",
-        "source": "posted_market",
-        "sourceField": "pick.odds_source",
-        "startTime": "2026-08-11T23:40Z",
-        "tier": "B",
-        "tierLabel": "posted_two_sided",
-        "timestamp": "2026-08-11T15:54Z",
-        "timestampField": "pick.market_updated_at",
-        "twoSided": true,
-        "updatedAt": "2026-08-11T15:54Z"
-      },
-      "rawModelProbabilityIgnored": 0.694,
-      "result": "pending",
-      "shadowQualified": false,
-      "source": "MLBPlayerProps",
-      "sourceKey": "mlb_player_props",
-      "sport": "MLB",
-      "stakeUnits": 0.0,
-      "tier": "watch",
-      "valueQualified": false
-    },
-    {
-      "blockers": [
         "edge_requires_two_sided_price",
         "edge_insufficient_segment_samples",
         "edge_negative_chronological_evidence_half",
@@ -16412,7 +16272,7 @@
   "date": "2026-08-11",
   "engineVersion": "profit_desk_v2_live",
   "firstLiveDate": "2026-07-11",
-  "generatedAt": "2026-08-11T16:32:34.749967Z",
+  "generatedAt": "2026-08-11T16:58:44.527549Z",
   "notices": [
     "Qualified picks carry real flat stakes: EDGE 1.0u, VALUE 0.5u; everything else stays 0u.",
     "The market price is the baseline; historical residual alpha is shrunk and uncertainty-adjusted.",
@@ -16572,7 +16432,7 @@
     },
     {
       "alpha": 0.020557,
-      "candidatesToday": 7,
+      "candidatesToday": 6,
       "distinctDates": 42,
       "evidenceQualified": false,
       "flatNetUnits": 16.0931,
@@ -18137,12 +17997,12 @@
   ],
   "summary": {
     "avoid": 71,
-    "candidateCount": 130,
-    "candidatesEvaluated": 130,
+    "candidateCount": 129,
+    "candidatesEvaluated": 129,
     "deduplicatedPicks": 33,
     "edgeQualified": 0,
     "evidenceRows": 2783,
-    "inputPicks": 163,
+    "inputPicks": 162,
     "livePortfolioCandidates": 0,
     "liveQualified": 0,
     "liveRecord": {
@@ -18174,19 +18034,19 @@
     "modes": {
       "player": {
         "avoid": 0,
-        "candidateCount": 7,
-        "candidates": 7,
-        "candidatesEvaluated": 7,
+        "candidateCount": 6,
+        "candidates": 6,
+        "candidatesEvaluated": 6,
         "edgeQualified": 0,
         "evidenceRows": 672,
         "liveQualified": 0,
-        "observedPriceCandidates": 7,
+        "observedPriceCandidates": 6,
         "portfolioCandidates": 0,
         "researchQualified": 0,
         "selected": 0,
         "shadowQualified": 0,
         "valueQualified": 0,
-        "watchlist": 7
+        "watchlist": 6
       },
       "team": {
         "avoid": 71,
@@ -18205,7 +18065,7 @@
         "watchlist": 52
       }
     },
-    "observedPriceCandidates": 63,
+    "observedPriceCandidates": 62,
     "portfolioCandidates": 0,
     "researchQualified": 0,
     "researchRecord": {
@@ -18237,6 +18097,6 @@
     },
     "sourcesTracked": 36,
     "valueQualified": 0,
-    "watchlist": 59
+    "watchlist": 58
   }
 }
