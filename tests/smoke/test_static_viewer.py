@@ -31,6 +31,44 @@ def test_frontend_is_static_json_only():
     assert "See how every source has performed across the picks and results collected here." in html
 
 
+def test_initial_theme_prefers_saved_choice_then_tracks_the_os():
+    """A fresh visitor must not be forced onto the dark palette.
+
+    The resolver runs before the stylesheet to prevent the dark canvas from
+    flashing first; the runtime copy follows OS changes only until the visitor
+    makes an explicit choice.
+    """
+    html = (ROOT / "index.html").read_text(encoding="utf-8")
+    main = (ROOT / "src" / "main.ts").read_text(encoding="utf-8")
+    settings = (ROOT / "src" / "settings.ts").read_text(encoding="utf-8")
+    css = (ROOT / "src" / "styles" / "pickledger.css").read_text(encoding="utf-8")
+
+    resolver = "matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark'"
+    assert resolver in html
+    assert html.index(resolver) < html.index('href="./src/styles/pickledger.css"')
+    assert "storedTheme() ?? systemTheme()" in settings
+    assert "if (storedTheme()) return" in settings
+    assert "addEventListener('change'" in settings
+    ready_handler = main[main.index("document.addEventListener('DOMContentLoaded'") :]
+    assert "initTheme();" in ready_handler
+    assert ready_handler.index("initTheme();") < ready_handler.index("await loadAllData();")
+    assert ':root[data-theme="light"]' in css
+    assert 'color-scheme: light' in css
+
+
+def test_admin_allowlist_is_runtime_configuration_only():
+    """No personal address belongs in a public source-level admin allowlist."""
+    server = (ROOT / "pickgrader_server.py").read_text(encoding="utf-8")
+    docs = (ROOT / "docs" / "CLOUD_RUN.md").read_text(encoding="utf-8")
+    start = server.index("PICKLEDGER_ADMIN_EMAILS = {")
+    end = server.index("\n}\n", start) + 3
+    allowlist = server[start:end]
+
+    assert 'os.environ.get("PICKLEDGER_ADMIN_EMAILS", "")' in allowlist
+    assert "@" not in allowlist
+    assert "leaving it unset closes admin routes to everyone" in docs
+
+
 def test_frontend_player_mode_is_persisted_isolated_and_team_defaulted():
     main = (ROOT / "src" / "main.ts").read_text(encoding="utf-8")
     data = (ROOT / "src" / "data.ts").read_text(encoding="utf-8")

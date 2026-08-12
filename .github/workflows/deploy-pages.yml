@@ -56,6 +56,9 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Test frontend behavior
+        run: npm test
+
       - name: Build PickLedger
         run: |
           npm run build
