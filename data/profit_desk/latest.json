@@ -136,6 +136,144 @@
     },
     {
       "blockers": [
+        "edge_insufficient_segment_samples",
+        "edge_insufficient_distinct_prior_dates",
+        "edge_probability_positive_ev_below_0.80",
+        "edge_conservative_probability_margin_below_0.02",
+        "edge_non_positive_conservative_ev",
+        "value_negative_chronological_evidence_half"
+      ],
+      "canonicalGame": "2026-08-13:mlb:los angeles dodgers|milwaukee brewers",
+      "consensusSources": [],
+      "date": "2026-08-13",
+      "decimalOdds": 1.666667,
+      "decision": "LEAN",
+      "dedupeRule": "exact_market_identity_best_executable_price",
+      "direction": "under",
+      "duplicateCount": 1,
+      "duplicateSources": [
+        "MLBPlayerProps"
+      ],
+      "edgeQualified": false,
+      "estimate": {
+        "alpha": 0.05123,
+        "alphaStdError": 0.069146,
+        "breakEvenProbability": 0.6,
+        "conservativeExpectedValue": -0.127305,
+        "expectedValue": 0.020384,
+        "lowerProbability": 0.523617,
+        "marketProbability": 0.561,
+        "method": "market_baseline_plus_hierarchically_shrunk_prior_residual",
+        "probability": 0.61223,
+        "probabilityPositiveEv": 0.570198,
+        "sourceAlpha": 0.022493,
+        "value": {
+          "alpha": 0.022493,
+          "alphaStdError": 0.021912,
+          "conservativeExpectedValue": -0.009314,
+          "expectedValue": 0.037488,
+          "lowerProbability": 0.594412,
+          "method": "source_flat_roi_shrunk_residual_vs_break_even",
+          "probability": 0.622493,
+          "probabilityPositiveEv": 0.847676
+        }
+      },
+      "evidence": {
+        "chronologicalHalvesNonnegative": true,
+        "cutoffExclusive": "2026-08-13",
+        "distinctDates": 2,
+        "firstHalfFlatNetUnits": 0.5682,
+        "flatNetUnits": 1.1742,
+        "flatRoi": 0.587121,
+        "losses": 0,
+        "modelVersion": "player_props_consensus_v2.0.0",
+        "policyVersion": "profit_desk_policy_v2",
+        "priorOnly": true,
+        "pushes": 0,
+        "secondHalfFlatNetUnits": 0.6061,
+        "segmentDistinctDates": 2,
+        "segmentEvidenceKey": "player|mlb_player_props|mlb|player_props_consensus_v2.0.0|hits|under|0.55_0.60",
+        "segmentSamples": 2,
+        "sourceChronologicalHalvesNonnegative": false,
+        "sourceDistinctDates": 44,
+        "sourceEvidenceKey": "player|mlb_player_props|mlb",
+        "sourceFirstHalfFlatNetUnits": 18.3574,
+        "sourceFlatNetUnits": 17.2985,
+        "sourceFlatRoi": 0.039494,
+        "sourceLosses": 202,
+        "sourceSamples": 438,
+        "sourceSecondHalfFlatNetUnits": -1.0589,
+        "sourceWins": 236,
+        "wins": 2
+      },
+      "game": "Milwaukee Brewers @ Los Angeles Dodgers",
+      "gradeSupportSource": "repository_grader_default",
+      "gradeSupported": true,
+      "id": "profit-36f051dd6c2bf38026fc7723",
+      "lane": null,
+      "laneBlockers": {
+        "edge": [
+          "edge_insufficient_segment_samples",
+          "edge_insufficient_distinct_prior_dates",
+          "edge_probability_positive_ev_below_0.80",
+          "edge_conservative_probability_margin_below_0.02",
+          "edge_non_positive_conservative_ev"
+        ],
+        "structural": [],
+        "value": [
+          "value_negative_chronological_evidence_half"
+        ]
+      },
+      "line": 0.5,
+      "liveQualified": false,
+      "market": "Total Hits",
+      "marketFamily": "hits",
+      "marketIdentity": "market:b0d186786e56bfdb80190572",
+      "mode": "player",
+      "modelVersion": "player_props_consensus_v2.0.0",
+      "oddsAmerican": -150,
+      "pick": "David Hamilton Under 0.5 Hits",
+      "player": "David Hamilton",
+      "policyVersion": "profit_desk_policy_v2",
+      "price": {
+        "ageHours": 18.733,
+        "breakEvenProbability": 0.6,
+        "decimalOdds": 1.666667,
+        "eligibleForAlphaEstimate": true,
+        "fresh": true,
+        "freshPregame": true,
+        "maxAgeHours": 24.0,
+        "noVigInputs": {
+          "field": "market_no_vig_selected_probability"
+        },
+        "noVigMethod": "explicit:pick.market_no_vig_selected_probability",
+        "noVigProbability": 0.561,
+        "noVigVerified": true,
+        "observedExecutable": true,
+        "oddsAmerican": -150,
+        "quality": "verified_two_sided",
+        "source": "posted_market",
+        "sourceField": "pick.odds_source",
+        "startTime": "2026-08-14T02:10:00Z",
+        "tier": "B",
+        "tierLabel": "posted_two_sided",
+        "timestamp": "2026-08-13T07:26Z",
+        "timestampField": "pick.market_updated_at",
+        "twoSided": true,
+        "updatedAt": "2026-08-13T07:26Z"
+      },
+      "rawModelProbabilityIgnored": 0.6335,
+      "result": "pending",
+      "shadowQualified": false,
+      "source": "MLBPlayerProps",
+      "sourceKey": "mlb_player_props",
+      "sport": "MLB",
+      "stakeUnits": 0.0,
+      "tier": "watch",
+      "valueQualified": false
+    },
+    {
+      "blockers": [
         "missing_or_invalid_game_start_time",
         "edge_insufficient_source_samples",
         "edge_insufficient_segment_samples",
@@ -2948,7 +3086,7 @@
   "date": "2026-08-13",
   "engineVersion": "profit_desk_v2_live",
   "firstLiveDate": "2026-07-11",
-  "generatedAt": "2026-08-13T11:59:38.430135Z",
+  "generatedAt": "2026-08-13T12:12:42.864688Z",
   "notices": [
     "Qualified picks carry real flat stakes: EDGE 1.0u, VALUE 0.5u; everything else stays 0u.",
     "The market price is the baseline; historical residual alpha is shrunk and uncertainty-adjusted.",
@@ -3062,7 +3200,7 @@
     },
     {
       "alpha": 0.022493,
-      "candidatesToday": 0,
+      "candidatesToday": 1,
       "distinctDates": 44,
       "evidenceQualified": false,
       "flatNetUnits": 17.2985,
@@ -3101,7 +3239,7 @@
       "mode": "player",
       "probabilityPositiveEv": 0.847676,
       "samples": 438,
-      "source": "mlb_player_props",
+      "source": "MLBPlayerProps",
       "sourceKey": "mlb_player_props",
       "sport": "mlb",
       "wins": 236
@@ -4581,12 +4719,12 @@
   ],
   "summary": {
     "avoid": 25,
-    "candidateCount": 26,
-    "candidatesEvaluated": 26,
+    "candidateCount": 27,
+    "candidatesEvaluated": 27,
     "deduplicatedPicks": 3,
     "edgeQualified": 0,
     "evidenceRows": 2863,
-    "inputPicks": 29,
+    "inputPicks": 30,
     "livePortfolioCandidates": 0,
     "liveQualified": 0,
     "liveRecord": {
@@ -4618,19 +4756,19 @@
     "modes": {
       "player": {
         "avoid": 0,
-        "candidateCount": 0,
-        "candidates": 0,
-        "candidatesEvaluated": 0,
+        "candidateCount": 1,
+        "candidates": 1,
+        "candidatesEvaluated": 1,
         "edgeQualified": 0,
         "evidenceRows": 677,
         "liveQualified": 0,
-        "observedPriceCandidates": 0,
+        "observedPriceCandidates": 1,
         "portfolioCandidates": 0,
         "researchQualified": 0,
         "selected": 0,
         "shadowQualified": 0,
         "valueQualified": 0,
-        "watchlist": 0
+        "watchlist": 1
       },
       "team": {
         "avoid": 25,
@@ -4649,7 +4787,7 @@
         "watchlist": 1
       }
     },
-    "observedPriceCandidates": 3,
+    "observedPriceCandidates": 4,
     "portfolioCandidates": 0,
     "researchQualified": 0,
     "researchRecord": {
@@ -4681,6 +4819,6 @@
     },
     "sourcesTracked": 34,
     "valueQualified": 0,
-    "watchlist": 1
+    "watchlist": 2
   }
 }
