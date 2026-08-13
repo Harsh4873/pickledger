@@ -29,7 +29,10 @@ The frontend bundle is written to `dist/`. GitHub Pages copies the committed `da
 
 1. Model, player-prop, and feed workflows generate JSON.
 2. Each writer commits as the triggering GitHub actor.
-3. The shared `pick-cache-writer` concurrency group prevents JSON writers from racing.
+3. Heavy model, prop, feed, and calibration writers serialize through
+   `pick-cache-writer`. High-frequency grading and closing-line capture use
+   dedicated queues plus resync/retry publishing so they cannot evict a queued
+   daily refresh.
 4. The auto-grader checks ESPN every 15 minutes and commits completed results.
 5. In-house MLB, FIFA, and NBA Summer team forecasts receive immutable pregame snapshots; assumed or proxy prices are excluded from financial evaluation.
 6. Every push to `main` checks whether today's data is ready; incomplete refreshes defer deployment without failing.

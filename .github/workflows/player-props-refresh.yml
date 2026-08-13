@@ -91,7 +91,8 @@ jobs:
           ACTOR_EMAIL="${GITHUB_ACTOR_ID:-41898282}+${GITHUB_ACTOR}@users.noreply.github.com"
           git config user.name  "${GITHUB_ACTOR}"
           git config user.email "${ACTOR_EMAIL}"
-          BRANCH="${GITHUB_REF_NAME:-main}"
+          # Always publish the canonical Pages branch, including manual runs.
+          BRANCH="main"
           if [ -z "$(git status --porcelain -- data/player_props_cache data/player_props_snapshots data/player_props_training data/calibration/outcome_ledger.json data/parlay_cards data/profit_desk player_props/artifacts)" ]; then
             echo "No player-props cache, parlay-card, Profit Desk, or ML artifact change; skipping commit."
             echo "changed=false" >> "$GITHUB_OUTPUT"

@@ -10,7 +10,11 @@ permissions:
   actions: write
 
 concurrency:
-  group: pick-cache-writer
+  # Grading is safe to run beside a cache refresh: on push contention it
+  # resyncs main and re-runs the grader. Keeping it out of the heavy-writer
+  # queue prevents this 15-minute job from evicting a pending model/props/feed
+  # refresh (GitHub retains only one pending run per concurrency group).
+  group: pick-auto-grade
   cancel-in-progress: false
 
 jobs:
@@ -65,7 +69,9 @@ jobs:
           ACTOR_EMAIL="${GITHUB_ACTOR_ID:-41898282}+${GITHUB_ACTOR}@users.noreply.github.com"
           git config user.name  "${GITHUB_ACTOR}"
           git config user.email "${ACTOR_EMAIL}"
-          BRANCH="${GITHUB_REF_NAME:-main}"
+          # Scheduled and manual maintenance always publishes the canonical
+          # Pages branch, even if a manual dispatch is launched from another ref.
+          BRANCH="main"
           if [ -z "$(git status --porcelain -- data/)" ]; then
             echo "changed=false" >> "$GITHUB_OUTPUT"
             exit 0

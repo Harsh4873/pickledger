@@ -18,7 +18,7 @@ on:
         required: false
         default: ""
       feeds:
-        description: "Comma-separated feeds, or all"
+        description: "Comma-separated GitHub-safe feeds (Scores24 is local-only)"
         required: false
         default: "sportytrader,sportsgambler,forebet_mls,forebet_mlb,forebet_wnba,tennistonic_tennis"
 
@@ -58,11 +58,24 @@ jobs:
           pip install -r requirements.txt
           python -m playwright install chromium chromium-headless-shell
 
+      - name: Select GitHub-safe feeds
+        id: feeds
+        env:
+          REQUESTED_FEEDS: ${{ github.event.inputs.feeds || 'sportytrader,sportsgambler,forebet_mls,forebet_mlb,forebet_wnba,tennistonic_tennis' }}
+        run: |
+          set -euo pipefail
+          FEEDS=$(printf '%s' "$REQUESTED_FEEDS" | tr '[:upper:]' '[:lower:]' | tr -d '[:space:]')
+          if [ "$FEEDS" = "all" ] || [[ ",${FEEDS}," == *",scores24_"* ]]; then
+            echo "::error::Scores24 feeds are local-only; run scripts/scrapers/scores24_publish.sh from a non-Actions IP."
+            exit 1
+          fi
+          echo "value=${FEEDS}" >> "$GITHUB_OUTPUT"
+
       - name: Refresh external feeds
         run: |
           python scripts/refresh_external_feeds.py \
             --date "${{ github.event.inputs.date || '' }}" \
-            --feeds "${{ github.event.inputs.feeds || 'sportytrader,sportsgambler,forebet_mls,forebet_mlb,forebet_wnba,tennistonic_tennis' }}" \
+            --feeds "${{ steps.feeds.outputs.value }}" \
             --sports "nba,mlb,wnba" \
             --skip-firestore
 
@@ -72,7 +85,8 @@ jobs:
           ACTOR_EMAIL="${GITHUB_ACTOR_ID:-41898282}+${GITHUB_ACTOR}@users.noreply.github.com"
           git config user.name  "${GITHUB_ACTOR}"
           git config user.email "${ACTOR_EMAIL}"
-          BRANCH="${GITHUB_REF_NAME:-main}"
+          # Always publish the canonical Pages branch, including manual runs.
+          BRANCH="main"
           if [ -z "$(git status --porcelain -- data/model_cache)" ]; then
             echo "No change in data/model_cache — skipping commit."
             echo "changed=false" >> "$GITHUB_OUTPUT"

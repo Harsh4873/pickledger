@@ -38,7 +38,13 @@ The production viewer is intentionally static. It does not load Firebase, authen
 
 ## Writer Contract
 
-The model-cache, player-prop, external-feed, and auto-grade workflows share the `pick-cache-writer` concurrency group. Only one writer can modify `data/` at a time.
+The model-cache, player-prop, external-feed, and calibration workflows share
+the `pick-cache-writer` concurrency group. The high-frequency auto-grade and
+closing-line workflows have dedicated groups: GitHub retains only one pending
+run per group, so putting them in the heavy-writer queue can silently evict a
+pending daily refresh. Those dedicated writers resync `main`, recompute after a
+rejected push, and retry; the cache mergers preserve committed grades and game
+times when a heavy writer publishes concurrently.
 
 Model and feed refreshes:
 
