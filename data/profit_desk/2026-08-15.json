@@ -946,7 +946,7 @@
       "player": null,
       "policyVersion": "profit_desk_policy_v2",
       "price": {
-        "ageHours": 8.122,
+        "ageHours": 8.622,
         "breakEvenProbability": 0.641577,
         "decimalOdds": 1.558659,
         "eligibleForAlphaEstimate": false,
@@ -962,7 +962,7 @@
         "quality": "one_sided",
         "source": "scraped_feed:scores24_tennis",
         "sourceField": "source_registry.scraped_odds",
-        "startTime": "2026-08-15T20:45Z",
+        "startTime": "2026-08-15T21:15Z",
         "tier": "C",
         "tierLabel": "posted_one_sided",
         "timestamp": "2026-08-15T12:37:39.569640Z",
@@ -9765,7 +9765,7 @@
     },
     {
       "blockers": [
-        "missing_or_invalid_game_start_time",
+        "price_not_pregame",
         "edge_insufficient_segment_samples",
         "edge_insufficient_distinct_prior_dates",
         "edge_negative_chronological_evidence_half",
@@ -9855,7 +9855,7 @@
           "edge_non_positive_conservative_ev"
         ],
         "structural": [
-          "missing_or_invalid_game_start_time"
+          "price_not_pregame"
         ],
         "value": [
           "value_insufficient_source_samples",
@@ -9876,7 +9876,7 @@
       "player": null,
       "policyVersion": "profit_desk_policy_v2",
       "price": {
-        "ageHours": null,
+        "ageHours": -3.244,
         "breakEvenProbability": 0.79798,
         "decimalOdds": 1.253165,
         "eligibleForAlphaEstimate": true,
@@ -9894,7 +9894,7 @@
         "quality": "verified_no_vig",
         "source": "espn_scoreboard:DraftKings",
         "sourceField": "pick.price_source",
-        "startTime": null,
+        "startTime": "2026-08-15T17:00Z",
         "tier": "A",
         "tierLabel": "certified_executable",
         "timestamp": "2026-08-15T20:14:38.174438Z",
@@ -9903,7 +9903,7 @@
         "updatedAt": "2026-08-15T20:14:38.174438Z"
       },
       "rawModelProbabilityIgnored": 0.68,
-      "result": "pending",
+      "result": "win",
       "shadowQualified": false,
       "source": "WNBA Model",
       "sourceKey": "wnba",
@@ -9924,6 +9924,14 @@
         "value_probability_positive_ev_below_0.70"
       ],
       "canonicalGame": "2026-08-15:mlb:chicago cubs|st louis cardinals",
+      "closing": {
+        "capturedAt": "2026-08-15T18:18:04.852780Z",
+        "clv": 0.012202,
+        "decimalOdds": 1.552486,
+        "noVigProbability": 0.633198,
+        "oddsAmerican": -181,
+        "provider": "espn_scoreboard:DraftKings"
+      },
       "consensusSources": [],
       "date": "2026-08-15",
       "decimalOdds": 1.571429,
@@ -10046,7 +10054,7 @@
         "updatedAt": "2026-08-15T20:14:38.174438Z"
       },
       "rawModelProbabilityIgnored": null,
-      "result": "pending",
+      "result": "loss",
       "shadowQualified": false,
       "source": "Scores24MLB",
       "sourceKey": "scores24_mlb",
@@ -11193,7 +11201,7 @@
         "updatedAt": "2026-08-15T20:52:27.592782Z"
       },
       "rawModelProbabilityIgnored": 0.9123,
-      "result": "pending",
+      "result": "win",
       "shadowQualified": false,
       "source": "Tennis Model",
       "sourceKey": "tennis",
@@ -11717,7 +11725,7 @@
       "player": null,
       "policyVersion": "profit_desk_policy_v2",
       "price": {
-        "ageHours": 0.421,
+        "ageHours": 0.754,
         "breakEvenProbability": null,
         "decimalOdds": null,
         "eligibleForAlphaEstimate": false,
@@ -11733,7 +11741,7 @@
         "quality": "missing",
         "source": null,
         "sourceField": "missing",
-        "startTime": "2026-08-15T21:00Z",
+        "startTime": "2026-08-15T21:20Z",
         "tier": "D",
         "tierLabel": "assumed_proxy_or_synthetic",
         "timestamp": "2026-08-15T20:34:45.363633Z",
@@ -12714,7 +12722,7 @@
       "player": null,
       "policyVersion": "profit_desk_policy_v2",
       "price": {
-        "ageHours": 0.254,
+        "ageHours": 0.754,
         "breakEvenProbability": null,
         "decimalOdds": null,
         "eligibleForAlphaEstimate": false,
@@ -12730,7 +12738,7 @@
         "quality": "missing",
         "source": null,
         "sourceField": "missing",
-        "startTime": "2026-08-15T20:50Z",
+        "startTime": "2026-08-15T21:20Z",
         "tier": "D",
         "tierLabel": "assumed_proxy_or_synthetic",
         "timestamp": "2026-08-15T20:34:45.363633Z",
@@ -17506,7 +17514,6 @@
     {
       "blockers": [
         "missing_executable_odds",
-        "price_not_pregame",
         "edge_no_usable_price_baseline",
         "value_no_usable_price_baseline"
       ],
@@ -17565,8 +17572,7 @@
           "edge_no_usable_price_baseline"
         ],
         "structural": [
-          "missing_executable_odds",
-          "price_not_pregame"
+          "missing_executable_odds"
         ],
         "value": [
           "value_no_usable_price_baseline"
@@ -17584,12 +17590,12 @@
       "player": null,
       "policyVersion": "profit_desk_policy_v2",
       "price": {
-        "ageHours": -0.041,
+        "ageHours": 0.126,
         "breakEvenProbability": null,
         "decimalOdds": null,
         "eligibleForAlphaEstimate": false,
-        "fresh": false,
-        "freshPregame": false,
+        "fresh": true,
+        "freshPregame": true,
         "maxAgeHours": 24.0,
         "noVigInputs": {},
         "noVigMethod": "unverified_single_side",
@@ -17600,7 +17606,7 @@
         "quality": "missing",
         "source": null,
         "sourceField": "missing",
-        "startTime": "2026-08-15T20:50Z",
+        "startTime": "2026-08-15T21:00Z",
         "tier": "D",
         "tierLabel": "assumed_proxy_or_synthetic",
         "timestamp": "2026-08-15T20:52:27.592782Z",
