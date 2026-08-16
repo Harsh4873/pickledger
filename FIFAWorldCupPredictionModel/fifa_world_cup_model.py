@@ -18,7 +18,7 @@ from typing import Any, Iterable
 import requests
 
 
-ESPN_SITE_API = "https://site.api.espn.com/apis/site/v2/sports/soccer"
+ESPN_SITE_API = "http://site.api.espn.com/apis/site/v2/sports/soccer"
 ESPN_ATHLETE_API = "https://site.web.api.espn.com/apis/common/v3/sports/soccer/fifa.world/athletes"
 USER_AGENT = "PickLedgerFIFAWorldCupModel/1.0"
 REPO_ROOT = Path(__file__).resolve().parents[1]

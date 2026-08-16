@@ -22,6 +22,11 @@ from historical_data import (
 )
 from mlb_api import StatsAPIClient
 from park_factors import get_park_factor
+from player_rating_features import (
+    RATING_SCHEMA,
+    lineup_batting_rating_from_boxscore,
+    matchup_player_rating_features,
+)
 
 
 def _season_for_date(target_date: date) -> int:
@@ -280,7 +285,16 @@ def _pitcher_recent_form(player_id: int, season: int, client: StatsAPIClient) ->
 def build_live_dataframe(
     target_date: date | None = None,
     market_odds_map: dict[tuple[str, str], dict] | None = None,
+    *,
+    include_player_ratings: bool = False,
 ) -> pd.DataFrame:
+    """Build the live MLB feature frame.
+
+    ``include_player_ratings`` is intentionally opt-in and is used only by
+    the isolated player-rating challenger.  The public MLB New runner keeps
+    its established feature schema and behavior until the challenger has a
+    validated, pregame-lineup-safe promotion path.
+    """
     target_date = target_date or get_mlb_slate_date()
     season = _season_for_date(target_date)
     previous_season = season - 1
@@ -289,6 +303,11 @@ def build_live_dataframe(
     season_pitching = client.get_season_player_stats(season, "pitching")
     season_hitting = client.get_season_player_stats(season, "hitting")
     prior_pitching = client.get_season_player_stats(previous_season, "pitching")
+    prior_hitting = (
+        client.get_season_player_stats(previous_season, "hitting")
+        if include_player_ratings
+        else {}
+    )
 
     team_history = _load_team_history(client, season, target_date)
     prior_team_win_pct = _team_final_win_pct(client, previous_season)
@@ -366,12 +385,29 @@ def build_live_dataframe(
 
         away_lineup = _lineup_proxy_for_live_game(away_box, away_team_id, team_hitting)
         home_lineup = _lineup_proxy_for_live_game(home_box, home_team_id, team_hitting)
+        away_player_rating: dict[str, Any] | None = None
+        home_player_rating: dict[str, Any] | None = None
+        if include_player_ratings:
+            # Do not replace an unconfirmed batting order with roster order or
+            # a team average.  The challenger needs the same kind of lineup
+            # information it was trained on, otherwise it must stay silent.
+            away_player_rating = lineup_batting_rating_from_boxscore(
+                away_box,
+                prior_hitting,
+                subtract_current_game=False,
+                source="live_confirmed_batting_order",
+            )
+            home_player_rating = lineup_batting_rating_from_boxscore(
+                home_box,
+                prior_hitting,
+                subtract_current_game=False,
+                source="live_confirmed_batting_order",
+            )
 
         away_record = away_meta.get("record") or {}
         home_record = home_meta.get("record") or {}
 
-        rows.append(
-            {
+        row = {
                 "season": season,
                 "game_pk": game_pk,
                 "game_date": target_date.isoformat(),
@@ -480,8 +516,27 @@ def build_live_dataframe(
                 "home_travel_distance_miles": home_context["travel_distance_miles"],
                 "away_travel_flag": away_context["travel_flag"],
                 "home_travel_flag": home_context["travel_flag"],
-            }
-        )
+        }
+        if away_player_rating is not None and home_player_rating is not None:
+            row.update(
+                {
+                    "player_rating_schema": RATING_SCHEMA,
+                    "away_lineup_batting_rating": away_player_rating["batting_rating"],
+                    "home_lineup_batting_rating": home_player_rating["batting_rating"],
+                    "away_lineup_power_rating": away_player_rating["power_rating"],
+                    "home_lineup_power_rating": home_player_rating["power_rating"],
+                    "away_lineup_rating_reliability": away_player_rating["reliability"],
+                    "home_lineup_rating_reliability": home_player_rating["reliability"],
+                    "away_lineup_rating_coverage": away_player_rating["coverage"],
+                    "home_lineup_rating_coverage": home_player_rating["coverage"],
+                    "away_lineup_rating_available": away_player_rating["available"],
+                    "home_lineup_rating_available": home_player_rating["available"],
+                    "away_lineup_rating_source": away_player_rating["source"],
+                    "home_lineup_rating_source": home_player_rating["source"],
+                }
+            )
+            row.update(matchup_player_rating_features(home_player_rating, away_player_rating))
+        rows.append(row)
 
     frame = pd.DataFrame(rows)
 

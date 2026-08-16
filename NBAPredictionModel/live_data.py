@@ -7,8 +7,6 @@ import json
 import os
 import time
 from datetime import datetime
-from urllib.error import URLError, HTTPError
-from urllib.request import Request, urlopen
 
 import pandas as pd
 import requests
@@ -24,8 +22,8 @@ from nba_api.stats.endpoints import (
 _nba_teams = teams.get_teams()
 _GARBAGE_TIME_MARGIN_CAP = 15.0
 REQUEST_PAUSE_SECONDS = 0.1 if os.environ.get("RENDER", "").strip().lower() == "true" else 0.6
-ESPN_NBA_TEAMS_URL = "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/teams"
-ESPN_NBA_SCOREBOARD_URL = "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard"
+ESPN_NBA_TEAMS_URL = "http://site.api.espn.com/apis/site/v2/sports/basketball/nba/teams"
+ESPN_NBA_SCOREBOARD_URL = "http://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard"
 ESPN_USER_AGENT = "Mozilla/5.0 PickLedgerPro NBA fallback/1.0"
 
 
@@ -35,9 +33,14 @@ def _pause() -> None:
 
 
 def _fetch_espn_json(url: str) -> dict:
-    req = Request(url, headers={"User-Agent": ESPN_USER_AGENT})
-    with urlopen(req, timeout=20) as resp:
-        payload = json.loads(resp.read().decode("utf-8"))
+    # requests succeeds on HTTP site.api where urllib gets datacenter HTTPS/403 quirks.
+    response = requests.get(
+        url,
+        headers={"User-Agent": ESPN_USER_AGENT, "Accept": "application/json"},
+        timeout=20,
+    )
+    response.raise_for_status()
+    payload = response.json()
     return payload if isinstance(payload, dict) else {}
 
 
@@ -726,15 +729,13 @@ def fetch_espn_total_lines(date_str: str = None) -> dict:
         return {}
 
     url = (
-        'https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard'
+        'http://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard'
         f'?dates={yyyymmdd}'
     )
 
-    req = Request(url, headers={'User-Agent': 'Mozilla/5.0'})
     try:
-        with urlopen(req, timeout=15) as resp:
-            payload = json.loads(resp.read().decode('utf-8'))
-    except (HTTPError, URLError, TimeoutError, json.JSONDecodeError):
+        payload = _fetch_espn_json(url)
+    except (requests.RequestException, ValueError, TimeoutError, json.JSONDecodeError):
         return {}
 
     lines = {}

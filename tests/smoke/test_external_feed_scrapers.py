@@ -1010,6 +1010,53 @@ def test_scores24_extracts_our_choice_and_normalizes_pick():
     ) == "Pittsburgh Pirates ML (Miami Marlins @ Pittsburgh Pirates)"
 
 
+def test_scores24_extracts_structured_editorial_prediction():
+    module = _load_module(
+        "scores24_structured_choice_test",
+        ROOT / "scripts" / "scrapers" / "scores24_scraper.py",
+    )
+    matchup = {"away": "Los Angeles Angels", "home": "Baltimore Orioles"}
+    moneyline_html = r"""
+    <html><body>
+      <div>W1 -133 W2 +114</div>
+      <script>
+        window.__DATA__ = "{\"prediction\":[\"one_two\",\"w1\"],\"predictionValue\":\"1.71\",\"hasSummary\":true}";
+      </script>
+    </body></html>
+    """
+    tip, odds = module.extract_our_choice(moneyline_html, matchup=matchup)
+    assert tip == "Baltimore Orioles Win"
+    assert odds == -133
+
+    totals_html = r"""
+    <html><body>
+      <script>
+        window.__DATA__ = "{\"prediction\":[\"total_over\",\"9_5\"],\"predictionValue\":\"1.87\"}";
+      </script>
+    </body></html>
+    """
+    tip, odds = module.extract_our_choice(
+        totals_html,
+        matchup={"away": "Athletics", "home": "Cincinnati Reds"},
+    )
+    assert tip == "Total Over (9,5)"
+    assert odds == module._decimal_odds_to_american(1.87)
+
+    under_html = r"""
+    <html><body>
+      <script>
+        window.__DATA__ = "{\"prediction\":[\"total_under\",\"183_5\"],\"predictionValue\":\"1.65\"}";
+      </script>
+    </body></html>
+    """
+    tip, odds = module.extract_our_choice(
+        under_html,
+        matchup={"away": "Phoenix Mercury", "home": "Atlanta Dream"},
+    )
+    assert tip == "Total Under (183,5)"
+    assert odds == module._decimal_odds_to_american(1.65)
+
+
 def test_scores24_nba_summer_config_and_official_matchup_scrape():
     module = _load_module(
         "scores24_nba_summer_test",

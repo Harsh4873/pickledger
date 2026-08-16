@@ -30,7 +30,7 @@ except ImportError:
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
-ESPN_SCOREBOARD_URL = "https://site.api.espn.com/apis/site/v2/sports/basketball/wnba/scoreboard"
+ESPN_SCOREBOARD_URL = "http://site.api.espn.com/apis/site/v2/sports/basketball/wnba/scoreboard"
 DB_CANDIDATES = [
     REPO_ROOT / "pickledger.db",
     REPO_ROOT / "NBAPredictionModel" / "pickledger.db",

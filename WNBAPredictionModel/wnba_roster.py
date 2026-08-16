@@ -36,7 +36,7 @@ except ImportError:
 # Constants
 # ---------------------------------------------------------------------------
 ESPN_ROSTER_URL = (
-    "https://site.api.espn.com/apis/site/v2/sports/basketball/wnba/teams/"
+    "http://site.api.espn.com/apis/site/v2/sports/basketball/wnba/teams/"
     "{espn_team_id}/roster"
 )
 BDL_ACTIVE_PLAYERS_URL = "https://api.balldontlie.io/wnba/v1/players/active"

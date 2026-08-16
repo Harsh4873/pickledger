@@ -58,7 +58,7 @@ from scripts.scrapers.scores24_scraper import (  # noqa: E402
 
 CENTRAL = ZoneInfo("America/Chicago")
 ESPN_SCOREBOARD_URL = (
-    "https://site.api.espn.com/apis/site/v2/sports/tennis/{league}/scoreboard?dates={date}"
+    "http://site.api.espn.com/apis/site/v2/sports/tennis/{league}/scoreboard?dates={date}"
 )
 TENNISTONIC_BASE = "https://tennistonic.com"
 SCORES24_BASE = "https://scores24.live"
@@ -598,7 +598,7 @@ def scrape_scores24_tennis(
                 blob = _normalize_team(f"{title} {url.replace('-', ' ')}")
                 if not (_name_tokens(match["away"])[-1] in blob and _name_tokens(match["home"])[-1] in blob):
                     continue
-                tip, odds = extract_our_choice(html)
+                tip, odds = extract_our_choice(html, matchup=match)
                 if not tip:
                     continue
                 winner = _scores24_tip_winner(tip, match)

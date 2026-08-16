@@ -1,0 +1,60 @@
+name: MLB Player-Rating Research
+
+on:
+  workflow_dispatch:
+    inputs:
+      seasons:
+        description: "Seasons to evaluate (for example, 2026 or 2025 2026)"
+        required: false
+        default: "2026"
+      include_odds:
+        description: "Download historical moneylines for a priced-market comparison"
+        required: false
+        default: true
+        type: boolean
+
+jobs:
+  oracle-backtest:
+    name: Oracle-lineup challenger backtest
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install MLB model dependencies
+        run: pip install -r MLBPredictionModel/requirements.txt
+
+      - name: Build date-safe player-state dataset
+        working-directory: MLBPredictionModel
+        shell: bash
+        run: |
+          raw="${{ inputs.seasons }}"
+          seasons_args="${raw//,/ }"
+          seasons_args="${seasons_args//-/ }"
+          odds_arg=""
+          if [[ "${{ inputs.include_odds }}" != "true" ]]; then
+            odds_arg="--skip-odds"
+          fi
+          python player_rating_oracle_data.py --seasons ${seasons_args} ${odds_arg}
+
+      - name: Train and walk-forward-test isolated challenger
+        working-directory: MLBPredictionModel
+        run: python backtest_player_rating_oracle.py
+
+      - name: Upload research outputs
+        uses: actions/upload-artifact@v4
+        with:
+          name: mlb-player-rating-oracle-research
+          path: |
+            MLBPredictionModel/data/mlb_player_rating_oracle_dataset.csv
+            MLBPredictionModel/artifacts/mlb_player_rating_oracle_challenger.joblib
+            MLBPredictionModel/artifacts/mlb_player_rating_oracle_challenger_metadata.json
+          retention-days: 30
+          if-no-files-found: error

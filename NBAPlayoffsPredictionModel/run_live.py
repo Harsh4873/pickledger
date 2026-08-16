@@ -19,9 +19,9 @@ import sys
 from pathlib import Path
 from typing import Any
 from urllib.error import HTTPError, URLError
-from urllib.request import Request, urlopen
 
 import pandas as pd
+import requests
 from nba_api.stats.endpoints import leaguegamefinder
 
 BASE_DIR = Path(__file__).resolve().parents[1]
@@ -45,7 +45,7 @@ from run_live import (  # noqa: E402
 MODEL_SOURCE = "NBA Playoffs"
 DEFAULT_SEASON = os.environ.get("NBA_MODEL_SEASON", "2025-26").strip() or "2025-26"
 ESPN_SCOREBOARD_URL = (
-    "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard"
+    "http://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard"
 )
 USER_AGENT = "Mozilla/5.0 PickLedgerPro NBAPlayoffs/1.0"
 LEAGUE_AVG_RATING = 114.0
@@ -94,9 +94,14 @@ def _parse_args() -> argparse.Namespace:
 
 
 def _request_json(url: str) -> dict[str, Any]:
-    req = Request(url, headers={"User-Agent": USER_AGENT})
-    with urlopen(req, timeout=20) as resp:
-        return json.loads(resp.read().decode("utf-8"))
+    response = requests.get(
+        url,
+        headers={"User-Agent": USER_AGENT, "Accept": "application/json"},
+        timeout=20,
+    )
+    response.raise_for_status()
+    payload = response.json()
+    return payload if isinstance(payload, dict) else {}
 
 
 def _espn_date_key(date_str: str) -> str:

@@ -49,7 +49,7 @@ if not BDL_API_KEY:
 # ---------------------------------------------------------------------------
 
 BDL_GAMES_URL = "https://api.balldontlie.io/wnba/v1/games"
-ESPN_SCOREBOARD_URL = "https://site.api.espn.com/apis/site/v2/sports/basketball/wnba/scoreboard"
+ESPN_SCOREBOARD_URL = "http://site.api.espn.com/apis/site/v2/sports/basketball/wnba/scoreboard"
 
 # Regular-season date windows per season for the ESPN fetcher. Generous on
 # both ends — non-regular-season events are filtered by season type.

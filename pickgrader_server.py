@@ -35,6 +35,8 @@ from urllib.parse import urlencode, urlparse
 from urllib.request import Request, urlopen
 from zoneinfo import ZoneInfo
 
+import requests
+
 def _env_bool(name: str, default: bool) -> bool:
     raw = os.environ.get(name)
     if raw is None:
@@ -1566,14 +1568,19 @@ def parse_pick_date(date_text: str, year: int) -> str | None:
 
 def fetch_scoreboard(sport: str, league: str, yyyymmdd: str) -> dict[str, Any] | None:
     url = (
-        f"https://site.api.espn.com/apis/site/v2/sports/{sport}/{league}/scoreboard"
+        f"http://site.api.espn.com/apis/site/v2/sports/{sport}/{league}/scoreboard"
         f"?dates={yyyymmdd}"
     )
-    req = Request(url, headers={"User-Agent": USER_AGENT})
     try:
-        with urlopen(req, timeout=15) as resp:
-            return json.loads(resp.read().decode("utf-8"))
-    except (HTTPError, URLError, TimeoutError, json.JSONDecodeError):
+        response = requests.get(
+            url,
+            headers={"User-Agent": USER_AGENT, "Accept": "application/json"},
+            timeout=15,
+        )
+        response.raise_for_status()
+        payload = response.json()
+        return payload if isinstance(payload, dict) else None
+    except (requests.RequestException, ValueError, TimeoutError, json.JSONDecodeError):
         return None
 
 
@@ -1599,23 +1606,32 @@ def fetch_event_summary(sport: str, league: str, event_id: str) -> dict[str, Any
     if not event_id:
         return None
     url = (
-        f"https://site.api.espn.com/apis/site/v2/sports/{sport}/{league}/summary"
+        f"http://site.api.espn.com/apis/site/v2/sports/{sport}/{league}/summary"
         f"?event={event_id}"
     )
-    req = Request(url, headers={"User-Agent": USER_AGENT})
     try:
-        with urlopen(req, timeout=15) as resp:
-            return json.loads(resp.read().decode("utf-8"))
-    except (HTTPError, URLError, TimeoutError, json.JSONDecodeError):
+        response = requests.get(
+            url,
+            headers={"User-Agent": USER_AGENT, "Accept": "application/json"},
+            timeout=15,
+        )
+        response.raise_for_status()
+        payload = response.json()
+        return payload if isinstance(payload, dict) else None
+    except (requests.RequestException, ValueError, TimeoutError, json.JSONDecodeError):
         return None
 
 
 def _fetch_json_url(url: str) -> dict[str, Any] | None:
-    req = Request(url, headers={"User-Agent": USER_AGENT})
     try:
-        with urlopen(req, timeout=15) as resp:
-            payload = json.loads(resp.read().decode("utf-8"))
-    except (HTTPError, URLError, TimeoutError, json.JSONDecodeError):
+        response = requests.get(
+            url,
+            headers={"User-Agent": USER_AGENT, "Accept": "application/json"},
+            timeout=15,
+        )
+        response.raise_for_status()
+        payload = response.json()
+    except (requests.RequestException, ValueError, TimeoutError, json.JSONDecodeError):
         return None
     return payload if isinstance(payload, dict) else None
 

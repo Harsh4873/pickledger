@@ -67,23 +67,23 @@ class DirectApiClient:
 
     def basketball_scoreboard(self, league: str, date_iso: str) -> dict[str, Any]:
         return self._get(
-            f"https://site.api.espn.com/apis/site/v2/sports/basketball/{league}/scoreboard",
+            f"http://site.api.espn.com/apis/site/v2/sports/basketball/{league}/scoreboard",
             {"dates": date_iso.replace("-", ""), "limit": 100},
         )
 
     def basketball_roster(self, league: str, team_id: str) -> dict[str, Any]:
         return self._get(
-            f"https://site.api.espn.com/apis/site/v2/sports/basketball/{league}/teams/{team_id}/roster"
+            f"http://site.api.espn.com/apis/site/v2/sports/basketball/{league}/teams/{team_id}/roster"
         )
 
     def basketball_injuries(self, league: str) -> dict[str, Any]:
         return self._get(
-            f"https://site.api.espn.com/apis/site/v2/sports/basketball/{league}/injuries"
+            f"http://site.api.espn.com/apis/site/v2/sports/basketball/{league}/injuries"
         )
 
     def basketball_team_stats(self, league: str, team_id: str) -> dict[str, Any]:
         return self._get(
-            f"https://site.api.espn.com/apis/site/v2/sports/basketball/{league}/teams/{team_id}/statistics"
+            f"http://site.api.espn.com/apis/site/v2/sports/basketball/{league}/teams/{team_id}/statistics"
         )
 
     def basketball_player_gamelog(
@@ -114,13 +114,13 @@ class DirectApiClient:
 
     def mlb_espn_scoreboard(self, date_iso: str) -> dict[str, Any]:
         return self._get(
-            "https://site.api.espn.com/apis/site/v2/sports/baseball/mlb/scoreboard",
+            "http://site.api.espn.com/apis/site/v2/sports/baseball/mlb/scoreboard",
             {"dates": date_iso.replace("-", ""), "limit": 100},
         )
 
     def mlb_espn_summary(self, event_id: str) -> dict[str, Any]:
         return self._get(
-            "https://site.api.espn.com/apis/site/v2/sports/baseball/mlb/summary",
+            "http://site.api.espn.com/apis/site/v2/sports/baseball/mlb/summary",
             {"event": event_id},
         )
 

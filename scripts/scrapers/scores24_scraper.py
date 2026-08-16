@@ -240,7 +240,7 @@ def fetch_daily_matchups(
     """
     config = config or SPORT_CONFIG[sport]
     url = (
-        "https://site.api.espn.com/apis/site/v2/sports/"
+        "http://site.api.espn.com/apis/site/v2/sports/"
         f"{config['espn_sport']}/{config['espn_league']}/scoreboard?dates={date_iso.replace('-', '')}"
     )
     client = session or requests.Session()
@@ -739,7 +739,113 @@ def extract_listing_links(html: str) -> list[dict[str, str]]:
     return out
 
 
-def extract_our_choice(html: str) -> tuple[str, int | None]:
+def _decimal_odds_to_american(value: float) -> int | None:
+    if value <= 1.0:
+        return None
+    if value >= 2.0:
+        return int(round((value - 1.0) * 100))
+    return int(round(-100.0 / (value - 1.0)))
+
+
+def _scores24_line_token(token: str) -> str:
+    """Scores24 encodes 9.5 as 9_5; historical tips keep the European comma."""
+    cleaned = str(token or "").strip().strip("\\")
+    if re.fullmatch(r"\d+_\d+", cleaned):
+        return cleaned.replace("_", ",")
+    if re.fullmatch(r"\d+", cleaned):
+        return cleaned
+    return cleaned.replace("_", ",")
+
+
+def _tip_from_prediction_codes(
+    market: str,
+    selection: str,
+    matchup: dict[str, str] | None,
+) -> str:
+    market_key = str(market or "").strip().strip("\\").lower()
+    selection_key = str(selection or "").strip().strip("\\")
+    if market_key == "one_two":
+        if not matchup:
+            return ""
+        if selection_key == "w1":
+            return f"{matchup['home']} Win"
+        if selection_key == "w2":
+            return f"{matchup['away']} Win"
+        return ""
+    if market_key == "total_over":
+        return f"Total Over ({_scores24_line_token(selection_key)})"
+    if market_key == "total_under":
+        return f"Total Under ({_scores24_line_token(selection_key)})"
+    if market_key in {"handicap", "european_handicap", "ah"} or market_key.startswith("handicap"):
+        if not matchup:
+            return ""
+        line = _scores24_line_token(selection_key)
+        # h1_+1_5 / h2_-1_5 / +1_5 with side inferred from leading h1/h2.
+        side_match = re.fullmatch(r"h([12])[_]?([+-]?\d+(?:_\d+)?)", selection_key, re.IGNORECASE)
+        if side_match:
+            team = matchup["home"] if side_match.group(1) == "1" else matchup["away"]
+            line = _scores24_line_token(side_match.group(2))
+            if not line.startswith(("+", "-")):
+                line = f"+{line}"
+            return f"{team} Handicap ({line})"
+        signed = re.fullmatch(r"([+-]?\d+(?:_\d+)?)", selection_key)
+        if signed and matchup:
+            # Ambiguous side — prefer home (W1) only when the token is a bare line.
+            line = _scores24_line_token(signed.group(1))
+            if not line.startswith(("+", "-")):
+                line = f"+{line}"
+            return f"{matchup['home']} Handicap ({line})"
+    return ""
+
+
+def _american_odds_from_w1_w2_header(html: str, selection: str) -> int | None:
+    text = _norm_space(BeautifulSoup(html or "", "html.parser").get_text(" ", strip=True))
+    match = re.search(r"\bW1\s+([+-]\d+)\s+W2\s+([+-]\d+)\b", text)
+    if not match:
+        return None
+    if selection == "w1":
+        return int(match.group(1))
+    if selection == "w2":
+        return int(match.group(2))
+    return None
+
+
+def _extract_structured_prediction(
+    html: str,
+    matchup: dict[str, str] | None = None,
+) -> tuple[str, int | None]:
+    """Parse Scores24's post-2026-08 editorial payload (prediction + predictionValue).
+
+    The visible "Our choice … at odds of …" cell was removed site-wide; tips now
+    live in embedded JSON as ["one_two","w1"] / ["total_over","9_5"] plus a
+    decimal predictionValue.
+    """
+    normalized = (html or "").replace('\\"', '"')
+    match = re.search(
+        r'"prediction"\s*:\s*\[\s*"([^"]+)"\s*,\s*"([^"]+)"\s*\]\s*,\s*"predictionValue"\s*:\s*"([^"]+)"',
+        normalized,
+    )
+    if not match:
+        return "", None
+    market, selection, raw_value = match.group(1), match.group(2), match.group(3)
+    tip = _tip_from_prediction_codes(market, selection, matchup)
+    if not tip:
+        return "", None
+    odds = None
+    if str(market).strip().strip("\\").lower() == "one_two":
+        odds = _american_odds_from_w1_w2_header(html, str(selection).strip().strip("\\").lower())
+    if odds is None:
+        try:
+            odds = _decimal_odds_to_american(float(raw_value))
+        except ValueError:
+            odds = None
+    return tip, odds
+
+
+def extract_our_choice(
+    html: str,
+    matchup: dict[str, str] | None = None,
+) -> tuple[str, int | None]:
     soup = BeautifulSoup(html or "", "html.parser")
     label = soup.find(string=lambda value: value and _norm_space(value).lower() == "our choice")
     candidates: list[str] = []
@@ -769,7 +875,7 @@ def extract_our_choice(html: str) -> tuple[str, int | None]:
             odds = None
         if tip:
             return tip, odds
-    return "", None
+    return _extract_structured_prediction(html, matchup=matchup)
 
 
 def _slugify(value: str) -> str:
@@ -1059,7 +1165,7 @@ def scrape_scores24(
                     key = _matchup_key(matchup["away"], matchup["home"])
                     if key:
                         detail_matchup_keys.add(key)
-                    tip, odds = extract_our_choice(html)
+                    tip, odds = extract_our_choice(html, matchup=matchup)
                     if not tip:
                         continue
                     if key:

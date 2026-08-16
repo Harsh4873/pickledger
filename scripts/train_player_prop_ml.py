@@ -207,12 +207,22 @@ def _fit_artifact(
     families: list[str],
     repo_root: Path,
     force: bool,
+    dry_run: bool,
 ) -> dict[str, Any]:
     artifact = SPORT_ARTIFACTS[sport]
     model_path = Path(artifact["model"])
     metadata_path = Path(artifact["metadata"])
-    if model_path.exists() and metadata_path.exists() and not force:
+    if model_path.exists() and metadata_path.exists() and not force and not dry_run:
         return {"sport": sport, "changed": False, "path": str(model_path)}
+
+    existing_metadata: dict[str, Any] = {}
+    if metadata_path.exists():
+        try:
+            loaded_metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
+            if isinstance(loaded_metadata, dict):
+                existing_metadata = loaded_metadata
+        except (OSError, json.JSONDecodeError):
+            pass
 
     try:
         import joblib  # type: ignore
@@ -283,23 +293,41 @@ def _fit_artifact(
         "probability_mode": "validated_model_market_anchor" if active else "market_anchor_validation_gate",
         "training_fingerprint": training_fingerprint,
     }
-    ARTIFACT_DIR.mkdir(parents=True, exist_ok=True)
-    joblib.dump({"model": model, "features": FEATURE_NAMES}, model_path)
-    metadata_path.write_text(json.dumps(metadata, indent=2, sort_keys=True) + "\n", encoding="utf-8")
-    return {
+    result = {
         "sport": sport,
-        "changed": True,
+        "changed": not dry_run,
         "path": str(model_path),
         "ledger_samples": len(rows),
         "active": active,
         "validation": validation,
     }
+    if dry_run:
+        result["changed"] = False
+        result["candidate"] = metadata
+        return result
+    if active is not True and existing_metadata.get("active") is True:
+        result["changed"] = False
+        result["candidate_rejected"] = True
+        return result
+    ARTIFACT_DIR.mkdir(parents=True, exist_ok=True)
+    joblib.dump({"model": model, "features": FEATURE_NAMES}, model_path)
+    metadata_path.write_text(json.dumps(metadata, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    return result
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--repo-root", type=Path, default=REPO_ROOT)
-    parser.add_argument("--force", action="store_true", help="Retrain and overwrite artifacts even if present.")
+    parser.add_argument(
+        "--force",
+        action="store_true",
+        help="Re-evaluate artifacts even if present; rejected candidates cannot replace active artifacts.",
+    )
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Train and evaluate candidates without replacing any artifacts.",
+    )
     parser.add_argument("--rebuild-ledger", action="store_true", help="Rebuild outcome ledger before training.")
     args = parser.parse_args()
     repo_root = args.repo_root.resolve()
@@ -308,11 +336,31 @@ def main() -> int:
         print(f"[player-prop-ml] rebuilt outcome ledger (changed={str(changed).lower()})")
 
     results = [
-        _fit_artifact(sport="MLB", families=MLB_FAMILIES, repo_root=repo_root, force=args.force),
-        _fit_artifact(sport="WNBA", families=WNBA_FAMILIES, repo_root=repo_root, force=args.force),
+        _fit_artifact(
+            sport="MLB",
+            families=MLB_FAMILIES,
+            repo_root=repo_root,
+            force=args.force,
+            dry_run=args.dry_run,
+        ),
+        _fit_artifact(
+            sport="WNBA",
+            families=WNBA_FAMILIES,
+            repo_root=repo_root,
+            force=args.force,
+            dry_run=args.dry_run,
+        ),
     ]
     for result in results:
-        status = "trained" if result.get("changed") else "existing"
+        status = (
+            "rejected"
+            if result.get("candidate_rejected")
+            else "candidate"
+            if result.get("candidate")
+            else "trained"
+            if result.get("changed")
+            else "existing"
+        )
         print(f"[player-prop-ml] {result['sport']}: {status} {result['path']}")
     return 0
 

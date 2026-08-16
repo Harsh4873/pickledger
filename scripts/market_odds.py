@@ -304,7 +304,7 @@ def fetch_market_odds_for_date(
             continue
         sport_path, league_path = league
         payload = fetch(
-            f"https://site.api.espn.com/apis/site/v2/sports/{sport_path}/{league_path}/scoreboard",
+            f"http://site.api.espn.com/apis/site/v2/sports/{sport_path}/{league_path}/scoreboard",
             {"dates": compact, "limit": 100},
         )
         games: list[dict[str, Any]] = []
