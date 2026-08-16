@@ -136,6 +136,140 @@
     },
     {
       "blockers": [
+        "edge_requires_two_sided_price",
+        "edge_insufficient_source_samples",
+        "edge_insufficient_segment_samples",
+        "edge_insufficient_distinct_prior_dates",
+        "value_insufficient_source_samples"
+      ],
+      "canonicalGame": "2026-08-16:tennis:daniel merida|zizou bergs",
+      "consensusSources": [],
+      "date": "2026-08-16",
+      "decimalOdds": 1.8,
+      "decision": "BET",
+      "dedupeRule": "exact_market_identity_best_executable_price",
+      "direction": "side",
+      "duplicateCount": 1,
+      "duplicateSources": [
+        "Scores24Tennis"
+      ],
+      "edgeQualified": false,
+      "estimate": {
+        "alpha": 0.110833,
+        "alphaStdError": 0.063743,
+        "breakEvenProbability": 0.555556,
+        "conservativeExpectedValue": 0.052457,
+        "expectedValue": 0.199499,
+        "lowerProbability": 0.584698,
+        "marketProbability": 0.555556,
+        "method": "market_baseline_plus_hierarchically_shrunk_prior_residual",
+        "probability": 0.666389,
+        "probabilityPositiveEv": 0.95896,
+        "sourceAlpha": 0.051347,
+        "value": {
+          "alpha": 0.051347,
+          "alphaStdError": 0.046709,
+          "conservativeExpectedValue": -0.015323,
+          "expectedValue": 0.092425,
+          "lowerProbability": 0.547043,
+          "method": "source_flat_roi_shrunk_residual_vs_break_even",
+          "probability": 0.606903,
+          "probabilityPositiveEv": 0.864181
+        }
+      },
+      "evidence": {
+        "chronologicalHalvesNonnegative": true,
+        "cutoffExclusive": "2026-08-16",
+        "distinctDates": 12,
+        "firstHalfFlatNetUnits": 3.0645,
+        "flatNetUnits": 5.8376,
+        "flatRoi": 0.32431,
+        "losses": 4,
+        "modelVersion": "source_identity:scores24_tennis",
+        "policyVersion": "profit_desk_policy_v2",
+        "priorOnly": true,
+        "pushes": 0,
+        "secondHalfFlatNetUnits": 2.7731,
+        "segmentDistinctDates": 12,
+        "segmentEvidenceKey": "team|scores24_tennis|tennis|source_identity:scores24_tennis|tennis moneyline|side|0.55_0.60",
+        "segmentSamples": 18,
+        "sourceChronologicalHalvesNonnegative": true,
+        "sourceDistinctDates": 16,
+        "sourceEvidenceKey": "team|scores24_tennis|tennis",
+        "sourceFirstHalfFlatNetUnits": 6.9513,
+        "sourceFlatNetUnits": 9.111,
+        "sourceFlatRoi": 0.146951,
+        "sourceLosses": 22,
+        "sourceSamples": 62,
+        "sourceSecondHalfFlatNetUnits": 2.1596,
+        "sourceWins": 40,
+        "wins": 14
+      },
+      "game": "Zizou Bergs vs Daniel Merida",
+      "gradeSupportSource": "explicit_true",
+      "gradeSupported": true,
+      "id": "profit-436fc39d4e2dcd6882686d78",
+      "lane": null,
+      "laneBlockers": {
+        "edge": [
+          "edge_requires_two_sided_price",
+          "edge_insufficient_source_samples",
+          "edge_insufficient_segment_samples",
+          "edge_insufficient_distinct_prior_dates"
+        ],
+        "structural": [],
+        "value": [
+          "value_insufficient_source_samples"
+        ]
+      },
+      "line": null,
+      "liveQualified": false,
+      "market": "tennis_moneyline",
+      "marketFamily": "tennis moneyline",
+      "marketIdentity": "market:d68fc1166bc02e2c38c542b5",
+      "mode": "team",
+      "modelVersion": "source_identity:scores24_tennis",
+      "oddsAmerican": -125,
+      "pick": "Daniel Merida ML (Zizou Bergs vs Daniel Merida)",
+      "player": null,
+      "policyVersion": "profit_desk_policy_v2",
+      "price": {
+        "ageHours": 6.721,
+        "breakEvenProbability": 0.555556,
+        "decimalOdds": 1.8,
+        "eligibleForAlphaEstimate": false,
+        "fresh": true,
+        "freshPregame": true,
+        "maxAgeHours": 24.0,
+        "noVigInputs": {},
+        "noVigMethod": "unverified_single_side",
+        "noVigProbability": null,
+        "noVigVerified": false,
+        "observedExecutable": true,
+        "oddsAmerican": -125,
+        "quality": "one_sided",
+        "source": "scraped_feed:scores24_tennis",
+        "sourceField": "source_registry.scraped_odds",
+        "startTime": "2026-08-16T19:30Z",
+        "tier": "C",
+        "tierLabel": "posted_one_sided",
+        "timestamp": "2026-08-16T12:46:44.265896Z",
+        "timestampField": "bucket.updatedAt",
+        "twoSided": false,
+        "updatedAt": "2026-08-16T12:46:44.265896Z"
+      },
+      "rawModelProbabilityIgnored": null,
+      "result": "pending",
+      "shadowQualified": false,
+      "source": "Scores24Tennis",
+      "sourceKey": "scores24_tennis",
+      "sport": "Tennis",
+      "stakeUnits": 0.0,
+      "tier": "watch",
+      "valueQualified": false
+    },
+    {
+      "blockers": [
         "edge_negative_chronological_evidence_half",
         "edge_probability_positive_ev_below_0.80",
         "edge_conservative_probability_margin_below_0.02",
@@ -674,6 +808,300 @@
       "source": "MLBPlayerProps",
       "sourceKey": "mlb_player_props",
       "sport": "MLB",
+      "stakeUnits": 0.0,
+      "tier": "watch",
+      "valueQualified": false
+    },
+    {
+      "blockers": [
+        "edge_requires_two_sided_price",
+        "edge_insufficient_source_samples",
+        "edge_insufficient_segment_samples",
+        "edge_insufficient_distinct_prior_dates",
+        "edge_negative_chronological_evidence_half",
+        "edge_probability_positive_ev_below_0.80",
+        "edge_conservative_probability_margin_below_0.02",
+        "edge_non_positive_conservative_ev",
+        "value_insufficient_source_samples"
+      ],
+      "canonicalGame": "2026-08-16:tennis:adam walton|ignacio buse",
+      "consensusSources": [
+        "Scores24Tennis",
+        "TennisTonic"
+      ],
+      "date": "2026-08-16",
+      "decimalOdds": 1.591716,
+      "decision": "BET",
+      "dedupeRule": "exact_market_identity_best_executable_price",
+      "direction": "side",
+      "duplicateCount": 2,
+      "duplicateSources": [
+        "Scores24Tennis",
+        "TennisTonic"
+      ],
+      "edgeQualified": false,
+      "estimate": {
+        "alpha": 0.05257,
+        "alphaStdError": 0.071729,
+        "breakEvenProbability": 0.628253,
+        "conservativeExpectedValue": -0.062641,
+        "expectedValue": 0.083676,
+        "lowerProbability": 0.588899,
+        "marketProbability": 0.628253,
+        "method": "market_baseline_plus_hierarchically_shrunk_prior_residual",
+        "probability": 0.680823,
+        "probabilityPositiveEv": 0.76819,
+        "sourceAlpha": 0.051347,
+        "value": {
+          "alpha": 0.051347,
+          "alphaStdError": 0.046709,
+          "conservativeExpectedValue": -0.01355,
+          "expectedValue": 0.081731,
+          "lowerProbability": 0.61974,
+          "method": "source_flat_roi_shrunk_residual_vs_break_even",
+          "probability": 0.6796,
+          "probabilityPositiveEv": 0.864181
+        }
+      },
+      "evidence": {
+        "chronologicalHalvesNonnegative": false,
+        "cutoffExclusive": "2026-08-16",
+        "distinctDates": 11,
+        "firstHalfFlatNetUnits": 1.4923,
+        "flatNetUnits": 1.3058,
+        "flatRoi": 0.081612,
+        "losses": 5,
+        "modelVersion": "source_identity:scores24_tennis",
+        "policyVersion": "profit_desk_policy_v2",
+        "priorOnly": true,
+        "pushes": 0,
+        "secondHalfFlatNetUnits": -0.1865,
+        "segmentDistinctDates": 11,
+        "segmentEvidenceKey": "team|scores24_tennis|tennis|source_identity:scores24_tennis|tennis moneyline|side|gte_0.60",
+        "segmentSamples": 16,
+        "sourceChronologicalHalvesNonnegative": true,
+        "sourceDistinctDates": 16,
+        "sourceEvidenceKey": "team|scores24_tennis|tennis",
+        "sourceFirstHalfFlatNetUnits": 6.9513,
+        "sourceFlatNetUnits": 9.111,
+        "sourceFlatRoi": 0.146951,
+        "sourceLosses": 22,
+        "sourceSamples": 62,
+        "sourceSecondHalfFlatNetUnits": 2.1596,
+        "sourceWins": 40,
+        "wins": 11
+      },
+      "game": "Ignacio Buse vs Adam Walton",
+      "gradeSupportSource": "explicit_true",
+      "gradeSupported": true,
+      "id": "profit-7dfbddf6b44ce7d53d3d7146",
+      "lane": null,
+      "laneBlockers": {
+        "edge": [
+          "edge_requires_two_sided_price",
+          "edge_insufficient_source_samples",
+          "edge_insufficient_segment_samples",
+          "edge_insufficient_distinct_prior_dates",
+          "edge_negative_chronological_evidence_half",
+          "edge_probability_positive_ev_below_0.80",
+          "edge_conservative_probability_margin_below_0.02",
+          "edge_non_positive_conservative_ev"
+        ],
+        "structural": [],
+        "value": [
+          "value_insufficient_source_samples"
+        ]
+      },
+      "line": null,
+      "liveQualified": false,
+      "market": "tennis_moneyline",
+      "marketFamily": "tennis moneyline",
+      "marketIdentity": "market:594493423138133a6ea7e4fc",
+      "mode": "team",
+      "modelVersion": "source_identity:scores24_tennis",
+      "oddsAmerican": -169,
+      "pick": "Adam Walton ML (Ignacio Buse vs Adam Walton)",
+      "player": null,
+      "policyVersion": "profit_desk_policy_v2",
+      "price": {
+        "ageHours": 6.721,
+        "breakEvenProbability": 0.628253,
+        "decimalOdds": 1.591716,
+        "eligibleForAlphaEstimate": false,
+        "fresh": true,
+        "freshPregame": true,
+        "maxAgeHours": 24.0,
+        "noVigInputs": {},
+        "noVigMethod": "unverified_single_side",
+        "noVigProbability": null,
+        "noVigVerified": false,
+        "observedExecutable": true,
+        "oddsAmerican": -169,
+        "quality": "one_sided",
+        "source": "scraped_feed:scores24_tennis",
+        "sourceField": "source_registry.scraped_odds",
+        "startTime": "2026-08-16T19:30Z",
+        "tier": "C",
+        "tierLabel": "posted_one_sided",
+        "timestamp": "2026-08-16T12:46:44.265896Z",
+        "timestampField": "bucket.updatedAt",
+        "twoSided": false,
+        "updatedAt": "2026-08-16T12:46:44.265896Z"
+      },
+      "rawModelProbabilityIgnored": null,
+      "result": "pending",
+      "shadowQualified": false,
+      "source": "Scores24Tennis",
+      "sourceKey": "scores24_tennis",
+      "sport": "Tennis",
+      "stakeUnits": 0.0,
+      "tier": "watch",
+      "valueQualified": false
+    },
+    {
+      "blockers": [
+        "edge_requires_two_sided_price",
+        "edge_insufficient_source_samples",
+        "edge_insufficient_segment_samples",
+        "edge_insufficient_distinct_prior_dates",
+        "edge_negative_chronological_evidence_half",
+        "edge_probability_positive_ev_below_0.80",
+        "edge_conservative_probability_margin_below_0.02",
+        "edge_non_positive_conservative_ev",
+        "value_insufficient_source_samples"
+      ],
+      "canonicalGame": "2026-08-16:tennis:barbora krejcikova|sara bejlek",
+      "consensusSources": [
+        "Scores24Tennis",
+        "Tennis Model",
+        "TennisTonic"
+      ],
+      "date": "2026-08-16",
+      "decimalOdds": 1.591716,
+      "decision": "BET",
+      "dedupeRule": "exact_market_identity_best_executable_price",
+      "direction": "side",
+      "duplicateCount": 3,
+      "duplicateSources": [
+        "Scores24Tennis",
+        "Tennis Model",
+        "TennisTonic"
+      ],
+      "edgeQualified": false,
+      "estimate": {
+        "alpha": 0.05257,
+        "alphaStdError": 0.071729,
+        "breakEvenProbability": 0.628253,
+        "conservativeExpectedValue": -0.062641,
+        "expectedValue": 0.083676,
+        "lowerProbability": 0.588899,
+        "marketProbability": 0.628253,
+        "method": "market_baseline_plus_hierarchically_shrunk_prior_residual",
+        "probability": 0.680823,
+        "probabilityPositiveEv": 0.76819,
+        "sourceAlpha": 0.051347,
+        "value": {
+          "alpha": 0.051347,
+          "alphaStdError": 0.046709,
+          "conservativeExpectedValue": -0.01355,
+          "expectedValue": 0.081731,
+          "lowerProbability": 0.61974,
+          "method": "source_flat_roi_shrunk_residual_vs_break_even",
+          "probability": 0.6796,
+          "probabilityPositiveEv": 0.864181
+        }
+      },
+      "evidence": {
+        "chronologicalHalvesNonnegative": false,
+        "cutoffExclusive": "2026-08-16",
+        "distinctDates": 11,
+        "firstHalfFlatNetUnits": 1.4923,
+        "flatNetUnits": 1.3058,
+        "flatRoi": 0.081612,
+        "losses": 5,
+        "modelVersion": "source_identity:scores24_tennis",
+        "policyVersion": "profit_desk_policy_v2",
+        "priorOnly": true,
+        "pushes": 0,
+        "secondHalfFlatNetUnits": -0.1865,
+        "segmentDistinctDates": 11,
+        "segmentEvidenceKey": "team|scores24_tennis|tennis|source_identity:scores24_tennis|tennis moneyline|side|gte_0.60",
+        "segmentSamples": 16,
+        "sourceChronologicalHalvesNonnegative": true,
+        "sourceDistinctDates": 16,
+        "sourceEvidenceKey": "team|scores24_tennis|tennis",
+        "sourceFirstHalfFlatNetUnits": 6.9513,
+        "sourceFlatNetUnits": 9.111,
+        "sourceFlatRoi": 0.146951,
+        "sourceLosses": 22,
+        "sourceSamples": 62,
+        "sourceSecondHalfFlatNetUnits": 2.1596,
+        "sourceWins": 40,
+        "wins": 11
+      },
+      "game": "Sara Bejlek vs Barbora Krejcikova",
+      "gradeSupportSource": "explicit_true",
+      "gradeSupported": true,
+      "id": "profit-bb9f6690280b66d624292b2c",
+      "lane": null,
+      "laneBlockers": {
+        "edge": [
+          "edge_requires_two_sided_price",
+          "edge_insufficient_source_samples",
+          "edge_insufficient_segment_samples",
+          "edge_insufficient_distinct_prior_dates",
+          "edge_negative_chronological_evidence_half",
+          "edge_probability_positive_ev_below_0.80",
+          "edge_conservative_probability_margin_below_0.02",
+          "edge_non_positive_conservative_ev"
+        ],
+        "structural": [],
+        "value": [
+          "value_insufficient_source_samples"
+        ]
+      },
+      "line": null,
+      "liveQualified": false,
+      "market": "tennis_moneyline",
+      "marketFamily": "tennis moneyline",
+      "marketIdentity": "market:7e269e1b586fe0672c2f4a7a",
+      "mode": "team",
+      "modelVersion": "source_identity:scores24_tennis",
+      "oddsAmerican": -169,
+      "pick": "Barbora Krejcikova ML (Sara Bejlek vs Barbora Krejcikova)",
+      "player": null,
+      "policyVersion": "profit_desk_policy_v2",
+      "price": {
+        "ageHours": 2.221,
+        "breakEvenProbability": 0.628253,
+        "decimalOdds": 1.591716,
+        "eligibleForAlphaEstimate": false,
+        "fresh": true,
+        "freshPregame": true,
+        "maxAgeHours": 24.0,
+        "noVigInputs": {},
+        "noVigMethod": "unverified_single_side",
+        "noVigProbability": null,
+        "noVigVerified": false,
+        "observedExecutable": true,
+        "oddsAmerican": -169,
+        "quality": "one_sided",
+        "source": "scraped_feed:scores24_tennis",
+        "sourceField": "source_registry.scraped_odds",
+        "startTime": "2026-08-16T15:00Z",
+        "tier": "C",
+        "tierLabel": "posted_one_sided",
+        "timestamp": "2026-08-16T12:46:44.265896Z",
+        "timestampField": "bucket.updatedAt",
+        "twoSided": false,
+        "updatedAt": "2026-08-16T12:46:44.265896Z"
+      },
+      "rawModelProbabilityIgnored": null,
+      "result": "pending",
+      "shadowQualified": false,
+      "source": "Scores24Tennis",
+      "sourceKey": "scores24_tennis",
+      "sport": "Tennis",
       "stakeUnits": 0.0,
       "tier": "watch",
       "valueQualified": false
@@ -2457,15 +2885,19 @@
         "value_no_usable_price_baseline"
       ],
       "canonicalGame": "2026-08-16:tennis:lucrezia stefanini|marie bouzkova",
-      "consensusSources": [],
+      "consensusSources": [
+        "Tennis Model",
+        "TennisTonic"
+      ],
       "date": "2026-08-16",
       "decimalOdds": null,
       "decision": "BET",
       "dedupeRule": "exact_market_identity_best_executable_price",
       "direction": "side",
-      "duplicateCount": 1,
+      "duplicateCount": 2,
       "duplicateSources": [
-        "Tennis Model"
+        "Tennis Model",
+        "TennisTonic"
       ],
       "edgeQualified": false,
       "estimate": null,
@@ -2565,16 +2997,129 @@
         "edge_no_usable_price_baseline",
         "value_no_usable_price_baseline"
       ],
-      "canonicalGame": "2026-08-16:tennis:alexander blockx|flavio cobolli",
+      "canonicalGame": "2026-08-16:tennis:jessica bouzas maneiro|katerina siniakova",
       "consensusSources": [],
+      "date": "2026-08-16",
+      "decimalOdds": null,
+      "decision": "BET",
+      "dedupeRule": "exact_market_identity_best_executable_price",
+      "direction": "side",
+      "duplicateCount": 1,
+      "duplicateSources": [
+        "TennisTonic"
+      ],
+      "edgeQualified": false,
+      "estimate": null,
+      "evidence": {
+        "chronologicalHalvesNonnegative": false,
+        "cutoffExclusive": "2026-08-16",
+        "distinctDates": 0,
+        "firstHalfFlatNetUnits": 0.0,
+        "flatNetUnits": 0.0,
+        "flatRoi": null,
+        "losses": 0,
+        "modelVersion": "source_identity:tennistonic_tennis",
+        "policyVersion": "profit_desk_policy_v2",
+        "priorOnly": true,
+        "pushes": 0,
+        "secondHalfFlatNetUnits": 0.0,
+        "segmentDistinctDates": 0,
+        "segmentEvidenceKey": null,
+        "segmentSamples": 0,
+        "sourceChronologicalHalvesNonnegative": false,
+        "sourceDistinctDates": 0,
+        "sourceEvidenceKey": "team|tennistonic_tennis|tennis",
+        "sourceFirstHalfFlatNetUnits": 0.0,
+        "sourceFlatNetUnits": 0.0,
+        "sourceFlatRoi": null,
+        "sourceLosses": 0,
+        "sourceSamples": 0,
+        "sourceSecondHalfFlatNetUnits": 0.0,
+        "sourceWins": 0,
+        "wins": 0
+      },
+      "game": "Jessica Bouzas Maneiro vs Katerina Siniakova",
+      "gradeSupportSource": "explicit_true",
+      "gradeSupported": true,
+      "id": "profit-04f7b099f9d91ea5dce8258a",
+      "lane": null,
+      "laneBlockers": {
+        "edge": [
+          "edge_no_usable_price_baseline"
+        ],
+        "structural": [
+          "missing_executable_odds"
+        ],
+        "value": [
+          "value_no_usable_price_baseline"
+        ]
+      },
+      "line": null,
+      "liveQualified": false,
+      "market": "tennis_moneyline",
+      "marketFamily": "tennis moneyline",
+      "marketIdentity": "market:892148b8a8a9dc3ee6d72d20",
+      "mode": "team",
+      "modelVersion": "source_identity:tennistonic_tennis",
+      "oddsAmerican": null,
+      "pick": "Katerina Siniakova ML (Jessica Bouzas Maneiro vs Katerina Siniakova)",
+      "player": null,
+      "policyVersion": "profit_desk_policy_v2",
+      "price": {
+        "ageHours": 5.25,
+        "breakEvenProbability": null,
+        "decimalOdds": null,
+        "eligibleForAlphaEstimate": false,
+        "fresh": true,
+        "freshPregame": true,
+        "maxAgeHours": 24.0,
+        "noVigInputs": {},
+        "noVigMethod": "unverified_single_side",
+        "noVigProbability": null,
+        "noVigVerified": false,
+        "observedExecutable": false,
+        "oddsAmerican": null,
+        "quality": "missing",
+        "source": null,
+        "sourceField": "missing",
+        "startTime": "2026-08-16T18:00Z",
+        "tier": "D",
+        "tierLabel": "assumed_proxy_or_synthetic",
+        "timestamp": "2026-08-16T12:44:59.513409Z",
+        "timestampField": "bucket.updatedAt",
+        "twoSided": false,
+        "updatedAt": "2026-08-16T12:44:59.513409Z"
+      },
+      "rawModelProbabilityIgnored": null,
+      "result": "pending",
+      "shadowQualified": false,
+      "source": "TennisTonic",
+      "sourceKey": "tennistonic_tennis",
+      "sport": "Tennis",
+      "stakeUnits": 0.0,
+      "tier": "avoid",
+      "valueQualified": false
+    },
+    {
+      "blockers": [
+        "missing_executable_odds",
+        "edge_no_usable_price_baseline",
+        "value_no_usable_price_baseline"
+      ],
+      "canonicalGame": "2026-08-16:tennis:alexander blockx|flavio cobolli",
+      "consensusSources": [
+        "Tennis Model",
+        "TennisTonic"
+      ],
       "date": "2026-08-16",
       "decimalOdds": null,
       "decision": "LEAN",
       "dedupeRule": "exact_market_identity_best_executable_price",
       "direction": "side",
-      "duplicateCount": 1,
+      "duplicateCount": 2,
       "duplicateSources": [
-        "Tennis Model"
+        "Tennis Model",
+        "TennisTonic"
       ],
       "edgeQualified": false,
       "estimate": null,
@@ -2895,15 +3440,19 @@
         "value_no_usable_price_baseline"
       ],
       "canonicalGame": "2026-08-16:tennis:emma navarro|jessica pegula",
-      "consensusSources": [],
+      "consensusSources": [
+        "Tennis Model",
+        "TennisTonic"
+      ],
       "date": "2026-08-16",
       "decimalOdds": null,
       "decision": "BET",
       "dedupeRule": "exact_market_identity_best_executable_price",
       "direction": "side",
-      "duplicateCount": 1,
+      "duplicateCount": 2,
       "duplicateSources": [
-        "Tennis Model"
+        "Tennis Model",
+        "TennisTonic"
       ],
       "edgeQualified": false,
       "estimate": null,
@@ -3331,15 +3880,19 @@
         "value_no_usable_price_baseline"
       ],
       "canonicalGame": "2026-08-16:tennis:frances tiafoe|lorenzo sonego",
-      "consensusSources": [],
+      "consensusSources": [
+        "Tennis Model",
+        "TennisTonic"
+      ],
       "date": "2026-08-16",
       "decimalOdds": null,
       "decision": "LEAN",
       "dedupeRule": "exact_market_identity_best_executable_price",
       "direction": "side",
-      "duplicateCount": 1,
+      "duplicateCount": 2,
       "duplicateSources": [
-        "Tennis Model"
+        "Tennis Model",
+        "TennisTonic"
       ],
       "edgeQualified": false,
       "estimate": null,
@@ -3439,16 +3992,238 @@
         "edge_no_usable_price_baseline",
         "value_no_usable_price_baseline"
       ],
-      "canonicalGame": "2026-08-16:tennis:alex michelsen|taylor fritz",
+      "canonicalGame": "2026-08-16:tennis:michael zheng|ugo humbert",
       "consensusSources": [],
+      "date": "2026-08-16",
+      "decimalOdds": null,
+      "decision": "BET",
+      "dedupeRule": "exact_market_identity_best_executable_price",
+      "direction": "side",
+      "duplicateCount": 1,
+      "duplicateSources": [
+        "TennisTonic"
+      ],
+      "edgeQualified": false,
+      "estimate": null,
+      "evidence": {
+        "chronologicalHalvesNonnegative": false,
+        "cutoffExclusive": "2026-08-16",
+        "distinctDates": 0,
+        "firstHalfFlatNetUnits": 0.0,
+        "flatNetUnits": 0.0,
+        "flatRoi": null,
+        "losses": 0,
+        "modelVersion": "source_identity:tennistonic_tennis",
+        "policyVersion": "profit_desk_policy_v2",
+        "priorOnly": true,
+        "pushes": 0,
+        "secondHalfFlatNetUnits": 0.0,
+        "segmentDistinctDates": 0,
+        "segmentEvidenceKey": null,
+        "segmentSamples": 0,
+        "sourceChronologicalHalvesNonnegative": false,
+        "sourceDistinctDates": 0,
+        "sourceEvidenceKey": "team|tennistonic_tennis|tennis",
+        "sourceFirstHalfFlatNetUnits": 0.0,
+        "sourceFlatNetUnits": 0.0,
+        "sourceFlatRoi": null,
+        "sourceLosses": 0,
+        "sourceSamples": 0,
+        "sourceSecondHalfFlatNetUnits": 0.0,
+        "sourceWins": 0,
+        "wins": 0
+      },
+      "game": "Michael Zheng vs Ugo Humbert",
+      "gradeSupportSource": "explicit_true",
+      "gradeSupported": true,
+      "id": "profit-11992888d23dca64d3b009c8",
+      "lane": null,
+      "laneBlockers": {
+        "edge": [
+          "edge_no_usable_price_baseline"
+        ],
+        "structural": [
+          "missing_executable_odds"
+        ],
+        "value": [
+          "value_no_usable_price_baseline"
+        ]
+      },
+      "line": null,
+      "liveQualified": false,
+      "market": "tennis_moneyline",
+      "marketFamily": "tennis moneyline",
+      "marketIdentity": "market:0ceeb1d60f33a723a6bf0be6",
+      "mode": "team",
+      "modelVersion": "source_identity:tennistonic_tennis",
+      "oddsAmerican": null,
+      "pick": "Michael Zheng ML (Michael Zheng vs Ugo Humbert)",
+      "player": null,
+      "policyVersion": "profit_desk_policy_v2",
+      "price": {
+        "ageHours": 2.25,
+        "breakEvenProbability": null,
+        "decimalOdds": null,
+        "eligibleForAlphaEstimate": false,
+        "fresh": true,
+        "freshPregame": true,
+        "maxAgeHours": 24.0,
+        "noVigInputs": {},
+        "noVigMethod": "unverified_single_side",
+        "noVigProbability": null,
+        "noVigVerified": false,
+        "observedExecutable": false,
+        "oddsAmerican": null,
+        "quality": "missing",
+        "source": null,
+        "sourceField": "missing",
+        "startTime": "2026-08-16T15:00Z",
+        "tier": "D",
+        "tierLabel": "assumed_proxy_or_synthetic",
+        "timestamp": "2026-08-16T12:44:59.513409Z",
+        "timestampField": "bucket.updatedAt",
+        "twoSided": false,
+        "updatedAt": "2026-08-16T12:44:59.513409Z"
+      },
+      "rawModelProbabilityIgnored": null,
+      "result": "pending",
+      "shadowQualified": false,
+      "source": "TennisTonic",
+      "sourceKey": "tennistonic_tennis",
+      "sport": "Tennis",
+      "stakeUnits": 0.0,
+      "tier": "avoid",
+      "valueQualified": false
+    },
+    {
+      "blockers": [
+        "missing_executable_odds",
+        "edge_no_usable_price_baseline",
+        "value_no_usable_price_baseline"
+      ],
+      "canonicalGame": "2026-08-16:tennis:francisco cerundolo|nuno borges",
+      "consensusSources": [],
+      "date": "2026-08-16",
+      "decimalOdds": null,
+      "decision": "BET",
+      "dedupeRule": "exact_market_identity_best_executable_price",
+      "direction": "side",
+      "duplicateCount": 1,
+      "duplicateSources": [
+        "TennisTonic"
+      ],
+      "edgeQualified": false,
+      "estimate": null,
+      "evidence": {
+        "chronologicalHalvesNonnegative": false,
+        "cutoffExclusive": "2026-08-16",
+        "distinctDates": 0,
+        "firstHalfFlatNetUnits": 0.0,
+        "flatNetUnits": 0.0,
+        "flatRoi": null,
+        "losses": 0,
+        "modelVersion": "source_identity:tennistonic_tennis",
+        "policyVersion": "profit_desk_policy_v2",
+        "priorOnly": true,
+        "pushes": 0,
+        "secondHalfFlatNetUnits": 0.0,
+        "segmentDistinctDates": 0,
+        "segmentEvidenceKey": null,
+        "segmentSamples": 0,
+        "sourceChronologicalHalvesNonnegative": false,
+        "sourceDistinctDates": 0,
+        "sourceEvidenceKey": "team|tennistonic_tennis|tennis",
+        "sourceFirstHalfFlatNetUnits": 0.0,
+        "sourceFlatNetUnits": 0.0,
+        "sourceFlatRoi": null,
+        "sourceLosses": 0,
+        "sourceSamples": 0,
+        "sourceSecondHalfFlatNetUnits": 0.0,
+        "sourceWins": 0,
+        "wins": 0
+      },
+      "game": "Francisco Cerundolo vs Nuno Borges",
+      "gradeSupportSource": "explicit_true",
+      "gradeSupported": true,
+      "id": "profit-14ad37125768e48b81292bce",
+      "lane": null,
+      "laneBlockers": {
+        "edge": [
+          "edge_no_usable_price_baseline"
+        ],
+        "structural": [
+          "missing_executable_odds"
+        ],
+        "value": [
+          "value_no_usable_price_baseline"
+        ]
+      },
+      "line": null,
+      "liveQualified": false,
+      "market": "tennis_moneyline",
+      "marketFamily": "tennis moneyline",
+      "marketIdentity": "market:702168515d40566532338e98",
+      "mode": "team",
+      "modelVersion": "source_identity:tennistonic_tennis",
+      "oddsAmerican": null,
+      "pick": "Nuno Borges ML (Francisco Cerundolo vs Nuno Borges)",
+      "player": null,
+      "policyVersion": "profit_desk_policy_v2",
+      "price": {
+        "ageHours": 5.25,
+        "breakEvenProbability": null,
+        "decimalOdds": null,
+        "eligibleForAlphaEstimate": false,
+        "fresh": true,
+        "freshPregame": true,
+        "maxAgeHours": 24.0,
+        "noVigInputs": {},
+        "noVigMethod": "unverified_single_side",
+        "noVigProbability": null,
+        "noVigVerified": false,
+        "observedExecutable": false,
+        "oddsAmerican": null,
+        "quality": "missing",
+        "source": null,
+        "sourceField": "missing",
+        "startTime": "2026-08-16T18:00Z",
+        "tier": "D",
+        "tierLabel": "assumed_proxy_or_synthetic",
+        "timestamp": "2026-08-16T12:44:59.513409Z",
+        "timestampField": "bucket.updatedAt",
+        "twoSided": false,
+        "updatedAt": "2026-08-16T12:44:59.513409Z"
+      },
+      "rawModelProbabilityIgnored": null,
+      "result": "pending",
+      "shadowQualified": false,
+      "source": "TennisTonic",
+      "sourceKey": "tennistonic_tennis",
+      "sport": "Tennis",
+      "stakeUnits": 0.0,
+      "tier": "avoid",
+      "valueQualified": false
+    },
+    {
+      "blockers": [
+        "missing_executable_odds",
+        "edge_no_usable_price_baseline",
+        "value_no_usable_price_baseline"
+      ],
+      "canonicalGame": "2026-08-16:tennis:alex michelsen|taylor fritz",
+      "consensusSources": [
+        "Tennis Model",
+        "TennisTonic"
+      ],
       "date": "2026-08-16",
       "decimalOdds": null,
       "decision": "LEAN",
       "dedupeRule": "exact_market_identity_best_executable_price",
       "direction": "side",
-      "duplicateCount": 1,
+      "duplicateCount": 2,
       "duplicateSources": [
-        "Tennis Model"
+        "Tennis Model",
+        "TennisTonic"
       ],
       "edgeQualified": false,
       "estimate": null,
@@ -3658,15 +4433,19 @@
         "value_no_usable_price_baseline"
       ],
       "canonicalGame": "2026-08-16:tennis:alexander zverev|terence atmane",
-      "consensusSources": [],
+      "consensusSources": [
+        "Tennis Model",
+        "TennisTonic"
+      ],
       "date": "2026-08-16",
       "decimalOdds": null,
       "decision": "BET",
       "dedupeRule": "exact_market_identity_best_executable_price",
       "direction": "side",
-      "duplicateCount": 1,
+      "duplicateCount": 2,
       "duplicateSources": [
-        "Tennis Model"
+        "Tennis Model",
+        "TennisTonic"
       ],
       "edgeQualified": false,
       "estimate": null,
@@ -3767,15 +4546,19 @@
         "value_no_usable_price_baseline"
       ],
       "canonicalGame": "2026-08-16:tennis:casper ruud|christopher o connell",
-      "consensusSources": [],
+      "consensusSources": [
+        "Tennis Model",
+        "TennisTonic"
+      ],
       "date": "2026-08-16",
       "decimalOdds": null,
       "decision": "BET",
       "dedupeRule": "exact_market_identity_best_executable_price",
       "direction": "side",
-      "duplicateCount": 1,
+      "duplicateCount": 2,
       "duplicateSources": [
-        "Tennis Model"
+        "Tennis Model",
+        "TennisTonic"
       ],
       "edgeQualified": false,
       "estimate": null,
@@ -4094,15 +4877,19 @@
         "value_no_usable_price_baseline"
       ],
       "canonicalGame": "2026-08-16:tennis:diane parry|lois boisson",
-      "consensusSources": [],
+      "consensusSources": [
+        "Tennis Model",
+        "TennisTonic"
+      ],
       "date": "2026-08-16",
       "decimalOdds": null,
       "decision": "LEAN",
       "dedupeRule": "exact_market_identity_best_executable_price",
       "direction": "side",
-      "duplicateCount": 1,
+      "duplicateCount": 2,
       "duplicateSources": [
-        "Tennis Model"
+        "Tennis Model",
+        "TennisTonic"
       ],
       "edgeQualified": false,
       "estimate": null,
@@ -4312,15 +5099,19 @@
         "value_no_usable_price_baseline"
       ],
       "canonicalGame": "2026-08-16:tennis:daria snigur|madison keys",
-      "consensusSources": [],
+      "consensusSources": [
+        "Tennis Model",
+        "TennisTonic"
+      ],
       "date": "2026-08-16",
       "decimalOdds": null,
       "decision": "LEAN",
       "dedupeRule": "exact_market_identity_best_executable_price",
       "direction": "side",
-      "duplicateCount": 1,
+      "duplicateCount": 2,
       "duplicateSources": [
-        "Tennis Model"
+        "Tennis Model",
+        "TennisTonic"
       ],
       "edgeQualified": false,
       "estimate": null,
@@ -4421,15 +5212,19 @@
         "value_no_usable_price_baseline"
       ],
       "canonicalGame": "2026-08-16:tennis:daniel altmaier|lorenzo musetti",
-      "consensusSources": [],
+      "consensusSources": [
+        "Tennis Model",
+        "TennisTonic"
+      ],
       "date": "2026-08-16",
       "decimalOdds": null,
       "decision": "BET",
       "dedupeRule": "exact_market_identity_best_executable_price",
       "direction": "side",
-      "duplicateCount": 1,
+      "duplicateCount": 2,
       "duplicateSources": [
-        "Tennis Model"
+        "Tennis Model",
+        "TennisTonic"
       ],
       "edgeQualified": false,
       "estimate": null,
@@ -4530,15 +5325,19 @@
         "value_no_usable_price_baseline"
       ],
       "canonicalGame": "2026-08-16:tennis:emiliana arango|iga swiatek",
-      "consensusSources": [],
+      "consensusSources": [
+        "Tennis Model",
+        "TennisTonic"
+      ],
       "date": "2026-08-16",
       "decimalOdds": null,
       "decision": "BET",
       "dedupeRule": "exact_market_identity_best_executable_price",
       "direction": "side",
-      "duplicateCount": 1,
+      "duplicateCount": 2,
       "duplicateSources": [
-        "Tennis Model"
+        "Tennis Model",
+        "TennisTonic"
       ],
       "edgeQualified": false,
       "estimate": null,
@@ -4747,7 +5546,7 @@
         "edge_no_usable_price_baseline",
         "value_no_usable_price_baseline"
       ],
-      "canonicalGame": "2026-08-16:tennis:anastasia potapova|sloane stephens",
+      "canonicalGame": "2026-08-16:tennis:martin landaluce|thiago agustin tirante",
       "consensusSources": [],
       "date": "2026-08-16",
       "decimalOdds": null,
@@ -4756,7 +5555,120 @@
       "direction": "side",
       "duplicateCount": 1,
       "duplicateSources": [
-        "Tennis Model"
+        "TennisTonic"
+      ],
+      "edgeQualified": false,
+      "estimate": null,
+      "evidence": {
+        "chronologicalHalvesNonnegative": false,
+        "cutoffExclusive": "2026-08-16",
+        "distinctDates": 0,
+        "firstHalfFlatNetUnits": 0.0,
+        "flatNetUnits": 0.0,
+        "flatRoi": null,
+        "losses": 0,
+        "modelVersion": "source_identity:tennistonic_tennis",
+        "policyVersion": "profit_desk_policy_v2",
+        "priorOnly": true,
+        "pushes": 0,
+        "secondHalfFlatNetUnits": 0.0,
+        "segmentDistinctDates": 0,
+        "segmentEvidenceKey": null,
+        "segmentSamples": 0,
+        "sourceChronologicalHalvesNonnegative": false,
+        "sourceDistinctDates": 0,
+        "sourceEvidenceKey": "team|tennistonic_tennis|tennis",
+        "sourceFirstHalfFlatNetUnits": 0.0,
+        "sourceFlatNetUnits": 0.0,
+        "sourceFlatRoi": null,
+        "sourceLosses": 0,
+        "sourceSamples": 0,
+        "sourceSecondHalfFlatNetUnits": 0.0,
+        "sourceWins": 0,
+        "wins": 0
+      },
+      "game": "Martin Landaluce vs Thiago Agustin Tirante",
+      "gradeSupportSource": "explicit_true",
+      "gradeSupported": true,
+      "id": "profit-5652228737d2589143d23442",
+      "lane": null,
+      "laneBlockers": {
+        "edge": [
+          "edge_no_usable_price_baseline"
+        ],
+        "structural": [
+          "missing_executable_odds"
+        ],
+        "value": [
+          "value_no_usable_price_baseline"
+        ]
+      },
+      "line": null,
+      "liveQualified": false,
+      "market": "tennis_moneyline",
+      "marketFamily": "tennis moneyline",
+      "marketIdentity": "market:780ec5a8cd16b1c627b4ef26",
+      "mode": "team",
+      "modelVersion": "source_identity:tennistonic_tennis",
+      "oddsAmerican": null,
+      "pick": "Thiago Agustin Tirante ML (Martin Landaluce vs Thiago Agustin Tirante)",
+      "player": null,
+      "policyVersion": "profit_desk_policy_v2",
+      "price": {
+        "ageHours": 15.25,
+        "breakEvenProbability": null,
+        "decimalOdds": null,
+        "eligibleForAlphaEstimate": false,
+        "fresh": true,
+        "freshPregame": true,
+        "maxAgeHours": 24.0,
+        "noVigInputs": {},
+        "noVigMethod": "unverified_single_side",
+        "noVigProbability": null,
+        "noVigVerified": false,
+        "observedExecutable": false,
+        "oddsAmerican": null,
+        "quality": "missing",
+        "source": null,
+        "sourceField": "missing",
+        "startTime": "2026-08-17T04:00Z",
+        "tier": "D",
+        "tierLabel": "assumed_proxy_or_synthetic",
+        "timestamp": "2026-08-16T12:44:59.513409Z",
+        "timestampField": "bucket.updatedAt",
+        "twoSided": false,
+        "updatedAt": "2026-08-16T12:44:59.513409Z"
+      },
+      "rawModelProbabilityIgnored": null,
+      "result": "pending",
+      "shadowQualified": false,
+      "source": "TennisTonic",
+      "sourceKey": "tennistonic_tennis",
+      "sport": "Tennis",
+      "stakeUnits": 0.0,
+      "tier": "avoid",
+      "valueQualified": false
+    },
+    {
+      "blockers": [
+        "missing_executable_odds",
+        "edge_no_usable_price_baseline",
+        "value_no_usable_price_baseline"
+      ],
+      "canonicalGame": "2026-08-16:tennis:anastasia potapova|sloane stephens",
+      "consensusSources": [
+        "Tennis Model",
+        "TennisTonic"
+      ],
+      "date": "2026-08-16",
+      "decimalOdds": null,
+      "decision": "BET",
+      "dedupeRule": "exact_market_identity_best_executable_price",
+      "direction": "side",
+      "duplicateCount": 2,
+      "duplicateSources": [
+        "Tennis Model",
+        "TennisTonic"
       ],
       "edgeQualified": false,
       "estimate": null,
@@ -4856,7 +5768,7 @@
         "edge_no_usable_price_baseline",
         "value_no_usable_price_baseline"
       ],
-      "canonicalGame": "2026-08-16:tennis:elena rybakina|taylor townsend",
+      "canonicalGame": "2026-08-16:tennis:janice tjen|viktorija golubic",
       "consensusSources": [],
       "date": "2026-08-16",
       "decimalOdds": null,
@@ -4865,7 +5777,338 @@
       "direction": "side",
       "duplicateCount": 1,
       "duplicateSources": [
-        "Tennis Model"
+        "TennisTonic"
+      ],
+      "edgeQualified": false,
+      "estimate": null,
+      "evidence": {
+        "chronologicalHalvesNonnegative": false,
+        "cutoffExclusive": "2026-08-16",
+        "distinctDates": 0,
+        "firstHalfFlatNetUnits": 0.0,
+        "flatNetUnits": 0.0,
+        "flatRoi": null,
+        "losses": 0,
+        "modelVersion": "source_identity:tennistonic_tennis",
+        "policyVersion": "profit_desk_policy_v2",
+        "priorOnly": true,
+        "pushes": 0,
+        "secondHalfFlatNetUnits": 0.0,
+        "segmentDistinctDates": 0,
+        "segmentEvidenceKey": null,
+        "segmentSamples": 0,
+        "sourceChronologicalHalvesNonnegative": false,
+        "sourceDistinctDates": 0,
+        "sourceEvidenceKey": "team|tennistonic_tennis|tennis",
+        "sourceFirstHalfFlatNetUnits": 0.0,
+        "sourceFlatNetUnits": 0.0,
+        "sourceFlatRoi": null,
+        "sourceLosses": 0,
+        "sourceSamples": 0,
+        "sourceSecondHalfFlatNetUnits": 0.0,
+        "sourceWins": 0,
+        "wins": 0
+      },
+      "game": "Viktorija Golubic vs Janice Tjen",
+      "gradeSupportSource": "explicit_true",
+      "gradeSupported": true,
+      "id": "profit-56ce6979d6575940ae5dd74e",
+      "lane": null,
+      "laneBlockers": {
+        "edge": [
+          "edge_no_usable_price_baseline"
+        ],
+        "structural": [
+          "missing_executable_odds"
+        ],
+        "value": [
+          "value_no_usable_price_baseline"
+        ]
+      },
+      "line": null,
+      "liveQualified": false,
+      "market": "tennis_moneyline",
+      "marketFamily": "tennis moneyline",
+      "marketIdentity": "market:22a9488d9347b351cb245e6c",
+      "mode": "team",
+      "modelVersion": "source_identity:tennistonic_tennis",
+      "oddsAmerican": null,
+      "pick": "Janice Tjen ML (Viktorija Golubic vs Janice Tjen)",
+      "player": null,
+      "policyVersion": "profit_desk_policy_v2",
+      "price": {
+        "ageHours": 2.25,
+        "breakEvenProbability": null,
+        "decimalOdds": null,
+        "eligibleForAlphaEstimate": false,
+        "fresh": true,
+        "freshPregame": true,
+        "maxAgeHours": 24.0,
+        "noVigInputs": {},
+        "noVigMethod": "unverified_single_side",
+        "noVigProbability": null,
+        "noVigVerified": false,
+        "observedExecutable": false,
+        "oddsAmerican": null,
+        "quality": "missing",
+        "source": null,
+        "sourceField": "missing",
+        "startTime": "2026-08-16T15:00Z",
+        "tier": "D",
+        "tierLabel": "assumed_proxy_or_synthetic",
+        "timestamp": "2026-08-16T12:44:59.513409Z",
+        "timestampField": "bucket.updatedAt",
+        "twoSided": false,
+        "updatedAt": "2026-08-16T12:44:59.513409Z"
+      },
+      "rawModelProbabilityIgnored": null,
+      "result": "pending",
+      "shadowQualified": false,
+      "source": "TennisTonic",
+      "sourceKey": "tennistonic_tennis",
+      "sport": "Tennis",
+      "stakeUnits": 0.0,
+      "tier": "avoid",
+      "valueQualified": false
+    },
+    {
+      "blockers": [
+        "missing_executable_odds",
+        "edge_no_usable_price_baseline",
+        "value_no_usable_price_baseline"
+      ],
+      "canonicalGame": "2026-08-16:tennis:anna kalinskaya|sorana cirstea",
+      "consensusSources": [],
+      "date": "2026-08-16",
+      "decimalOdds": null,
+      "decision": "BET",
+      "dedupeRule": "exact_market_identity_best_executable_price",
+      "direction": "side",
+      "duplicateCount": 1,
+      "duplicateSources": [
+        "TennisTonic"
+      ],
+      "edgeQualified": false,
+      "estimate": null,
+      "evidence": {
+        "chronologicalHalvesNonnegative": false,
+        "cutoffExclusive": "2026-08-16",
+        "distinctDates": 0,
+        "firstHalfFlatNetUnits": 0.0,
+        "flatNetUnits": 0.0,
+        "flatRoi": null,
+        "losses": 0,
+        "modelVersion": "source_identity:tennistonic_tennis",
+        "policyVersion": "profit_desk_policy_v2",
+        "priorOnly": true,
+        "pushes": 0,
+        "secondHalfFlatNetUnits": 0.0,
+        "segmentDistinctDates": 0,
+        "segmentEvidenceKey": null,
+        "segmentSamples": 0,
+        "sourceChronologicalHalvesNonnegative": false,
+        "sourceDistinctDates": 0,
+        "sourceEvidenceKey": "team|tennistonic_tennis|tennis",
+        "sourceFirstHalfFlatNetUnits": 0.0,
+        "sourceFlatNetUnits": 0.0,
+        "sourceFlatRoi": null,
+        "sourceLosses": 0,
+        "sourceSamples": 0,
+        "sourceSecondHalfFlatNetUnits": 0.0,
+        "sourceWins": 0,
+        "wins": 0
+      },
+      "game": "Anna Kalinskaya vs Sorana Cirstea",
+      "gradeSupportSource": "explicit_true",
+      "gradeSupported": true,
+      "id": "profit-5848a85f6ff76ba5720ff913",
+      "lane": null,
+      "laneBlockers": {
+        "edge": [
+          "edge_no_usable_price_baseline"
+        ],
+        "structural": [
+          "missing_executable_odds"
+        ],
+        "value": [
+          "value_no_usable_price_baseline"
+        ]
+      },
+      "line": null,
+      "liveQualified": false,
+      "market": "tennis_moneyline",
+      "marketFamily": "tennis moneyline",
+      "marketIdentity": "market:cc264e31acca699d80d72f69",
+      "mode": "team",
+      "modelVersion": "source_identity:tennistonic_tennis",
+      "oddsAmerican": null,
+      "pick": "Sorana Cirstea ML (Anna Kalinskaya vs Sorana Cirstea)",
+      "player": null,
+      "policyVersion": "profit_desk_policy_v2",
+      "price": {
+        "ageHours": 15.25,
+        "breakEvenProbability": null,
+        "decimalOdds": null,
+        "eligibleForAlphaEstimate": false,
+        "fresh": true,
+        "freshPregame": true,
+        "maxAgeHours": 24.0,
+        "noVigInputs": {},
+        "noVigMethod": "unverified_single_side",
+        "noVigProbability": null,
+        "noVigVerified": false,
+        "observedExecutable": false,
+        "oddsAmerican": null,
+        "quality": "missing",
+        "source": null,
+        "sourceField": "missing",
+        "startTime": "2026-08-17T04:00Z",
+        "tier": "D",
+        "tierLabel": "assumed_proxy_or_synthetic",
+        "timestamp": "2026-08-16T12:44:59.513409Z",
+        "timestampField": "bucket.updatedAt",
+        "twoSided": false,
+        "updatedAt": "2026-08-16T12:44:59.513409Z"
+      },
+      "rawModelProbabilityIgnored": null,
+      "result": "pending",
+      "shadowQualified": false,
+      "source": "TennisTonic",
+      "sourceKey": "tennistonic_tennis",
+      "sport": "Tennis",
+      "stakeUnits": 0.0,
+      "tier": "avoid",
+      "valueQualified": false
+    },
+    {
+      "blockers": [
+        "missing_executable_odds",
+        "edge_no_usable_price_baseline",
+        "value_no_usable_price_baseline"
+      ],
+      "canonicalGame": "2026-08-16:tennis:alexandra eala|amanda anisimova",
+      "consensusSources": [],
+      "date": "2026-08-16",
+      "decimalOdds": null,
+      "decision": "BET",
+      "dedupeRule": "exact_market_identity_best_executable_price",
+      "direction": "side",
+      "duplicateCount": 1,
+      "duplicateSources": [
+        "TennisTonic"
+      ],
+      "edgeQualified": false,
+      "estimate": null,
+      "evidence": {
+        "chronologicalHalvesNonnegative": false,
+        "cutoffExclusive": "2026-08-16",
+        "distinctDates": 0,
+        "firstHalfFlatNetUnits": 0.0,
+        "flatNetUnits": 0.0,
+        "flatRoi": null,
+        "losses": 0,
+        "modelVersion": "source_identity:tennistonic_tennis",
+        "policyVersion": "profit_desk_policy_v2",
+        "priorOnly": true,
+        "pushes": 0,
+        "secondHalfFlatNetUnits": 0.0,
+        "segmentDistinctDates": 0,
+        "segmentEvidenceKey": null,
+        "segmentSamples": 0,
+        "sourceChronologicalHalvesNonnegative": false,
+        "sourceDistinctDates": 0,
+        "sourceEvidenceKey": "team|tennistonic_tennis|tennis",
+        "sourceFirstHalfFlatNetUnits": 0.0,
+        "sourceFlatNetUnits": 0.0,
+        "sourceFlatRoi": null,
+        "sourceLosses": 0,
+        "sourceSamples": 0,
+        "sourceSecondHalfFlatNetUnits": 0.0,
+        "sourceWins": 0,
+        "wins": 0
+      },
+      "game": "Amanda Anisimova vs Alexandra Eala",
+      "gradeSupportSource": "explicit_true",
+      "gradeSupported": true,
+      "id": "profit-5a8d3195b16fcdb1f60ecc26",
+      "lane": null,
+      "laneBlockers": {
+        "edge": [
+          "edge_no_usable_price_baseline"
+        ],
+        "structural": [
+          "missing_executable_odds"
+        ],
+        "value": [
+          "value_no_usable_price_baseline"
+        ]
+      },
+      "line": null,
+      "liveQualified": false,
+      "market": "tennis_moneyline",
+      "marketFamily": "tennis moneyline",
+      "marketIdentity": "market:887ab773a10cff3444700c98",
+      "mode": "team",
+      "modelVersion": "source_identity:tennistonic_tennis",
+      "oddsAmerican": null,
+      "pick": "Alexandra Eala ML (Amanda Anisimova vs Alexandra Eala)",
+      "player": null,
+      "policyVersion": "profit_desk_policy_v2",
+      "price": {
+        "ageHours": 15.25,
+        "breakEvenProbability": null,
+        "decimalOdds": null,
+        "eligibleForAlphaEstimate": false,
+        "fresh": true,
+        "freshPregame": true,
+        "maxAgeHours": 24.0,
+        "noVigInputs": {},
+        "noVigMethod": "unverified_single_side",
+        "noVigProbability": null,
+        "noVigVerified": false,
+        "observedExecutable": false,
+        "oddsAmerican": null,
+        "quality": "missing",
+        "source": null,
+        "sourceField": "missing",
+        "startTime": "2026-08-17T04:00Z",
+        "tier": "D",
+        "tierLabel": "assumed_proxy_or_synthetic",
+        "timestamp": "2026-08-16T12:44:59.513409Z",
+        "timestampField": "bucket.updatedAt",
+        "twoSided": false,
+        "updatedAt": "2026-08-16T12:44:59.513409Z"
+      },
+      "rawModelProbabilityIgnored": null,
+      "result": "pending",
+      "shadowQualified": false,
+      "source": "TennisTonic",
+      "sourceKey": "tennistonic_tennis",
+      "sport": "Tennis",
+      "stakeUnits": 0.0,
+      "tier": "avoid",
+      "valueQualified": false
+    },
+    {
+      "blockers": [
+        "missing_executable_odds",
+        "edge_no_usable_price_baseline",
+        "value_no_usable_price_baseline"
+      ],
+      "canonicalGame": "2026-08-16:tennis:elena rybakina|taylor townsend",
+      "consensusSources": [
+        "Tennis Model",
+        "TennisTonic"
+      ],
+      "date": "2026-08-16",
+      "decimalOdds": null,
+      "decision": "BET",
+      "dedupeRule": "exact_market_identity_best_executable_price",
+      "direction": "side",
+      "duplicateCount": 2,
+      "duplicateSources": [
+        "Tennis Model",
+        "TennisTonic"
       ],
       "edgeQualified": false,
       "estimate": null,
@@ -4966,15 +6209,19 @@
         "value_no_usable_price_baseline"
       ],
       "canonicalGame": "2026-08-16:tennis:learner tien|sebastian baez",
-      "consensusSources": [],
+      "consensusSources": [
+        "Tennis Model",
+        "TennisTonic"
+      ],
       "date": "2026-08-16",
       "decimalOdds": null,
       "decision": "BET",
       "dedupeRule": "exact_market_identity_best_executable_price",
       "direction": "side",
-      "duplicateCount": 1,
+      "duplicateCount": 2,
       "duplicateSources": [
-        "Tennis Model"
+        "Tennis Model",
+        "TennisTonic"
       ],
       "edgeQualified": false,
       "estimate": null,
@@ -5184,15 +6431,19 @@
         "value_no_usable_price_baseline"
       ],
       "canonicalGame": "2026-08-16:tennis:aryna sabalenka|talia gibson",
-      "consensusSources": [],
+      "consensusSources": [
+        "Tennis Model",
+        "TennisTonic"
+      ],
       "date": "2026-08-16",
       "decimalOdds": null,
       "decision": "BET",
       "dedupeRule": "exact_market_identity_best_executable_price",
       "direction": "side",
-      "duplicateCount": 1,
+      "duplicateCount": 2,
       "duplicateSources": [
-        "Tennis Model"
+        "Tennis Model",
+        "TennisTonic"
       ],
       "edgeQualified": false,
       "estimate": null,
@@ -5292,7 +6543,7 @@
         "edge_no_usable_price_baseline",
         "value_no_usable_price_baseline"
       ],
-      "canonicalGame": "2026-08-16:tennis:marta kostyuk|sofia kenin",
+      "canonicalGame": "2026-08-16:tennis:botic van de zandschulp|joao fonseca",
       "consensusSources": [],
       "date": "2026-08-16",
       "decimalOdds": null,
@@ -5301,7 +6552,120 @@
       "direction": "side",
       "duplicateCount": 1,
       "duplicateSources": [
-        "Tennis Model"
+        "TennisTonic"
+      ],
+      "edgeQualified": false,
+      "estimate": null,
+      "evidence": {
+        "chronologicalHalvesNonnegative": false,
+        "cutoffExclusive": "2026-08-16",
+        "distinctDates": 0,
+        "firstHalfFlatNetUnits": 0.0,
+        "flatNetUnits": 0.0,
+        "flatRoi": null,
+        "losses": 0,
+        "modelVersion": "source_identity:tennistonic_tennis",
+        "policyVersion": "profit_desk_policy_v2",
+        "priorOnly": true,
+        "pushes": 0,
+        "secondHalfFlatNetUnits": 0.0,
+        "segmentDistinctDates": 0,
+        "segmentEvidenceKey": null,
+        "segmentSamples": 0,
+        "sourceChronologicalHalvesNonnegative": false,
+        "sourceDistinctDates": 0,
+        "sourceEvidenceKey": "team|tennistonic_tennis|tennis",
+        "sourceFirstHalfFlatNetUnits": 0.0,
+        "sourceFlatNetUnits": 0.0,
+        "sourceFlatRoi": null,
+        "sourceLosses": 0,
+        "sourceSamples": 0,
+        "sourceSecondHalfFlatNetUnits": 0.0,
+        "sourceWins": 0,
+        "wins": 0
+      },
+      "game": "Botic Van De Zandschulp vs Joao Fonseca",
+      "gradeSupportSource": "explicit_true",
+      "gradeSupported": true,
+      "id": "profit-7155132ab1568071214f48bc",
+      "lane": null,
+      "laneBlockers": {
+        "edge": [
+          "edge_no_usable_price_baseline"
+        ],
+        "structural": [
+          "missing_executable_odds"
+        ],
+        "value": [
+          "value_no_usable_price_baseline"
+        ]
+      },
+      "line": null,
+      "liveQualified": false,
+      "market": "tennis_moneyline",
+      "marketFamily": "tennis moneyline",
+      "marketIdentity": "market:47b068a3850de899c503d332",
+      "mode": "team",
+      "modelVersion": "source_identity:tennistonic_tennis",
+      "oddsAmerican": null,
+      "pick": "Joao Fonseca ML (Botic Van De Zandschulp vs Joao Fonseca)",
+      "player": null,
+      "policyVersion": "profit_desk_policy_v2",
+      "price": {
+        "ageHours": 3.75,
+        "breakEvenProbability": null,
+        "decimalOdds": null,
+        "eligibleForAlphaEstimate": false,
+        "fresh": true,
+        "freshPregame": true,
+        "maxAgeHours": 24.0,
+        "noVigInputs": {},
+        "noVigMethod": "unverified_single_side",
+        "noVigProbability": null,
+        "noVigVerified": false,
+        "observedExecutable": false,
+        "oddsAmerican": null,
+        "quality": "missing",
+        "source": null,
+        "sourceField": "missing",
+        "startTime": "2026-08-16T16:30Z",
+        "tier": "D",
+        "tierLabel": "assumed_proxy_or_synthetic",
+        "timestamp": "2026-08-16T12:44:59.513409Z",
+        "timestampField": "bucket.updatedAt",
+        "twoSided": false,
+        "updatedAt": "2026-08-16T12:44:59.513409Z"
+      },
+      "rawModelProbabilityIgnored": null,
+      "result": "pending",
+      "shadowQualified": false,
+      "source": "TennisTonic",
+      "sourceKey": "tennistonic_tennis",
+      "sport": "Tennis",
+      "stakeUnits": 0.0,
+      "tier": "avoid",
+      "valueQualified": false
+    },
+    {
+      "blockers": [
+        "missing_executable_odds",
+        "edge_no_usable_price_baseline",
+        "value_no_usable_price_baseline"
+      ],
+      "canonicalGame": "2026-08-16:tennis:marta kostyuk|sofia kenin",
+      "consensusSources": [
+        "Tennis Model",
+        "TennisTonic"
+      ],
+      "date": "2026-08-16",
+      "decimalOdds": null,
+      "decision": "BET",
+      "dedupeRule": "exact_market_identity_best_executable_price",
+      "direction": "side",
+      "duplicateCount": 2,
+      "duplicateSources": [
+        "Tennis Model",
+        "TennisTonic"
       ],
       "edgeQualified": false,
       "estimate": null,
@@ -5402,15 +6766,19 @@
         "value_no_usable_price_baseline"
       ],
       "canonicalGame": "2026-08-16:tennis:alex de minaur|arthur fery",
-      "consensusSources": [],
+      "consensusSources": [
+        "Tennis Model",
+        "TennisTonic"
+      ],
       "date": "2026-08-16",
       "decimalOdds": null,
       "decision": "BET",
       "dedupeRule": "exact_market_identity_best_executable_price",
       "direction": "side",
-      "duplicateCount": 1,
+      "duplicateCount": 2,
       "duplicateSources": [
-        "Tennis Model"
+        "Tennis Model",
+        "TennisTonic"
       ],
       "edgeQualified": false,
       "estimate": null,
@@ -5499,6 +6867,115 @@
       "shadowQualified": false,
       "source": "Tennis Model",
       "sourceKey": "tennis",
+      "sport": "Tennis",
+      "stakeUnits": 0.0,
+      "tier": "avoid",
+      "valueQualified": false
+    },
+    {
+      "blockers": [
+        "missing_executable_odds",
+        "edge_no_usable_price_baseline",
+        "value_no_usable_price_baseline"
+      ],
+      "canonicalGame": "2026-08-16:tennis:arthur fils|jiri lehecka",
+      "consensusSources": [],
+      "date": "2026-08-16",
+      "decimalOdds": null,
+      "decision": "BET",
+      "dedupeRule": "exact_market_identity_best_executable_price",
+      "direction": "side",
+      "duplicateCount": 1,
+      "duplicateSources": [
+        "TennisTonic"
+      ],
+      "edgeQualified": false,
+      "estimate": null,
+      "evidence": {
+        "chronologicalHalvesNonnegative": false,
+        "cutoffExclusive": "2026-08-16",
+        "distinctDates": 0,
+        "firstHalfFlatNetUnits": 0.0,
+        "flatNetUnits": 0.0,
+        "flatRoi": null,
+        "losses": 0,
+        "modelVersion": "source_identity:tennistonic_tennis",
+        "policyVersion": "profit_desk_policy_v2",
+        "priorOnly": true,
+        "pushes": 0,
+        "secondHalfFlatNetUnits": 0.0,
+        "segmentDistinctDates": 0,
+        "segmentEvidenceKey": null,
+        "segmentSamples": 0,
+        "sourceChronologicalHalvesNonnegative": false,
+        "sourceDistinctDates": 0,
+        "sourceEvidenceKey": "team|tennistonic_tennis|tennis",
+        "sourceFirstHalfFlatNetUnits": 0.0,
+        "sourceFlatNetUnits": 0.0,
+        "sourceFlatRoi": null,
+        "sourceLosses": 0,
+        "sourceSamples": 0,
+        "sourceSecondHalfFlatNetUnits": 0.0,
+        "sourceWins": 0,
+        "wins": 0
+      },
+      "game": "Arthur Fils vs Jiri Lehecka",
+      "gradeSupportSource": "explicit_true",
+      "gradeSupported": true,
+      "id": "profit-8b43c4af5456ca47798af4ed",
+      "lane": null,
+      "laneBlockers": {
+        "edge": [
+          "edge_no_usable_price_baseline"
+        ],
+        "structural": [
+          "missing_executable_odds"
+        ],
+        "value": [
+          "value_no_usable_price_baseline"
+        ]
+      },
+      "line": null,
+      "liveQualified": false,
+      "market": "tennis_moneyline",
+      "marketFamily": "tennis moneyline",
+      "marketIdentity": "market:f153910c60b0ddfb4f324361",
+      "mode": "team",
+      "modelVersion": "source_identity:tennistonic_tennis",
+      "oddsAmerican": null,
+      "pick": "Arthur Fils ML (Arthur Fils vs Jiri Lehecka)",
+      "player": null,
+      "policyVersion": "profit_desk_policy_v2",
+      "price": {
+        "ageHours": 15.25,
+        "breakEvenProbability": null,
+        "decimalOdds": null,
+        "eligibleForAlphaEstimate": false,
+        "fresh": true,
+        "freshPregame": true,
+        "maxAgeHours": 24.0,
+        "noVigInputs": {},
+        "noVigMethod": "unverified_single_side",
+        "noVigProbability": null,
+        "noVigVerified": false,
+        "observedExecutable": false,
+        "oddsAmerican": null,
+        "quality": "missing",
+        "source": null,
+        "sourceField": "missing",
+        "startTime": "2026-08-17T04:00Z",
+        "tier": "D",
+        "tierLabel": "assumed_proxy_or_synthetic",
+        "timestamp": "2026-08-16T12:44:59.513409Z",
+        "timestampField": "bucket.updatedAt",
+        "twoSided": false,
+        "updatedAt": "2026-08-16T12:44:59.513409Z"
+      },
+      "rawModelProbabilityIgnored": null,
+      "result": "pending",
+      "shadowQualified": false,
+      "source": "TennisTonic",
+      "sourceKey": "tennistonic_tennis",
       "sport": "Tennis",
       "stakeUnits": 0.0,
       "tier": "avoid",
@@ -5620,15 +7097,19 @@
         "value_no_usable_price_baseline"
       ],
       "canonicalGame": "2026-08-16:tennis:arthur rinderknech|juan manuel cerundolo",
-      "consensusSources": [],
+      "consensusSources": [
+        "Tennis Model",
+        "TennisTonic"
+      ],
       "date": "2026-08-16",
       "decimalOdds": null,
       "decision": "BET",
       "dedupeRule": "exact_market_identity_best_executable_price",
       "direction": "side",
-      "duplicateCount": 1,
+      "duplicateCount": 2,
       "duplicateSources": [
-        "Tennis Model"
+        "Tennis Model",
+        "TennisTonic"
       ],
       "edgeQualified": false,
       "estimate": null,
@@ -5947,15 +7428,19 @@
         "value_no_usable_price_baseline"
       ],
       "canonicalGame": "2026-08-16:tennis:iva jovic|tamara korpatsch",
-      "consensusSources": [],
+      "consensusSources": [
+        "Tennis Model",
+        "TennisTonic"
+      ],
       "date": "2026-08-16",
       "decimalOdds": null,
       "decision": "LEAN",
       "dedupeRule": "exact_market_identity_best_executable_price",
       "direction": "side",
-      "duplicateCount": 1,
+      "duplicateCount": 2,
       "duplicateSources": [
-        "Tennis Model"
+        "Tennis Model",
+        "TennisTonic"
       ],
       "edgeQualified": false,
       "estimate": null,
@@ -6056,15 +7541,19 @@
         "value_no_usable_price_baseline"
       ],
       "canonicalGame": "2026-08-16:tennis:mirra andreeva|oleksandra oliynykova",
-      "consensusSources": [],
+      "consensusSources": [
+        "Tennis Model",
+        "TennisTonic"
+      ],
       "date": "2026-08-16",
       "decimalOdds": null,
       "decision": "BET",
       "dedupeRule": "exact_market_identity_best_executable_price",
       "direction": "side",
-      "duplicateCount": 1,
+      "duplicateCount": 2,
       "duplicateSources": [
-        "Tennis Model"
+        "Tennis Model",
+        "TennisTonic"
       ],
       "edgeQualified": false,
       "estimate": null,
@@ -6165,15 +7654,19 @@
         "value_no_usable_price_baseline"
       ],
       "canonicalGame": "2026-08-16:tennis:elina svitolina|tereza valentova",
-      "consensusSources": [],
+      "consensusSources": [
+        "Tennis Model",
+        "TennisTonic"
+      ],
       "date": "2026-08-16",
       "decimalOdds": null,
       "decision": "BET",
       "dedupeRule": "exact_market_identity_best_executable_price",
       "direction": "side",
-      "duplicateCount": 1,
+      "duplicateCount": 2,
       "duplicateSources": [
-        "Tennis Model"
+        "Tennis Model",
+        "TennisTonic"
       ],
       "edgeQualified": false,
       "estimate": null,
@@ -6383,15 +7876,19 @@
         "value_no_usable_price_baseline"
       ],
       "canonicalGame": "2026-08-16:tennis:diana shnaider|maja chwalinska",
-      "consensusSources": [],
+      "consensusSources": [
+        "Tennis Model",
+        "TennisTonic"
+      ],
       "date": "2026-08-16",
       "decimalOdds": null,
       "decision": "BET",
       "dedupeRule": "exact_market_identity_best_executable_price",
       "direction": "side",
-      "duplicateCount": 1,
+      "duplicateCount": 2,
       "duplicateSources": [
-        "Tennis Model"
+        "Tennis Model",
+        "TennisTonic"
       ],
       "edgeQualified": false,
       "estimate": null,
@@ -6492,15 +7989,19 @@
         "value_no_usable_price_baseline"
       ],
       "canonicalGame": "2026-08-16:tennis:adolfo daniel vallejo|tommy paul",
-      "consensusSources": [],
+      "consensusSources": [
+        "Tennis Model",
+        "TennisTonic"
+      ],
       "date": "2026-08-16",
       "decimalOdds": null,
       "decision": "BET",
       "dedupeRule": "exact_market_identity_best_executable_price",
       "direction": "side",
-      "duplicateCount": 1,
+      "duplicateCount": 2,
       "duplicateSources": [
-        "Tennis Model"
+        "Tennis Model",
+        "TennisTonic"
       ],
       "edgeQualified": false,
       "estimate": null,
@@ -6710,15 +8211,19 @@
         "value_no_usable_price_baseline"
       ],
       "canonicalGame": "2026-08-16:tennis:ben shelton|jaime faria",
-      "consensusSources": [],
+      "consensusSources": [
+        "Tennis Model",
+        "TennisTonic"
+      ],
       "date": "2026-08-16",
       "decimalOdds": null,
       "decision": "BET",
       "dedupeRule": "exact_market_identity_best_executable_price",
       "direction": "side",
-      "duplicateCount": 1,
+      "duplicateCount": 2,
       "duplicateSources": [
-        "Tennis Model"
+        "Tennis Model",
+        "TennisTonic"
       ],
       "edgeQualified": false,
       "estimate": null,
@@ -6819,15 +8324,19 @@
         "value_no_usable_price_baseline"
       ],
       "canonicalGame": "2026-08-16:tennis:jakub mensik|rinky hijikata",
-      "consensusSources": [],
+      "consensusSources": [
+        "Tennis Model",
+        "TennisTonic"
+      ],
       "date": "2026-08-16",
       "decimalOdds": null,
       "decision": "BET",
       "dedupeRule": "exact_market_identity_best_executable_price",
       "direction": "side",
-      "duplicateCount": 1,
+      "duplicateCount": 2,
       "duplicateSources": [
-        "Tennis Model"
+        "Tennis Model",
+        "TennisTonic"
       ],
       "edgeQualified": false,
       "estimate": null,
@@ -7145,115 +8654,6 @@
         "edge_no_usable_price_baseline",
         "value_no_usable_price_baseline"
       ],
-      "canonicalGame": "2026-08-16:tennis:barbora krejcikova|sara bejlek",
-      "consensusSources": [],
-      "date": "2026-08-16",
-      "decimalOdds": null,
-      "decision": "LEAN",
-      "dedupeRule": "exact_market_identity_best_executable_price",
-      "direction": "side",
-      "duplicateCount": 1,
-      "duplicateSources": [
-        "Tennis Model"
-      ],
-      "edgeQualified": false,
-      "estimate": null,
-      "evidence": {
-        "chronologicalHalvesNonnegative": false,
-        "cutoffExclusive": "2026-08-16",
-        "distinctDates": 0,
-        "firstHalfFlatNetUnits": 0.0,
-        "flatNetUnits": 0.0,
-        "flatRoi": null,
-        "losses": 0,
-        "modelVersion": "tennis_v1_welo_logistic",
-        "policyVersion": "profit_desk_policy_v2",
-        "priorOnly": true,
-        "pushes": 0,
-        "secondHalfFlatNetUnits": 0.0,
-        "segmentDistinctDates": 0,
-        "segmentEvidenceKey": null,
-        "segmentSamples": 0,
-        "sourceChronologicalHalvesNonnegative": false,
-        "sourceDistinctDates": 0,
-        "sourceEvidenceKey": "team|tennis|tennis",
-        "sourceFirstHalfFlatNetUnits": 0.0,
-        "sourceFlatNetUnits": 0.0,
-        "sourceFlatRoi": null,
-        "sourceLosses": 0,
-        "sourceSamples": 0,
-        "sourceSecondHalfFlatNetUnits": 0.0,
-        "sourceWins": 0,
-        "wins": 0
-      },
-      "game": "Sara Bejlek vs Barbora Krejcikova",
-      "gradeSupportSource": "explicit_true",
-      "gradeSupported": true,
-      "id": "profit-d86ee4d194d9bae929f8927b",
-      "lane": null,
-      "laneBlockers": {
-        "edge": [
-          "edge_no_usable_price_baseline"
-        ],
-        "structural": [
-          "missing_executable_odds"
-        ],
-        "value": [
-          "value_no_usable_price_baseline"
-        ]
-      },
-      "line": null,
-      "liveQualified": false,
-      "market": "tennis_moneyline",
-      "marketFamily": "tennis moneyline",
-      "marketIdentity": "market:7e269e1b586fe0672c2f4a7a",
-      "mode": "team",
-      "modelVersion": "tennis_v1_welo_logistic",
-      "oddsAmerican": null,
-      "pick": "Barbora Krejcikova ML (Sara Bejlek vs Barbora Krejcikova)",
-      "player": null,
-      "policyVersion": "profit_desk_policy_v2",
-      "price": {
-        "ageHours": 1.659,
-        "breakEvenProbability": null,
-        "decimalOdds": null,
-        "eligibleForAlphaEstimate": false,
-        "fresh": true,
-        "freshPregame": true,
-        "maxAgeHours": 24.0,
-        "noVigInputs": {},
-        "noVigMethod": "unverified_single_side",
-        "noVigProbability": null,
-        "noVigVerified": false,
-        "observedExecutable": false,
-        "oddsAmerican": null,
-        "quality": "missing",
-        "source": null,
-        "sourceField": "missing",
-        "startTime": "2026-08-16T15:00Z",
-        "tier": "D",
-        "tierLabel": "assumed_proxy_or_synthetic",
-        "timestamp": "2026-08-16T13:20:28.622932Z",
-        "timestampField": "bucket.generatedAt",
-        "twoSided": false,
-        "updatedAt": "2026-08-16T13:20:28.622932Z"
-      },
-      "rawModelProbabilityIgnored": 0.628,
-      "result": "pending",
-      "shadowQualified": false,
-      "source": "Tennis Model",
-      "sourceKey": "tennis",
-      "sport": "Tennis",
-      "stakeUnits": 0.0,
-      "tier": "avoid",
-      "valueQualified": false
-    },
-    {
-      "blockers": [
-        "missing_executable_odds",
-        "edge_no_usable_price_baseline",
-        "value_no_usable_price_baseline"
-      ],
       "canonicalGame": "2026-08-16:wnba:chicago sky|seattle storm",
       "consensusSources": [],
       "date": "2026-08-16",
@@ -7366,15 +8766,19 @@
         "value_no_usable_price_baseline"
       ],
       "canonicalGame": "2026-08-16:tennis:anna blinkova|ekaterina alexandrova",
-      "consensusSources": [],
+      "consensusSources": [
+        "Tennis Model",
+        "TennisTonic"
+      ],
       "date": "2026-08-16",
       "decimalOdds": null,
       "decision": "BET",
       "dedupeRule": "exact_market_identity_best_executable_price",
       "direction": "side",
-      "duplicateCount": 1,
+      "duplicateCount": 2,
       "duplicateSources": [
-        "Tennis Model"
+        "Tennis Model",
+        "TennisTonic"
       ],
       "edgeQualified": false,
       "estimate": null,
@@ -7475,15 +8879,19 @@
         "value_no_usable_price_baseline"
       ],
       "canonicalGame": "2026-08-16:tennis:aleksandar kovacevic|brandon nakashima",
-      "consensusSources": [],
+      "consensusSources": [
+        "Tennis Model",
+        "TennisTonic"
+      ],
       "date": "2026-08-16",
       "decimalOdds": null,
       "decision": "BET",
       "dedupeRule": "exact_market_identity_best_executable_price",
       "direction": "side",
-      "duplicateCount": 1,
+      "duplicateCount": 2,
       "duplicateSources": [
-        "Tennis Model"
+        "Tennis Model",
+        "TennisTonic"
       ],
       "edgeQualified": false,
       "estimate": null,
@@ -7804,15 +9212,19 @@
         "value_no_usable_price_baseline"
       ],
       "canonicalGame": "2026-08-16:tennis:alejandro tabilo|rafael jodar",
-      "consensusSources": [],
+      "consensusSources": [
+        "Tennis Model",
+        "TennisTonic"
+      ],
       "date": "2026-08-16",
       "decimalOdds": null,
       "decision": "LEAN",
       "dedupeRule": "exact_market_identity_best_executable_price",
       "direction": "side",
-      "duplicateCount": 1,
+      "duplicateCount": 2,
       "duplicateSources": [
-        "Tennis Model"
+        "Tennis Model",
+        "TennisTonic"
       ],
       "edgeQualified": false,
       "estimate": null,
@@ -7913,15 +9325,19 @@
         "value_no_usable_price_baseline"
       ],
       "canonicalGame": "2026-08-16:tennis:daniil medvedev|marco trungelliti",
-      "consensusSources": [],
+      "consensusSources": [
+        "Tennis Model",
+        "TennisTonic"
+      ],
       "date": "2026-08-16",
       "decimalOdds": null,
       "decision": "BET",
       "dedupeRule": "exact_market_identity_best_executable_price",
       "direction": "side",
-      "duplicateCount": 1,
+      "duplicateCount": 2,
       "duplicateSources": [
-        "Tennis Model"
+        "Tennis Model",
+        "TennisTonic"
       ],
       "edgeQualified": false,
       "estimate": null,
@@ -8022,15 +9438,19 @@
         "value_no_usable_price_baseline"
       ],
       "canonicalGame": "2026-08-16:tennis:clara tauson|linda noskova",
-      "consensusSources": [],
+      "consensusSources": [
+        "Tennis Model",
+        "TennisTonic"
+      ],
       "date": "2026-08-16",
       "decimalOdds": null,
       "decision": "LEAN",
       "dedupeRule": "exact_market_identity_best_executable_price",
       "direction": "side",
-      "duplicateCount": 1,
+      "duplicateCount": 2,
       "duplicateSources": [
-        "Tennis Model"
+        "Tennis Model",
+        "TennisTonic"
       ],
       "edgeQualified": false,
       "estimate": null,
@@ -8129,7 +9549,7 @@
   "date": "2026-08-16",
   "engineVersion": "profit_desk_v2_live",
   "firstLiveDate": "2026-07-11",
-  "generatedAt": "2026-08-16T13:26:42.402344Z",
+  "generatedAt": "2026-08-16T12:46:44.265896Z",
   "notices": [
     "Qualified picks carry real flat stakes: EDGE 1.0u, VALUE 0.5u; everything else stays 0u.",
     "The market price is the baseline; historical residual alpha is shrunk and uncertainty-adjusted.",
@@ -8243,7 +9663,7 @@
     },
     {
       "alpha": 0.051347,
-      "candidatesToday": 0,
+      "candidatesToday": 3,
       "distinctDates": 16,
       "evidenceQualified": false,
       "flatNetUnits": 9.111,
@@ -8282,7 +9702,7 @@
       "mode": "team",
       "probabilityPositiveEv": 0.864181,
       "samples": 62,
-      "source": "scores24_tennis",
+      "source": "Scores24Tennis",
       "sourceKey": "scores24_tennis",
       "sport": "tennis",
       "wins": 40
@@ -9393,7 +10813,7 @@
     },
     {
       "alpha": 0.0,
-      "candidatesToday": 40,
+      "candidatesToday": 39,
       "distinctDates": 0,
       "evidenceQualified": false,
       "flatNetUnits": 0,
@@ -9434,6 +10854,52 @@
       "samples": 0,
       "source": "Tennis Model",
       "sourceKey": "tennis",
+      "sport": "tennis",
+      "wins": 0
+    },
+    {
+      "alpha": 0.0,
+      "candidatesToday": 9,
+      "distinctDates": 0,
+      "evidenceQualified": false,
+      "flatNetUnits": 0,
+      "flatRoi": null,
+      "gates": {
+        "distinctPriorDates": {
+          "actual": 0,
+          "passed": false,
+          "required": 15
+        },
+        "positiveFlatRoi": {
+          "actual": null,
+          "passed": false,
+          "required": 0.0
+        },
+        "probabilityPositiveEv": {
+          "actual": 0.5,
+          "passed": false,
+          "required": 0.7
+        },
+        "sourceSamples": {
+          "actual": 0,
+          "passed": false,
+          "required": 150
+        },
+        "stableChronologicalHalves": {
+          "actual": true,
+          "passed": false,
+          "required": true
+        }
+      },
+      "gatesPassed": 0,
+      "gatesTotal": 5,
+      "liveToday": 0,
+      "losses": 0,
+      "mode": "team",
+      "probabilityPositiveEv": 0.5,
+      "samples": 0,
+      "source": "TennisTonic",
+      "sourceKey": "tennistonic_tennis",
       "sport": "tennis",
       "wins": 0
     },
@@ -9807,13 +11273,13 @@
     }
   ],
   "summary": {
-    "avoid": 52,
-    "candidateCount": 69,
-    "candidatesEvaluated": 69,
-    "deduplicatedPicks": 3,
+    "avoid": 60,
+    "candidateCount": 80,
+    "candidatesEvaluated": 80,
+    "deduplicatedPicks": 36,
     "edgeQualified": 0,
     "evidenceRows": 2971,
-    "inputPicks": 72,
+    "inputPicks": 116,
     "livePortfolioCandidates": 0,
     "liveQualified": 0,
     "liveRecord": {
@@ -9860,23 +11326,23 @@
         "watchlist": 5
       },
       "team": {
-        "avoid": 52,
-        "candidateCount": 64,
-        "candidates": 64,
-        "candidatesEvaluated": 64,
+        "avoid": 60,
+        "candidateCount": 75,
+        "candidates": 75,
+        "candidatesEvaluated": 75,
         "edgeQualified": 0,
         "evidenceRows": 2280,
         "liveQualified": 0,
-        "observedPriceCandidates": 12,
+        "observedPriceCandidates": 15,
         "portfolioCandidates": 0,
         "researchQualified": 0,
         "selected": 0,
         "shadowQualified": 0,
         "valueQualified": 0,
-        "watchlist": 12
+        "watchlist": 15
       }
     },
-    "observedPriceCandidates": 17,
+    "observedPriceCandidates": 20,
     "portfolioCandidates": 0,
     "researchQualified": 0,
     "researchRecord": {
@@ -9906,8 +11372,8 @@
       "stakedUnits": 0.0,
       "wins": 0
     },
-    "sourcesTracked": 35,
+    "sourcesTracked": 36,
     "valueQualified": 0,
-    "watchlist": 17
+    "watchlist": 20
   }
 }
