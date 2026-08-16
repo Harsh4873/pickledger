@@ -242,7 +242,7 @@
       "player": null,
       "policyVersion": "profit_desk_policy_v2",
       "price": {
-        "ageHours": 7.888,
+        "ageHours": 8.054,
         "breakEvenProbability": 0.555556,
         "decimalOdds": 1.8,
         "eligibleForAlphaEstimate": false,
@@ -258,7 +258,7 @@
         "quality": "one_sided",
         "source": "scraped_feed:scores24_tennis",
         "sourceField": "source_registry.scraped_odds",
-        "startTime": "2026-08-16T20:40Z",
+        "startTime": "2026-08-16T20:50Z",
         "tier": "C",
         "tierLabel": "posted_one_sided",
         "timestamp": "2026-08-16T12:46:44.265896Z",
@@ -285,6 +285,14 @@
         "value_negative_chronological_evidence_half"
       ],
       "canonicalGame": "2026-08-16:mlb:cincinnati reds|miami marlins",
+      "closing": {
+        "capturedAt": "2026-08-16T17:37Z",
+        "clv": 0.0,
+        "decimalOdds": 1.209205,
+        "noVigProbability": 0.776,
+        "oddsAmerican": -478,
+        "provider": null
+      },
       "consensusSources": [],
       "date": "2026-08-16",
       "decimalOdds": 1.209205,
@@ -403,7 +411,7 @@
         "updatedAt": "2026-08-16T17:37Z"
       },
       "rawModelProbabilityIgnored": 0.8689,
-      "result": "pending",
+      "result": "win",
       "shadowQualified": false,
       "source": "MLBPlayerProps",
       "sourceKey": "mlb_player_props",
@@ -2254,6 +2262,152 @@
       "source": "ForebetMLS",
       "sourceKey": "forebet_mls",
       "sport": "MLS",
+      "stakeUnits": 0.0,
+      "tier": "watch",
+      "valueQualified": false
+    },
+    {
+      "blockers": [
+        "edge_insufficient_segment_samples",
+        "edge_insufficient_distinct_prior_dates",
+        "edge_negative_chronological_evidence_half",
+        "edge_probability_positive_ev_below_0.80",
+        "edge_conservative_probability_margin_below_0.02",
+        "edge_non_positive_conservative_ev",
+        "value_insufficient_source_samples",
+        "value_negative_chronological_evidence_half",
+        "value_non_positive_flat_roi",
+        "value_probability_positive_ev_below_0.70"
+      ],
+      "canonicalGame": "2026-08-16:wnba:chicago sky|seattle storm",
+      "consensusSources": [],
+      "date": "2026-08-16",
+      "decimalOdds": 1.892857,
+      "decision": "LEAN",
+      "dedupeRule": "exact_market_identity_best_executable_price",
+      "direction": "side",
+      "duplicateCount": 1,
+      "duplicateSources": [
+        "WNBA Model"
+      ],
+      "edgeQualified": false,
+      "estimate": {
+        "alpha": -0.010195,
+        "alphaStdError": 0.080318,
+        "breakEvenProbability": 0.528302,
+        "conservativeExpectedValue": -0.259509,
+        "expectedValue": -0.064674,
+        "lowerProbability": 0.391203,
+        "marketProbability": 0.50433,
+        "method": "market_baseline_plus_hierarchically_shrunk_prior_residual",
+        "probability": 0.494135,
+        "probabilityPositiveEv": 0.335273,
+        "sourceAlpha": -0.009311,
+        "value": {
+          "alpha": -0.009311,
+          "alphaStdError": 0.041109,
+          "conservativeExpectedValue": -0.117346,
+          "expectedValue": -0.017624,
+          "lowerProbability": 0.466308,
+          "method": "source_flat_roi_shrunk_residual_vs_break_even",
+          "probability": 0.518991,
+          "probabilityPositiveEv": 0.410413
+        }
+      },
+      "evidence": {
+        "chronologicalHalvesNonnegative": false,
+        "cutoffExclusive": "2026-08-16",
+        "distinctDates": 11,
+        "firstHalfFlatNetUnits": -1.3285,
+        "flatNetUnits": -0.8944,
+        "flatRoi": -0.063889,
+        "losses": 7,
+        "modelVersion": "source_identity:wnba",
+        "policyVersion": "profit_desk_policy_v2",
+        "priorOnly": true,
+        "pushes": 0,
+        "secondHalfFlatNetUnits": 0.434,
+        "segmentDistinctDates": 11,
+        "segmentEvidenceKey": "team|wnba|wnba|source_identity:wnba|spread|side|0.50_0.55",
+        "segmentSamples": 14,
+        "sourceChronologicalHalvesNonnegative": false,
+        "sourceDistinctDates": 25,
+        "sourceEvidenceKey": "team|wnba|wnba",
+        "sourceFirstHalfFlatNetUnits": -18.9809,
+        "sourceFlatNetUnits": -8.0049,
+        "sourceFlatRoi": -0.078479,
+        "sourceLosses": 51,
+        "sourceSamples": 102,
+        "sourceSecondHalfFlatNetUnits": 10.9761,
+        "sourceWins": 51,
+        "wins": 7
+      },
+      "game": "Chicago Sky @ Seattle Storm",
+      "gradeSupportSource": "repository_grader_default",
+      "gradeSupported": true,
+      "id": "profit-9ae15108ecf46026de3ba491",
+      "lane": null,
+      "laneBlockers": {
+        "edge": [
+          "edge_insufficient_segment_samples",
+          "edge_insufficient_distinct_prior_dates",
+          "edge_negative_chronological_evidence_half",
+          "edge_probability_positive_ev_below_0.80",
+          "edge_conservative_probability_margin_below_0.02",
+          "edge_non_positive_conservative_ev"
+        ],
+        "structural": [],
+        "value": [
+          "value_insufficient_source_samples",
+          "value_negative_chronological_evidence_half",
+          "value_non_positive_flat_roi",
+          "value_probability_positive_ev_below_0.70"
+        ]
+      },
+      "line": 2.5,
+      "liveQualified": false,
+      "market": "spread",
+      "marketFamily": "spread",
+      "marketIdentity": "market:ee139811d552204721ac6168",
+      "mode": "team",
+      "modelVersion": "source_identity:wnba",
+      "oddsAmerican": -112,
+      "pick": "Seattle Storm +2.5 (Chicago Sky @ Seattle Storm)",
+      "player": null,
+      "policyVersion": "profit_desk_policy_v2",
+      "price": {
+        "ageHours": 0.245,
+        "breakEvenProbability": 0.528302,
+        "decimalOdds": 1.892857,
+        "eligibleForAlphaEstimate": true,
+        "fresh": true,
+        "freshPregame": true,
+        "maxAgeHours": 24.0,
+        "noVigInputs": {
+          "field": "market_no_vig_selected_probability"
+        },
+        "noVigMethod": "explicit:pick.market_no_vig_selected_probability",
+        "noVigProbability": 0.50433,
+        "noVigVerified": true,
+        "observedExecutable": true,
+        "oddsAmerican": -112,
+        "quality": "verified_no_vig",
+        "source": "espn_scoreboard:DraftKings",
+        "sourceField": "pick.price_source",
+        "startTime": "2026-08-16T21:00Z",
+        "tier": "A",
+        "tierLabel": "certified_executable",
+        "timestamp": "2026-08-16T20:45:17.445500Z",
+        "timestampField": "pick.market_updated_at",
+        "twoSided": true,
+        "updatedAt": "2026-08-16T20:45:17.445500Z"
+      },
+      "rawModelProbabilityIgnored": 0.5657,
+      "result": "pending",
+      "shadowQualified": false,
+      "source": "WNBA Model",
+      "sourceKey": "wnba",
+      "sport": "WNBA",
       "stakeUnits": 0.0,
       "tier": "watch",
       "valueQualified": false
@@ -4863,155 +5017,6 @@
     },
     {
       "blockers": [
-        "missing_or_invalid_game_start_time",
-        "edge_insufficient_segment_samples",
-        "edge_insufficient_distinct_prior_dates",
-        "edge_negative_chronological_evidence_half",
-        "edge_probability_positive_ev_below_0.80",
-        "edge_conservative_probability_margin_below_0.02",
-        "edge_non_positive_conservative_ev",
-        "value_insufficient_source_samples",
-        "value_negative_chronological_evidence_half",
-        "value_non_positive_flat_roi",
-        "value_probability_positive_ev_below_0.70"
-      ],
-      "canonicalGame": "2026-08-16:wnba:chicago sky|seattle storm",
-      "consensusSources": [],
-      "date": "2026-08-16",
-      "decimalOdds": 1.892857,
-      "decision": "LEAN",
-      "dedupeRule": "exact_market_identity_best_executable_price",
-      "direction": "side",
-      "duplicateCount": 1,
-      "duplicateSources": [
-        "WNBA Model"
-      ],
-      "edgeQualified": false,
-      "estimate": {
-        "alpha": -0.010195,
-        "alphaStdError": 0.080318,
-        "breakEvenProbability": 0.528302,
-        "conservativeExpectedValue": -0.259509,
-        "expectedValue": -0.064674,
-        "lowerProbability": 0.391203,
-        "marketProbability": 0.50433,
-        "method": "market_baseline_plus_hierarchically_shrunk_prior_residual",
-        "probability": 0.494135,
-        "probabilityPositiveEv": 0.335273,
-        "sourceAlpha": -0.009311,
-        "value": {
-          "alpha": -0.009311,
-          "alphaStdError": 0.041109,
-          "conservativeExpectedValue": -0.117346,
-          "expectedValue": -0.017624,
-          "lowerProbability": 0.466308,
-          "method": "source_flat_roi_shrunk_residual_vs_break_even",
-          "probability": 0.518991,
-          "probabilityPositiveEv": 0.410413
-        }
-      },
-      "evidence": {
-        "chronologicalHalvesNonnegative": false,
-        "cutoffExclusive": "2026-08-16",
-        "distinctDates": 11,
-        "firstHalfFlatNetUnits": -1.3285,
-        "flatNetUnits": -0.8944,
-        "flatRoi": -0.063889,
-        "losses": 7,
-        "modelVersion": "source_identity:wnba",
-        "policyVersion": "profit_desk_policy_v2",
-        "priorOnly": true,
-        "pushes": 0,
-        "secondHalfFlatNetUnits": 0.434,
-        "segmentDistinctDates": 11,
-        "segmentEvidenceKey": "team|wnba|wnba|source_identity:wnba|spread|side|0.50_0.55",
-        "segmentSamples": 14,
-        "sourceChronologicalHalvesNonnegative": false,
-        "sourceDistinctDates": 25,
-        "sourceEvidenceKey": "team|wnba|wnba",
-        "sourceFirstHalfFlatNetUnits": -18.9809,
-        "sourceFlatNetUnits": -8.0049,
-        "sourceFlatRoi": -0.078479,
-        "sourceLosses": 51,
-        "sourceSamples": 102,
-        "sourceSecondHalfFlatNetUnits": 10.9761,
-        "sourceWins": 51,
-        "wins": 7
-      },
-      "game": "Chicago Sky @ Seattle Storm",
-      "gradeSupportSource": "repository_grader_default",
-      "gradeSupported": true,
-      "id": "profit-9ae15108ecf46026de3ba491",
-      "lane": null,
-      "laneBlockers": {
-        "edge": [
-          "edge_insufficient_segment_samples",
-          "edge_insufficient_distinct_prior_dates",
-          "edge_negative_chronological_evidence_half",
-          "edge_probability_positive_ev_below_0.80",
-          "edge_conservative_probability_margin_below_0.02",
-          "edge_non_positive_conservative_ev"
-        ],
-        "structural": [
-          "missing_or_invalid_game_start_time"
-        ],
-        "value": [
-          "value_insufficient_source_samples",
-          "value_negative_chronological_evidence_half",
-          "value_non_positive_flat_roi",
-          "value_probability_positive_ev_below_0.70"
-        ]
-      },
-      "line": 2.5,
-      "liveQualified": false,
-      "market": "spread",
-      "marketFamily": "spread",
-      "marketIdentity": "market:ee139811d552204721ac6168",
-      "mode": "team",
-      "modelVersion": "source_identity:wnba",
-      "oddsAmerican": -112,
-      "pick": "Seattle Storm +2.5 (Chicago Sky @ Seattle Storm)",
-      "player": null,
-      "policyVersion": "profit_desk_policy_v2",
-      "price": {
-        "ageHours": null,
-        "breakEvenProbability": 0.528302,
-        "decimalOdds": 1.892857,
-        "eligibleForAlphaEstimate": true,
-        "fresh": false,
-        "freshPregame": false,
-        "maxAgeHours": 24.0,
-        "noVigInputs": {
-          "field": "market_no_vig_selected_probability"
-        },
-        "noVigMethod": "explicit:pick.market_no_vig_selected_probability",
-        "noVigProbability": 0.50433,
-        "noVigVerified": true,
-        "observedExecutable": true,
-        "oddsAmerican": -112,
-        "quality": "verified_no_vig",
-        "source": "espn_scoreboard:DraftKings",
-        "sourceField": "pick.price_source",
-        "startTime": null,
-        "tier": "A",
-        "tierLabel": "certified_executable",
-        "timestamp": "2026-08-16T20:45:17.445500Z",
-        "timestampField": "pick.market_updated_at",
-        "twoSided": true,
-        "updatedAt": "2026-08-16T20:45:17.445500Z"
-      },
-      "rawModelProbabilityIgnored": 0.5657,
-      "result": "pending",
-      "shadowQualified": false,
-      "source": "WNBA Model",
-      "sourceKey": "wnba",
-      "sport": "WNBA",
-      "stakeUnits": 0.0,
-      "tier": "avoid",
-      "valueQualified": false
-    },
-    {
-      "blockers": [
         "price_not_pregame",
         "edge_insufficient_source_samples",
         "edge_insufficient_segment_samples",
@@ -5026,6 +5031,14 @@
         "value_probability_positive_ev_below_0.70"
       ],
       "canonicalGame": "2026-08-16:mlb:new york yankees|toronto blue jays",
+      "closing": {
+        "capturedAt": "2026-08-16T17:13:52.809645Z",
+        "clv": -0.063618,
+        "decimalOdds": 1.847458,
+        "noVigProbability": 0.531988,
+        "oddsAmerican": -118,
+        "provider": "espn_scoreboard:DraftKings"
+      },
       "consensusSources": [],
       "date": "2026-08-16",
       "decimalOdds": 1.729927,
@@ -5152,7 +5165,7 @@
         "updatedAt": "2026-08-16T18:18:21.710809Z"
       },
       "rawModelProbabilityIgnored": 0.71,
-      "result": "pending",
+      "result": "loss",
       "shadowQualified": false,
       "source": "ForebetMLB",
       "sourceKey": "forebet_mlb",
@@ -6518,7 +6531,7 @@
         "updatedAt": "2026-08-16T20:39:22.648287Z"
       },
       "rawModelProbabilityIgnored": null,
-      "result": "pending",
+      "result": "win",
       "shadowQualified": false,
       "source": "TennisTonic",
       "sourceKey": "tennistonic_tennis",
@@ -7947,7 +7960,7 @@
         "updatedAt": "2026-08-16T15:52:33.991381Z"
       },
       "rawModelProbabilityIgnored": 0.629,
-      "result": "pending",
+      "result": "win",
       "shadowQualified": false,
       "source": "MLB Inning",
       "sourceKey": "mlb_inning",
@@ -9046,7 +9059,7 @@
       "player": null,
       "policyVersion": "profit_desk_policy_v2",
       "price": {
-        "ageHours": -0.177,
+        "ageHours": -0.01,
         "breakEvenProbability": null,
         "decimalOdds": null,
         "eligibleForAlphaEstimate": false,
@@ -9062,7 +9075,7 @@
         "quality": "missing",
         "source": null,
         "sourceField": "missing",
-        "startTime": "2026-08-16T20:40Z",
+        "startTime": "2026-08-16T20:50Z",
         "tier": "D",
         "tierLabel": "assumed_proxy_or_synthetic",
         "timestamp": "2026-08-16T20:50:36.583798Z",
@@ -9303,7 +9316,6 @@
     {
       "blockers": [
         "missing_executable_odds",
-        "price_not_pregame",
         "edge_no_usable_price_baseline",
         "value_no_usable_price_baseline"
       ],
@@ -9362,8 +9374,7 @@
           "edge_no_usable_price_baseline"
         ],
         "structural": [
-          "missing_executable_odds",
-          "price_not_pregame"
+          "missing_executable_odds"
         ],
         "value": [
           "value_no_usable_price_baseline"
@@ -9381,12 +9392,12 @@
       "player": null,
       "policyVersion": "profit_desk_policy_v2",
       "price": {
-        "ageHours": -0.177,
+        "ageHours": 0.323,
         "breakEvenProbability": null,
         "decimalOdds": null,
         "eligibleForAlphaEstimate": false,
-        "fresh": false,
-        "freshPregame": false,
+        "fresh": true,
+        "freshPregame": true,
         "maxAgeHours": 24.0,
         "noVigInputs": {},
         "noVigMethod": "unverified_single_side",
@@ -9397,7 +9408,7 @@
         "quality": "missing",
         "source": null,
         "sourceField": "missing",
-        "startTime": "2026-08-16T20:40Z",
+        "startTime": "2026-08-16T21:10Z",
         "tier": "D",
         "tierLabel": "assumed_proxy_or_synthetic",
         "timestamp": "2026-08-16T20:50:36.583798Z",
@@ -10707,7 +10718,7 @@
       "player": null,
       "policyVersion": "profit_desk_policy_v2",
       "price": {
-        "ageHours": -0.26,
+        "ageHours": -0.177,
         "breakEvenProbability": null,
         "decimalOdds": null,
         "eligibleForAlphaEstimate": false,
@@ -10723,7 +10734,7 @@
         "quality": "missing",
         "source": null,
         "sourceField": "missing",
-        "startTime": "2026-08-16T20:35Z",
+        "startTime": "2026-08-16T20:40Z",
         "tier": "D",
         "tierLabel": "assumed_proxy_or_synthetic",
         "timestamp": "2026-08-16T20:50:36.583798Z",
@@ -10859,7 +10870,6 @@
     {
       "blockers": [
         "missing_executable_odds",
-        "price_not_pregame",
         "edge_no_usable_price_baseline",
         "value_no_usable_price_baseline"
       ],
@@ -10914,8 +10924,7 @@
           "edge_no_usable_price_baseline"
         ],
         "structural": [
-          "missing_executable_odds",
-          "price_not_pregame"
+          "missing_executable_odds"
         ],
         "value": [
           "value_no_usable_price_baseline"
@@ -10933,12 +10942,12 @@
       "player": null,
       "policyVersion": "profit_desk_policy_v2",
       "price": {
-        "ageHours": -0.01,
+        "ageHours": 0.407,
         "breakEvenProbability": null,
         "decimalOdds": null,
         "eligibleForAlphaEstimate": false,
-        "fresh": false,
-        "freshPregame": false,
+        "fresh": true,
+        "freshPregame": true,
         "maxAgeHours": 24.0,
         "noVigInputs": {},
         "noVigMethod": "unverified_single_side",
@@ -10949,7 +10958,7 @@
         "quality": "missing",
         "source": null,
         "sourceField": "missing",
-        "startTime": "2026-08-16T20:50Z",
+        "startTime": "2026-08-16T21:15Z",
         "tier": "D",
         "tierLabel": "assumed_proxy_or_synthetic",
         "timestamp": "2026-08-16T20:50:36.583798Z",
@@ -13136,7 +13145,7 @@
     }
   ],
   "summary": {
-    "avoid": 65,
+    "avoid": 64,
     "candidateCount": 92,
     "candidatesEvaluated": 92,
     "deduplicatedPicks": 17,
@@ -13189,7 +13198,7 @@
         "watchlist": 7
       },
       "team": {
-        "avoid": 62,
+        "avoid": 61,
         "candidateCount": 82,
         "candidates": 82,
         "candidatesEvaluated": 82,
@@ -13202,7 +13211,7 @@
         "selected": 0,
         "shadowQualified": 0,
         "valueQualified": 0,
-        "watchlist": 20
+        "watchlist": 21
       }
     },
     "observedPriceCandidates": 37,
@@ -13237,6 +13246,6 @@
     },
     "sourcesTracked": 36,
     "valueQualified": 0,
-    "watchlist": 27
+    "watchlist": 28
   }
 }
