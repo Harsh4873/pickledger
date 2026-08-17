@@ -2266,6 +2266,146 @@
     },
     {
       "blockers": [
+        "edge_insufficient_segment_samples",
+        "edge_insufficient_distinct_prior_dates",
+        "edge_negative_chronological_evidence_half",
+        "edge_probability_positive_ev_below_0.80",
+        "edge_conservative_probability_margin_below_0.02",
+        "edge_non_positive_conservative_ev",
+        "value_negative_chronological_evidence_half"
+      ],
+      "canonicalGame": "2026-08-17:mlb:atlanta braves|minnesota twins",
+      "consensusSources": [],
+      "date": "2026-08-17",
+      "decimalOdds": 1.578035,
+      "decision": "LEAN",
+      "dedupeRule": "exact_market_identity_best_executable_price",
+      "direction": "under",
+      "duplicateCount": 1,
+      "duplicateSources": [
+        "MLBPlayerProps"
+      ],
+      "edgeQualified": false,
+      "estimate": {
+        "alpha": 0.009789,
+        "alphaStdError": 0.070641,
+        "breakEvenProbability": 0.6337,
+        "conservativeExpectedValue": -0.191481,
+        "expectedValue": -0.04862,
+        "lowerProbability": 0.512358,
+        "marketProbability": 0.5931,
+        "method": "market_baseline_plus_hierarchically_shrunk_prior_residual",
+        "probability": 0.602889,
+        "probabilityPositiveEv": 0.331361,
+        "sourceAlpha": 0.023474,
+        "value": {
+          "alpha": 0.023474,
+          "alphaStdError": 0.021528,
+          "conservativeExpectedValue": -0.006493,
+          "expectedValue": 0.037043,
+          "lowerProbability": 0.629585,
+          "method": "source_flat_roi_shrunk_residual_vs_break_even",
+          "probability": 0.657174,
+          "probabilityPositiveEv": 0.862236
+        }
+      },
+      "evidence": {
+        "chronologicalHalvesNonnegative": false,
+        "cutoffExclusive": "2026-08-17",
+        "distinctDates": 17,
+        "firstHalfFlatNetUnits": 0.688,
+        "flatNetUnits": -1.6783,
+        "flatRoi": -0.06993,
+        "losses": 10,
+        "modelVersion": "player_props_consensus_v2.0.0",
+        "policyVersion": "profit_desk_policy_v2",
+        "priorOnly": true,
+        "pushes": 0,
+        "secondHalfFlatNetUnits": -2.3663,
+        "segmentDistinctDates": 17,
+        "segmentEvidenceKey": "player|mlb_player_props|mlb|player_props_consensus_v2.0.0|hits runs rbis|under|0.55_0.60",
+        "segmentSamples": 24,
+        "sourceChronologicalHalvesNonnegative": false,
+        "sourceDistinctDates": 48,
+        "sourceEvidenceKey": "player|mlb_player_props|mlb",
+        "sourceFirstHalfFlatNetUnits": 18.1274,
+        "sourceFlatNetUnits": 17.276,
+        "sourceFlatRoi": 0.038221,
+        "sourceLosses": 206,
+        "sourceSamples": 452,
+        "sourceSecondHalfFlatNetUnits": -0.8514,
+        "sourceWins": 246,
+        "wins": 14
+      },
+      "game": "Atlanta Braves @ Minnesota Twins",
+      "gradeSupportSource": "repository_grader_default",
+      "gradeSupported": true,
+      "id": "profit-6bb518d28d72eb44d98dd7e8",
+      "lane": null,
+      "laneBlockers": {
+        "edge": [
+          "edge_insufficient_segment_samples",
+          "edge_insufficient_distinct_prior_dates",
+          "edge_negative_chronological_evidence_half",
+          "edge_probability_positive_ev_below_0.80",
+          "edge_conservative_probability_margin_below_0.02",
+          "edge_non_positive_conservative_ev"
+        ],
+        "structural": [],
+        "value": [
+          "value_negative_chronological_evidence_half"
+        ]
+      },
+      "line": 1.5,
+      "liveQualified": false,
+      "market": "Total Hits + Runs + RBIs",
+      "marketFamily": "hits runs rbis",
+      "marketIdentity": "market:73c5a91f843a22e7cafd8b6d",
+      "mode": "player",
+      "modelVersion": "player_props_consensus_v2.0.0",
+      "oddsAmerican": -173,
+      "pick": "Jim Jarvis Under 1.5 Hits + Runs + RBIs",
+      "player": "Jim Jarvis",
+      "policyVersion": "profit_desk_policy_v2",
+      "price": {
+        "ageHours": 6.367,
+        "breakEvenProbability": 0.6337,
+        "decimalOdds": 1.578035,
+        "eligibleForAlphaEstimate": true,
+        "fresh": true,
+        "freshPregame": true,
+        "maxAgeHours": 24.0,
+        "noVigInputs": {
+          "field": "market_no_vig_selected_probability"
+        },
+        "noVigMethod": "explicit:pick.market_no_vig_selected_probability",
+        "noVigProbability": 0.5931,
+        "noVigVerified": true,
+        "observedExecutable": true,
+        "oddsAmerican": -173,
+        "quality": "verified_two_sided",
+        "source": "posted_market",
+        "sourceField": "pick.odds_source",
+        "startTime": "2026-08-17T23:40:00Z",
+        "tier": "B",
+        "tierLabel": "posted_two_sided",
+        "timestamp": "2026-08-17T17:18Z",
+        "timestampField": "pick.market_updated_at",
+        "twoSided": true,
+        "updatedAt": "2026-08-17T17:18Z"
+      },
+      "rawModelProbabilityIgnored": 0.6726,
+      "result": "pending",
+      "shadowQualified": false,
+      "source": "MLBPlayerProps",
+      "sourceKey": "mlb_player_props",
+      "sport": "MLB",
+      "stakeUnits": 0.0,
+      "tier": "watch",
+      "valueQualified": false
+    },
+    {
+      "blockers": [
         "edge_requires_two_sided_price",
         "edge_insufficient_segment_samples",
         "edge_insufficient_distinct_prior_dates",
@@ -8067,7 +8207,7 @@
   "date": "2026-08-17",
   "engineVersion": "profit_desk_v2_live",
   "firstLiveDate": "2026-07-11",
-  "generatedAt": "2026-08-17T14:46:48.161470Z",
+  "generatedAt": "2026-08-17T14:56:17.056229Z",
   "notices": [
     "Qualified picks carry real flat stakes: EDGE 1.0u, VALUE 0.5u; everything else stays 0u.",
     "The market price is the baseline; historical residual alpha is shrunk and uncertainty-adjusted.",
@@ -8227,7 +8367,7 @@
     },
     {
       "alpha": 0.023474,
-      "candidatesToday": 0,
+      "candidatesToday": 1,
       "distinctDates": 48,
       "evidenceQualified": false,
       "flatNetUnits": 17.276,
@@ -8266,7 +8406,7 @@
       "mode": "player",
       "probabilityPositiveEv": 0.862236,
       "samples": 452,
-      "source": "mlb_player_props",
+      "source": "MLBPlayerProps",
       "sourceKey": "mlb_player_props",
       "sport": "mlb",
       "wins": 246
@@ -9792,12 +9932,12 @@
   ],
   "summary": {
     "avoid": 38,
-    "candidateCount": 65,
-    "candidatesEvaluated": 65,
+    "candidateCount": 66,
+    "candidatesEvaluated": 66,
     "deduplicatedPicks": 29,
     "edgeQualified": 0,
     "evidenceRows": 2985,
-    "inputPicks": 94,
+    "inputPicks": 95,
     "livePortfolioCandidates": 0,
     "liveQualified": 0,
     "liveRecord": {
@@ -9829,19 +9969,19 @@
     "modes": {
       "player": {
         "avoid": 0,
-        "candidateCount": 0,
-        "candidates": 0,
-        "candidatesEvaluated": 0,
+        "candidateCount": 1,
+        "candidates": 1,
+        "candidatesEvaluated": 1,
         "edgeQualified": 0,
         "evidenceRows": 692,
         "liveQualified": 0,
-        "observedPriceCandidates": 0,
+        "observedPriceCandidates": 1,
         "portfolioCandidates": 0,
         "researchQualified": 0,
         "selected": 0,
         "shadowQualified": 0,
         "valueQualified": 0,
-        "watchlist": 0
+        "watchlist": 1
       },
       "team": {
         "avoid": 38,
@@ -9860,7 +10000,7 @@
         "watchlist": 27
       }
     },
-    "observedPriceCandidates": 27,
+    "observedPriceCandidates": 28,
     "portfolioCandidates": 0,
     "researchQualified": 0,
     "researchRecord": {
@@ -9892,6 +10032,6 @@
     },
     "sourcesTracked": 36,
     "valueQualified": 0,
-    "watchlist": 27
+    "watchlist": 28
   }
 }
