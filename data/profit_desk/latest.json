@@ -3660,6 +3660,152 @@
     },
     {
       "blockers": [
+        "edge_insufficient_segment_samples",
+        "edge_insufficient_distinct_prior_dates",
+        "edge_negative_chronological_evidence_half",
+        "edge_probability_positive_ev_below_0.80",
+        "edge_conservative_probability_margin_below_0.02",
+        "edge_non_positive_conservative_ev",
+        "value_insufficient_source_samples",
+        "value_negative_chronological_evidence_half",
+        "value_non_positive_flat_roi",
+        "value_probability_positive_ev_below_0.70"
+      ],
+      "canonicalGame": "2026-08-18:wnba:indiana fever|toronto tempo",
+      "consensusSources": [],
+      "date": "2026-08-18",
+      "decimalOdds": 1.952381,
+      "decision": "LEAN",
+      "dedupeRule": "exact_market_identity_best_executable_price",
+      "direction": "under",
+      "duplicateCount": 1,
+      "duplicateSources": [
+        "WNBA Model"
+      ],
+      "edgeQualified": false,
+      "estimate": {
+        "alpha": -0.026923,
+        "alphaStdError": 0.077722,
+        "breakEvenProbability": 0.512195,
+        "conservativeExpectedValue": -0.291992,
+        "expectedValue": -0.097526,
+        "lowerProbability": 0.362638,
+        "marketProbability": 0.489166,
+        "method": "market_baseline_plus_hierarchically_shrunk_prior_residual",
+        "probability": 0.462243,
+        "probabilityPositiveEv": 0.260206,
+        "sourceAlpha": -0.009311,
+        "value": {
+          "alpha": -0.009311,
+          "alphaStdError": 0.041109,
+          "conservativeExpectedValue": -0.121036,
+          "expectedValue": -0.018178,
+          "lowerProbability": 0.450201,
+          "method": "source_flat_roi_shrunk_residual_vs_break_even",
+          "probability": 0.502885,
+          "probabilityPositiveEv": 0.410413
+        }
+      },
+      "evidence": {
+        "chronologicalHalvesNonnegative": false,
+        "cutoffExclusive": "2026-08-18",
+        "distinctDates": 8,
+        "firstHalfFlatNetUnits": -8.0,
+        "flatNetUnits": -2.3862,
+        "flatRoi": -0.14914,
+        "losses": 9,
+        "modelVersion": "wnba_total_v2_2026-07-26",
+        "policyVersion": "profit_desk_policy_v2",
+        "priorOnly": true,
+        "pushes": 0,
+        "secondHalfFlatNetUnits": 5.6138,
+        "segmentDistinctDates": 8,
+        "segmentEvidenceKey": "team|wnba|wnba|wnba_total_v2_2026-07-26|totals|under|0.45_0.50",
+        "segmentSamples": 16,
+        "sourceChronologicalHalvesNonnegative": false,
+        "sourceDistinctDates": 25,
+        "sourceEvidenceKey": "team|wnba|wnba",
+        "sourceFirstHalfFlatNetUnits": -18.9809,
+        "sourceFlatNetUnits": -8.0049,
+        "sourceFlatRoi": -0.078479,
+        "sourceLosses": 51,
+        "sourceSamples": 102,
+        "sourceSecondHalfFlatNetUnits": 10.9761,
+        "sourceWins": 51,
+        "wins": 7
+      },
+      "game": "Indiana Fever @ Toronto Tempo",
+      "gradeSupportSource": "repository_grader_default",
+      "gradeSupported": true,
+      "id": "profit-6cd5ed07d300cb149c9f2e28",
+      "lane": null,
+      "laneBlockers": {
+        "edge": [
+          "edge_insufficient_segment_samples",
+          "edge_insufficient_distinct_prior_dates",
+          "edge_negative_chronological_evidence_half",
+          "edge_probability_positive_ev_below_0.80",
+          "edge_conservative_probability_margin_below_0.02",
+          "edge_non_positive_conservative_ev"
+        ],
+        "structural": [],
+        "value": [
+          "value_insufficient_source_samples",
+          "value_negative_chronological_evidence_half",
+          "value_non_positive_flat_roi",
+          "value_probability_positive_ev_below_0.70"
+        ]
+      },
+      "line": 189.5,
+      "liveQualified": false,
+      "market": "totals",
+      "marketFamily": "totals",
+      "marketIdentity": "market:563aeac390fd2828344931a7",
+      "mode": "team",
+      "modelVersion": "wnba_total_v2_2026-07-26",
+      "oddsAmerican": -105,
+      "pick": "Under 189.5 (Indiana Fever vs Toronto Tempo)",
+      "player": null,
+      "policyVersion": "profit_desk_policy_v2",
+      "price": {
+        "ageHours": 8.153,
+        "breakEvenProbability": 0.512195,
+        "decimalOdds": 1.952381,
+        "eligibleForAlphaEstimate": true,
+        "fresh": true,
+        "freshPregame": true,
+        "maxAgeHours": 24.0,
+        "noVigInputs": {
+          "field": "market_no_vig_selected_probability"
+        },
+        "noVigMethod": "explicit:pick.market_no_vig_selected_probability",
+        "noVigProbability": 0.489166,
+        "noVigVerified": true,
+        "observedExecutable": true,
+        "oddsAmerican": -105,
+        "quality": "verified_no_vig",
+        "source": "espn_scoreboard:DraftKings",
+        "sourceField": "pick.price_source",
+        "startTime": "2026-08-18T23:00Z",
+        "tier": "A",
+        "tierLabel": "certified_executable",
+        "timestamp": "2026-08-18T14:50:49.399168Z",
+        "timestampField": "pick.market_updated_at",
+        "twoSided": true,
+        "updatedAt": "2026-08-18T14:50:49.399168Z"
+      },
+      "rawModelProbabilityIgnored": 0.6143,
+      "result": "pending",
+      "shadowQualified": false,
+      "source": "WNBA Model",
+      "sourceKey": "wnba",
+      "sport": "WNBA",
+      "stakeUnits": 0.0,
+      "tier": "watch",
+      "valueQualified": false
+    },
+    {
+      "blockers": [
         "edge_insufficient_source_samples",
         "edge_insufficient_segment_samples",
         "edge_insufficient_distinct_prior_dates",
@@ -4470,7 +4616,7 @@
       "player": null,
       "policyVersion": "profit_desk_policy_v2",
       "price": {
-        "ageHours": 14.479,
+        "ageHours": 13.249,
         "breakEvenProbability": null,
         "decimalOdds": null,
         "eligibleForAlphaEstimate": false,
@@ -4489,10 +4635,10 @@
         "startTime": "2026-08-19T04:00Z",
         "tier": "D",
         "tierLabel": "assumed_proxy_or_synthetic",
-        "timestamp": "2026-08-18T13:31:15.603985Z",
+        "timestamp": "2026-08-18T14:45:02.996816Z",
         "timestampField": "bucket.generatedAt",
         "twoSided": false,
-        "updatedAt": "2026-08-18T13:31:15.603985Z"
+        "updatedAt": "2026-08-18T14:45:02.996816Z"
       },
       "rawModelProbabilityIgnored": 0.628,
       "result": "pending",
@@ -4805,7 +4951,7 @@
       "player": null,
       "policyVersion": "profit_desk_policy_v2",
       "price": {
-        "ageHours": 2.979,
+        "ageHours": 1.749,
         "breakEvenProbability": null,
         "decimalOdds": null,
         "eligibleForAlphaEstimate": false,
@@ -4824,10 +4970,10 @@
         "startTime": "2026-08-18T16:30Z",
         "tier": "D",
         "tierLabel": "assumed_proxy_or_synthetic",
-        "timestamp": "2026-08-18T13:31:15.603985Z",
+        "timestamp": "2026-08-18T14:45:02.996816Z",
         "timestampField": "bucket.generatedAt",
         "twoSided": false,
-        "updatedAt": "2026-08-18T13:31:15.603985Z"
+        "updatedAt": "2026-08-18T14:45:02.996816Z"
       },
       "rawModelProbabilityIgnored": 0.7892,
       "result": "pending",
@@ -4914,7 +5060,7 @@
       "player": null,
       "policyVersion": "profit_desk_policy_v2",
       "price": {
-        "ageHours": 9.479,
+        "ageHours": 8.249,
         "breakEvenProbability": null,
         "decimalOdds": null,
         "eligibleForAlphaEstimate": false,
@@ -4933,10 +5079,10 @@
         "startTime": "2026-08-18T23:00Z",
         "tier": "D",
         "tierLabel": "assumed_proxy_or_synthetic",
-        "timestamp": "2026-08-18T13:31:15.603985Z",
+        "timestamp": "2026-08-18T14:45:02.996816Z",
         "timestampField": "bucket.generatedAt",
         "twoSided": false,
-        "updatedAt": "2026-08-18T13:31:15.603985Z"
+        "updatedAt": "2026-08-18T14:45:02.996816Z"
       },
       "rawModelProbabilityIgnored": 0.9534,
       "result": "pending",
@@ -5138,7 +5284,7 @@
       "player": null,
       "policyVersion": "profit_desk_policy_v2",
       "price": {
-        "ageHours": 14.479,
+        "ageHours": 13.249,
         "breakEvenProbability": null,
         "decimalOdds": null,
         "eligibleForAlphaEstimate": false,
@@ -5157,10 +5303,10 @@
         "startTime": "2026-08-19T04:00Z",
         "tier": "D",
         "tierLabel": "assumed_proxy_or_synthetic",
-        "timestamp": "2026-08-18T13:31:15.603985Z",
+        "timestamp": "2026-08-18T14:45:02.996816Z",
         "timestampField": "bucket.generatedAt",
         "twoSided": false,
-        "updatedAt": "2026-08-18T13:31:15.603985Z"
+        "updatedAt": "2026-08-18T14:45:02.996816Z"
       },
       "rawModelProbabilityIgnored": 0.7319,
       "result": "pending",
@@ -5360,7 +5506,7 @@
       "player": null,
       "policyVersion": "profit_desk_policy_v2",
       "price": {
-        "ageHours": 1.479,
+        "ageHours": 0.249,
         "breakEvenProbability": null,
         "decimalOdds": null,
         "eligibleForAlphaEstimate": false,
@@ -5379,10 +5525,10 @@
         "startTime": "2026-08-18T15:00Z",
         "tier": "D",
         "tierLabel": "assumed_proxy_or_synthetic",
-        "timestamp": "2026-08-18T13:31:15.603985Z",
+        "timestamp": "2026-08-18T14:45:02.996816Z",
         "timestampField": "bucket.generatedAt",
         "twoSided": false,
-        "updatedAt": "2026-08-18T13:31:15.603985Z"
+        "updatedAt": "2026-08-18T14:45:02.996816Z"
       },
       "rawModelProbabilityIgnored": 0.6758,
       "result": "pending",
@@ -5469,7 +5615,7 @@
       "player": null,
       "policyVersion": "profit_desk_policy_v2",
       "price": {
-        "ageHours": 2.979,
+        "ageHours": 1.749,
         "breakEvenProbability": null,
         "decimalOdds": null,
         "eligibleForAlphaEstimate": false,
@@ -5488,10 +5634,10 @@
         "startTime": "2026-08-18T16:30Z",
         "tier": "D",
         "tierLabel": "assumed_proxy_or_synthetic",
-        "timestamp": "2026-08-18T13:31:15.603985Z",
+        "timestamp": "2026-08-18T14:45:02.996816Z",
         "timestampField": "bucket.generatedAt",
         "twoSided": false,
-        "updatedAt": "2026-08-18T13:31:15.603985Z"
+        "updatedAt": "2026-08-18T14:45:02.996816Z"
       },
       "rawModelProbabilityIgnored": 0.9534,
       "result": "pending",
@@ -5578,7 +5724,7 @@
       "player": null,
       "policyVersion": "profit_desk_policy_v2",
       "price": {
-        "ageHours": 9.479,
+        "ageHours": 8.249,
         "breakEvenProbability": null,
         "decimalOdds": null,
         "eligibleForAlphaEstimate": false,
@@ -5597,10 +5743,10 @@
         "startTime": "2026-08-18T23:00Z",
         "tier": "D",
         "tierLabel": "assumed_proxy_or_synthetic",
-        "timestamp": "2026-08-18T13:31:15.603985Z",
+        "timestamp": "2026-08-18T14:45:02.996816Z",
         "timestampField": "bucket.generatedAt",
         "twoSided": false,
-        "updatedAt": "2026-08-18T13:31:15.603985Z"
+        "updatedAt": "2026-08-18T14:45:02.996816Z"
       },
       "rawModelProbabilityIgnored": 0.9848,
       "result": "pending",
@@ -5691,7 +5837,7 @@
       "player": null,
       "policyVersion": "profit_desk_policy_v2",
       "price": {
-        "ageHours": 14.479,
+        "ageHours": 13.249,
         "breakEvenProbability": null,
         "decimalOdds": null,
         "eligibleForAlphaEstimate": false,
@@ -5710,10 +5856,10 @@
         "startTime": "2026-08-19T04:00Z",
         "tier": "D",
         "tierLabel": "assumed_proxy_or_synthetic",
-        "timestamp": "2026-08-18T13:31:15.603985Z",
+        "timestamp": "2026-08-18T14:45:02.996816Z",
         "timestampField": "bucket.generatedAt",
         "twoSided": false,
-        "updatedAt": "2026-08-18T13:31:15.603985Z"
+        "updatedAt": "2026-08-18T14:45:02.996816Z"
       },
       "rawModelProbabilityIgnored": 0.7214,
       "result": "pending",
@@ -5800,7 +5946,7 @@
       "player": null,
       "policyVersion": "profit_desk_policy_v2",
       "price": {
-        "ageHours": 9.049,
+        "ageHours": 7.82,
         "breakEvenProbability": 0.545455,
         "decimalOdds": 1.833333,
         "eligibleForAlphaEstimate": false,
@@ -5819,10 +5965,10 @@
         "startTime": "2026-08-18T22:40Z",
         "tier": "D",
         "tierLabel": "assumed_proxy_or_synthetic",
-        "timestamp": "2026-08-18T13:37:04.950712Z",
+        "timestamp": "2026-08-18T14:50:47.223890Z",
         "timestampField": "pick.certification_timing.data_as_of",
         "twoSided": false,
-        "updatedAt": "2026-08-18T13:37:04.950712Z"
+        "updatedAt": "2026-08-18T14:50:47.223890Z"
       },
       "rawModelProbabilityIgnored": 0.604,
       "result": "pending",
@@ -5909,7 +6055,7 @@
       "player": null,
       "policyVersion": "profit_desk_policy_v2",
       "price": {
-        "ageHours": 1.479,
+        "ageHours": 0.249,
         "breakEvenProbability": null,
         "decimalOdds": null,
         "eligibleForAlphaEstimate": false,
@@ -5928,10 +6074,10 @@
         "startTime": "2026-08-18T15:00Z",
         "tier": "D",
         "tierLabel": "assumed_proxy_or_synthetic",
-        "timestamp": "2026-08-18T13:31:15.603985Z",
+        "timestamp": "2026-08-18T14:45:02.996816Z",
         "timestampField": "bucket.generatedAt",
         "twoSided": false,
-        "updatedAt": "2026-08-18T13:31:15.603985Z"
+        "updatedAt": "2026-08-18T14:45:02.996816Z"
       },
       "rawModelProbabilityIgnored": 0.7594,
       "result": "pending",
@@ -6127,7 +6273,7 @@
       "player": null,
       "policyVersion": "profit_desk_policy_v2",
       "price": {
-        "ageHours": 4.479,
+        "ageHours": 3.249,
         "breakEvenProbability": null,
         "decimalOdds": null,
         "eligibleForAlphaEstimate": false,
@@ -6146,10 +6292,10 @@
         "startTime": "2026-08-18T18:00Z",
         "tier": "D",
         "tierLabel": "assumed_proxy_or_synthetic",
-        "timestamp": "2026-08-18T13:31:15.603985Z",
+        "timestamp": "2026-08-18T14:45:02.996816Z",
         "timestampField": "bucket.generatedAt",
         "twoSided": false,
-        "updatedAt": "2026-08-18T13:31:15.603985Z"
+        "updatedAt": "2026-08-18T14:45:02.996816Z"
       },
       "rawModelProbabilityIgnored": 0.9583,
       "result": "pending",
@@ -6240,7 +6386,7 @@
       "player": null,
       "policyVersion": "profit_desk_policy_v2",
       "price": {
-        "ageHours": 2.479,
+        "ageHours": 1.249,
         "breakEvenProbability": null,
         "decimalOdds": null,
         "eligibleForAlphaEstimate": false,
@@ -6259,10 +6405,10 @@
         "startTime": "2026-08-18T16:00Z",
         "tier": "D",
         "tierLabel": "assumed_proxy_or_synthetic",
-        "timestamp": "2026-08-18T13:31:15.603985Z",
+        "timestamp": "2026-08-18T14:45:02.996816Z",
         "timestampField": "bucket.generatedAt",
         "twoSided": false,
-        "updatedAt": "2026-08-18T13:31:15.603985Z"
+        "updatedAt": "2026-08-18T14:45:02.996816Z"
       },
       "rawModelProbabilityIgnored": 0.7892,
       "result": "pending",
@@ -6349,7 +6495,7 @@
       "player": null,
       "policyVersion": "profit_desk_policy_v2",
       "price": {
-        "ageHours": 10.049,
+        "ageHours": 8.82,
         "breakEvenProbability": 0.545455,
         "decimalOdds": 1.833333,
         "eligibleForAlphaEstimate": false,
@@ -6368,10 +6514,10 @@
         "startTime": "2026-08-18T23:40Z",
         "tier": "D",
         "tierLabel": "assumed_proxy_or_synthetic",
-        "timestamp": "2026-08-18T13:37:04.950712Z",
+        "timestamp": "2026-08-18T14:50:47.223890Z",
         "timestampField": "pick.certification_timing.data_as_of",
         "twoSided": false,
-        "updatedAt": "2026-08-18T13:37:04.950712Z"
+        "updatedAt": "2026-08-18T14:50:47.223890Z"
       },
       "rawModelProbabilityIgnored": 0.58,
       "result": "pending",
@@ -6573,7 +6719,7 @@
       "player": null,
       "policyVersion": "profit_desk_policy_v2",
       "price": {
-        "ageHours": 14.479,
+        "ageHours": 13.249,
         "breakEvenProbability": null,
         "decimalOdds": null,
         "eligibleForAlphaEstimate": false,
@@ -6592,10 +6738,10 @@
         "startTime": "2026-08-19T04:00Z",
         "tier": "D",
         "tierLabel": "assumed_proxy_or_synthetic",
-        "timestamp": "2026-08-18T13:31:15.603985Z",
+        "timestamp": "2026-08-18T14:45:02.996816Z",
         "timestampField": "bucket.generatedAt",
         "twoSided": false,
-        "updatedAt": "2026-08-18T13:31:15.603985Z"
+        "updatedAt": "2026-08-18T14:45:02.996816Z"
       },
       "rawModelProbabilityIgnored": 0.926,
       "result": "pending",
@@ -6686,7 +6832,7 @@
       "player": null,
       "policyVersion": "profit_desk_policy_v2",
       "price": {
-        "ageHours": 14.479,
+        "ageHours": 13.249,
         "breakEvenProbability": null,
         "decimalOdds": null,
         "eligibleForAlphaEstimate": false,
@@ -6705,10 +6851,10 @@
         "startTime": "2026-08-19T04:00Z",
         "tier": "D",
         "tierLabel": "assumed_proxy_or_synthetic",
-        "timestamp": "2026-08-18T13:31:15.603985Z",
+        "timestamp": "2026-08-18T14:45:02.996816Z",
         "timestampField": "bucket.generatedAt",
         "twoSided": false,
-        "updatedAt": "2026-08-18T13:31:15.603985Z"
+        "updatedAt": "2026-08-18T14:45:02.996816Z"
       },
       "rawModelProbabilityIgnored": 0.6877,
       "result": "pending",
@@ -6716,115 +6862,6 @@
       "source": "Tennis Model",
       "sourceKey": "tennis",
       "sport": "Tennis",
-      "stakeUnits": 0.0,
-      "tier": "avoid",
-      "valueQualified": false
-    },
-    {
-      "blockers": [
-        "unverified_price_provenance",
-        "edge_no_usable_price_baseline",
-        "value_no_usable_price_baseline"
-      ],
-      "canonicalGame": "2026-08-18:wnba:indiana fever|toronto tempo",
-      "consensusSources": [],
-      "date": "2026-08-18",
-      "decimalOdds": 1.909091,
-      "decision": "LEAN",
-      "dedupeRule": "exact_market_identity_best_executable_price",
-      "direction": "under",
-      "duplicateCount": 1,
-      "duplicateSources": [
-        "WNBA Model"
-      ],
-      "edgeQualified": false,
-      "estimate": null,
-      "evidence": {
-        "chronologicalHalvesNonnegative": false,
-        "cutoffExclusive": "2026-08-18",
-        "distinctDates": 0,
-        "firstHalfFlatNetUnits": 0.0,
-        "flatNetUnits": 0.0,
-        "flatRoi": null,
-        "losses": 0,
-        "modelVersion": "wnba_total_v2_2026-07-26",
-        "policyVersion": "profit_desk_policy_v2",
-        "priorOnly": true,
-        "pushes": 0,
-        "secondHalfFlatNetUnits": 0.0,
-        "segmentDistinctDates": 0,
-        "segmentEvidenceKey": null,
-        "segmentSamples": 0,
-        "sourceChronologicalHalvesNonnegative": false,
-        "sourceDistinctDates": 25,
-        "sourceEvidenceKey": "team|wnba|wnba",
-        "sourceFirstHalfFlatNetUnits": 0.0,
-        "sourceFlatNetUnits": 0.0,
-        "sourceFlatRoi": null,
-        "sourceLosses": 0,
-        "sourceSamples": 102,
-        "sourceSecondHalfFlatNetUnits": 0.0,
-        "sourceWins": 0,
-        "wins": 0
-      },
-      "game": "Indiana Fever @ Toronto Tempo",
-      "gradeSupportSource": "repository_grader_default",
-      "gradeSupported": true,
-      "id": "profit-aedeafff824b82d15d56dfc1",
-      "lane": null,
-      "laneBlockers": {
-        "edge": [
-          "edge_no_usable_price_baseline"
-        ],
-        "structural": [
-          "unverified_price_provenance"
-        ],
-        "value": [
-          "value_no_usable_price_baseline"
-        ]
-      },
-      "line": 189.5,
-      "liveQualified": false,
-      "market": "totals",
-      "marketFamily": "totals",
-      "marketIdentity": "market:563aeac390fd2828344931a7",
-      "mode": "team",
-      "modelVersion": "wnba_total_v2_2026-07-26",
-      "oddsAmerican": -110,
-      "pick": "Under 189.5 (Indiana Fever vs Toronto Tempo)",
-      "player": null,
-      "policyVersion": "profit_desk_policy_v2",
-      "price": {
-        "ageHours": 9.382,
-        "breakEvenProbability": 0.52381,
-        "decimalOdds": 1.909091,
-        "eligibleForAlphaEstimate": false,
-        "fresh": true,
-        "freshPregame": true,
-        "maxAgeHours": 24.0,
-        "noVigInputs": {},
-        "noVigMethod": "unverified_single_side",
-        "noVigProbability": null,
-        "noVigVerified": false,
-        "observedExecutable": false,
-        "oddsAmerican": -110,
-        "quality": "assumed",
-        "source": "DraftKings via ESPN",
-        "sourceField": "pick.market_source",
-        "startTime": "2026-08-18T23:00Z",
-        "tier": "D",
-        "tierLabel": "assumed_proxy_or_synthetic",
-        "timestamp": "2026-08-18T13:37:04.950712Z",
-        "timestampField": "pick.certification_timing.data_as_of",
-        "twoSided": false,
-        "updatedAt": "2026-08-18T13:37:04.950712Z"
-      },
-      "rawModelProbabilityIgnored": 0.6143,
-      "result": "pending",
-      "shadowQualified": false,
-      "source": "WNBA Model",
-      "sourceKey": "wnba",
-      "sport": "WNBA",
       "stakeUnits": 0.0,
       "tier": "avoid",
       "valueQualified": false
@@ -6904,7 +6941,7 @@
       "player": null,
       "policyVersion": "profit_desk_policy_v2",
       "price": {
-        "ageHours": 8.965,
+        "ageHours": 7.737,
         "breakEvenProbability": 0.545455,
         "decimalOdds": 1.833333,
         "eligibleForAlphaEstimate": false,
@@ -6923,10 +6960,10 @@
         "startTime": "2026-08-18T22:35Z",
         "tier": "D",
         "tierLabel": "assumed_proxy_or_synthetic",
-        "timestamp": "2026-08-18T13:37:04.950712Z",
+        "timestamp": "2026-08-18T14:50:47.223890Z",
         "timestampField": "pick.certification_timing.data_as_of",
         "twoSided": false,
-        "updatedAt": "2026-08-18T13:37:04.950712Z"
+        "updatedAt": "2026-08-18T14:50:47.223890Z"
       },
       "rawModelProbabilityIgnored": 0.575,
       "result": "pending",
@@ -7017,7 +7054,7 @@
       "player": null,
       "policyVersion": "profit_desk_policy_v2",
       "price": {
-        "ageHours": 5.479,
+        "ageHours": 4.249,
         "breakEvenProbability": null,
         "decimalOdds": null,
         "eligibleForAlphaEstimate": false,
@@ -7036,10 +7073,10 @@
         "startTime": "2026-08-18T19:00Z",
         "tier": "D",
         "tierLabel": "assumed_proxy_or_synthetic",
-        "timestamp": "2026-08-18T13:31:15.603985Z",
+        "timestamp": "2026-08-18T14:45:02.996816Z",
         "timestampField": "bucket.generatedAt",
         "twoSided": false,
-        "updatedAt": "2026-08-18T13:31:15.603985Z"
+        "updatedAt": "2026-08-18T14:45:02.996816Z"
       },
       "rawModelProbabilityIgnored": 0.8567,
       "result": "pending",
@@ -7239,7 +7276,7 @@
       "player": null,
       "policyVersion": "profit_desk_policy_v2",
       "price": {
-        "ageHours": 6.979,
+        "ageHours": 5.749,
         "breakEvenProbability": null,
         "decimalOdds": null,
         "eligibleForAlphaEstimate": false,
@@ -7258,10 +7295,10 @@
         "startTime": "2026-08-18T20:30Z",
         "tier": "D",
         "tierLabel": "assumed_proxy_or_synthetic",
-        "timestamp": "2026-08-18T13:31:15.603985Z",
+        "timestamp": "2026-08-18T14:45:02.996816Z",
         "timestampField": "bucket.generatedAt",
         "twoSided": false,
-        "updatedAt": "2026-08-18T13:31:15.603985Z"
+        "updatedAt": "2026-08-18T14:45:02.996816Z"
       },
       "rawModelProbabilityIgnored": 0.6229,
       "result": "pending",
@@ -7348,7 +7385,7 @@
       "player": null,
       "policyVersion": "profit_desk_policy_v2",
       "price": {
-        "ageHours": 5.479,
+        "ageHours": 4.249,
         "breakEvenProbability": null,
         "decimalOdds": null,
         "eligibleForAlphaEstimate": false,
@@ -7367,10 +7404,10 @@
         "startTime": "2026-08-18T19:00Z",
         "tier": "D",
         "tierLabel": "assumed_proxy_or_synthetic",
-        "timestamp": "2026-08-18T13:31:15.603985Z",
+        "timestamp": "2026-08-18T14:45:02.996816Z",
         "timestampField": "bucket.generatedAt",
         "twoSided": false,
-        "updatedAt": "2026-08-18T13:31:15.603985Z"
+        "updatedAt": "2026-08-18T14:45:02.996816Z"
       },
       "rawModelProbabilityIgnored": 0.822,
       "result": "pending",
@@ -7677,7 +7714,7 @@
       "player": null,
       "policyVersion": "profit_desk_policy_v2",
       "price": {
-        "ageHours": 9.049,
+        "ageHours": 7.82,
         "breakEvenProbability": 0.52381,
         "decimalOdds": 1.909091,
         "eligibleForAlphaEstimate": false,
@@ -7698,10 +7735,10 @@
         "startTime": "2026-08-18T22:40Z",
         "tier": "D",
         "tierLabel": "assumed_proxy_or_synthetic",
-        "timestamp": "2026-08-18T13:37:04.950712Z",
+        "timestamp": "2026-08-18T14:50:47.223890Z",
         "timestampField": "pick.certification_timing.data_as_of",
         "twoSided": true,
-        "updatedAt": "2026-08-18T13:37:04.950712Z"
+        "updatedAt": "2026-08-18T14:50:47.223890Z"
       },
       "rawModelProbabilityIgnored": 0.6294,
       "result": "pending",
@@ -7901,7 +7938,7 @@
       "player": null,
       "policyVersion": "profit_desk_policy_v2",
       "price": {
-        "ageHours": 14.479,
+        "ageHours": 13.249,
         "breakEvenProbability": null,
         "decimalOdds": null,
         "eligibleForAlphaEstimate": false,
@@ -7920,10 +7957,10 @@
         "startTime": "2026-08-19T04:00Z",
         "tier": "D",
         "tierLabel": "assumed_proxy_or_synthetic",
-        "timestamp": "2026-08-18T13:31:15.603985Z",
+        "timestamp": "2026-08-18T14:45:02.996816Z",
         "timestampField": "bucket.generatedAt",
         "twoSided": false,
-        "updatedAt": "2026-08-18T13:31:15.603985Z"
+        "updatedAt": "2026-08-18T14:45:02.996816Z"
       },
       "rawModelProbabilityIgnored": 0.8827,
       "result": "pending",
@@ -8010,7 +8047,7 @@
       "player": null,
       "policyVersion": "profit_desk_policy_v2",
       "price": {
-        "ageHours": 9.049,
+        "ageHours": 7.82,
         "breakEvenProbability": 0.545455,
         "decimalOdds": 1.833333,
         "eligibleForAlphaEstimate": false,
@@ -8029,10 +8066,10 @@
         "startTime": "2026-08-18T22:40Z",
         "tier": "D",
         "tierLabel": "assumed_proxy_or_synthetic",
-        "timestamp": "2026-08-18T13:37:04.950712Z",
+        "timestamp": "2026-08-18T14:50:47.223890Z",
         "timestampField": "pick.certification_timing.data_as_of",
         "twoSided": false,
-        "updatedAt": "2026-08-18T13:37:04.950712Z"
+        "updatedAt": "2026-08-18T14:50:47.223890Z"
       },
       "rawModelProbabilityIgnored": 0.572,
       "result": "pending",
@@ -8267,7 +8304,7 @@
   "date": "2026-08-18",
   "engineVersion": "profit_desk_v2_live",
   "firstLiveDate": "2026-07-11",
-  "generatedAt": "2026-08-18T13:50:13.112953Z",
+  "generatedAt": "2026-08-18T14:50:47.223890Z",
   "notices": [
     "Qualified picks carry real flat stakes: EDGE 1.0u, VALUE 0.5u; everything else stays 0u.",
     "The market price is the baseline; historical residual alpha is shrunk and uncertainty-adjusted.",
@@ -9991,7 +10028,7 @@
     }
   ],
   "summary": {
-    "avoid": 36,
+    "avoid": 35,
     "candidateCount": 66,
     "candidatesEvaluated": 66,
     "deduplicatedPicks": 14,
@@ -10044,23 +10081,23 @@
         "watchlist": 5
       },
       "team": {
-        "avoid": 35,
+        "avoid": 34,
         "candidateCount": 60,
         "candidates": 60,
         "candidatesEvaluated": 60,
         "edgeQualified": 0,
         "evidenceRows": 2326,
         "liveQualified": 0,
-        "observedPriceCandidates": 25,
+        "observedPriceCandidates": 26,
         "portfolioCandidates": 0,
         "researchQualified": 0,
         "selected": 0,
         "shadowQualified": 0,
         "valueQualified": 0,
-        "watchlist": 25
+        "watchlist": 26
       }
     },
-    "observedPriceCandidates": 31,
+    "observedPriceCandidates": 32,
     "portfolioCandidates": 0,
     "researchQualified": 0,
     "researchRecord": {
@@ -10092,6 +10129,6 @@
     },
     "sourcesTracked": 36,
     "valueQualified": 0,
-    "watchlist": 30
+    "watchlist": 31
   }
 }
