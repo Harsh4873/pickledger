@@ -776,6 +776,15 @@ def _tip_from_prediction_codes(
         return f"Total Over ({_scores24_line_token(selection_key)})"
     if market_key == "total_under":
         return f"Total Under ({_scores24_line_token(selection_key)})"
+    team_total = re.fullmatch(r"total_t([12])_(over|under)", market_key)
+    if team_total:
+        if not matchup:
+            return ""
+        team = matchup["home"] if team_total.group(1) == "1" else matchup["away"]
+        return (
+            f"{team} Total {team_total.group(2).title()} "
+            f"({_scores24_line_token(selection_key)})"
+        )
     if market_key in {"handicap", "european_handicap", "ah"} or market_key.startswith("handicap"):
         if not matchup:
             return ""
@@ -817,8 +826,8 @@ def _extract_structured_prediction(
     """Parse Scores24's post-2026-08 editorial payload (prediction + predictionValue).
 
     The visible "Our choice … at odds of …" cell was removed site-wide; tips now
-    live in embedded JSON as ["one_two","w1"] / ["total_over","9_5"] plus a
-    decimal predictionValue.
+    live in embedded JSON as ["one_two","w1"] / ["total_over","9_5"] /
+    ["total_t1_under","88_5"] plus a decimal predictionValue.
     """
     normalized = (html or "").replace('\\"', '"')
     match = re.search(

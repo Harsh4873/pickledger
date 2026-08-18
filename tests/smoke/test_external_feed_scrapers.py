@@ -1056,6 +1056,32 @@ def test_scores24_extracts_structured_editorial_prediction():
     assert tip == "Total Under (183,5)"
     assert odds == module._decimal_odds_to_american(1.65)
 
+    team_total_html = r"""
+    <html><body>
+      <script>
+        window.__DATA__ = "{\"prediction\":[\"total_t1_under\",\"88_5\"],\"predictionValue\":\"1.62\"}";
+      </script>
+    </body></html>
+    """
+    sparks_sun = {"away": "Los Angeles Sparks", "home": "Connecticut Sun"}
+    tip, odds = module.extract_our_choice(team_total_html, matchup=sparks_sun)
+    assert tip == "Connecticut Sun Total Under (88,5)"
+    assert odds == module._decimal_odds_to_american(1.62)
+    assert module._clean_pick(tip, sparks_sun) == (
+        "Connecticut Sun Total Under (88,5) (Los Angeles Sparks @ Connecticut Sun)"
+    )
+
+    away_total_html = r"""
+    <html><body>
+      <script>
+        window.__DATA__ = "{\"prediction\":[\"total_t2_over\",\"86_5\"],\"predictionValue\":\"1.80\"}";
+      </script>
+    </body></html>
+    """
+    tip, odds = module.extract_our_choice(away_total_html, matchup=sparks_sun)
+    assert tip == "Los Angeles Sparks Total Over (86,5)"
+    assert odds == module._decimal_odds_to_american(1.80)
+
 
 def test_scores24_nba_summer_config_and_official_matchup_scrape():
     module = _load_module(
