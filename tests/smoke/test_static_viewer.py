@@ -1316,6 +1316,63 @@ def test_player_prop_merge_keeps_legacy_variant_snapshots_archive_only(tmp_path)
     assert picks == []
 
 
+def test_external_feed_merge_keeps_newer_local_scores24_over_stale_snapshot(tmp_path):
+    """An Actions SportyTrader refresh copies yesterday's Scores24 into generated JSON.
+
+    After a same-day local Scores24 publish, that merge must keep today's buckets.
+    """
+    module = _load_module(
+        "merge_external_feed_cache_payload_scores24_date",
+        ROOT / "scripts" / "merge_external_feed_cache_payload.py",
+    )
+    cache_dir = tmp_path / "data" / "model_cache"
+    cache_dir.mkdir(parents=True)
+    today = {
+        "date": "2026-08-19",
+        "models": {key: {"ok": True, "picks": []} for key in module.REQUIRED_TEAM_MODEL_KEYS},
+        "external_feeds": {
+            "scores24_mlb": {
+                "ok": True,
+                "date": "2026-08-19",
+                "generatedBy": "local:external-feed-refresh",
+                "picks": [{"pick": "Yankees ML", "matchup": "Yankees @ Orioles"}],
+                "meta": {"expectedMatchups": 1, "matchedPicks": 1, "missingMatchups": []},
+            },
+            "sportytrader_mlb": {
+                "ok": True,
+                "date": "2026-08-18",
+                "picks": [{"pick": "old ST"}],
+            },
+        },
+    }
+    (cache_dir / "2026-08-19.json").write_text(json.dumps(today), encoding="utf-8")
+    generated = {
+        "date": "2026-08-19",
+        "external_feeds": {
+            "scores24_mlb": {
+                "ok": True,
+                "date": "2026-08-18",
+                "generatedBy": "local:external-feed-refresh",
+                "picks": [{"pick": "stale Scores24", "matchup": "Cubs @ Brewers"}],
+                "meta": {"expectedMatchups": 15, "matchedPicks": 15, "missingMatchups": []},
+            },
+            "sportytrader_mlb": {
+                "ok": True,
+                "date": "2026-08-19",
+                "picks": [{"pick": "new ST"}],
+            },
+        },
+    }
+
+    merged = module.merge_payload(generated, cache_dir)
+    scores24 = merged["external_feeds"]["scores24_mlb"]
+    sporty = merged["external_feeds"]["sportytrader_mlb"]
+    assert scores24["date"] == "2026-08-19"
+    assert scores24["picks"][0]["pick"] == "Yankees ML"
+    assert sporty["date"] == "2026-08-19"
+    assert sporty["picks"][0]["pick"] == "new ST"
+
+
 def test_external_feed_merge_does_not_promote_partial_cache_to_latest(tmp_path):
     module = _load_module("merge_external_feed_cache_payload", ROOT / "scripts" / "merge_external_feed_cache_payload.py")
     cache_dir = tmp_path / "data" / "model_cache"

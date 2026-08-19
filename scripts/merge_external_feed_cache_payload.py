@@ -297,6 +297,27 @@ def _pick_key(pick: dict[str, Any]) -> tuple[str, ...]:
     )
 
 
+def _bucket_date(bucket: Any) -> str:
+    if not isinstance(bucket, dict):
+        return ""
+    meta = bucket.get("meta") if isinstance(bucket.get("meta"), dict) else {}
+    return str(bucket.get("date") or meta.get("date") or "").strip()
+
+
+def _prefer_feed_bucket(current_bucket: Any, generated_bucket: Any) -> Any:
+    """Keep a newer checked-out feed when the generated snapshot is a day behind.
+
+    External-feed jobs copy the whole latest.json, including Scores24 buckets
+    they did not refresh. A later merge must not replace today's local
+    Scores24 publish with that stale starting snapshot.
+    """
+    current_date = _bucket_date(current_bucket)
+    generated_date = _bucket_date(generated_bucket)
+    if current_date and generated_date and generated_date < current_date:
+        return current_bucket
+    return _preserve_pick_metadata(current_bucket, generated_bucket)
+
+
 def _preserve_pick_metadata(current_bucket: Any, generated_bucket: Any) -> Any:
     if not isinstance(current_bucket, dict) or not isinstance(generated_bucket, dict):
         return generated_bucket
@@ -337,7 +358,7 @@ def _merge_feed_buckets(
     merged = dict(current_buckets)
     for key in feed_keys:
         if key in generated_buckets:
-            merged[key] = _preserve_pick_metadata(current_buckets.get(key), generated_buckets[key])
+            merged[key] = _prefer_feed_bucket(current_buckets.get(key), generated_buckets[key])
     return merged
 
 
@@ -369,7 +390,7 @@ def merge_payload(generated: dict[str, Any], cache_dir: Path) -> dict[str, Any]:
         if key in replaced_legacy_keys:
             continue
         if key in generated_models:
-            models[key] = _preserve_pick_metadata(models.get(key), generated_models[key])
+            models[key] = _prefer_feed_bucket(models.get(key), generated_models[key])
     merged["models"] = models
 
     current_external = current.get("external_feeds") if isinstance(current.get("external_feeds"), dict) else {}
@@ -395,7 +416,7 @@ def merge_payload(generated: dict[str, Any], cache_dir: Path) -> dict[str, Any]:
         if key in replaced_legacy_keys:
             continue
         if key in generated:
-            merged[key] = _preserve_pick_metadata(current.get(key), generated[key])
+            merged[key] = _prefer_feed_bucket(current.get(key), generated[key])
     for key in replaced_legacy_keys:
         for split_key, split_bucket in _split_legacy_buckets(key, current).items():
             if split_key in merged:
