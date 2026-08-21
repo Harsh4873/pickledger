@@ -91,6 +91,7 @@ REQUIRED_TEAM_MODEL_KEYS = {
     "wnba",
     "nba",
     "nba_playoffs",
+    "nfl",
 }
 PICK_METADATA_FIELDS = {"result", "start_time", "game_start_time", "pregame_snapshot"}
 MARKET_ODDS_METADATA_FIELDS = {

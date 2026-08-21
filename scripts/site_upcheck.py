@@ -29,6 +29,7 @@ REQUIRED_MODEL_KEYS = {
     "wnba",
     "nba",
     "nba_playoffs",
+    "nfl",
 }
 REQUIRED_PLAYER_PROP_KEYS = {
     "nba_player_props",

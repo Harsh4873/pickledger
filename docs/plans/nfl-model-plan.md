@@ -1,6 +1,6 @@
-# NFL Model — build plan (drafted 2026-07-19, shadow-first)
+# NFL Model — build plan (drafted 2026-07-19, launched 2026-08-20)
 
-Goal: a trained NFL model whose walk-forward ledger is warm by Week 1 (2026-09-10), publishing **nothing** to the site until an explicit go-live. Preseason (August) is pipeline rehearsal only.
+Goal: a trained NFL model that publishes priced moneyline, spread, and total picks automatically on NFL game days. The committed 2026 schedule begins on 2026-09-09; preseason is intentionally excluded from the model dataset and training contract.
 
 ## Data spine (all free, keyless, verified live)
 
@@ -23,20 +23,20 @@ Goal: a trained NFL model whose walk-forward ledger is warm by Week 1 (2026-09-1
 - **Validation protocol:** strict walk-forward by season — train ≤ season N, test N+1, rolled 2015→2025. Metrics: log loss, Brier, calibration curves, and **simulated flat-bet ROI vs closing lines** (the only honest test). Expectation set honestly: beating closing lines consistently is near-impossible; the promotion bar is calibrated probabilities within ~1-2% Brier of market plus positive ROI on the top-edge-decile picks in validation. Edge thresholds for BET/LEAN are chosen from those validation ROI curves, not invented.
 - **Artifacts:** joblib models + metadata JSON (feature contract, train window, per-season validation metrics, version) in `NFLPredictionModel/artifacts/`, trained by a manual-dispatch workflow like `mlb-train.yml`. Serving loads artifacts; no training in the daily cron.
 
-## Shadow mode (the "don't publish" mechanism)
+## Launch status
 
 - New bucket `nfl`, source rows split as **NFL ML / NFL Spread / NFL Total** (consistent with every other variant).
-- The model emits real BET/LEAN decisions at real DraftKings prices — required, because the pregame ledger and walk-forward qualification only count BET/LEAN rows with observed prices — but the sport joins a frontend `SHADOW_SPORTS` set so **nothing renders anywhere on the site**. Grading and ledger accumulation are server-side and continue regardless of display.
-- Preseason rows are graded for pipeline rehearsal but flagged (`season_type: preseason`) and excluded from walk-forward qualification; the warm-up ledger that matters starts Week 1... which is why shadow BET/LEANs begin the moment real September lines post.
-- Go-live = remove NFL from `SHADOW_SPORTS` + add `nfl` to the consensus-gate config with MLB-grade thresholds (≥30 walk-forward samples, positive calibrated edge, real prices). By then the record exists and is inspectable before a single pick shows publicly.
+- NFL is active in the daily model refresh, the site filter, freshness guard, merge contract, and production upcheck.
+- The model emits BET/LEAN decisions only at real posted prices. These rows feed the pregame ledger, grading, records, and site views like the other active team models.
+- An empty NFL bucket is valid on a date without a scheduled regular/postseason game. The first game in the committed 2026 schedule is 2026-09-09, so no August rows are expected.
 
-## Registration sweep (soft-launch, mechanical)
+## Registration sweep
 
-`run_nfl_model` in pickgrader_server (+ `SPORT_TO_ESPNSLUG["NFL"]`), refresh jobs + cron default, merge DEPLOYED/ALIAS keys, `market_odds` SPORT_LEAGUES + bucket keys, team_prop_pregame_ledger key, evaluator contract, parlay SOURCE_LABELS, data.ts labels + market split + SHADOW_SPORTS, tests. NOT in freshness guard or upcheck required sets (cannot block deploys).
+`run_nfl_model` in pickgrader_server (+ `SPORT_TO_ESPNSLUG["NFL"]`), refresh jobs + cron default, merge DEPLOYED/ALIAS keys, `market_odds` SPORT_LEAGUES + bucket keys, team_prop_pregame_ledger key, evaluator contract, parlay SOURCE_LABELS, data.ts labels + market split, ESPN live scores, tests, freshness guard, and upcheck required sets.
 
 ## Phases
 
 1. **Now+50min (implementation start):** NFLPredictionModel package — nflverse downloader with local cache, feature builder, training + walk-forward backtest scripts, serving path, registration sweep, shadow wiring, smoke tests.
 2. **This week:** train v1 artifacts, produce the walk-forward validation report, commit artifacts.
-3. **August:** preseason shadow rehearsal; weekly nflverse refresh wiring; threshold tuning from validation curves.
-4. **Sept 10, Week 1:** go-live review — validation report + shadow record decide publication.
+3. **August:** activate the daily pipeline and validate empty off-slate buckets ahead of the regular season.
+4. **Sept 9, opening slate:** automatically publish the first priced NFL picks.

@@ -1,4 +1,4 @@
-"""NFL shadow model: no-lookahead features, shadow containment, contracts."""
+"""NFL live model: no-lookahead features, publication, and contracts."""
 from __future__ import annotations
 
 
@@ -48,38 +48,33 @@ def test_slate_features_use_only_prior_history():
     assert features["home_off_ewma"] > 22.0
 
 
-def test_shadow_rows_carry_decisions_but_are_flagged():
+def test_live_rows_carry_actionable_decisions():
     from NFLPredictionModel.nfl_model import _ml_decision, _residual_decision, _row_base
 
     base = _row_base(_game("2026-09-13", 2026, 2, "KC", "CIN", None, None, -4.5, 48.0), "2026-09-13")
-    assert base["shadow_mode"] is True
+    assert base["shadow_mode"] is False
+    assert base["actionability"] == "bet_signal"
     assert base["sport"] == "NFL"
     assert base["market_priced"] is True
     assert _ml_decision(0.06, 0.60) == "BET"
     assert _ml_decision(0.03, 0.53) == "LEAN"
     assert _ml_decision(0.01, 0.70) == "PASS"
-    # Spread/total stay LEAN-capped in shadow no matter the disagreement.
-    assert _residual_decision(8.0) == "LEAN"
+    assert _residual_decision(8.0) == "BET"
     assert _residual_decision(3.0) == "LEAN"
     assert _residual_decision(1.0) == "PASS"
 
 
-def test_shadow_containment_across_surfaces():
-    """Shadow picks must be invisible: site pick load, parlay legs, and
-    profit-desk records all skip shadow rows; ledger/grading do not."""
+def test_live_publication_across_surfaces():
+    """NFL picks must be visible and receive a primary board filter."""
     from pathlib import Path
 
     root = Path(__file__).resolve().parents[2]
     data_ts = (root / "src" / "data.ts").read_text(encoding="utf-8")
-    assert "const SHADOW_SPORTS = new Set(['NFL'])" in data_ts
-    assert "!SHADOW_SPORTS.has(pick.sport)" in data_ts
+    assert "SHADOW_SPORTS" not in data_ts
     assert "nfl: { h2h: 'NFL ML'" in data_ts
-    parlay = (root / "scripts" / "build_parlay_cards.py").read_text(encoding="utf-8")
-    assert 'pick.get("shadow_mode") is True' in parlay
-    profit = (root / "scripts" / "build_profit_desk.py").read_text(encoding="utf-8")
-    assert 'record.get("shadow_mode") is True' in profit
     main_ts = (root / "src" / "main.ts").read_text(encoding="utf-8")
-    assert "'TENNIS']" in main_ts and "'NFL'" not in main_ts.split("PRIMARY_FILTERS")[1][:80]
+    assert "'NFL'" in main_ts.split("PRIMARY_FILTERS")[1][:100]
+    assert "NFL: ['football', 'nfl']" in main_ts
 
 
 def test_registration_and_grading_slug():
@@ -97,7 +92,7 @@ def test_registration_and_grading_slug():
     assert "nfl" in TEAM_PROP_MODEL_KEYS
     assert "nfl" in _model_jobs("2026-09-13")
     from scripts import site_upcheck
-    assert "nfl" not in site_upcheck.REQUIRED_MODEL_KEYS  # soft launch
+    assert "nfl" in site_upcheck.REQUIRED_MODEL_KEYS
 
 
 def test_artifacts_metadata_contract():

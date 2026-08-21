@@ -384,9 +384,6 @@ const GAME_TIME_STORAGE_KEY = 'pickledger_static_game_times_v2';
 // NBA Summer League and the FIFA World Cup archived 2026-07-19: both
 // seasons ended (summer league finale + World Cup final same day).
 const ARCHIVED_SPORTS = new Set(['NBA', 'NBA SUMMER', 'FIFA WC']);
-// Shadow-mode sports: their picks are graded and ledger-tracked
-// server-side but render nowhere on the site until an explicit go-live.
-const SHADOW_SPORTS = new Set(['NFL']);
 const PLAYER_PROPS_ML_SOURCE = 'player_props_ml_v1';
 // First snapshot produced by the ML slate-engine launch in commit b6f9dbe.
 const PLAYER_PROPS_ML_FIRST_SNAPSHOT_AT = Date.parse('2026-06-16T19:04:34.909830Z');
@@ -942,7 +939,7 @@ export async function loadAllData(): Promise<Pick[]> {
     else teamById.set(pick.id, pick);
   });
   playerPayloads.flatMap(picksFromPlayerProps).forEach(pick => playerById.set(pick.id, pick));
-  teamPicks = sortPicks([...teamById.values()].filter(pick => !ARCHIVED_SPORTS.has(pick.sport) && !SHADOW_SPORTS.has(pick.sport)));
+  teamPicks = sortPicks([...teamById.values()].filter(pick => !ARCHIVED_SPORTS.has(pick.sport)));
   // External player-prop feeds (scope=player rows in the team cache) render
   // in Player mode alongside the in-house ML-era props; the
   // scope routing above already keeps them out of Team mode and rankings.
