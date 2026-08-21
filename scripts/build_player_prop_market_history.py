@@ -45,6 +45,7 @@ from player_props.schema import american_implied_probability, safe_float  # noqa
 
 
 DEFAULT_OUTPUT = REPO_ROOT / "data" / "player_props_training" / "market_history_2026.jsonl"
+DEFAULT_MAX_OUTPUT_BYTES = 90_000_000
 SPORT_CONFIG = {
     "MLB": {"segment": "baseball", "league": "mlb"},
     "WNBA": {"segment": "basketball", "league": "wnba"},
@@ -58,6 +59,7 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument("--end", default=(today - timedelta(days=1)).isoformat())
     parser.add_argument("--sports", default="MLB,WNBA")
     parser.add_argument("--output", type=Path, default=DEFAULT_OUTPUT)
+    parser.add_argument("--max-output-bytes", type=int, default=DEFAULT_MAX_OUTPUT_BYTES)
     parser.add_argument("--max-workers", type=int, default=8)
     parser.add_argument("--no-resume", action="store_true")
     return parser.parse_args()
@@ -413,7 +415,12 @@ def _load_existing(path: Path) -> tuple[list[dict[str, Any]], set[tuple[str, str
     return rows, completed
 
 
-def _write_rows(path: Path, rows: list[dict[str, Any]]) -> None:
+def _write_rows(
+    path: Path,
+    rows: list[dict[str, Any]],
+    *,
+    max_bytes: int = DEFAULT_MAX_OUTPUT_BYTES,
+) -> list[dict[str, Any]]:
     path.parent.mkdir(parents=True, exist_ok=True)
     deduped = {
         (
@@ -437,7 +444,22 @@ def _write_rows(path: Path, rows: list[dict[str, Any]]) -> None:
             safe_float(row.get("line")),
         ),
     )
-    path.write_text("".join(json.dumps(row, sort_keys=True) + "\n" for row in ordered), encoding="utf-8")
+    serialized = [json.dumps(row, sort_keys=True) + "\n" for row in ordered]
+    total_bytes = sum(len(line.encode("utf-8")) for line in serialized)
+    while max_bytes > 0 and total_bytes > max_bytes and ordered:
+        oldest_date = str(ordered[0].get("date") or "")
+        drop_count = 0
+        while drop_count < len(ordered) and str(ordered[drop_count].get("date") or "") == oldest_date:
+            total_bytes -= len(serialized[drop_count].encode("utf-8"))
+            drop_count += 1
+        print(
+            f"[market-history] pruning {drop_count} row(s) from {oldest_date or 'undated'} "
+            f"to keep the committed corpus below {max_bytes} bytes"
+        )
+        del ordered[:drop_count]
+        del serialized[:drop_count]
+    path.write_text("".join(serialized), encoding="utf-8")
+    return ordered
 
 
 def main() -> int:
@@ -476,7 +498,7 @@ def main() -> int:
                         failures.append(f"{sport} {date_iso} {event.get('id')}: {exc}")
             rows.extend(day_rows)
             completed_dates.add((sport, date_iso))
-            _write_rows(args.output, rows)
+            rows = _write_rows(args.output, rows, max_bytes=max(0, int(args.max_output_bytes)))
             print(f"[market-history] {sport} {date_iso}: {len(day_rows)} graded market(s)")
     summary = {
         "ok": not failures,
