@@ -395,6 +395,7 @@ const SOURCE_LABELS: Record<string, string> = {
   mlb_team_total: 'MLB Team Total',
   mls: 'MLS Model',
   nfl: 'NFL Model',
+  cfb: 'CFB Model',
   wnba: 'WNBA Model',
   nba: 'NBA New',
   nba_playoffs: 'NBA Playoffs',
@@ -476,6 +477,7 @@ const MARKET_SOURCE_LABELS: Record<string, Record<string, string>> = {
   nba_summer: { h2h: 'NBA Summer ML', moneyline: 'NBA Summer ML', '': 'NBA Summer ML' },
   mls: { moneyline: 'MLS ML', total: 'MLS Total', totals: 'MLS Total', spread: 'MLS Spread' },
   nfl: { h2h: 'NFL ML', moneyline: 'NFL ML', totals: 'NFL Total', total: 'NFL Total', spread: 'NFL Spread' },
+  cfb: { h2h: 'CFB ML', moneyline: 'CFB ML', totals: 'CFB Total', total: 'CFB Total', spread: 'CFB Spread' },
 };
 
 function teamSourceLabel(modelKey: string, raw: Record<string, unknown>): string {
@@ -716,6 +718,7 @@ function picksFromCache(payload: ModelCachePayload): Pick[] {
   for (const [modelKey, bucket] of Object.entries(models)) {
     if (isRetiredBucket(modelKey)) continue;
     if (!bucket || typeof bucket !== 'object' || bucket.ok === false) continue;
+    if (bucket.shadow_mode === true) continue;
     const scraped = isScrapedBucket(modelKey);
     const gameByMatchup = new Map<string, Record<string, unknown>>();
     if (Array.isArray(bucket.games)) {
@@ -729,6 +732,7 @@ function picksFromCache(payload: ModelCachePayload): Pick[] {
     for (const raw of Array.isArray(bucket.picks) ? bucket.picks : []) {
       if (!raw || typeof raw !== 'object') continue;
       const rawRecord = raw as Record<string, unknown>;
+      if (rawRecord.shadow_mode === true) continue;
       const source = teamSourceLabel(modelKey, rawRecord);
       // Committed rows carry their own legacy source label ("MLB Model"),
       // which normalizePick would prefer — override it so the per-market

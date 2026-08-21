@@ -43,9 +43,11 @@ TEAM_PROP_MODEL_KEYS = {
     "fifa_world_cup",
     "mls",
     "nfl",
+    "cfb",
 }
 FIFA_MODEL_KEYS = {"fifa_world_cup", "mls"}  # soccer models share the evaluation exclusion
 TRACKED_TEAM_DECISIONS = {"BET", "LEAN"}
+FORECAST_AUDIT_MODEL_KEYS = {"cfb"}
 
 _TIMESTAMP_FIELDS = (
     "game_start_time",
@@ -663,7 +665,10 @@ def capture_team_prop_pregame_snapshots(
             # PASS rows remain in the raw model cache for diagnostics, but they
             # were never tracked wagers and therefore cannot enter the
             # certified snapshot/grading/calibration pipeline.
-            if _tracked_team_decision(pick) not in TRACKED_TEAM_DECISIONS:
+            decision = _tracked_team_decision(pick)
+            if decision not in TRACKED_TEAM_DECISIONS and not (
+                model_key in FORECAST_AUDIT_MODEL_KEYS and decision == "PASS"
+            ):
                 continue
             team_picks += 1
             record = _snapshot_record(

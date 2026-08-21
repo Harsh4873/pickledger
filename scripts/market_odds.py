@@ -44,6 +44,7 @@ SPORT_LEAGUES: dict[str, tuple[str, str]] = {
     "FIFA WC": ("soccer", "fifa.world"),
     "MLS": ("soccer", "usa.1"),
     "NFL": ("football", "nfl"),
+    "CFB": ("football", "college-football"),
 }
 
 # In-house model buckets whose assumed prices may be replaced with a real
@@ -60,6 +61,7 @@ TEAM_MODEL_BUCKET_KEYS = {
     "fifa_world_cup",
     "mls",
     "nfl",
+    "cfb",
 }
 
 F5_BUCKET_KEYS = {"mlb_first_five"}
@@ -303,9 +305,12 @@ def fetch_market_odds_for_date(
         if league is None:
             continue
         sport_path, league_path = league
+        params: dict[str, Any] = {"dates": compact, "limit": 100}
+        if sport == "CFB":
+            params.update({"limit": 1000, "groups": 80})
         payload = fetch(
             f"http://site.api.espn.com/apis/site/v2/sports/{sport_path}/{league_path}/scoreboard",
-            {"dates": compact, "limit": 100},
+            params,
         )
         games: list[dict[str, Any]] = []
         for event in (payload or {}).get("events") or []:
@@ -353,6 +358,23 @@ def _names_match(pick_name: str, event_names: set[str]) -> bool:
 
 
 def _match_game(pick: Mapping[str, Any], games: list[dict[str, Any]]) -> dict[str, Any] | None:
+    event_id = _text(pick.get("espn_event_id") or pick.get("event_id") or pick.get("game_id"))
+    if event_id:
+        event_matches = [game for game in games if _text(game.get("eventId")) == event_id]
+        if len(event_matches) == 1:
+            return event_matches[0]
+
+    home_id = _text(pick.get("home_team_id") or pick.get("homeTeamId"))
+    away_id = _text(pick.get("away_team_id") or pick.get("awayTeamId"))
+    if home_id and away_id:
+        id_matches = [
+            game
+            for game in games
+            if {home_id, away_id} == {_text(game.get("homeTeamId")), _text(game.get("awayTeamId"))}
+        ]
+        if len(id_matches) == 1:
+            return id_matches[0]
+
     away, home = _pick_team_names(pick)
     if not away or not home:
         matchup = _text(pick.get("matchup") or pick.get("game"))

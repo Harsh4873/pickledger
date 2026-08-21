@@ -24,6 +24,9 @@ import pickgrader_server  # noqa: E402
 from scripts.scrapers.tennis_scraper import grade_tennis_picks, is_tennis_pick  # noqa: E402
 
 
+FORECAST_AUDIT_MODEL_KEYS = {"cfb"}
+
+
 def _read_json(path: Path) -> dict[str, Any] | None:
     try:
         payload = json.loads(path.read_text(encoding="utf-8"))
@@ -243,7 +246,7 @@ def _certified_team_prop_record(record: Any) -> bool:
 
 
 def _pending_certified_team_prop_candidate(record: dict[str, Any]) -> tuple[str, dict[str, Any]] | None:
-    """Build a BET/LEAN grading candidate for a certified ledger record."""
+    """Build a grading candidate for a certified wager or forecast-audit row."""
     if not _certified_team_prop_record(record):
         return None
     if str(record.get("result") or "pending").strip().lower() != "pending":
@@ -260,10 +263,13 @@ def _pending_certified_team_prop_candidate(record: dict[str, Any]) -> tuple[str,
         for value in (record.get("decision"), record.get("raw_decision"), snapshot.get("decision"))
         if str(value or "").strip()
     }
-    # Historical ledgers may already contain PASS snapshots (including a
-    # calibrated PASS whose raw snapshot still says BET). Never send any such
-    # row to the grader: only actual BET/LEAN publications are tracked picks.
-    if not decision_markers or "PASS" in decision_markers or not decision_markers <= {"BET", "LEAN"}:
+    # CFB deliberately grades all shadow forecasts (including PASS) so model
+    # accuracy can be evaluated without turning those rows into wagers.
+    forecast_audit = str(record.get("model_key") or "").strip() in FORECAST_AUDIT_MODEL_KEYS
+    allowed_decisions = {"BET", "LEAN", "PASS"} if forecast_audit else {"BET", "LEAN"}
+    if not decision_markers or not decision_markers <= allowed_decisions:
+        return None
+    if "PASS" in decision_markers and not forecast_audit:
         return None
     decision = str(
         record.get("decision") or snapshot.get("decision") or record.get("raw_decision") or ""

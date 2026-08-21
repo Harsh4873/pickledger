@@ -1,0 +1,184 @@
+{
+  "model_version": "cfb_v1_market_free_bivariate",
+  "trained_at": "2026-08-21T15:58:56.689506Z",
+  "data_source": "SportsDataverse ESPN-derived schedules and resolved betting releases",
+  "train_window": [
+    2017,
+    2025
+  ],
+  "games": 5431,
+  "population": "FBS-vs-FBS games with posted spread and total",
+  "feature_names": [
+    "home_offense_ewma",
+    "home_defense_ewma",
+    "away_offense_ewma",
+    "away_defense_ewma",
+    "net_efficiency_diff",
+    "elo_diff",
+    "schedule_strength_diff",
+    "home_games_log",
+    "away_games_log",
+    "home_rest_days",
+    "away_rest_days",
+    "rest_diff",
+    "neutral_site",
+    "conference_game",
+    "week",
+    "early_season"
+  ],
+  "market_features": [],
+  "selected_family": "ridge",
+  "family_walk_forward": {
+    "ridge": [
+      {
+        "season": 2021,
+        "games": 732,
+        "margin_mae": 13.62335,
+        "total_mae": 12.87895
+      },
+      {
+        "season": 2022,
+        "games": 734,
+        "margin_mae": 12.94956,
+        "total_mae": 12.6741
+      },
+      {
+        "season": 2023,
+        "games": 792,
+        "margin_mae": 13.03858,
+        "total_mae": 13.19692
+      },
+      {
+        "season": 2024,
+        "games": 798,
+        "margin_mae": 13.28178,
+        "total_mae": 12.80033
+      },
+      {
+        "season": 2025,
+        "games": 808,
+        "margin_mae": 12.46647,
+        "total_mae": 12.84642
+      }
+    ],
+    "hist_gradient_boosting": [
+      {
+        "season": 2021,
+        "games": 732,
+        "margin_mae": 14.10567,
+        "total_mae": 13.30454
+      },
+      {
+        "season": 2022,
+        "games": 734,
+        "margin_mae": 13.54239,
+        "total_mae": 13.54431
+      },
+      {
+        "season": 2023,
+        "games": 792,
+        "margin_mae": 13.3145,
+        "total_mae": 13.20347
+      },
+      {
+        "season": 2024,
+        "games": 798,
+        "margin_mae": 13.42641,
+        "total_mae": 13.07537
+      },
+      {
+        "season": 2025,
+        "games": 808,
+        "margin_mae": 12.48886,
+        "total_mae": 12.80441
+      }
+    ]
+  },
+  "walk_forward": [
+    {
+      "season": 2021,
+      "games": 732,
+      "margin_mae": 13.62335,
+      "total_mae": 12.87895,
+      "spread_direction_rate": 0.47026,
+      "total_direction_rate": 0.49241
+    },
+    {
+      "season": 2022,
+      "games": 734,
+      "margin_mae": 12.94956,
+      "total_mae": 12.6741,
+      "spread_direction_rate": 0.49723,
+      "total_direction_rate": 0.47856
+    },
+    {
+      "season": 2023,
+      "games": 792,
+      "margin_mae": 13.03858,
+      "total_mae": 13.19692,
+      "spread_direction_rate": 0.49369,
+      "total_direction_rate": 0.5101
+    },
+    {
+      "season": 2024,
+      "games": 798,
+      "margin_mae": 13.28178,
+      "total_mae": 12.80033,
+      "spread_direction_rate": 0.46992,
+      "total_direction_rate": 0.53634
+    },
+    {
+      "season": 2025,
+      "games": 808,
+      "margin_mae": 12.46647,
+      "total_mae": 12.84642,
+      "spread_direction_rate": 0.5297,
+      "total_direction_rate": 0.50619
+    }
+  ],
+  "residual_distribution": {
+    "kind": "bivariate_gaussian_oof",
+    "samples": 3864,
+    "margin_sigma": 16.399755,
+    "total_sigma": 16.17564,
+    "correlation": 0.072245,
+    "covariance": [
+      [
+        268.951953,
+        19.164898
+      ],
+      [
+        19.164898,
+        261.651317
+      ]
+    ]
+  },
+  "calibration": {
+    "moneyline": {
+      "method": "isotonic_on_season_walk_forward_predictions",
+      "samples": 7728,
+      "raw_brier": 0.190189,
+      "calibrated_brier": 0.189054
+    },
+    "spread": {
+      "method": "isotonic_on_season_walk_forward_predictions",
+      "samples": 7686,
+      "raw_brier": 0.269025,
+      "calibrated_brier": 0.249502
+    },
+    "total": {
+      "method": "isotonic_on_season_walk_forward_predictions",
+      "samples": 7692,
+      "raw_brier": 0.258174,
+      "calibrated_brier": 0.249698
+    }
+  },
+  "shadow_mode": true,
+  "promotion_status": "not_qualified",
+  "financial_backtest": {
+    "moneyline": "unavailable_no_complete_historical_two_sided_prices",
+    "spread": "forecast_direction_only",
+    "total": "forecast_direction_only"
+  },
+  "notes": "Sportsbook lines are evaluation/pricing only and are absent from FEATURE_NAMES; live shadow evidence is required before promotion."
+}

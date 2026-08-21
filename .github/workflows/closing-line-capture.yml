@@ -2,15 +2,15 @@ name: Closing Line Capture
 
 on:
   schedule:
-    # Every 30 minutes across the 16:00-04:00 UTC window (11:00-23:00 CT),
+    # Every 30 minutes across the 15:00-04:00 UTC window (10:00-23:00 CT),
     # covering afternoon and night game starts. The script fast-exits with no
     # network traffic when nothing starts inside the capture window.
-    - cron: '*/30 16-23 * * *'
+    - cron: '*/30 15-23 * * *'
     - cron: '*/30 0-4 * * *'
   workflow_dispatch:
     inputs:
       date:
-        description: Slate date (YYYY-MM-DD, defaults to today UTC)
+        description: Slate date (YYYY-MM-DD, defaults to today America/Chicago)
         required: false
         default: ''
 

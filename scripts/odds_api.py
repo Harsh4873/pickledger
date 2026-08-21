@@ -7,9 +7,9 @@ before. When a key is present, near-close capture runs journal Pinnacle-style
 sharp prices next to the DraftKings anchor rows so the ledger carries an
 alternative fair-value baseline. Nothing gates publication on these rows.
 
-Budgeted for the free tier (~500 credits/month): sharp fetches only happen
+Budgeted for the configured plan: sharp fetches only happen
 for sports with a pick starting inside ``ODDS_API_WINDOW_MINUTES`` (default
-45), one request per sport per run, h2h+totals only.
+45), one request per sport per run, for h2h/spreads/totals.
 """
 
 from __future__ import annotations
@@ -30,6 +30,7 @@ SPORT_KEYS = {
     "MLB": "baseball_mlb",
     "NBA": "basketball_nba",
     "WNBA": "basketball_wnba",
+    "CFB": "americanfootball_ncaaf",
 }
 
 
@@ -92,7 +93,7 @@ def fetch_sharp_events(
         return []
     params = {
         "apiKey": key,
-        "markets": "h2h,totals",
+        "markets": "h2h,spreads,totals",
         "oddsFormat": "american",
         "bookmakers": _bookmakers(),
     }
@@ -145,6 +146,11 @@ def _pick_line(pick: dict[str, Any]) -> float | None:
     return None
 
 
+def _is_spread(pick: dict[str, Any]) -> bool:
+    market = str(pick.get("market") or pick.get("market_type") or "").strip().lower()
+    return market in {"spread", "spreads", "handicap", "run_line"}
+
+
 def _sharp_price(pick: dict[str, Any], event: dict[str, Any]) -> tuple[int, float | None] | None:
     """Return (american_odds, no_vig_probability) for the pick's own side."""
     bookmaker = None
@@ -182,15 +188,23 @@ def _sharp_price(pick: dict[str, Any], event: dict[str, Any]) -> tuple[int, floa
         if selected is None:
             return None
     else:
-        market = markets.get("h2h")
+        market = markets.get("spreads" if _is_spread(pick) else "h2h")
         if market is None:
             return None
         outcomes = [row for row in market.get("outcomes") or [] if isinstance(row, dict)]
         side_tokens = _norm(f"{pick.get('team') or ''}{pick.get('selection') or ''}{pick.get('pick') or ''}")
+        selected_line = _pick_line(pick) if _is_spread(pick) else None
         selected = opposite = None
         implied_sum = 0.0
         selected_implied = None
         for row in outcomes:
+            if selected_line is not None:
+                try:
+                    outcome_line = float(row.get("point"))
+                except (TypeError, ValueError):
+                    continue
+                if abs(abs(outcome_line) - abs(selected_line)) > 0.01:
+                    continue
             odds = _outcome_american(row)
             implied = american_implied_probability(odds)
             if implied is not None:

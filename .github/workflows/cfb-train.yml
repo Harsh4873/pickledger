@@ -1,0 +1,64 @@
+name: CFB Model Training
+
+on:
+  workflow_dispatch:
+    inputs:
+      first_season:
+        description: "First training season"
+        required: false
+        default: "2017"
+      last_season:
+        description: "Last completed training season"
+        required: false
+        default: "2025"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cfb-train
+  cancel-in-progress: false
+
+jobs:
+  train:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -r CFBPredictionModel/requirements.txt
+
+      - name: Train walk-forward model
+        env:
+          CFB_FIRST_SEASON: ${{ inputs.first_season }}
+          CFB_LAST_SEASON: ${{ inputs.last_season }}
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          from CFBPredictionModel.cfb_train import train
+
+          metadata = train(
+              first_season=int(os.environ["CFB_FIRST_SEASON"]),
+              last_season=int(os.environ["CFB_LAST_SEASON"]),
+          )
+          print(json.dumps(metadata, indent=2))
+          PY
+
+      - name: Verify CFB contracts
+        run: python -m pytest tests/smoke/test_cfb_model.py tests/smoke/test_market_odds.py -q
+
+      - name: Upload review artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: cfb-shadow-model-${{ github.run_id }}
+          path: CFBPredictionModel/artifacts/
+          if-no-files-found: error

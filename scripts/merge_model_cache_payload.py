@@ -60,6 +60,7 @@ DEPLOYED_MODEL_KEYS = {
     "fifa_world_cup",
     "mls",
     "nfl",
+    "cfb",
     "tennis",
     *EXTERNAL_FEED_MODEL_KEYS,
 }
@@ -80,6 +81,7 @@ MODEL_ALIAS_KEYS = {
     "fifa_world_cup",
     "mls",
     "nfl",
+    "cfb",
 }
 MODEL_ALIAS_TO_MODEL_KEY = {
     "mlb": "mlb_old",

@@ -96,6 +96,7 @@ SOURCE_LABELS: dict[str, str] = {
     "fifa_world_cup": "FIFA Model",
     "mls": "MLS Model",
     "nfl": "NFL Model",
+    "cfb": "CFB Model",
     "sportytrader": "SportyTrader",
     "sportytrader_nba": "SportyTraderNBA",
     "sportytrader_nba_summer": "SportyTraderNBASummer",

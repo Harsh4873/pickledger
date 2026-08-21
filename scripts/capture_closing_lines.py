@@ -22,6 +22,7 @@ import argparse
 import json
 import sys
 from datetime import datetime, timedelta, timezone
+from zoneinfo import ZoneInfo
 from pathlib import Path
 from typing import Any
 
@@ -145,9 +146,13 @@ def _append_ledger(date_iso: str, rows: list[dict[str, Any]]) -> int:
     return added
 
 
+def _default_slate_date(now: datetime) -> str:
+    return now.astimezone(ZoneInfo("America/Chicago")).date().isoformat()
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Capture near-closing prices for imminent picks.")
-    parser.add_argument("--date", default="", help="Slate date YYYY-MM-DD (default: today UTC).")
+    parser.add_argument("--date", default="", help="Slate date YYYY-MM-DD (default: today America/Chicago).")
     parser.add_argument(
         "--window-minutes",
         type=int,
@@ -160,7 +165,7 @@ def main() -> int:
     args = parser.parse_args()
 
     now = datetime.now(timezone.utc)
-    date_iso = args.date.strip() or now.date().isoformat()
+    date_iso = args.date.strip() or _default_slate_date(now)
     window = timedelta(minutes=max(5, args.window_minutes))
 
     cache_path = MODEL_CACHE_DIR / f"{date_iso}.json"

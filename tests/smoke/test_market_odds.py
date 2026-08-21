@@ -129,6 +129,39 @@ def test_reversed_matchup_still_prices_the_correct_side():
     assert pick["market_odds_provider"] == "espn_scoreboard:DraftKings"
 
 
+def test_cfb_prefers_stable_event_id_over_ambiguous_team_names_and_uses_large_limit():
+    captured: list[dict] = []
+    events = [
+        scoreboard_event(event_id="wrong", home="Miami Hurricanes", away="Ohio Bobcats"),
+        scoreboard_event(event_id="right", home="Miami Hurricanes", away="Miami RedHawks"),
+    ]
+
+    def fetch(_url: str, params: dict) -> dict:
+        captured.append(dict(params))
+        return {"events": events}
+
+    book = market_odds.fetch_market_odds_for_date(DATE, ["CFB"], fetch)
+    payload = payload_with(
+        "cfb",
+        [{
+            "date": DATE,
+            "sport": "CFB",
+            "espn_event_id": "right",
+            "away_team": "Miami",
+            "home_team": "Miami",
+            "team": "Miami RedHawks",
+            "pick": "Miami RedHawks ML",
+            "odds": -110,
+            "pricing_type": "assumed",
+            "decision": "LEAN",
+        }],
+    )
+    summary = market_odds.apply_market_odds_to_payload(payload, book)
+    assert captured == [{"dates": DATE.replace("-", ""), "limit": 1000, "groups": 80}]
+    assert summary["attached"] == 1
+    assert payload["models"]["cfb"]["picks"][0]["market_odds_provider"] == "espn_scoreboard:DraftKings"
+
+
 def test_totals_require_an_exact_line_match():
     book = build_book([scoreboard_event(total_line=9.0)])
     payload = payload_with(

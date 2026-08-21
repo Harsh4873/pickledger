@@ -372,6 +372,7 @@ SPORT_TO_ESPNSLUG = {
     "FIFA WC": ("soccer", "fifa.world"),
     "MLS": ("soccer", "usa.1"),
     "NFL": ("football", "nfl"),
+    "CFB": ("football", "college-football"),
     "WBC": ("baseball", "world-baseball-classic"),
 }
 
@@ -1567,9 +1568,10 @@ def parse_pick_date(date_text: str, year: int) -> str | None:
 
 
 def fetch_scoreboard(sport: str, league: str, yyyymmdd: str) -> dict[str, Any] | None:
+    extra = "&limit=1000&groups=80" if league == "college-football" else ""
     url = (
         f"http://site.api.espn.com/apis/site/v2/sports/{sport}/{league}/scoreboard"
-        f"?dates={yyyymmdd}"
+        f"?dates={yyyymmdd}{extra}"
     )
     try:
         response = requests.get(
@@ -5021,6 +5023,24 @@ def run_nfl_model(date_str: str | None = None) -> dict[str, Any]:
         if not isinstance(result, dict):
             return {"ok": False, "error": "NFL model returned an invalid payload"}
         _save_admin_picks_doc("nfl", result, target_iso)
+        return result
+    except Exception as exc:
+        return {"ok": False, "error": str(exc)}
+
+
+def run_cfb_model(date_str: str | None = None) -> dict[str, Any]:
+    """Execute the in-house CFB shadow model."""
+    target_iso, _ = _parse_model_date_arg(date_str)
+    cfb_dir = os.path.join(BASE_DIR, "CFBPredictionModel")
+    if not os.path.exists(cfb_dir):
+        return {"ok": False, "error": "CFB model directory not found"}
+    try:
+        from CFBPredictionModel import generate_cfb_picks
+
+        result = generate_cfb_picks(target_iso)
+        if not isinstance(result, dict):
+            return {"ok": False, "error": "CFB model returned an invalid payload"}
+        _save_admin_picks_doc("cfb", result, target_iso)
         return result
     except Exception as exc:
         return {"ok": False, "error": str(exc)}

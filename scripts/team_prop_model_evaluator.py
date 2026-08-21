@@ -5,9 +5,8 @@ This module intentionally reads the pre-game ledger rather than the mutable
 ``data/model_cache`` files.  It is an audit tool: it does not train, calibrate,
 grade, alter pick decisions, or infer financial results from assumed prices.
 
-Supported model keys are limited to the in-house team markets under review:
-``mlb_new``, ``mlb_first_five``, ``mlb_inning``, ``fifa_world_cup``, and
-``nba_summer``.
+Supported model keys are limited to the in-house team markets under review,
+including the market-free CFB shadow originator.
 """
 
 from __future__ import annotations
@@ -32,6 +31,7 @@ SUPPORTED_MODEL_KEYS = (
     "mlb_inning",
     "fifa_world_cup",
     "nba_summer",
+    "cfb",
 )
 UNVERSIONED = "unversioned"
 
@@ -41,6 +41,16 @@ UNVERSIONED = "unversioned"
 # retained the inputs needed to replay/audit a prediction; they do not modify
 # any model formula or synthesize missing values.
 FEATURE_CONTRACTS: dict[str, dict[str, Any]] = {
+    "cfb": {
+        "contract_version": "cfb_v1_market_free_serving_groups",
+        "groups": (
+            ("scoring_state", ("home_offense_ewma", "home_defense_ewma", "away_offense_ewma", "away_defense_ewma")),
+            ("opponent_adjustment", ("schedule_strength_diff", "elo_diff")),
+            ("sample_size", ("home_games_log", "away_games_log")),
+            ("rest", ("home_rest_days", "away_rest_days", "rest_diff")),
+            ("game_context", ("neutral_site", "conference_game", "week")),
+        ),
+    },
     "mlb_new": {
         "contract_version": "mlb_new_v2_serving_groups",
         "groups": (
