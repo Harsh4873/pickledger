@@ -436,9 +436,16 @@ function rankingComparablePicks(picks: Pick[]): Pick[] {
         return pickDateKey(pick) >= MLS_RANKING_START_DATE;
       }
       if (!isConsensusSource) return true;
-      const epoch = String(pick.ml_rank_epoch || pick.ranking_epoch || pick.model_epoch || '').trim();
-      if (!epoch.startsWith(MLB_TEAM_CONSENSUS_EPOCH_PREFIX)) return false;
-      if (LEGACY_RECORD_SOURCES.has(source)) return true;
+      // Legacy sources (MLB ML, MLB Total, MLB Model) keep their full
+      // consensus-era history but only count picks that carry the v1 epoch
+      // stamp — this filters out any pre-consensus rows from their record.
+      if (LEGACY_RECORD_SOURCES.has(source)) {
+        const epoch = String(pick.ml_rank_epoch || pick.ranking_epoch || pick.model_epoch || '').trim();
+        return epoch.startsWith(MLB_TEAM_CONSENSUS_EPOCH_PREFIX);
+      }
+      // Non-legacy consensus sources (MLB Inning, Team Total, F5, etc.) are
+      // date-gated and don't require the epoch stamp — they only exist in
+      // the consensus era, so filtering by date is sufficient.
       return pickDateKey(pick) >= TEAM_RANKING_START_DATE;
     });
   }

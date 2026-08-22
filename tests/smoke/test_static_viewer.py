@@ -488,7 +488,7 @@ def test_home_filters_prioritize_primary_sports_and_use_more_menu():
     data = (ROOT / "src" / "data.ts").read_text(encoding="utf-8")
     css = (ROOT / "src" / "styles" / "pickledger.css").read_text(encoding="utf-8")
 
-    assert "const PRIMARY_FILTERS = ['ALL', 'MLB', 'WNBA', 'MLS', 'TENNIS']" in main
+    assert "const PRIMARY_FILTERS = ['ALL', 'MLB', 'WNBA', 'NFL', 'MLS', 'TENNIS']" in main
     assert "const ARCHIVED_SPORTS = new Set(['NBA', 'NBA SUMMER', 'FIFA WC'])" in data
     assert "!ARCHIVED_SPORTS.has(pick.sport)" in data
     assert "'MLB NEW': 'MLB Model'" in data
@@ -704,17 +704,25 @@ def test_auto_grader_ignores_player_props_from_before_ml_retraining(monkeypatch)
 
 
 def test_scheduled_refreshes_are_json_only_and_use_shared_writer_lock():
-    workflow_names = (
-        "auto-grade.yml",
+    # Heavy cache writers share a concurrency group to avoid merge conflicts.
+    # auto-grade.yml intentionally uses its own group (pick-auto-grade) because
+    # grading is safe to run beside a cache refresh and shouldn't evict pending
+    # model/props/feed refreshes from the queue.
+    heavy_writer_workflows = (
         "calibration-refresh.yml",
         "model-cache-refresh.yml",
         "player-props-refresh.yml",
         "external-feed-refresh.yml",
     )
-    for name in workflow_names:
+    for name in heavy_writer_workflows:
         workflow = (ROOT / ".github" / "workflows" / name).read_text(encoding="utf-8")
         assert "group: pick-cache-writer" in workflow
         assert "cancel-in-progress: false" in workflow
+
+    # auto-grade uses its own concurrency group
+    auto_grade = (ROOT / ".github" / "workflows" / "auto-grade.yml").read_text(encoding="utf-8")
+    assert "group: pick-auto-grade" in auto_grade
+    assert "cancel-in-progress: false" in auto_grade
 
     model = (ROOT / ".github" / "workflows" / "model-cache-refresh.yml").read_text(encoding="utf-8")
     feeds = (ROOT / ".github" / "workflows" / "external-feed-refresh.yml").read_text(encoding="utf-8")
