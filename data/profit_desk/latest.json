@@ -1930,152 +1930,6 @@
     },
     {
       "blockers": [
-        "edge_insufficient_segment_samples",
-        "edge_insufficient_distinct_prior_dates",
-        "edge_negative_chronological_evidence_half",
-        "edge_probability_positive_ev_below_0.80",
-        "edge_conservative_probability_margin_below_0.02",
-        "edge_non_positive_conservative_ev",
-        "value_insufficient_source_samples",
-        "value_negative_chronological_evidence_half",
-        "value_non_positive_flat_roi",
-        "value_probability_positive_ev_below_0.70"
-      ],
-      "canonicalGame": "2026-08-22:wnba:connecticut sun|los angeles sparks",
-      "consensusSources": [],
-      "date": "2026-08-22",
-      "decimalOdds": 1.487805,
-      "decision": "LEAN",
-      "dedupeRule": "exact_market_identity_best_executable_price",
-      "direction": "side",
-      "duplicateCount": 1,
-      "duplicateSources": [
-        "WNBA Model"
-      ],
-      "edgeQualified": false,
-      "estimate": {
-        "alpha": 0.011018,
-        "alphaStdError": 0.060196,
-        "breakEvenProbability": 0.672131,
-        "conservativeExpectedValue": -0.139152,
-        "expectedValue": -0.024376,
-        "lowerProbability": 0.578603,
-        "marketProbability": 0.644729,
-        "method": "market_baseline_plus_hierarchically_shrunk_prior_residual",
-        "probability": 0.655747,
-        "probabilityPositiveEv": 0.392742,
-        "sourceAlpha": -0.009482,
-        "value": {
-          "alpha": -0.009482,
-          "alphaStdError": 0.040539,
-          "conservativeExpectedValue": -0.091403,
-          "expectedValue": -0.014107,
-          "lowerProbability": 0.610696,
-          "method": "source_flat_roi_shrunk_residual_vs_break_even",
-          "probability": 0.662649,
-          "probabilityPositiveEv": 0.407535
-        }
-      },
-      "evidence": {
-        "chronologicalHalvesNonnegative": false,
-        "cutoffExclusive": "2026-08-22",
-        "distinctDates": 6,
-        "firstHalfFlatNetUnits": 0.854,
-        "flatNetUnits": 0.3589,
-        "flatRoi": 0.059811,
-        "losses": 1,
-        "modelVersion": "source_identity:wnba",
-        "policyVersion": "profit_desk_policy_v2",
-        "priorOnly": true,
-        "pushes": 0,
-        "secondHalfFlatNetUnits": -0.4951,
-        "segmentDistinctDates": 6,
-        "segmentEvidenceKey": "team|wnba|wnba|source_identity:wnba|h2h|side|gte_0.60",
-        "segmentSamples": 6,
-        "sourceChronologicalHalvesNonnegative": false,
-        "sourceDistinctDates": 27,
-        "sourceEvidenceKey": "team|wnba|wnba",
-        "sourceFirstHalfFlatNetUnits": -19.0718,
-        "sourceFlatNetUnits": -8.3661,
-        "sourceFlatRoi": -0.078925,
-        "sourceLosses": 53,
-        "sourceSamples": 106,
-        "sourceSecondHalfFlatNetUnits": 10.7058,
-        "sourceWins": 53,
-        "wins": 5
-      },
-      "game": "Connecticut Sun @ Los Angeles Sparks",
-      "gradeSupportSource": "repository_grader_default",
-      "gradeSupported": true,
-      "id": "profit-00c72c2ca03bd2e51b0cf0f8",
-      "lane": null,
-      "laneBlockers": {
-        "edge": [
-          "edge_insufficient_segment_samples",
-          "edge_insufficient_distinct_prior_dates",
-          "edge_negative_chronological_evidence_half",
-          "edge_probability_positive_ev_below_0.80",
-          "edge_conservative_probability_margin_below_0.02",
-          "edge_non_positive_conservative_ev"
-        ],
-        "structural": [],
-        "value": [
-          "value_insufficient_source_samples",
-          "value_negative_chronological_evidence_half",
-          "value_non_positive_flat_roi",
-          "value_probability_positive_ev_below_0.70"
-        ]
-      },
-      "line": null,
-      "liveQualified": false,
-      "market": "h2h",
-      "marketFamily": "h2h",
-      "marketIdentity": "market:da5b160801a9652ab76dd384",
-      "mode": "team",
-      "modelVersion": "source_identity:wnba",
-      "oddsAmerican": -205,
-      "pick": "Los Angeles Sparks ML (Connecticut Sun @ Los Angeles Sparks)",
-      "player": null,
-      "policyVersion": "profit_desk_policy_v2",
-      "price": {
-        "ageHours": 4.22,
-        "breakEvenProbability": 0.672131,
-        "decimalOdds": 1.487805,
-        "eligibleForAlphaEstimate": true,
-        "fresh": true,
-        "freshPregame": true,
-        "maxAgeHours": 24.0,
-        "noVigInputs": {
-          "field": "market_no_vig_selected_probability"
-        },
-        "noVigMethod": "explicit:pick.market_no_vig_selected_probability",
-        "noVigProbability": 0.644729,
-        "noVigVerified": true,
-        "observedExecutable": true,
-        "oddsAmerican": -205,
-        "quality": "verified_no_vig",
-        "source": "espn_scoreboard:DraftKings",
-        "sourceField": "pick.price_source",
-        "startTime": "2026-08-23T01:00Z",
-        "tier": "A",
-        "tierLabel": "certified_executable",
-        "timestamp": "2026-08-22T20:46:47.948369Z",
-        "timestampField": "pick.market_updated_at",
-        "twoSided": true,
-        "updatedAt": "2026-08-22T20:46:47.948369Z"
-      },
-      "rawModelProbabilityIgnored": 0.658,
-      "result": "pending",
-      "shadowQualified": false,
-      "source": "WNBA Model",
-      "sourceKey": "wnba",
-      "sport": "WNBA",
-      "stakeUnits": 0.0,
-      "tier": "watch",
-      "valueQualified": false
-    },
-    {
-      "blockers": [
         "edge_requires_two_sided_price",
         "edge_insufficient_segment_samples",
         "edge_negative_chronological_evidence_half",
@@ -6743,7 +6597,7 @@
       "consensusSources": [],
       "date": "2026-08-22",
       "decimalOdds": 1.606061,
-      "decision": "LEAN",
+      "decision": "BET",
       "dedupeRule": "exact_market_identity_best_executable_price",
       "direction": "over",
       "duplicateCount": 1,
@@ -7907,6 +7761,7 @@
     {
       "blockers": [
         "missing_executable_odds",
+        "price_not_pregame",
         "edge_no_usable_price_baseline",
         "value_no_usable_price_baseline"
       ],
@@ -7965,7 +7820,8 @@
           "edge_no_usable_price_baseline"
         ],
         "structural": [
-          "missing_executable_odds"
+          "missing_executable_odds",
+          "price_not_pregame"
         ],
         "value": [
           "value_no_usable_price_baseline"
@@ -7983,12 +7839,12 @@
       "player": null,
       "policyVersion": "profit_desk_policy_v2",
       "price": {
-        "ageHours": 3.292,
+        "ageHours": -1.818,
         "breakEvenProbability": null,
         "decimalOdds": null,
         "eligibleForAlphaEstimate": false,
-        "fresh": true,
-        "freshPregame": true,
+        "fresh": false,
+        "freshPregame": false,
         "maxAgeHours": 24.0,
         "noVigInputs": {},
         "noVigMethod": "unverified_single_side",
@@ -8002,10 +7858,10 @@
         "startTime": "2026-08-22T19:05Z",
         "tier": "D",
         "tierLabel": "assumed_proxy_or_synthetic",
-        "timestamp": "2026-08-22T15:47:29.426649Z",
+        "timestamp": "2026-08-22T20:54:03.754656Z",
         "timestampField": "bucket.generatedAt",
         "twoSided": false,
-        "updatedAt": "2026-08-22T15:47:29.426649Z"
+        "updatedAt": "2026-08-22T20:54:03.754656Z"
       },
       "rawModelProbabilityIgnored": 0.6758,
       "result": "win",
@@ -8019,225 +7875,8 @@
     },
     {
       "blockers": [
-        "unverified_price_provenance",
-        "edge_no_usable_price_baseline",
-        "value_no_usable_price_baseline"
-      ],
-      "canonicalGame": "2026-08-22:mls:houston dynamo fc|st louis city sc",
-      "consensusSources": [],
-      "date": "2026-08-22",
-      "decimalOdds": 1.689655,
-      "decision": "LEAN",
-      "dedupeRule": "exact_market_identity_best_executable_price",
-      "direction": "side",
-      "duplicateCount": 1,
-      "duplicateSources": [
-        "MLS Model"
-      ],
-      "edgeQualified": false,
-      "estimate": null,
-      "evidence": {
-        "chronologicalHalvesNonnegative": false,
-        "cutoffExclusive": "2026-08-22",
-        "distinctDates": 0,
-        "firstHalfFlatNetUnits": 0.0,
-        "flatNetUnits": 0.0,
-        "flatRoi": null,
-        "losses": 0,
-        "modelVersion": "mls_dixon_coles_v2.0",
-        "policyVersion": "profit_desk_policy_v2",
-        "priorOnly": true,
-        "pushes": 0,
-        "secondHalfFlatNetUnits": 0.0,
-        "segmentDistinctDates": 0,
-        "segmentEvidenceKey": null,
-        "segmentSamples": 0,
-        "sourceChronologicalHalvesNonnegative": false,
-        "sourceDistinctDates": 8,
-        "sourceEvidenceKey": "team|mls|mls",
-        "sourceFirstHalfFlatNetUnits": 0.0,
-        "sourceFlatNetUnits": 0.0,
-        "sourceFlatRoi": null,
-        "sourceLosses": 0,
-        "sourceSamples": 69,
-        "sourceSecondHalfFlatNetUnits": 0.0,
-        "sourceWins": 0,
-        "wins": 0
-      },
-      "game": "Houston Dynamo FC @ St. Louis CITY SC",
-      "gradeSupportSource": "repository_grader_default",
-      "gradeSupported": true,
-      "id": "profit-0130306ab0888ccc657cac8f",
-      "lane": null,
-      "laneBlockers": {
-        "edge": [
-          "edge_no_usable_price_baseline"
-        ],
-        "structural": [
-          "unverified_price_provenance"
-        ],
-        "value": [
-          "value_no_usable_price_baseline"
-        ]
-      },
-      "line": 0.5,
-      "liveQualified": false,
-      "market": "soccer_handicap",
-      "marketFamily": "soccer handicap",
-      "marketIdentity": "market:4d84f11afd47dbddce5a8269",
-      "mode": "team",
-      "modelVersion": "mls_dixon_coles_v2.0",
-      "oddsAmerican": -145,
-      "pick": "Houston Dynamo FC +0.5 (Houston Dynamo FC @ St. Louis CITY SC)",
-      "player": null,
-      "policyVersion": "profit_desk_policy_v2",
-      "price": {
-        "ageHours": 8.645,
-        "breakEvenProbability": 0.591837,
-        "decimalOdds": 1.689655,
-        "eligibleForAlphaEstimate": false,
-        "fresh": true,
-        "freshPregame": true,
-        "maxAgeHours": 24.0,
-        "noVigInputs": {},
-        "noVigMethod": "unverified_single_side",
-        "noVigProbability": null,
-        "noVigVerified": false,
-        "observedExecutable": false,
-        "oddsAmerican": -145,
-        "quality": "assumed",
-        "source": null,
-        "sourceField": "unverified",
-        "startTime": "2026-08-23T00:30Z",
-        "tier": "D",
-        "tierLabel": "assumed_proxy_or_synthetic",
-        "timestamp": "2026-08-22T15:51:17.152844Z",
-        "timestampField": "pick.certification_timing.data_as_of",
-        "twoSided": false,
-        "updatedAt": "2026-08-22T15:51:17.152844Z"
-      },
-      "rawModelProbabilityIgnored": 0.5816,
-      "result": "pending",
-      "shadowQualified": false,
-      "source": "MLS Model",
-      "sourceKey": "mls",
-      "sport": "MLS",
-      "stakeUnits": 0.0,
-      "tier": "avoid",
-      "valueQualified": false
-    },
-    {
-      "blockers": [
-        "unverified_price_provenance",
-        "edge_no_usable_price_baseline",
-        "value_no_usable_price_baseline"
-      ],
-      "canonicalGame": "2026-08-22:mls:columbus crew|nashville sc",
-      "consensusSources": [],
-      "date": "2026-08-22",
-      "decimalOdds": 1.645161,
-      "decision": "LEAN",
-      "dedupeRule": "exact_market_identity_best_executable_price",
-      "direction": "side",
-      "duplicateCount": 1,
-      "duplicateSources": [
-        "MLS Model"
-      ],
-      "edgeQualified": false,
-      "estimate": null,
-      "evidence": {
-        "chronologicalHalvesNonnegative": false,
-        "cutoffExclusive": "2026-08-22",
-        "distinctDates": 0,
-        "firstHalfFlatNetUnits": 0.0,
-        "flatNetUnits": 0.0,
-        "flatRoi": null,
-        "losses": 0,
-        "modelVersion": "mls_dixon_coles_v2.0",
-        "policyVersion": "profit_desk_policy_v2",
-        "priorOnly": true,
-        "pushes": 0,
-        "secondHalfFlatNetUnits": 0.0,
-        "segmentDistinctDates": 0,
-        "segmentEvidenceKey": null,
-        "segmentSamples": 0,
-        "sourceChronologicalHalvesNonnegative": false,
-        "sourceDistinctDates": 8,
-        "sourceEvidenceKey": "team|mls|mls",
-        "sourceFirstHalfFlatNetUnits": 0.0,
-        "sourceFlatNetUnits": 0.0,
-        "sourceFlatRoi": null,
-        "sourceLosses": 0,
-        "sourceSamples": 69,
-        "sourceSecondHalfFlatNetUnits": 0.0,
-        "sourceWins": 0,
-        "wins": 0
-      },
-      "game": "Columbus Crew @ Nashville SC",
-      "gradeSupportSource": "repository_grader_default",
-      "gradeSupported": true,
-      "id": "profit-03856a9a4079ba13edac5a92",
-      "lane": null,
-      "laneBlockers": {
-        "edge": [
-          "edge_no_usable_price_baseline"
-        ],
-        "structural": [
-          "unverified_price_provenance"
-        ],
-        "value": [
-          "value_no_usable_price_baseline"
-        ]
-      },
-      "line": -0.5,
-      "liveQualified": false,
-      "market": "soccer_handicap",
-      "marketFamily": "soccer handicap",
-      "marketIdentity": "market:876f86bea42df4a4ae7f6e63",
-      "mode": "team",
-      "modelVersion": "mls_dixon_coles_v2.0",
-      "oddsAmerican": -155,
-      "pick": "Nashville SC -0.5 (Columbus Crew @ Nashville SC)",
-      "player": null,
-      "policyVersion": "profit_desk_policy_v2",
-      "price": {
-        "ageHours": 8.645,
-        "breakEvenProbability": 0.607843,
-        "decimalOdds": 1.645161,
-        "eligibleForAlphaEstimate": false,
-        "fresh": true,
-        "freshPregame": true,
-        "maxAgeHours": 24.0,
-        "noVigInputs": {},
-        "noVigMethod": "unverified_single_side",
-        "noVigProbability": null,
-        "noVigVerified": false,
-        "observedExecutable": false,
-        "oddsAmerican": -155,
-        "quality": "assumed",
-        "source": null,
-        "sourceField": "unverified",
-        "startTime": "2026-08-23T00:30Z",
-        "tier": "D",
-        "tierLabel": "assumed_proxy_or_synthetic",
-        "timestamp": "2026-08-22T15:51:17.152844Z",
-        "timestampField": "pick.certification_timing.data_as_of",
-        "twoSided": false,
-        "updatedAt": "2026-08-22T15:51:17.152844Z"
-      },
-      "rawModelProbabilityIgnored": 0.5257,
-      "result": "pending",
-      "shadowQualified": false,
-      "source": "MLS Model",
-      "sourceKey": "mls",
-      "sport": "MLS",
-      "stakeUnits": 0.0,
-      "tier": "avoid",
-      "valueQualified": false
-    },
-    {
-      "blockers": [
         "missing_executable_odds",
+        "price_not_pregame",
         "edge_no_usable_price_baseline",
         "value_no_usable_price_baseline"
       ],
@@ -8296,7 +7935,8 @@
           "edge_no_usable_price_baseline"
         ],
         "structural": [
-          "missing_executable_odds"
+          "missing_executable_odds",
+          "price_not_pregame"
         ],
         "value": [
           "value_no_usable_price_baseline"
@@ -8314,12 +7954,12 @@
       "player": null,
       "policyVersion": "profit_desk_policy_v2",
       "price": {
-        "ageHours": 2.458,
+        "ageHours": -2.651,
         "breakEvenProbability": null,
         "decimalOdds": null,
         "eligibleForAlphaEstimate": false,
-        "fresh": true,
-        "freshPregame": true,
+        "fresh": false,
+        "freshPregame": false,
         "maxAgeHours": 24.0,
         "noVigInputs": {},
         "noVigMethod": "unverified_single_side",
@@ -8333,12 +7973,12 @@
         "startTime": "2026-08-22T18:15Z",
         "tier": "D",
         "tierLabel": "assumed_proxy_or_synthetic",
-        "timestamp": "2026-08-22T15:47:29.426649Z",
+        "timestamp": "2026-08-22T20:54:03.754656Z",
         "timestampField": "bucket.generatedAt",
         "twoSided": false,
-        "updatedAt": "2026-08-22T15:47:29.426649Z"
+        "updatedAt": "2026-08-22T20:54:03.754656Z"
       },
-      "rawModelProbabilityIgnored": 0.628,
+      "rawModelProbabilityIgnored": 0.5869,
       "result": "win",
       "shadowQualified": false,
       "source": "Tennis Model",
@@ -8534,7 +8174,7 @@
       "player": null,
       "policyVersion": "profit_desk_policy_v2",
       "price": {
-        "ageHours": -0.792,
+        "ageHours": -5.901,
         "breakEvenProbability": null,
         "decimalOdds": null,
         "eligibleForAlphaEstimate": false,
@@ -8553,10 +8193,10 @@
         "startTime": "2026-08-22T15:00Z",
         "tier": "D",
         "tierLabel": "assumed_proxy_or_synthetic",
-        "timestamp": "2026-08-22T15:47:29.426649Z",
+        "timestamp": "2026-08-22T20:54:03.754656Z",
         "timestampField": "bucket.generatedAt",
         "twoSided": false,
-        "updatedAt": "2026-08-22T15:47:29.426649Z"
+        "updatedAt": "2026-08-22T20:54:03.754656Z"
       },
       "rawModelProbabilityIgnored": 0.6731,
       "result": "win",
@@ -8574,10 +8214,10 @@
         "edge_no_usable_price_baseline",
         "value_no_usable_price_baseline"
       ],
-      "canonicalGame": "2026-08-22:mls:charlotte fc|d c united",
+      "canonicalGame": "2026-08-22:mls:cf montr\u00e9al|la galaxy",
       "consensusSources": [],
       "date": "2026-08-22",
-      "decimalOdds": 1.714286,
+      "decimalOdds": 1.8,
       "decision": "LEAN",
       "dedupeRule": "exact_market_identity_best_executable_price",
       "direction": "side",
@@ -8615,10 +8255,10 @@
         "sourceWins": 0,
         "wins": 0
       },
-      "game": "D.C. United @ Charlotte FC",
+      "game": "LA Galaxy @ CF Montr\u00e9al",
       "gradeSupportSource": "repository_grader_default",
       "gradeSupported": true,
-      "id": "profit-1ef038aabc330e78e0f8c7c1",
+      "id": "profit-1b89702c508755d8c15231fa",
       "lane": null,
       "laneBlockers": {
         "edge": [
@@ -8631,21 +8271,21 @@
           "value_no_usable_price_baseline"
         ]
       },
-      "line": -0.5,
+      "line": 0.5,
       "liveQualified": false,
       "market": "soccer_handicap",
       "marketFamily": "soccer handicap",
-      "marketIdentity": "market:feaaa614701359a92633d9e6",
+      "marketIdentity": "market:842a23cebf5da3585893545f",
       "mode": "team",
       "modelVersion": "mls_dixon_coles_v2.0",
-      "oddsAmerican": -140,
-      "pick": "Charlotte FC -0.5 (D.C. United @ Charlotte FC)",
+      "oddsAmerican": -125,
+      "pick": "LA Galaxy +0.5 (LA Galaxy @ CF Montr\u00e9al)",
       "player": null,
       "policyVersion": "profit_desk_policy_v2",
       "price": {
-        "ageHours": 7.645,
-        "breakEvenProbability": 0.583333,
-        "decimalOdds": 1.714286,
+        "ageHours": 2.479,
+        "breakEvenProbability": 0.555556,
+        "decimalOdds": 1.8,
         "eligibleForAlphaEstimate": false,
         "fresh": true,
         "freshPregame": true,
@@ -8655,19 +8295,19 @@
         "noVigProbability": null,
         "noVigVerified": false,
         "observedExecutable": false,
-        "oddsAmerican": -140,
+        "oddsAmerican": -125,
         "quality": "assumed",
         "source": null,
         "sourceField": "unverified",
         "startTime": "2026-08-22T23:30Z",
         "tier": "D",
         "tierLabel": "assumed_proxy_or_synthetic",
-        "timestamp": "2026-08-22T15:51:17.152844Z",
+        "timestamp": "2026-08-22T21:01:16.640177Z",
         "timestampField": "pick.certification_timing.data_as_of",
         "twoSided": false,
-        "updatedAt": "2026-08-22T15:51:17.152844Z"
+        "updatedAt": "2026-08-22T21:01:16.640177Z"
       },
-      "rawModelProbabilityIgnored": 0.6175,
+      "rawModelProbabilityIgnored": 0.6283,
       "result": "pending",
       "shadowQualified": false,
       "source": "MLS Model",
@@ -8680,6 +8320,7 @@
     {
       "blockers": [
         "missing_executable_odds",
+        "price_not_pregame",
         "edge_no_usable_price_baseline",
         "value_no_usable_price_baseline"
       ],
@@ -8738,7 +8379,8 @@
           "edge_no_usable_price_baseline"
         ],
         "structural": [
-          "missing_executable_odds"
+          "missing_executable_odds",
+          "price_not_pregame"
         ],
         "value": [
           "value_no_usable_price_baseline"
@@ -8756,12 +8398,12 @@
       "player": null,
       "policyVersion": "profit_desk_policy_v2",
       "price": {
-        "ageHours": 2.208,
+        "ageHours": -2.901,
         "breakEvenProbability": null,
         "decimalOdds": null,
         "eligibleForAlphaEstimate": false,
-        "fresh": true,
-        "freshPregame": true,
+        "fresh": false,
+        "freshPregame": false,
         "maxAgeHours": 24.0,
         "noVigInputs": {},
         "noVigMethod": "unverified_single_side",
@@ -8775,10 +8417,10 @@
         "startTime": "2026-08-22T18:00Z",
         "tier": "D",
         "tierLabel": "assumed_proxy_or_synthetic",
-        "timestamp": "2026-08-22T15:47:29.426649Z",
+        "timestamp": "2026-08-22T20:54:03.754656Z",
         "timestampField": "bucket.generatedAt",
         "twoSided": false,
-        "updatedAt": "2026-08-22T15:47:29.426649Z"
+        "updatedAt": "2026-08-22T20:54:03.754656Z"
       },
       "rawModelProbabilityIgnored": 0.6877,
       "result": "pending",
@@ -8865,7 +8507,7 @@
       "player": null,
       "policyVersion": "profit_desk_policy_v2",
       "price": {
-        "ageHours": 12.208,
+        "ageHours": 7.099,
         "breakEvenProbability": null,
         "decimalOdds": null,
         "eligibleForAlphaEstimate": false,
@@ -8884,10 +8526,10 @@
         "startTime": "2026-08-23T04:00Z",
         "tier": "D",
         "tierLabel": "assumed_proxy_or_synthetic",
-        "timestamp": "2026-08-22T15:47:29.426649Z",
+        "timestamp": "2026-08-22T20:54:03.754656Z",
         "timestampField": "bucket.generatedAt",
         "twoSided": false,
-        "updatedAt": "2026-08-22T15:47:29.426649Z"
+        "updatedAt": "2026-08-22T20:54:03.754656Z"
       },
       "rawModelProbabilityIgnored": 0.5951,
       "result": "pending",
@@ -8978,7 +8620,7 @@
       "player": null,
       "policyVersion": "profit_desk_policy_v2",
       "price": {
-        "ageHours": 5.208,
+        "ageHours": 0.099,
         "breakEvenProbability": null,
         "decimalOdds": null,
         "eligibleForAlphaEstimate": false,
@@ -8997,10 +8639,10 @@
         "startTime": "2026-08-22T21:00Z",
         "tier": "D",
         "tierLabel": "assumed_proxy_or_synthetic",
-        "timestamp": "2026-08-22T15:47:29.426649Z",
+        "timestamp": "2026-08-22T20:54:03.754656Z",
         "timestampField": "bucket.generatedAt",
         "twoSided": false,
-        "updatedAt": "2026-08-22T15:47:29.426649Z"
+        "updatedAt": "2026-08-22T20:54:03.754656Z"
       },
       "rawModelProbabilityIgnored": 0.7892,
       "result": "pending",
@@ -9087,7 +8729,7 @@
       "player": null,
       "policyVersion": "profit_desk_policy_v2",
       "price": {
-        "ageHours": 7.395,
+        "ageHours": 2.229,
         "breakEvenProbability": 0.545455,
         "decimalOdds": 1.833333,
         "eligibleForAlphaEstimate": false,
@@ -9106,10 +8748,10 @@
         "startTime": "2026-08-22T23:15Z",
         "tier": "D",
         "tierLabel": "assumed_proxy_or_synthetic",
-        "timestamp": "2026-08-22T15:51:17.152844Z",
+        "timestamp": "2026-08-22T21:01:16.640177Z",
         "timestampField": "pick.certification_timing.data_as_of",
         "twoSided": false,
-        "updatedAt": "2026-08-22T15:51:17.152844Z"
+        "updatedAt": "2026-08-22T21:01:16.640177Z"
       },
       "rawModelProbabilityIgnored": 0.592,
       "result": "pending",
@@ -9196,7 +8838,7 @@
       "player": null,
       "policyVersion": "profit_desk_policy_v2",
       "price": {
-        "ageHours": 7.708,
+        "ageHours": 2.599,
         "breakEvenProbability": null,
         "decimalOdds": null,
         "eligibleForAlphaEstimate": false,
@@ -9215,10 +8857,10 @@
         "startTime": "2026-08-22T23:30Z",
         "tier": "D",
         "tierLabel": "assumed_proxy_or_synthetic",
-        "timestamp": "2026-08-22T15:47:29.426649Z",
+        "timestamp": "2026-08-22T20:54:03.754656Z",
         "timestampField": "bucket.generatedAt",
         "twoSided": false,
-        "updatedAt": "2026-08-22T15:47:29.426649Z"
+        "updatedAt": "2026-08-22T20:54:03.754656Z"
       },
       "rawModelProbabilityIgnored": 0.8117,
       "result": "pending",
@@ -9305,7 +8947,7 @@
       "player": null,
       "policyVersion": "profit_desk_policy_v2",
       "price": {
-        "ageHours": 12.208,
+        "ageHours": 7.099,
         "breakEvenProbability": null,
         "decimalOdds": null,
         "eligibleForAlphaEstimate": false,
@@ -9324,10 +8966,10 @@
         "startTime": "2026-08-23T04:00Z",
         "tier": "D",
         "tierLabel": "assumed_proxy_or_synthetic",
-        "timestamp": "2026-08-22T15:47:29.426649Z",
+        "timestamp": "2026-08-22T20:54:03.754656Z",
         "timestampField": "bucket.generatedAt",
         "twoSided": false,
-        "updatedAt": "2026-08-22T15:47:29.426649Z"
+        "updatedAt": "2026-08-22T20:54:03.754656Z"
       },
       "rawModelProbabilityIgnored": 0.7718,
       "result": "pending",
@@ -9523,7 +9165,7 @@
       "player": null,
       "policyVersion": "profit_desk_policy_v2",
       "price": {
-        "ageHours": 12.208,
+        "ageHours": 7.099,
         "breakEvenProbability": null,
         "decimalOdds": null,
         "eligibleForAlphaEstimate": false,
@@ -9542,10 +9184,10 @@
         "startTime": "2026-08-23T04:00Z",
         "tier": "D",
         "tierLabel": "assumed_proxy_or_synthetic",
-        "timestamp": "2026-08-22T15:47:29.426649Z",
+        "timestamp": "2026-08-22T20:54:03.754656Z",
         "timestampField": "bucket.generatedAt",
         "twoSided": false,
-        "updatedAt": "2026-08-22T15:47:29.426649Z"
+        "updatedAt": "2026-08-22T20:54:03.754656Z"
       },
       "rawModelProbabilityIgnored": 0.6409,
       "result": "pending",
@@ -9560,6 +9202,7 @@
     {
       "blockers": [
         "missing_executable_odds",
+        "price_not_pregame",
         "edge_no_usable_price_baseline",
         "value_no_usable_price_baseline"
       ],
@@ -9618,7 +9261,8 @@
           "edge_no_usable_price_baseline"
         ],
         "structural": [
-          "missing_executable_odds"
+          "missing_executable_odds",
+          "price_not_pregame"
         ],
         "value": [
           "value_no_usable_price_baseline"
@@ -9636,12 +9280,12 @@
       "player": null,
       "policyVersion": "profit_desk_policy_v2",
       "price": {
-        "ageHours": 3.292,
+        "ageHours": -1.818,
         "breakEvenProbability": null,
         "decimalOdds": null,
         "eligibleForAlphaEstimate": false,
-        "fresh": true,
-        "freshPregame": true,
+        "fresh": false,
+        "freshPregame": false,
         "maxAgeHours": 24.0,
         "noVigInputs": {},
         "noVigMethod": "unverified_single_side",
@@ -9655,10 +9299,10 @@
         "startTime": "2026-08-22T19:05Z",
         "tier": "D",
         "tierLabel": "assumed_proxy_or_synthetic",
-        "timestamp": "2026-08-22T15:47:29.426649Z",
+        "timestamp": "2026-08-22T20:54:03.754656Z",
         "timestampField": "bucket.generatedAt",
         "twoSided": false,
-        "updatedAt": "2026-08-22T15:47:29.426649Z"
+        "updatedAt": "2026-08-22T20:54:03.754656Z"
       },
       "rawModelProbabilityIgnored": 0.6877,
       "result": "pending",
@@ -9666,6 +9310,115 @@
       "source": "Tennis Model",
       "sourceKey": "tennis",
       "sport": "Tennis",
+      "stakeUnits": 0.0,
+      "tier": "avoid",
+      "valueQualified": false
+    },
+    {
+      "blockers": [
+        "unverified_price_provenance",
+        "edge_no_usable_price_baseline",
+        "value_no_usable_price_baseline"
+      ],
+      "canonicalGame": "2026-08-22:mls:charlotte fc|d c united",
+      "consensusSources": [],
+      "date": "2026-08-22",
+      "decimalOdds": 1.689655,
+      "decision": "LEAN",
+      "dedupeRule": "exact_market_identity_best_executable_price",
+      "direction": "side",
+      "duplicateCount": 1,
+      "duplicateSources": [
+        "MLS Model"
+      ],
+      "edgeQualified": false,
+      "estimate": null,
+      "evidence": {
+        "chronologicalHalvesNonnegative": false,
+        "cutoffExclusive": "2026-08-22",
+        "distinctDates": 0,
+        "firstHalfFlatNetUnits": 0.0,
+        "flatNetUnits": 0.0,
+        "flatRoi": null,
+        "losses": 0,
+        "modelVersion": "mls_dixon_coles_v2.0",
+        "policyVersion": "profit_desk_policy_v2",
+        "priorOnly": true,
+        "pushes": 0,
+        "secondHalfFlatNetUnits": 0.0,
+        "segmentDistinctDates": 0,
+        "segmentEvidenceKey": null,
+        "segmentSamples": 0,
+        "sourceChronologicalHalvesNonnegative": false,
+        "sourceDistinctDates": 8,
+        "sourceEvidenceKey": "team|mls|mls",
+        "sourceFirstHalfFlatNetUnits": 0.0,
+        "sourceFlatNetUnits": 0.0,
+        "sourceFlatRoi": null,
+        "sourceLosses": 0,
+        "sourceSamples": 69,
+        "sourceSecondHalfFlatNetUnits": 0.0,
+        "sourceWins": 0,
+        "wins": 0
+      },
+      "game": "D.C. United @ Charlotte FC",
+      "gradeSupportSource": "repository_grader_default",
+      "gradeSupported": true,
+      "id": "profit-53272e625f6ae1995e996940",
+      "lane": null,
+      "laneBlockers": {
+        "edge": [
+          "edge_no_usable_price_baseline"
+        ],
+        "structural": [
+          "unverified_price_provenance"
+        ],
+        "value": [
+          "value_no_usable_price_baseline"
+        ]
+      },
+      "line": -0.5,
+      "liveQualified": false,
+      "market": "soccer_handicap",
+      "marketFamily": "soccer handicap",
+      "marketIdentity": "market:feaaa614701359a92633d9e6",
+      "mode": "team",
+      "modelVersion": "mls_dixon_coles_v2.0",
+      "oddsAmerican": -145,
+      "pick": "Charlotte FC -0.5 (D.C. United @ Charlotte FC)",
+      "player": null,
+      "policyVersion": "profit_desk_policy_v2",
+      "price": {
+        "ageHours": 2.479,
+        "breakEvenProbability": 0.591837,
+        "decimalOdds": 1.689655,
+        "eligibleForAlphaEstimate": false,
+        "fresh": true,
+        "freshPregame": true,
+        "maxAgeHours": 24.0,
+        "noVigInputs": {},
+        "noVigMethod": "unverified_single_side",
+        "noVigProbability": null,
+        "noVigVerified": false,
+        "observedExecutable": false,
+        "oddsAmerican": -145,
+        "quality": "assumed",
+        "source": null,
+        "sourceField": "unverified",
+        "startTime": "2026-08-22T23:30Z",
+        "tier": "D",
+        "tierLabel": "assumed_proxy_or_synthetic",
+        "timestamp": "2026-08-22T21:01:16.640177Z",
+        "timestampField": "pick.certification_timing.data_as_of",
+        "twoSided": false,
+        "updatedAt": "2026-08-22T21:01:16.640177Z"
+      },
+      "rawModelProbabilityIgnored": 0.6175,
+      "result": "pending",
+      "shadowQualified": false,
+      "source": "MLS Model",
+      "sourceKey": "mls",
+      "sport": "MLS",
       "stakeUnits": 0.0,
       "tier": "avoid",
       "valueQualified": false
@@ -9749,7 +9502,7 @@
       "player": null,
       "policyVersion": "profit_desk_policy_v2",
       "price": {
-        "ageHours": 5.125,
+        "ageHours": 0.016,
         "breakEvenProbability": null,
         "decimalOdds": null,
         "eligibleForAlphaEstimate": false,
@@ -9768,10 +9521,10 @@
         "startTime": "2026-08-22T20:55Z",
         "tier": "D",
         "tierLabel": "assumed_proxy_or_synthetic",
-        "timestamp": "2026-08-22T15:47:29.426649Z",
+        "timestamp": "2026-08-22T20:54:03.754656Z",
         "timestampField": "bucket.generatedAt",
         "twoSided": false,
-        "updatedAt": "2026-08-22T15:47:29.426649Z"
+        "updatedAt": "2026-08-22T20:54:03.754656Z"
       },
       "rawModelProbabilityIgnored": 0.6758,
       "result": "pending",
@@ -9858,7 +9611,7 @@
       "player": null,
       "policyVersion": "profit_desk_policy_v2",
       "price": {
-        "ageHours": 12.208,
+        "ageHours": 7.099,
         "breakEvenProbability": null,
         "decimalOdds": null,
         "eligibleForAlphaEstimate": false,
@@ -9877,10 +9630,10 @@
         "startTime": "2026-08-23T04:00Z",
         "tier": "D",
         "tierLabel": "assumed_proxy_or_synthetic",
-        "timestamp": "2026-08-22T15:47:29.426649Z",
+        "timestamp": "2026-08-22T20:54:03.754656Z",
         "timestampField": "bucket.generatedAt",
         "twoSided": false,
-        "updatedAt": "2026-08-22T15:47:29.426649Z"
+        "updatedAt": "2026-08-22T20:54:03.754656Z"
       },
       "rawModelProbabilityIgnored": 0.5961,
       "result": "pending",
@@ -9894,6 +9647,115 @@
     },
     {
       "blockers": [
+        "assumed_or_non_executable_price",
+        "edge_no_usable_price_baseline",
+        "value_no_usable_price_baseline"
+      ],
+      "canonicalGame": "2026-08-22:mlb:athletics|houston astros",
+      "consensusSources": [],
+      "date": "2026-08-22",
+      "decimalOdds": 1.833333,
+      "decision": "BET",
+      "dedupeRule": "exact_market_identity_best_executable_price",
+      "direction": "no",
+      "duplicateCount": 2,
+      "duplicateSources": [
+        "MLB Inning"
+      ],
+      "edgeQualified": false,
+      "estimate": null,
+      "evidence": {
+        "chronologicalHalvesNonnegative": false,
+        "cutoffExclusive": "2026-08-22",
+        "distinctDates": 0,
+        "firstHalfFlatNetUnits": 0.0,
+        "flatNetUnits": 0.0,
+        "flatRoi": null,
+        "losses": 0,
+        "modelVersion": "source_identity:mlb_inning",
+        "policyVersion": "profit_desk_policy_v2",
+        "priorOnly": true,
+        "pushes": 0,
+        "secondHalfFlatNetUnits": 0.0,
+        "segmentDistinctDates": 0,
+        "segmentEvidenceKey": null,
+        "segmentSamples": 0,
+        "sourceChronologicalHalvesNonnegative": false,
+        "sourceDistinctDates": 0,
+        "sourceEvidenceKey": "team|mlb_inning|mlb",
+        "sourceFirstHalfFlatNetUnits": 0.0,
+        "sourceFlatNetUnits": 0.0,
+        "sourceFlatRoi": null,
+        "sourceLosses": 0,
+        "sourceSamples": 0,
+        "sourceSecondHalfFlatNetUnits": 0.0,
+        "sourceWins": 0,
+        "wins": 0
+      },
+      "game": "Houston Astros vs Athletics",
+      "gradeSupportSource": "repository_grader_default",
+      "gradeSupported": true,
+      "id": "profit-6753914d0f70c3e938e55fe9",
+      "lane": null,
+      "laneBlockers": {
+        "edge": [
+          "edge_no_usable_price_baseline"
+        ],
+        "structural": [
+          "assumed_or_non_executable_price"
+        ],
+        "value": [
+          "value_no_usable_price_baseline"
+        ]
+      },
+      "line": null,
+      "liveQualified": false,
+      "market": "no_run_inning",
+      "marketFamily": "no run inning",
+      "marketIdentity": "market:831982394bb946e1d5ab2409",
+      "mode": "team",
+      "modelVersion": "source_identity:mlb_inning",
+      "oddsAmerican": -120,
+      "pick": "Inning 1 - No Run Scored",
+      "player": null,
+      "policyVersion": "profit_desk_policy_v2",
+      "price": {
+        "ageHours": 2.145,
+        "breakEvenProbability": 0.545455,
+        "decimalOdds": 1.833333,
+        "eligibleForAlphaEstimate": false,
+        "fresh": true,
+        "freshPregame": true,
+        "maxAgeHours": 24.0,
+        "noVigInputs": {},
+        "noVigMethod": "unverified_single_side",
+        "noVigProbability": null,
+        "noVigVerified": false,
+        "observedExecutable": false,
+        "oddsAmerican": -120,
+        "quality": "assumed",
+        "source": "user_assumed_no_run_inning_-120",
+        "sourceField": "pick.odds_source",
+        "startTime": "2026-08-22T23:10:00Z",
+        "tier": "D",
+        "tierLabel": "assumed_proxy_or_synthetic",
+        "timestamp": "2026-08-22T21:01:16.640177Z",
+        "timestampField": "pick.certification_timing.data_as_of",
+        "twoSided": false,
+        "updatedAt": "2026-08-22T21:01:16.640177Z"
+      },
+      "rawModelProbabilityIgnored": 0.581,
+      "result": "pending",
+      "shadowQualified": false,
+      "source": "MLB Inning",
+      "sourceKey": "mlb_inning",
+      "sport": "MLB",
+      "stakeUnits": 0.0,
+      "tier": "avoid",
+      "valueQualified": false
+    },
+    {
+      "blockers": [
         "unverified_price_provenance",
         "edge_no_usable_price_baseline",
         "value_no_usable_price_baseline"
@@ -9901,7 +9763,7 @@
       "canonicalGame": "2026-08-22:mls:lafc|portland timbers",
       "consensusSources": [],
       "date": "2026-08-22",
-      "decimalOdds": 1.588235,
+      "decimalOdds": 1.606061,
       "decision": "BET",
       "dedupeRule": "exact_market_identity_best_executable_price",
       "direction": "side",
@@ -9942,7 +9804,7 @@
       "game": "Portland Timbers @ LAFC",
       "gradeSupportSource": "repository_grader_default",
       "gradeSupported": true,
-      "id": "profit-6e52c2be638d4b55eeb54054",
+      "id": "profit-79211388b562c3dba20c3c32",
       "lane": null,
       "laneBlockers": {
         "edge": [
@@ -9962,14 +9824,14 @@
       "marketIdentity": "market:5734e515506e68358b2a129e",
       "mode": "team",
       "modelVersion": "mls_dixon_coles_v2.0",
-      "oddsAmerican": -170,
+      "oddsAmerican": -165,
       "pick": "LAFC -0.5 (Portland Timbers @ LAFC)",
       "player": null,
       "policyVersion": "profit_desk_policy_v2",
       "price": {
-        "ageHours": 10.645,
-        "breakEvenProbability": 0.62963,
-        "decimalOdds": 1.588235,
+        "ageHours": 5.479,
+        "breakEvenProbability": 0.622642,
+        "decimalOdds": 1.606061,
         "eligibleForAlphaEstimate": false,
         "fresh": true,
         "freshPregame": true,
@@ -9979,17 +9841,17 @@
         "noVigProbability": null,
         "noVigVerified": false,
         "observedExecutable": false,
-        "oddsAmerican": -170,
+        "oddsAmerican": -165,
         "quality": "assumed",
         "source": null,
         "sourceField": "unverified",
         "startTime": "2026-08-23T02:30Z",
         "tier": "D",
         "tierLabel": "assumed_proxy_or_synthetic",
-        "timestamp": "2026-08-22T15:51:17.152844Z",
+        "timestamp": "2026-08-22T21:01:16.640177Z",
         "timestampField": "pick.certification_timing.data_as_of",
         "twoSided": false,
-        "updatedAt": "2026-08-22T15:51:17.152844Z"
+        "updatedAt": "2026-08-22T21:01:16.640177Z"
       },
       "rawModelProbabilityIgnored": 0.6168,
       "result": "pending",
@@ -10003,116 +9865,8 @@
     },
     {
       "blockers": [
-        "unverified_price_provenance",
-        "edge_no_usable_price_baseline",
-        "value_no_usable_price_baseline"
-      ],
-      "canonicalGame": "2026-08-22:mls:chicago fire fc|red bull new york",
-      "consensusSources": [],
-      "date": "2026-08-22",
-      "decimalOdds": 1.571429,
-      "decision": "BET",
-      "dedupeRule": "exact_market_identity_best_executable_price",
-      "direction": "side",
-      "duplicateCount": 1,
-      "duplicateSources": [
-        "MLS Model"
-      ],
-      "edgeQualified": false,
-      "estimate": null,
-      "evidence": {
-        "chronologicalHalvesNonnegative": false,
-        "cutoffExclusive": "2026-08-22",
-        "distinctDates": 0,
-        "firstHalfFlatNetUnits": 0.0,
-        "flatNetUnits": 0.0,
-        "flatRoi": null,
-        "losses": 0,
-        "modelVersion": "mls_dixon_coles_v2.0",
-        "policyVersion": "profit_desk_policy_v2",
-        "priorOnly": true,
-        "pushes": 0,
-        "secondHalfFlatNetUnits": 0.0,
-        "segmentDistinctDates": 0,
-        "segmentEvidenceKey": null,
-        "segmentSamples": 0,
-        "sourceChronologicalHalvesNonnegative": false,
-        "sourceDistinctDates": 8,
-        "sourceEvidenceKey": "team|mls|mls",
-        "sourceFirstHalfFlatNetUnits": 0.0,
-        "sourceFlatNetUnits": 0.0,
-        "sourceFlatRoi": null,
-        "sourceLosses": 0,
-        "sourceSamples": 69,
-        "sourceSecondHalfFlatNetUnits": 0.0,
-        "sourceWins": 0,
-        "wins": 0
-      },
-      "game": "Chicago Fire FC @ Red Bull New York",
-      "gradeSupportSource": "repository_grader_default",
-      "gradeSupported": true,
-      "id": "profit-7ac8d2164808723214edb3b7",
-      "lane": null,
-      "laneBlockers": {
-        "edge": [
-          "edge_no_usable_price_baseline"
-        ],
-        "structural": [
-          "unverified_price_provenance"
-        ],
-        "value": [
-          "value_no_usable_price_baseline"
-        ]
-      },
-      "line": 0.5,
-      "liveQualified": false,
-      "market": "soccer_handicap",
-      "marketFamily": "soccer handicap",
-      "marketIdentity": "market:b3cf2d7ac40059be9ad6f2d2",
-      "mode": "team",
-      "modelVersion": "mls_dixon_coles_v2.0",
-      "oddsAmerican": -175,
-      "pick": "Red Bull New York +0.5 (Chicago Fire FC @ Red Bull New York)",
-      "player": null,
-      "policyVersion": "profit_desk_policy_v2",
-      "price": {
-        "ageHours": 7.645,
-        "breakEvenProbability": 0.636364,
-        "decimalOdds": 1.571429,
-        "eligibleForAlphaEstimate": false,
-        "fresh": true,
-        "freshPregame": true,
-        "maxAgeHours": 24.0,
-        "noVigInputs": {},
-        "noVigMethod": "unverified_single_side",
-        "noVigProbability": null,
-        "noVigVerified": false,
-        "observedExecutable": false,
-        "oddsAmerican": -175,
-        "quality": "assumed",
-        "source": null,
-        "sourceField": "unverified",
-        "startTime": "2026-08-22T23:30Z",
-        "tier": "D",
-        "tierLabel": "assumed_proxy_or_synthetic",
-        "timestamp": "2026-08-22T15:51:17.152844Z",
-        "timestampField": "pick.certification_timing.data_as_of",
-        "twoSided": false,
-        "updatedAt": "2026-08-22T15:51:17.152844Z"
-      },
-      "rawModelProbabilityIgnored": 0.6575,
-      "result": "pending",
-      "shadowQualified": false,
-      "source": "MLS Model",
-      "sourceKey": "mls",
-      "sport": "MLS",
-      "stakeUnits": 0.0,
-      "tier": "avoid",
-      "valueQualified": false
-    },
-    {
-      "blockers": [
         "missing_executable_odds",
+        "price_not_pregame",
         "edge_no_usable_price_baseline",
         "value_no_usable_price_baseline"
       ],
@@ -10167,7 +9921,8 @@
           "edge_no_usable_price_baseline"
         ],
         "structural": [
-          "missing_executable_odds"
+          "missing_executable_odds",
+          "price_not_pregame"
         ],
         "value": [
           "value_no_usable_price_baseline"
@@ -10185,12 +9940,12 @@
       "player": null,
       "policyVersion": "profit_desk_policy_v2",
       "price": {
-        "ageHours": 2.208,
+        "ageHours": -2.901,
         "breakEvenProbability": null,
         "decimalOdds": null,
         "eligibleForAlphaEstimate": false,
-        "fresh": true,
-        "freshPregame": true,
+        "fresh": false,
+        "freshPregame": false,
         "maxAgeHours": 24.0,
         "noVigInputs": {},
         "noVigMethod": "unverified_single_side",
@@ -10204,10 +9959,10 @@
         "startTime": "2026-08-22T18:00Z",
         "tier": "D",
         "tierLabel": "assumed_proxy_or_synthetic",
-        "timestamp": "2026-08-22T15:47:29.426649Z",
+        "timestamp": "2026-08-22T20:54:03.754656Z",
         "timestampField": "bucket.generatedAt",
         "twoSided": false,
-        "updatedAt": "2026-08-22T15:47:29.426649Z"
+        "updatedAt": "2026-08-22T20:54:03.754656Z"
       },
       "rawModelProbabilityIgnored": 0.628,
       "result": "win",
@@ -10225,11 +9980,11 @@
         "edge_no_usable_price_baseline",
         "value_no_usable_price_baseline"
       ],
-      "canonicalGame": "2026-08-22:mls:fc dallas|vancouver whitecaps",
+      "canonicalGame": "2026-08-22:mls:houston dynamo fc|st louis city sc",
       "consensusSources": [],
       "date": "2026-08-22",
-      "decimalOdds": 1.571429,
-      "decision": "BET",
+      "decimalOdds": 1.740741,
+      "decision": "LEAN",
       "dedupeRule": "exact_market_identity_best_executable_price",
       "direction": "side",
       "duplicateCount": 1,
@@ -10266,10 +10021,10 @@
         "sourceWins": 0,
         "wins": 0
       },
-      "game": "FC Dallas @ Vancouver Whitecaps",
+      "game": "Houston Dynamo FC @ St. Louis CITY SC",
       "gradeSupportSource": "repository_grader_default",
       "gradeSupported": true,
-      "id": "profit-8fab42dc22e16746c32a99d8",
+      "id": "profit-91f11a31c27b0e93cb57129f",
       "lane": null,
       "laneBlockers": {
         "edge": [
@@ -10282,21 +10037,21 @@
           "value_no_usable_price_baseline"
         ]
       },
-      "line": 1.5,
+      "line": 0.5,
       "liveQualified": false,
       "market": "soccer_handicap",
       "marketFamily": "soccer handicap",
-      "marketIdentity": "market:2e136bab41a78e90455545b1",
+      "marketIdentity": "market:4d84f11afd47dbddce5a8269",
       "mode": "team",
       "modelVersion": "mls_dixon_coles_v2.0",
-      "oddsAmerican": -175,
-      "pick": "FC Dallas +1.5 (FC Dallas @ Vancouver Whitecaps)",
+      "oddsAmerican": -135,
+      "pick": "Houston Dynamo FC +0.5 (Houston Dynamo FC @ St. Louis CITY SC)",
       "player": null,
       "policyVersion": "profit_desk_policy_v2",
       "price": {
-        "ageHours": 9.645,
-        "breakEvenProbability": 0.636364,
-        "decimalOdds": 1.571429,
+        "ageHours": 3.479,
+        "breakEvenProbability": 0.574468,
+        "decimalOdds": 1.740741,
         "eligibleForAlphaEstimate": false,
         "fresh": true,
         "freshPregame": true,
@@ -10306,19 +10061,19 @@
         "noVigProbability": null,
         "noVigVerified": false,
         "observedExecutable": false,
-        "oddsAmerican": -175,
+        "oddsAmerican": -135,
         "quality": "assumed",
         "source": null,
         "sourceField": "unverified",
-        "startTime": "2026-08-23T01:30Z",
+        "startTime": "2026-08-23T00:30Z",
         "tier": "D",
         "tierLabel": "assumed_proxy_or_synthetic",
-        "timestamp": "2026-08-22T15:51:17.152844Z",
+        "timestamp": "2026-08-22T21:01:16.640177Z",
         "timestampField": "pick.certification_timing.data_as_of",
         "twoSided": false,
-        "updatedAt": "2026-08-22T15:51:17.152844Z"
+        "updatedAt": "2026-08-22T21:01:16.640177Z"
       },
-      "rawModelProbabilityIgnored": 0.655,
+      "rawModelProbabilityIgnored": 0.5816,
       "result": "pending",
       "shadowQualified": false,
       "source": "MLS Model",
@@ -10407,7 +10162,7 @@
       "player": null,
       "policyVersion": "profit_desk_policy_v2",
       "price": {
-        "ageHours": 6.708,
+        "ageHours": 1.599,
         "breakEvenProbability": null,
         "decimalOdds": null,
         "eligibleForAlphaEstimate": false,
@@ -10426,10 +10181,10 @@
         "startTime": "2026-08-22T22:30Z",
         "tier": "D",
         "tierLabel": "assumed_proxy_or_synthetic",
-        "timestamp": "2026-08-22T15:47:29.426649Z",
+        "timestamp": "2026-08-22T20:54:03.754656Z",
         "timestampField": "bucket.generatedAt",
         "twoSided": false,
-        "updatedAt": "2026-08-22T15:47:29.426649Z"
+        "updatedAt": "2026-08-22T20:54:03.754656Z"
       },
       "rawModelProbabilityIgnored": 0.6409,
       "result": "pending",
@@ -10516,7 +10271,7 @@
       "player": null,
       "policyVersion": "profit_desk_policy_v2",
       "price": {
-        "ageHours": 8.645,
+        "ageHours": 3.479,
         "breakEvenProbability": 0.565217,
         "decimalOdds": 1.769231,
         "eligibleForAlphaEstimate": false,
@@ -10535,10 +10290,10 @@
         "startTime": "2026-08-23T00:30Z",
         "tier": "D",
         "tierLabel": "assumed_proxy_or_synthetic",
-        "timestamp": "2026-08-22T15:51:17.152844Z",
+        "timestamp": "2026-08-22T21:01:16.640177Z",
         "timestampField": "pick.certification_timing.data_as_of",
         "twoSided": false,
-        "updatedAt": "2026-08-22T15:51:17.152844Z"
+        "updatedAt": "2026-08-22T21:01:16.640177Z"
       },
       "rawModelProbabilityIgnored": 0.5774,
       "result": "pending",
@@ -10625,7 +10380,7 @@
       "player": null,
       "policyVersion": "profit_desk_policy_v2",
       "price": {
-        "ageHours": 8.312,
+        "ageHours": 3.145,
         "breakEvenProbability": 0.545455,
         "decimalOdds": 1.833333,
         "eligibleForAlphaEstimate": false,
@@ -10644,10 +10399,10 @@
         "startTime": "2026-08-23T00:10Z",
         "tier": "D",
         "tierLabel": "assumed_proxy_or_synthetic",
-        "timestamp": "2026-08-22T15:51:17.152844Z",
+        "timestamp": "2026-08-22T21:01:16.640177Z",
         "timestampField": "pick.certification_timing.data_as_of",
         "twoSided": false,
-        "updatedAt": "2026-08-22T15:51:17.152844Z"
+        "updatedAt": "2026-08-22T21:01:16.640177Z"
       },
       "rawModelProbabilityIgnored": 0.629,
       "result": "pending",
@@ -10665,11 +10420,11 @@
         "edge_no_usable_price_baseline",
         "value_no_usable_price_baseline"
       ],
-      "canonicalGame": "2026-08-22:mls:cf montr\u00e9al|la galaxy",
+      "canonicalGame": "2026-08-22:mls:fc dallas|vancouver whitecaps",
       "consensusSources": [],
       "date": "2026-08-22",
-      "decimalOdds": 1.714286,
-      "decision": "LEAN",
+      "decimalOdds": 1.588235,
+      "decision": "BET",
       "dedupeRule": "exact_market_identity_best_executable_price",
       "direction": "side",
       "duplicateCount": 1,
@@ -10706,10 +10461,119 @@
         "sourceWins": 0,
         "wins": 0
       },
-      "game": "LA Galaxy @ CF Montr\u00e9al",
+      "game": "FC Dallas @ Vancouver Whitecaps",
       "gradeSupportSource": "repository_grader_default",
       "gradeSupported": true,
-      "id": "profit-bdf120f3337a5d1bafe770a2",
+      "id": "profit-b9b3c4281f19c1c2c5abd452",
+      "lane": null,
+      "laneBlockers": {
+        "edge": [
+          "edge_no_usable_price_baseline"
+        ],
+        "structural": [
+          "unverified_price_provenance"
+        ],
+        "value": [
+          "value_no_usable_price_baseline"
+        ]
+      },
+      "line": 1.5,
+      "liveQualified": false,
+      "market": "soccer_handicap",
+      "marketFamily": "soccer handicap",
+      "marketIdentity": "market:2e136bab41a78e90455545b1",
+      "mode": "team",
+      "modelVersion": "mls_dixon_coles_v2.0",
+      "oddsAmerican": -170,
+      "pick": "FC Dallas +1.5 (FC Dallas @ Vancouver Whitecaps)",
+      "player": null,
+      "policyVersion": "profit_desk_policy_v2",
+      "price": {
+        "ageHours": 4.479,
+        "breakEvenProbability": 0.62963,
+        "decimalOdds": 1.588235,
+        "eligibleForAlphaEstimate": false,
+        "fresh": true,
+        "freshPregame": true,
+        "maxAgeHours": 24.0,
+        "noVigInputs": {},
+        "noVigMethod": "unverified_single_side",
+        "noVigProbability": null,
+        "noVigVerified": false,
+        "observedExecutable": false,
+        "oddsAmerican": -170,
+        "quality": "assumed",
+        "source": null,
+        "sourceField": "unverified",
+        "startTime": "2026-08-23T01:30Z",
+        "tier": "D",
+        "tierLabel": "assumed_proxy_or_synthetic",
+        "timestamp": "2026-08-22T21:01:16.640177Z",
+        "timestampField": "pick.certification_timing.data_as_of",
+        "twoSided": false,
+        "updatedAt": "2026-08-22T21:01:16.640177Z"
+      },
+      "rawModelProbabilityIgnored": 0.655,
+      "result": "pending",
+      "shadowQualified": false,
+      "source": "MLS Model",
+      "sourceKey": "mls",
+      "sport": "MLS",
+      "stakeUnits": 0.0,
+      "tier": "avoid",
+      "valueQualified": false
+    },
+    {
+      "blockers": [
+        "unverified_price_provenance",
+        "edge_no_usable_price_baseline",
+        "value_no_usable_price_baseline"
+      ],
+      "canonicalGame": "2026-08-22:mls:chicago fire fc|red bull new york",
+      "consensusSources": [],
+      "date": "2026-08-22",
+      "decimalOdds": 1.526316,
+      "decision": "BET",
+      "dedupeRule": "exact_market_identity_best_executable_price",
+      "direction": "side",
+      "duplicateCount": 1,
+      "duplicateSources": [
+        "MLS Model"
+      ],
+      "edgeQualified": false,
+      "estimate": null,
+      "evidence": {
+        "chronologicalHalvesNonnegative": false,
+        "cutoffExclusive": "2026-08-22",
+        "distinctDates": 0,
+        "firstHalfFlatNetUnits": 0.0,
+        "flatNetUnits": 0.0,
+        "flatRoi": null,
+        "losses": 0,
+        "modelVersion": "mls_dixon_coles_v2.0",
+        "policyVersion": "profit_desk_policy_v2",
+        "priorOnly": true,
+        "pushes": 0,
+        "secondHalfFlatNetUnits": 0.0,
+        "segmentDistinctDates": 0,
+        "segmentEvidenceKey": null,
+        "segmentSamples": 0,
+        "sourceChronologicalHalvesNonnegative": false,
+        "sourceDistinctDates": 8,
+        "sourceEvidenceKey": "team|mls|mls",
+        "sourceFirstHalfFlatNetUnits": 0.0,
+        "sourceFlatNetUnits": 0.0,
+        "sourceFlatRoi": null,
+        "sourceLosses": 0,
+        "sourceSamples": 69,
+        "sourceSecondHalfFlatNetUnits": 0.0,
+        "sourceWins": 0,
+        "wins": 0
+      },
+      "game": "Chicago Fire FC @ Red Bull New York",
+      "gradeSupportSource": "repository_grader_default",
+      "gradeSupported": true,
+      "id": "profit-bc8ea70d6f5580b942d4509a",
       "lane": null,
       "laneBlockers": {
         "edge": [
@@ -10726,17 +10590,17 @@
       "liveQualified": false,
       "market": "soccer_handicap",
       "marketFamily": "soccer handicap",
-      "marketIdentity": "market:842a23cebf5da3585893545f",
+      "marketIdentity": "market:b56c771f503a244a6159a34b",
       "mode": "team",
       "modelVersion": "mls_dixon_coles_v2.0",
-      "oddsAmerican": -140,
-      "pick": "LA Galaxy +0.5 (LA Galaxy @ CF Montr\u00e9al)",
+      "oddsAmerican": -190,
+      "pick": "Chicago Fire FC +0.5 (Chicago Fire FC @ Red Bull New York)",
       "player": null,
       "policyVersion": "profit_desk_policy_v2",
       "price": {
-        "ageHours": 7.645,
-        "breakEvenProbability": 0.583333,
-        "decimalOdds": 1.714286,
+        "ageHours": 2.479,
+        "breakEvenProbability": 0.655172,
+        "decimalOdds": 1.526316,
         "eligibleForAlphaEstimate": false,
         "fresh": true,
         "freshPregame": true,
@@ -10746,19 +10610,19 @@
         "noVigProbability": null,
         "noVigVerified": false,
         "observedExecutable": false,
-        "oddsAmerican": -140,
+        "oddsAmerican": -190,
         "quality": "assumed",
         "source": null,
         "sourceField": "unverified",
         "startTime": "2026-08-22T23:30Z",
         "tier": "D",
         "tierLabel": "assumed_proxy_or_synthetic",
-        "timestamp": "2026-08-22T15:51:17.152844Z",
+        "timestamp": "2026-08-22T21:01:16.640177Z",
         "timestampField": "pick.certification_timing.data_as_of",
         "twoSided": false,
-        "updatedAt": "2026-08-22T15:51:17.152844Z"
+        "updatedAt": "2026-08-22T21:01:16.640177Z"
       },
-      "rawModelProbabilityIgnored": 0.6283,
+      "rawModelProbabilityIgnored": 0.5874,
       "result": "pending",
       "shadowQualified": false,
       "source": "MLS Model",
@@ -10771,6 +10635,7 @@
     {
       "blockers": [
         "missing_executable_odds",
+        "price_not_pregame",
         "edge_no_usable_price_baseline",
         "value_no_usable_price_baseline"
       ],
@@ -10825,7 +10690,8 @@
           "edge_no_usable_price_baseline"
         ],
         "structural": [
-          "missing_executable_odds"
+          "missing_executable_odds",
+          "price_not_pregame"
         ],
         "value": [
           "value_no_usable_price_baseline"
@@ -10843,12 +10709,12 @@
       "player": null,
       "policyVersion": "profit_desk_policy_v2",
       "price": {
-        "ageHours": 0.708,
+        "ageHours": -4.401,
         "breakEvenProbability": null,
         "decimalOdds": null,
         "eligibleForAlphaEstimate": false,
-        "fresh": true,
-        "freshPregame": true,
+        "fresh": false,
+        "freshPregame": false,
         "maxAgeHours": 24.0,
         "noVigInputs": {},
         "noVigMethod": "unverified_single_side",
@@ -10862,10 +10728,10 @@
         "startTime": "2026-08-22T16:30Z",
         "tier": "D",
         "tierLabel": "assumed_proxy_or_synthetic",
-        "timestamp": "2026-08-22T15:47:29.426649Z",
+        "timestamp": "2026-08-22T20:54:03.754656Z",
         "timestampField": "bucket.generatedAt",
         "twoSided": false,
-        "updatedAt": "2026-08-22T15:47:29.426649Z"
+        "updatedAt": "2026-08-22T20:54:03.754656Z"
       },
       "rawModelProbabilityIgnored": 0.6409,
       "result": "loss",
@@ -10994,6 +10860,116 @@
         "edge_no_usable_price_baseline",
         "value_no_usable_price_baseline"
       ],
+      "canonicalGame": "2026-08-22:tennis:brandon nakashima|frances tiafoe",
+      "consensusSources": [],
+      "date": "2026-08-22",
+      "decimalOdds": null,
+      "decision": "LEAN",
+      "dedupeRule": "exact_market_identity_best_executable_price",
+      "direction": "side",
+      "duplicateCount": 1,
+      "duplicateSources": [
+        "Tennis Model"
+      ],
+      "edgeQualified": false,
+      "estimate": null,
+      "evidence": {
+        "chronologicalHalvesNonnegative": false,
+        "cutoffExclusive": "2026-08-22",
+        "distinctDates": 0,
+        "firstHalfFlatNetUnits": 0.0,
+        "flatNetUnits": 0.0,
+        "flatRoi": null,
+        "losses": 0,
+        "modelVersion": "tennis_v1_welo_logistic",
+        "policyVersion": "profit_desk_policy_v2",
+        "priorOnly": true,
+        "pushes": 0,
+        "secondHalfFlatNetUnits": 0.0,
+        "segmentDistinctDates": 0,
+        "segmentEvidenceKey": null,
+        "segmentSamples": 0,
+        "sourceChronologicalHalvesNonnegative": false,
+        "sourceDistinctDates": 0,
+        "sourceEvidenceKey": "team|tennis|tennis",
+        "sourceFirstHalfFlatNetUnits": 0.0,
+        "sourceFlatNetUnits": 0.0,
+        "sourceFlatRoi": null,
+        "sourceLosses": 0,
+        "sourceSamples": 0,
+        "sourceSecondHalfFlatNetUnits": 0.0,
+        "sourceWins": 0,
+        "wins": 0
+      },
+      "game": "Frances Tiafoe vs Brandon Nakashima",
+      "gradeSupportSource": "explicit_true",
+      "gradeSupported": true,
+      "id": "profit-c8facafffbe02a645302564e",
+      "lane": null,
+      "laneBlockers": {
+        "edge": [
+          "edge_no_usable_price_baseline"
+        ],
+        "structural": [
+          "missing_executable_odds"
+        ],
+        "value": [
+          "value_no_usable_price_baseline"
+        ]
+      },
+      "line": null,
+      "liveQualified": false,
+      "market": "tennis_moneyline",
+      "marketFamily": "tennis moneyline",
+      "marketIdentity": "market:6f261995efa027ef3b329213",
+      "mode": "team",
+      "modelVersion": "tennis_v1_welo_logistic",
+      "oddsAmerican": null,
+      "pick": "Frances Tiafoe ML (Frances Tiafoe vs Brandon Nakashima)",
+      "player": null,
+      "policyVersion": "profit_desk_policy_v2",
+      "price": {
+        "ageHours": 1.099,
+        "breakEvenProbability": null,
+        "decimalOdds": null,
+        "eligibleForAlphaEstimate": false,
+        "fresh": true,
+        "freshPregame": true,
+        "maxAgeHours": 24.0,
+        "noVigInputs": {},
+        "noVigMethod": "unverified_single_side",
+        "noVigProbability": null,
+        "noVigVerified": false,
+        "observedExecutable": false,
+        "oddsAmerican": null,
+        "quality": "missing",
+        "source": null,
+        "sourceField": "missing",
+        "startTime": "2026-08-22T22:00Z",
+        "tier": "D",
+        "tierLabel": "assumed_proxy_or_synthetic",
+        "timestamp": "2026-08-22T20:54:03.754656Z",
+        "timestampField": "bucket.generatedAt",
+        "twoSided": false,
+        "updatedAt": "2026-08-22T20:54:03.754656Z"
+      },
+      "rawModelProbabilityIgnored": 0.5961,
+      "result": "pending",
+      "shadowQualified": false,
+      "source": "Tennis Model",
+      "sourceKey": "tennis",
+      "sport": "Tennis",
+      "stakeUnits": 0.0,
+      "tier": "avoid",
+      "valueQualified": false
+    },
+    {
+      "blockers": [
+        "missing_executable_odds",
+        "price_not_pregame",
+        "edge_no_usable_price_baseline",
+        "value_no_usable_price_baseline"
+      ],
       "canonicalGame": "2026-08-22:tennis:marc polmans|sebastian gorzny",
       "consensusSources": [],
       "date": "2026-08-22",
@@ -11045,7 +11021,8 @@
           "edge_no_usable_price_baseline"
         ],
         "structural": [
-          "missing_executable_odds"
+          "missing_executable_odds",
+          "price_not_pregame"
         ],
         "value": [
           "value_no_usable_price_baseline"
@@ -11063,12 +11040,12 @@
       "player": null,
       "policyVersion": "profit_desk_policy_v2",
       "price": {
-        "ageHours": 0.708,
+        "ageHours": -4.401,
         "breakEvenProbability": null,
         "decimalOdds": null,
         "eligibleForAlphaEstimate": false,
-        "fresh": true,
-        "freshPregame": true,
+        "fresh": false,
+        "freshPregame": false,
         "maxAgeHours": 24.0,
         "noVigInputs": {},
         "noVigMethod": "unverified_single_side",
@@ -11082,10 +11059,10 @@
         "startTime": "2026-08-22T16:30Z",
         "tier": "D",
         "tierLabel": "assumed_proxy_or_synthetic",
-        "timestamp": "2026-08-22T15:47:29.426649Z",
+        "timestamp": "2026-08-22T20:54:03.754656Z",
         "timestampField": "bucket.generatedAt",
         "twoSided": false,
-        "updatedAt": "2026-08-22T15:47:29.426649Z"
+        "updatedAt": "2026-08-22T20:54:03.754656Z"
       },
       "rawModelProbabilityIgnored": 0.628,
       "result": "loss",
@@ -11172,7 +11149,7 @@
       "player": null,
       "policyVersion": "profit_desk_policy_v2",
       "price": {
-        "ageHours": 12.208,
+        "ageHours": 7.099,
         "breakEvenProbability": null,
         "decimalOdds": null,
         "eligibleForAlphaEstimate": false,
@@ -11191,10 +11168,10 @@
         "startTime": "2026-08-23T04:00Z",
         "tier": "D",
         "tierLabel": "assumed_proxy_or_synthetic",
-        "timestamp": "2026-08-22T15:47:29.426649Z",
+        "timestamp": "2026-08-22T20:54:03.754656Z",
         "timestampField": "bucket.generatedAt",
         "twoSided": false,
-        "updatedAt": "2026-08-22T15:47:29.426649Z"
+        "updatedAt": "2026-08-22T20:54:03.754656Z"
       },
       "rawModelProbabilityIgnored": 0.6877,
       "result": "pending",
@@ -11311,6 +11288,115 @@
       "source": "TennisTonic",
       "sourceKey": "tennistonic_tennis",
       "sport": "Tennis",
+      "stakeUnits": 0.0,
+      "tier": "avoid",
+      "valueQualified": false
+    },
+    {
+      "blockers": [
+        "unverified_price_provenance",
+        "edge_no_usable_price_baseline",
+        "value_no_usable_price_baseline"
+      ],
+      "canonicalGame": "2026-08-22:mls:columbus crew|nashville sc",
+      "consensusSources": [],
+      "date": "2026-08-22",
+      "decimalOdds": 1.625,
+      "decision": "LEAN",
+      "dedupeRule": "exact_market_identity_best_executable_price",
+      "direction": "side",
+      "duplicateCount": 1,
+      "duplicateSources": [
+        "MLS Model"
+      ],
+      "edgeQualified": false,
+      "estimate": null,
+      "evidence": {
+        "chronologicalHalvesNonnegative": false,
+        "cutoffExclusive": "2026-08-22",
+        "distinctDates": 0,
+        "firstHalfFlatNetUnits": 0.0,
+        "flatNetUnits": 0.0,
+        "flatRoi": null,
+        "losses": 0,
+        "modelVersion": "mls_dixon_coles_v2.0",
+        "policyVersion": "profit_desk_policy_v2",
+        "priorOnly": true,
+        "pushes": 0,
+        "secondHalfFlatNetUnits": 0.0,
+        "segmentDistinctDates": 0,
+        "segmentEvidenceKey": null,
+        "segmentSamples": 0,
+        "sourceChronologicalHalvesNonnegative": false,
+        "sourceDistinctDates": 8,
+        "sourceEvidenceKey": "team|mls|mls",
+        "sourceFirstHalfFlatNetUnits": 0.0,
+        "sourceFlatNetUnits": 0.0,
+        "sourceFlatRoi": null,
+        "sourceLosses": 0,
+        "sourceSamples": 69,
+        "sourceSecondHalfFlatNetUnits": 0.0,
+        "sourceWins": 0,
+        "wins": 0
+      },
+      "game": "Columbus Crew @ Nashville SC",
+      "gradeSupportSource": "repository_grader_default",
+      "gradeSupported": true,
+      "id": "profit-cf6d8d5104bb3d3f632f33f1",
+      "lane": null,
+      "laneBlockers": {
+        "edge": [
+          "edge_no_usable_price_baseline"
+        ],
+        "structural": [
+          "unverified_price_provenance"
+        ],
+        "value": [
+          "value_no_usable_price_baseline"
+        ]
+      },
+      "line": -0.5,
+      "liveQualified": false,
+      "market": "soccer_handicap",
+      "marketFamily": "soccer handicap",
+      "marketIdentity": "market:876f86bea42df4a4ae7f6e63",
+      "mode": "team",
+      "modelVersion": "mls_dixon_coles_v2.0",
+      "oddsAmerican": -160,
+      "pick": "Nashville SC -0.5 (Columbus Crew @ Nashville SC)",
+      "player": null,
+      "policyVersion": "profit_desk_policy_v2",
+      "price": {
+        "ageHours": 3.479,
+        "breakEvenProbability": 0.615385,
+        "decimalOdds": 1.625,
+        "eligibleForAlphaEstimate": false,
+        "fresh": true,
+        "freshPregame": true,
+        "maxAgeHours": 24.0,
+        "noVigInputs": {},
+        "noVigMethod": "unverified_single_side",
+        "noVigProbability": null,
+        "noVigVerified": false,
+        "observedExecutable": false,
+        "oddsAmerican": -160,
+        "quality": "assumed",
+        "source": null,
+        "sourceField": "unverified",
+        "startTime": "2026-08-23T00:30Z",
+        "tier": "D",
+        "tierLabel": "assumed_proxy_or_synthetic",
+        "timestamp": "2026-08-22T21:01:16.640177Z",
+        "timestampField": "pick.certification_timing.data_as_of",
+        "twoSided": false,
+        "updatedAt": "2026-08-22T21:01:16.640177Z"
+      },
+      "rawModelProbabilityIgnored": 0.5257,
+      "result": "pending",
+      "shadowQualified": false,
+      "source": "MLS Model",
+      "sourceKey": "mls",
+      "sport": "MLS",
       "stakeUnits": 0.0,
       "tier": "avoid",
       "valueQualified": false
@@ -11501,7 +11587,7 @@
       "player": null,
       "policyVersion": "profit_desk_policy_v2",
       "price": {
-        "ageHours": 8.812,
+        "ageHours": 3.645,
         "breakEvenProbability": 0.545455,
         "decimalOdds": 1.833333,
         "eligibleForAlphaEstimate": false,
@@ -11520,10 +11606,10 @@
         "startTime": "2026-08-23T00:40Z",
         "tier": "D",
         "tierLabel": "assumed_proxy_or_synthetic",
-        "timestamp": "2026-08-22T15:51:17.152844Z",
+        "timestamp": "2026-08-22T21:01:16.640177Z",
         "timestampField": "pick.certification_timing.data_as_of",
         "twoSided": false,
-        "updatedAt": "2026-08-22T15:51:17.152844Z"
+        "updatedAt": "2026-08-22T21:01:16.640177Z"
       },
       "rawModelProbabilityIgnored": 0.599,
       "result": "pending",
@@ -11719,7 +11805,7 @@
       "player": null,
       "policyVersion": "profit_desk_policy_v2",
       "price": {
-        "ageHours": 12.208,
+        "ageHours": 7.099,
         "breakEvenProbability": null,
         "decimalOdds": null,
         "eligibleForAlphaEstimate": false,
@@ -11738,10 +11824,10 @@
         "startTime": "2026-08-23T04:00Z",
         "tier": "D",
         "tierLabel": "assumed_proxy_or_synthetic",
-        "timestamp": "2026-08-22T15:47:29.426649Z",
+        "timestamp": "2026-08-22T20:54:03.754656Z",
         "timestampField": "bucket.generatedAt",
         "twoSided": false,
-        "updatedAt": "2026-08-22T15:47:29.426649Z"
+        "updatedAt": "2026-08-22T20:54:03.754656Z"
       },
       "rawModelProbabilityIgnored": 0.8567,
       "result": "pending",
@@ -11941,7 +12027,7 @@
       "player": null,
       "policyVersion": "profit_desk_policy_v2",
       "price": {
-        "ageHours": 6.708,
+        "ageHours": 1.599,
         "breakEvenProbability": null,
         "decimalOdds": null,
         "eligibleForAlphaEstimate": false,
@@ -11960,10 +12046,10 @@
         "startTime": "2026-08-22T22:30Z",
         "tier": "D",
         "tierLabel": "assumed_proxy_or_synthetic",
-        "timestamp": "2026-08-22T15:47:29.426649Z",
+        "timestamp": "2026-08-22T20:54:03.754656Z",
         "timestampField": "bucket.generatedAt",
         "twoSided": false,
-        "updatedAt": "2026-08-22T15:47:29.426649Z"
+        "updatedAt": "2026-08-22T20:54:03.754656Z"
       },
       "rawModelProbabilityIgnored": 0.8419,
       "result": "pending",
@@ -11978,6 +12064,7 @@
     {
       "blockers": [
         "missing_executable_odds",
+        "price_not_pregame",
         "edge_no_usable_price_baseline",
         "value_no_usable_price_baseline"
       ],
@@ -12032,7 +12119,8 @@
           "edge_no_usable_price_baseline"
         ],
         "structural": [
-          "missing_executable_odds"
+          "missing_executable_odds",
+          "price_not_pregame"
         ],
         "value": [
           "value_no_usable_price_baseline"
@@ -12050,12 +12138,12 @@
       "player": null,
       "policyVersion": "profit_desk_policy_v2",
       "price": {
-        "ageHours": 0.708,
+        "ageHours": -4.401,
         "breakEvenProbability": null,
         "decimalOdds": null,
         "eligibleForAlphaEstimate": false,
-        "fresh": true,
-        "freshPregame": true,
+        "fresh": false,
+        "freshPregame": false,
         "maxAgeHours": 24.0,
         "noVigInputs": {},
         "noVigMethod": "unverified_single_side",
@@ -12069,10 +12157,10 @@
         "startTime": "2026-08-22T16:30Z",
         "tier": "D",
         "tierLabel": "assumed_proxy_or_synthetic",
-        "timestamp": "2026-08-22T15:47:29.426649Z",
+        "timestamp": "2026-08-22T20:54:03.754656Z",
         "timestampField": "bucket.generatedAt",
         "twoSided": false,
-        "updatedAt": "2026-08-22T15:47:29.426649Z"
+        "updatedAt": "2026-08-22T20:54:03.754656Z"
       },
       "rawModelProbabilityIgnored": 0.6877,
       "result": "win",
@@ -12159,7 +12247,7 @@
       "player": null,
       "policyVersion": "profit_desk_policy_v2",
       "price": {
-        "ageHours": 10.645,
+        "ageHours": 5.479,
         "breakEvenProbability": 0.607843,
         "decimalOdds": 1.645161,
         "eligibleForAlphaEstimate": false,
@@ -12178,10 +12266,10 @@
         "startTime": "2026-08-23T02:30Z",
         "tier": "D",
         "tierLabel": "assumed_proxy_or_synthetic",
-        "timestamp": "2026-08-22T15:51:17.152844Z",
+        "timestamp": "2026-08-22T21:01:16.640177Z",
         "timestampField": "pick.certification_timing.data_as_of",
         "twoSided": false,
-        "updatedAt": "2026-08-22T15:51:17.152844Z"
+        "updatedAt": "2026-08-22T21:01:16.640177Z"
       },
       "rawModelProbabilityIgnored": 0.5706,
       "result": "pending",
@@ -12381,7 +12469,7 @@
       "player": null,
       "policyVersion": "profit_desk_policy_v2",
       "price": {
-        "ageHours": 5.208,
+        "ageHours": 0.099,
         "breakEvenProbability": null,
         "decimalOdds": null,
         "eligibleForAlphaEstimate": false,
@@ -12400,10 +12488,10 @@
         "startTime": "2026-08-22T21:00Z",
         "tier": "D",
         "tierLabel": "assumed_proxy_or_synthetic",
-        "timestamp": "2026-08-22T15:47:29.426649Z",
+        "timestamp": "2026-08-22T20:54:03.754656Z",
         "timestampField": "bucket.generatedAt",
         "twoSided": false,
-        "updatedAt": "2026-08-22T15:47:29.426649Z"
+        "updatedAt": "2026-08-22T20:54:03.754656Z"
       },
       "rawModelProbabilityIgnored": 0.6514,
       "result": "pending",
@@ -12420,7 +12508,7 @@
   "date": "2026-08-22",
   "engineVersion": "profit_desk_v2_live",
   "firstLiveDate": "2026-07-11",
-  "generatedAt": "2026-08-22T20:35:55.520538Z",
+  "generatedAt": "2026-08-22T21:01:16.640177Z",
   "notices": [
     "Qualified picks carry real flat stakes: EDGE 1.0u, VALUE 0.5u; everything else stays 0u.",
     "The market price is the baseline; historical residual alpha is shrunk and uncertainty-adjusted.",
@@ -14356,7 +14444,7 @@
     },
     {
       "alpha": -0.009482,
-      "candidatesToday": 3,
+      "candidatesToday": 2,
       "distinctDates": 27,
       "evidenceQualified": false,
       "flatNetUnits": -8.3661,
@@ -14816,7 +14904,7 @@
     },
     {
       "alpha": 0.0,
-      "candidatesToday": 8,
+      "candidatesToday": 9,
       "distinctDates": 0,
       "evidenceQualified": false,
       "flatNetUnits": 0,
@@ -14862,7 +14950,7 @@
     },
     {
       "alpha": 0.0,
-      "candidatesToday": 21,
+      "candidatesToday": 22,
       "distinctDates": 0,
       "evidenceQualified": false,
       "flatNetUnits": 0,
@@ -15276,13 +15364,13 @@
     }
   ],
   "summary": {
-    "avoid": 45,
-    "candidateCount": 96,
-    "candidatesEvaluated": 96,
-    "deduplicatedPicks": 18,
+    "avoid": 47,
+    "candidateCount": 97,
+    "candidatesEvaluated": 97,
+    "deduplicatedPicks": 19,
     "edgeQualified": 0,
     "evidenceRows": 3150,
-    "inputPicks": 114,
+    "inputPicks": 116,
     "livePortfolioCandidates": 3,
     "liveQualified": 3,
     "liveRecord": {
@@ -15329,23 +15417,23 @@
         "watchlist": 1
       },
       "team": {
-        "avoid": 45,
-        "candidateCount": 92,
-        "candidates": 92,
-        "candidatesEvaluated": 92,
+        "avoid": 47,
+        "candidateCount": 93,
+        "candidates": 93,
+        "candidatesEvaluated": 93,
         "edgeQualified": 0,
         "evidenceRows": 2436,
         "liveQualified": 0,
-        "observedPriceCandidates": 51,
+        "observedPriceCandidates": 50,
         "portfolioCandidates": 0,
         "researchQualified": 0,
         "selected": 0,
         "shadowQualified": 0,
         "valueQualified": 0,
-        "watchlist": 47
+        "watchlist": 46
       }
     },
-    "observedPriceCandidates": 55,
+    "observedPriceCandidates": 54,
     "portfolioCandidates": 3,
     "researchQualified": 3,
     "researchRecord": {
@@ -15377,6 +15465,6 @@
     },
     "sourcesTracked": 35,
     "valueQualified": 3,
-    "watchlist": 48
+    "watchlist": 47
   }
 }
