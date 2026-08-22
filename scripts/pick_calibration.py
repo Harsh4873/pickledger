@@ -35,14 +35,20 @@ CALIBRATION_EXCLUDED_MODEL_KEYS = {"fifa_world_cup", "mls", "forebet_mls", "tenn
 DECISION_DOWNGRADE_EXEMPT_MODEL_KEYS = {"mlb_inning"}
 # Models still accruing their own decided history must NOT inherit the pooled
 # "global" calibration. The global fit is dominated by other models/markets
-# (mostly mlb_new moneyline); applying that cross-market probability shrink to
-# a brand-new model can push every structurally sound projection below the
+# and applying that cross-market probability shrink to a model without its own
+# calibration group can push every structurally sound projection below the
 # market line and PASS the entire slate — a deadlock that also starves the
 # ledger of the very samples a real per-group calibration would need. These
 # models calibrate as identity (no shift) until their own calibration group
 # reaches minimum_group_samples, then graduate to genuine per-group
 # calibration automatically.
-GLOBAL_FALLBACK_EXEMPT_MODEL_KEYS = {"mlb_team_total"}
+#
+# mlb_new added 2026-08-21: the moneyline model has no decided calibration
+# samples yet — the global fit's negative intercept was converting every raw
+# BET/LEAN into a negative calibrated edge, blocking all publications.
+# wnba added for consistency: WNBA decisions use raw probability vs market
+# (not calibrated edge), but the stored edge value was misleading.
+GLOBAL_FALLBACK_EXEMPT_MODEL_KEYS = {"mlb_team_total", "mlb_new", "wnba"}
 ML_OWNED_PROBABILITY_SOURCE = "player_props_ml_v1"
 
 SNAPSHOT_EXCLUDED_FIELDS = {
