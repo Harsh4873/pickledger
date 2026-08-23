@@ -759,7 +759,7 @@
       "player": null,
       "policyVersion": "profit_desk_policy_v2",
       "price": {
-        "ageHours": 2.645,
+        "ageHours": 2.478,
         "breakEvenProbability": 0.530516,
         "decimalOdds": 1.884956,
         "eligibleForAlphaEstimate": true,
@@ -777,7 +777,7 @@
         "quality": "verified_no_vig",
         "source": "espn_scoreboard:DraftKings",
         "sourceField": "pick.price_source",
-        "startTime": "2026-08-23T23:10:00Z",
+        "startTime": "2026-08-23T23:00Z",
         "tier": "A",
         "tierLabel": "certified_executable",
         "timestamp": "2026-08-23T20:31:17.622137Z",
@@ -1360,7 +1360,7 @@
         "updatedAt": "2026-08-23T14:47:15.278755Z"
       },
       "rawModelProbabilityIgnored": null,
-      "result": "pending",
+      "result": "loss",
       "shadowQualified": false,
       "source": "Scores24MLB",
       "sourceKey": "scores24_mlb",
@@ -1953,6 +1953,14 @@
         "value_probability_positive_ev_below_0.70"
       ],
       "canonicalGame": "2026-08-23:mlb:detroit tigers|kansas city royals",
+      "closing": {
+        "capturedAt": "2026-08-23T17:49:45.171310Z",
+        "clv": 0.013736,
+        "decimalOdds": 1.925926,
+        "noVigProbability": 0.49567,
+        "oddsAmerican": -108,
+        "provider": "espn_scoreboard:DraftKings"
+      },
       "consensusSources": [],
       "date": "2026-08-23",
       "decimalOdds": 1.952381,
@@ -2074,7 +2082,7 @@
         "updatedAt": "2026-08-23T14:47:15.278755Z"
       },
       "rawModelProbabilityIgnored": null,
-      "result": "pending",
+      "result": "loss",
       "shadowQualified": false,
       "source": "Scores24MLB",
       "sourceKey": "scores24_mlb",
@@ -2806,6 +2814,152 @@
       "shadowQualified": false,
       "source": "Scores24WNBA",
       "sourceKey": "scores24_wnba",
+      "sport": "WNBA",
+      "stakeUnits": 0.0,
+      "tier": "watch",
+      "valueQualified": false
+    },
+    {
+      "blockers": [
+        "edge_insufficient_segment_samples",
+        "edge_insufficient_distinct_prior_dates",
+        "edge_negative_chronological_evidence_half",
+        "edge_probability_positive_ev_below_0.80",
+        "edge_conservative_probability_margin_below_0.02",
+        "edge_non_positive_conservative_ev",
+        "value_insufficient_source_samples",
+        "value_negative_chronological_evidence_half",
+        "value_non_positive_flat_roi",
+        "value_probability_positive_ev_below_0.70"
+      ],
+      "canonicalGame": "2026-08-23:wnba:las vegas aces|toronto tempo",
+      "consensusSources": [],
+      "date": "2026-08-23",
+      "decimalOdds": 1.952381,
+      "decision": "LEAN",
+      "dedupeRule": "exact_market_identity_best_executable_price",
+      "direction": "side",
+      "duplicateCount": 1,
+      "duplicateSources": [
+        "WNBA Model"
+      ],
+      "edgeQualified": false,
+      "estimate": {
+        "alpha": -0.026699,
+        "alphaStdError": 0.087975,
+        "breakEvenProbability": 0.512195,
+        "conservativeExpectedValue": -0.317208,
+        "expectedValue": -0.097089,
+        "lowerProbability": 0.349722,
+        "marketProbability": 0.489166,
+        "method": "market_baseline_plus_hierarchically_shrunk_prior_residual",
+        "probability": 0.462467,
+        "probabilityPositiveEv": 0.28595,
+        "sourceAlpha": -0.016169,
+        "value": {
+          "alpha": -0.016169,
+          "alphaStdError": 0.040262,
+          "conservativeExpectedValue": -0.132305,
+          "expectedValue": -0.031568,
+          "lowerProbability": 0.444429,
+          "method": "source_flat_roi_shrunk_residual_vs_break_even",
+          "probability": 0.496026,
+          "probabilityPositiveEv": 0.343991
+        }
+      },
+      "evidence": {
+        "chronologicalHalvesNonnegative": false,
+        "cutoffExclusive": "2026-08-23",
+        "distinctDates": 5,
+        "firstHalfFlatNetUnits": 0.8519,
+        "flatNetUnits": -1.1678,
+        "flatRoi": -0.166822,
+        "losses": 4,
+        "modelVersion": "source_identity:wnba",
+        "policyVersion": "profit_desk_policy_v2",
+        "priorOnly": true,
+        "pushes": 0,
+        "secondHalfFlatNetUnits": -2.0196,
+        "segmentDistinctDates": 5,
+        "segmentEvidenceKey": "team|wnba|wnba|source_identity:wnba|spread|side|0.45_0.50",
+        "segmentSamples": 7,
+        "sourceChronologicalHalvesNonnegative": false,
+        "sourceDistinctDates": 28,
+        "sourceEvidenceKey": "team|wnba|wnba",
+        "sourceFirstHalfFlatNetUnits": -20.0718,
+        "sourceFlatNetUnits": -10.3661,
+        "sourceFlatRoi": -0.095982,
+        "sourceLosses": 55,
+        "sourceSamples": 108,
+        "sourceSecondHalfFlatNetUnits": 9.7058,
+        "sourceWins": 53,
+        "wins": 3
+      },
+      "game": "Las Vegas Aces @ Toronto Tempo",
+      "gradeSupportSource": "repository_grader_default",
+      "gradeSupported": true,
+      "id": "profit-cf70c5e5e41a4a7392e192a3",
+      "lane": null,
+      "laneBlockers": {
+        "edge": [
+          "edge_insufficient_segment_samples",
+          "edge_insufficient_distinct_prior_dates",
+          "edge_negative_chronological_evidence_half",
+          "edge_probability_positive_ev_below_0.80",
+          "edge_conservative_probability_margin_below_0.02",
+          "edge_non_positive_conservative_ev"
+        ],
+        "structural": [],
+        "value": [
+          "value_insufficient_source_samples",
+          "value_negative_chronological_evidence_half",
+          "value_non_positive_flat_roi",
+          "value_probability_positive_ev_below_0.70"
+        ]
+      },
+      "line": 10.5,
+      "liveQualified": false,
+      "market": "spread",
+      "marketFamily": "spread",
+      "marketIdentity": "market:1f49c635f0d141aa0fa41344",
+      "mode": "team",
+      "modelVersion": "source_identity:wnba",
+      "oddsAmerican": -105,
+      "pick": "Toronto Tempo +10.5 (Las Vegas Aces @ Toronto Tempo)",
+      "player": null,
+      "policyVersion": "profit_desk_policy_v2",
+      "price": {
+        "ageHours": 1.986,
+        "breakEvenProbability": 0.512195,
+        "decimalOdds": 1.952381,
+        "eligibleForAlphaEstimate": true,
+        "fresh": true,
+        "freshPregame": true,
+        "maxAgeHours": 24.0,
+        "noVigInputs": {
+          "field": "market_no_vig_selected_probability"
+        },
+        "noVigMethod": "explicit:pick.market_no_vig_selected_probability",
+        "noVigProbability": 0.489166,
+        "noVigVerified": true,
+        "observedExecutable": true,
+        "oddsAmerican": -105,
+        "quality": "verified_no_vig",
+        "source": "espn_scoreboard:DraftKings",
+        "sourceField": "pick.price_source",
+        "startTime": "2026-08-23T23:00Z",
+        "tier": "A",
+        "tierLabel": "certified_executable",
+        "timestamp": "2026-08-23T21:00:51.762495Z",
+        "timestampField": "pick.market_updated_at",
+        "twoSided": true,
+        "updatedAt": "2026-08-23T21:00:51.762495Z"
+      },
+      "rawModelProbabilityIgnored": 0.5881,
+      "result": "pending",
+      "shadowQualified": false,
+      "source": "WNBA Model",
+      "sourceKey": "wnba",
       "sport": "WNBA",
       "stakeUnits": 0.0,
       "tier": "watch",
@@ -4210,7 +4364,7 @@
         "updatedAt": "2026-08-23T18:16Z"
       },
       "rawModelProbabilityIgnored": 0.7891,
-      "result": "pending",
+      "result": "win",
       "shadowQualified": false,
       "source": "MLBPlayerProps",
       "sourceKey": "mlb_player_props",
@@ -4232,6 +4386,14 @@
         "value_insufficient_source_samples"
       ],
       "canonicalGame": "2026-08-23:mlb:detroit tigers|kansas city royals",
+      "closing": {
+        "capturedAt": "2026-08-23T17:49:45.171310Z",
+        "clv": 0.0,
+        "decimalOdds": 2.0,
+        "noVigProbability": 0.490566,
+        "oddsAmerican": 100,
+        "provider": "espn_scoreboard:DraftKings"
+      },
       "consensusSources": [],
       "date": "2026-08-23",
       "decimalOdds": 2.0,
@@ -4355,7 +4517,7 @@
         "updatedAt": "2026-08-23T18:39:08.651351Z"
       },
       "rawModelProbabilityIgnored": 0.5742,
-      "result": "pending",
+      "result": "win",
       "shadowQualified": false,
       "source": "MLB Model",
       "sourceKey": "mlb_new",
@@ -4801,7 +4963,7 @@
     },
     {
       "blockers": [
-        "missing_or_invalid_game_start_time",
+        "price_not_pregame",
         "edge_insufficient_segment_samples",
         "edge_insufficient_distinct_prior_dates",
         "edge_negative_chronological_evidence_half",
@@ -4891,7 +5053,7 @@
           "edge_non_positive_conservative_ev"
         ],
         "structural": [
-          "missing_or_invalid_game_start_time"
+          "price_not_pregame"
         ],
         "value": [
           "value_insufficient_source_samples",
@@ -4912,7 +5074,7 @@
       "player": null,
       "policyVersion": "profit_desk_policy_v2",
       "price": {
-        "ageHours": null,
+        "ageHours": -0.522,
         "breakEvenProbability": 0.789474,
         "decimalOdds": 1.266667,
         "eligibleForAlphaEstimate": true,
@@ -4930,7 +5092,7 @@
         "quality": "verified_no_vig",
         "source": "espn_scoreboard:DraftKings",
         "sourceField": "pick.price_source",
-        "startTime": null,
+        "startTime": "2026-08-23T20:00Z",
         "tier": "A",
         "tierLabel": "certified_executable",
         "timestamp": "2026-08-23T20:31:17.622137Z",
@@ -5222,7 +5384,7 @@
         "updatedAt": "2026-08-23T18:43Z"
       },
       "rawModelProbabilityIgnored": 0.6829,
-      "result": "pending",
+      "result": "win",
       "shadowQualified": false,
       "source": "MLBPlayerProps",
       "sourceKey": "mlb_player_props",
@@ -5362,7 +5524,7 @@
         "updatedAt": "2026-08-23T18:46Z"
       },
       "rawModelProbabilityIgnored": 0.6554,
-      "result": "pending",
+      "result": "win",
       "shadowQualified": false,
       "source": "MLBPlayerProps",
       "sourceKey": "mlb_player_props",
@@ -6094,155 +6256,6 @@
       "source": "SportsGamblerMLB",
       "sourceKey": "sportsgambler_mlb",
       "sport": "MLB",
-      "stakeUnits": 0.0,
-      "tier": "avoid",
-      "valueQualified": false
-    },
-    {
-      "blockers": [
-        "missing_or_invalid_game_start_time",
-        "edge_insufficient_segment_samples",
-        "edge_insufficient_distinct_prior_dates",
-        "edge_negative_chronological_evidence_half",
-        "edge_probability_positive_ev_below_0.80",
-        "edge_conservative_probability_margin_below_0.02",
-        "edge_non_positive_conservative_ev",
-        "value_insufficient_source_samples",
-        "value_negative_chronological_evidence_half",
-        "value_non_positive_flat_roi",
-        "value_probability_positive_ev_below_0.70"
-      ],
-      "canonicalGame": "2026-08-23:wnba:las vegas aces|toronto tempo",
-      "consensusSources": [],
-      "date": "2026-08-23",
-      "decimalOdds": 1.952381,
-      "decision": "LEAN",
-      "dedupeRule": "exact_market_identity_best_executable_price",
-      "direction": "side",
-      "duplicateCount": 1,
-      "duplicateSources": [
-        "WNBA Model"
-      ],
-      "edgeQualified": false,
-      "estimate": {
-        "alpha": -0.026699,
-        "alphaStdError": 0.087975,
-        "breakEvenProbability": 0.512195,
-        "conservativeExpectedValue": -0.317208,
-        "expectedValue": -0.097089,
-        "lowerProbability": 0.349722,
-        "marketProbability": 0.489166,
-        "method": "market_baseline_plus_hierarchically_shrunk_prior_residual",
-        "probability": 0.462467,
-        "probabilityPositiveEv": 0.28595,
-        "sourceAlpha": -0.016169,
-        "value": {
-          "alpha": -0.016169,
-          "alphaStdError": 0.040262,
-          "conservativeExpectedValue": -0.132305,
-          "expectedValue": -0.031568,
-          "lowerProbability": 0.444429,
-          "method": "source_flat_roi_shrunk_residual_vs_break_even",
-          "probability": 0.496026,
-          "probabilityPositiveEv": 0.343991
-        }
-      },
-      "evidence": {
-        "chronologicalHalvesNonnegative": false,
-        "cutoffExclusive": "2026-08-23",
-        "distinctDates": 5,
-        "firstHalfFlatNetUnits": 0.8519,
-        "flatNetUnits": -1.1678,
-        "flatRoi": -0.166822,
-        "losses": 4,
-        "modelVersion": "source_identity:wnba",
-        "policyVersion": "profit_desk_policy_v2",
-        "priorOnly": true,
-        "pushes": 0,
-        "secondHalfFlatNetUnits": -2.0196,
-        "segmentDistinctDates": 5,
-        "segmentEvidenceKey": "team|wnba|wnba|source_identity:wnba|spread|side|0.45_0.50",
-        "segmentSamples": 7,
-        "sourceChronologicalHalvesNonnegative": false,
-        "sourceDistinctDates": 28,
-        "sourceEvidenceKey": "team|wnba|wnba",
-        "sourceFirstHalfFlatNetUnits": -20.0718,
-        "sourceFlatNetUnits": -10.3661,
-        "sourceFlatRoi": -0.095982,
-        "sourceLosses": 55,
-        "sourceSamples": 108,
-        "sourceSecondHalfFlatNetUnits": 9.7058,
-        "sourceWins": 53,
-        "wins": 3
-      },
-      "game": "Las Vegas Aces @ Toronto Tempo",
-      "gradeSupportSource": "repository_grader_default",
-      "gradeSupported": true,
-      "id": "profit-cf70c5e5e41a4a7392e192a3",
-      "lane": null,
-      "laneBlockers": {
-        "edge": [
-          "edge_insufficient_segment_samples",
-          "edge_insufficient_distinct_prior_dates",
-          "edge_negative_chronological_evidence_half",
-          "edge_probability_positive_ev_below_0.80",
-          "edge_conservative_probability_margin_below_0.02",
-          "edge_non_positive_conservative_ev"
-        ],
-        "structural": [
-          "missing_or_invalid_game_start_time"
-        ],
-        "value": [
-          "value_insufficient_source_samples",
-          "value_negative_chronological_evidence_half",
-          "value_non_positive_flat_roi",
-          "value_probability_positive_ev_below_0.70"
-        ]
-      },
-      "line": 10.5,
-      "liveQualified": false,
-      "market": "spread",
-      "marketFamily": "spread",
-      "marketIdentity": "market:1f49c635f0d141aa0fa41344",
-      "mode": "team",
-      "modelVersion": "source_identity:wnba",
-      "oddsAmerican": -105,
-      "pick": "Toronto Tempo +10.5 (Las Vegas Aces @ Toronto Tempo)",
-      "player": null,
-      "policyVersion": "profit_desk_policy_v2",
-      "price": {
-        "ageHours": null,
-        "breakEvenProbability": 0.512195,
-        "decimalOdds": 1.952381,
-        "eligibleForAlphaEstimate": true,
-        "fresh": false,
-        "freshPregame": false,
-        "maxAgeHours": 24.0,
-        "noVigInputs": {
-          "field": "market_no_vig_selected_probability"
-        },
-        "noVigMethod": "explicit:pick.market_no_vig_selected_probability",
-        "noVigProbability": 0.489166,
-        "noVigVerified": true,
-        "observedExecutable": true,
-        "oddsAmerican": -105,
-        "quality": "verified_no_vig",
-        "source": "espn_scoreboard:DraftKings",
-        "sourceField": "pick.price_source",
-        "startTime": null,
-        "tier": "A",
-        "tierLabel": "certified_executable",
-        "timestamp": "2026-08-23T21:00:51.762495Z",
-        "timestampField": "pick.market_updated_at",
-        "twoSided": true,
-        "updatedAt": "2026-08-23T21:00:51.762495Z"
-      },
-      "rawModelProbabilityIgnored": 0.5881,
-      "result": "pending",
-      "shadowQualified": false,
-      "source": "WNBA Model",
-      "sourceKey": "wnba",
-      "sport": "WNBA",
       "stakeUnits": 0.0,
       "tier": "avoid",
       "valueQualified": false
@@ -7583,7 +7596,7 @@
       "player": null,
       "policyVersion": "profit_desk_policy_v2",
       "price": {
-        "ageHours": 0.096,
+        "ageHours": 0.179,
         "breakEvenProbability": null,
         "decimalOdds": null,
         "eligibleForAlphaEstimate": false,
@@ -7599,7 +7612,7 @@
         "quality": "missing",
         "source": null,
         "sourceField": "missing",
-        "startTime": "2026-08-23T21:00Z",
+        "startTime": "2026-08-23T21:05Z",
         "tier": "D",
         "tierLabel": "assumed_proxy_or_synthetic",
         "timestamp": "2026-08-23T20:54:15.936148Z",
@@ -7692,7 +7705,7 @@
       "player": null,
       "policyVersion": "profit_desk_policy_v2",
       "price": {
-        "ageHours": 0.415,
+        "ageHours": 0.498,
         "breakEvenProbability": null,
         "decimalOdds": null,
         "eligibleForAlphaEstimate": false,
@@ -7708,7 +7721,7 @@
         "quality": "missing",
         "source": null,
         "sourceField": "missing",
-        "startTime": "2026-08-23T21:00Z",
+        "startTime": "2026-08-23T21:05Z",
         "tier": "D",
         "tierLabel": "assumed_proxy_or_synthetic",
         "timestamp": "2026-08-23T20:35:06.770862Z",
@@ -8485,7 +8498,7 @@
         "quality": "assumed",
         "source": null,
         "sourceField": "unverified",
-        "startTime": "2026-08-23T20:10:00Z",
+        "startTime": "2026-08-23T20:10Z",
         "tier": "D",
         "tierLabel": "assumed_proxy_or_synthetic",
         "timestamp": "2026-08-23T21:00:50.933169Z",
@@ -8714,7 +8727,7 @@
         "updatedAt": "2026-08-23T20:35:06.770862Z"
       },
       "rawModelProbabilityIgnored": null,
-      "result": "pending",
+      "result": "win",
       "shadowQualified": false,
       "source": "TennisTonic",
       "sourceKey": "tennistonic_tennis",
@@ -10011,7 +10024,7 @@
       "player": null,
       "policyVersion": "profit_desk_policy_v2",
       "price": {
-        "ageHours": 0.248,
+        "ageHours": 0.331,
         "breakEvenProbability": null,
         "decimalOdds": null,
         "eligibleForAlphaEstimate": false,
@@ -10027,7 +10040,7 @@
         "quality": "missing",
         "source": null,
         "sourceField": "missing",
-        "startTime": "2026-08-23T20:50Z",
+        "startTime": "2026-08-23T20:55Z",
         "tier": "D",
         "tierLabel": "assumed_proxy_or_synthetic",
         "timestamp": "2026-08-23T20:35:06.770862Z",
@@ -13613,7 +13626,7 @@
     }
   ],
   "summary": {
-    "avoid": 62,
+    "avoid": 61,
     "candidateCount": 88,
     "candidatesEvaluated": 88,
     "deduplicatedPicks": 13,
@@ -13666,7 +13679,7 @@
         "watchlist": 0
       },
       "team": {
-        "avoid": 58,
+        "avoid": 57,
         "candidateCount": 81,
         "candidates": 81,
         "candidatesEvaluated": 81,
@@ -13679,7 +13692,7 @@
         "selected": 0,
         "shadowQualified": 0,
         "valueQualified": 0,
-        "watchlist": 23
+        "watchlist": 24
       }
     },
     "observedPriceCandidates": 45,
@@ -13714,6 +13727,6 @@
     },
     "sourcesTracked": 35,
     "valueQualified": 3,
-    "watchlist": 23
+    "watchlist": 24
   }
 }
