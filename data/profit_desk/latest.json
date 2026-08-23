@@ -642,6 +642,132 @@
       "valueQualified": true
     },
     {
+      "blockers": [],
+      "canonicalGame": "2026-08-23:mlb:minnesota twins|san diego padres",
+      "consensusSources": [],
+      "date": "2026-08-23",
+      "decimalOdds": 1.275482,
+      "decision": "LEAN",
+      "dedupeRule": "exact_market_identity_best_executable_price",
+      "direction": "under",
+      "duplicateCount": 1,
+      "duplicateSources": [
+        "MLBPlayerProps"
+      ],
+      "edgeQualified": false,
+      "estimate": {
+        "alpha": 0.081154,
+        "alphaStdError": 0.033352,
+        "breakEvenProbability": 0.784017,
+        "conservativeExpectedValue": -0.016971,
+        "expectedValue": 0.037546,
+        "lowerProbability": 0.770712,
+        "marketProbability": 0.7323,
+        "method": "market_baseline_plus_hierarchically_shrunk_prior_residual",
+        "probability": 0.813454,
+        "probabilityPositiveEv": 0.811274,
+        "sourceAlpha": 0.029839,
+        "value": {
+          "alpha": 0.029839,
+          "alphaStdError": 0.020798,
+          "conservativeExpectedValue": 0.004064,
+          "expectedValue": 0.038059,
+          "lowerProbability": 0.787203,
+          "method": "source_flat_roi_shrunk_residual_vs_break_even",
+          "probability": 0.813856,
+          "probabilityPositiveEv": 0.924319
+        }
+      },
+      "evidence": {
+        "chronologicalHalvesNonnegative": true,
+        "cutoffExclusive": "2026-08-23",
+        "distinctDates": 27,
+        "firstHalfFlatNetUnits": 1.0011,
+        "flatNetUnits": 5.5062,
+        "flatRoi": 0.053459,
+        "losses": 18,
+        "modelVersion": "player_props_consensus_v2.0.0",
+        "policyVersion": "profit_desk_policy_v2",
+        "priorOnly": true,
+        "pushes": 0,
+        "secondHalfFlatNetUnits": 4.5051,
+        "segmentDistinctDates": 27,
+        "segmentEvidenceKey": "player|mlb_player_props|mlb|player_props_consensus_v2.0.0|batter walks|under|gte_0.60",
+        "segmentSamples": 103,
+        "sourceChronologicalHalvesNonnegative": true,
+        "sourceDistinctDates": 54,
+        "sourceEvidenceKey": "player|mlb_player_props|mlb",
+        "sourceFirstHalfFlatNetUnits": 15.8341,
+        "sourceFlatNetUnits": 21.1567,
+        "sourceFlatRoi": 0.044354,
+        "sourceLosses": 210,
+        "sourceSamples": 477,
+        "sourceSecondHalfFlatNetUnits": 5.3226,
+        "sourceWins": 267,
+        "wins": 85
+      },
+      "game": "Minnesota Twins @ San Diego Padres",
+      "gradeSupportSource": "repository_grader_default",
+      "gradeSupported": true,
+      "id": "profit-5c5f106d54de99fe81ed1044",
+      "lane": "value",
+      "laneBlockers": {
+        "edge": [
+          "edge_conservative_probability_margin_below_0.02",
+          "edge_non_positive_conservative_ev"
+        ],
+        "structural": [],
+        "value": []
+      },
+      "line": 0.5,
+      "liveQualified": true,
+      "market": "Total Walks (Batter)",
+      "marketFamily": "batter walks",
+      "marketIdentity": "market:06405092973e5a598093823c",
+      "mode": "player",
+      "modelVersion": "player_props_consensus_v2.0.0",
+      "oddsAmerican": -363,
+      "pick": "Kaelen Culpepper Under 0.5 Walks",
+      "player": "Kaelen Culpepper",
+      "policyVersion": "profit_desk_policy_v2",
+      "price": {
+        "ageHours": 6.967,
+        "breakEvenProbability": 0.784017,
+        "decimalOdds": 1.275482,
+        "eligibleForAlphaEstimate": true,
+        "fresh": true,
+        "freshPregame": true,
+        "maxAgeHours": 24.0,
+        "noVigInputs": {
+          "field": "market_no_vig_selected_probability"
+        },
+        "noVigMethod": "explicit:pick.market_no_vig_selected_probability",
+        "noVigProbability": 0.7323,
+        "noVigVerified": true,
+        "observedExecutable": true,
+        "oddsAmerican": -363,
+        "quality": "verified_two_sided",
+        "source": "posted_market",
+        "sourceField": "pick.odds_source",
+        "startTime": "2026-08-23T20:10:00Z",
+        "tier": "B",
+        "tierLabel": "posted_two_sided",
+        "timestamp": "2026-08-23T13:12Z",
+        "timestampField": "pick.market_updated_at",
+        "twoSided": true,
+        "updatedAt": "2026-08-23T13:12Z"
+      },
+      "rawModelProbabilityIgnored": 0.8141,
+      "result": "pending",
+      "shadowQualified": true,
+      "source": "MLBPlayerProps",
+      "sourceKey": "mlb_player_props",
+      "sport": "MLB",
+      "stakeUnits": 0.5,
+      "tier": "value",
+      "valueQualified": true
+    },
+    {
       "blockers": [
         "edge_insufficient_source_samples",
         "edge_insufficient_segment_samples",
@@ -4004,7 +4130,7 @@
   "date": "2026-08-23",
   "engineVersion": "profit_desk_v2_live",
   "firstLiveDate": "2026-07-11",
-  "generatedAt": "2026-08-23T13:35:02.740732Z",
+  "generatedAt": "2026-08-23T13:48:23.808738Z",
   "notices": [
     "Qualified picks carry real flat stakes: EDGE 1.0u, VALUE 0.5u; everything else stays 0u.",
     "The market price is the baseline; historical residual alpha is shrunk and uncertainty-adjusted.",
@@ -5259,7 +5385,7 @@
   "sources": [
     {
       "alpha": 0.029839,
-      "candidatesToday": 5,
+      "candidatesToday": 6,
       "distinctDates": 54,
       "evidenceQualified": true,
       "flatNetUnits": 21.1567,
@@ -5293,7 +5419,7 @@
       },
       "gatesPassed": 5,
       "gatesTotal": 5,
-      "liveToday": 5,
+      "liveToday": 6,
       "losses": 210,
       "mode": "player",
       "probabilityPositiveEv": 0.924319,
@@ -6824,14 +6950,14 @@
   ],
   "summary": {
     "avoid": 24,
-    "candidateCount": 34,
-    "candidatesEvaluated": 34,
+    "candidateCount": 35,
+    "candidatesEvaluated": 35,
     "deduplicatedPicks": 2,
     "edgeQualified": 0,
     "evidenceRows": 3188,
-    "inputPicks": 36,
+    "inputPicks": 37,
     "livePortfolioCandidates": 3,
-    "liveQualified": 5,
+    "liveQualified": 6,
     "liveRecord": {
       "avgClv": null,
       "clvCount": 0,
@@ -6861,18 +6987,18 @@
     "modes": {
       "player": {
         "avoid": 0,
-        "candidateCount": 5,
-        "candidates": 5,
-        "candidatesEvaluated": 5,
+        "candidateCount": 6,
+        "candidates": 6,
+        "candidatesEvaluated": 6,
         "edgeQualified": 0,
         "evidenceRows": 719,
         "liveQualified": 3,
-        "observedPriceCandidates": 5,
+        "observedPriceCandidates": 6,
         "portfolioCandidates": 3,
-        "researchQualified": 5,
+        "researchQualified": 6,
         "selected": 3,
-        "shadowQualified": 5,
-        "valueQualified": 5,
+        "shadowQualified": 6,
+        "valueQualified": 6,
         "watchlist": 0
       },
       "team": {
@@ -6892,9 +7018,9 @@
         "watchlist": 5
       }
     },
-    "observedPriceCandidates": 10,
+    "observedPriceCandidates": 11,
     "portfolioCandidates": 3,
-    "researchQualified": 5,
+    "researchQualified": 6,
     "researchRecord": {
       "avgClv": null,
       "clvCount": 0,
@@ -6909,7 +7035,7 @@
     },
     "selected": 3,
     "shadowPortfolioCandidates": 0,
-    "shadowQualified": 5,
+    "shadowQualified": 6,
     "shadowRecord": {
       "avgClv": null,
       "clvCount": 0,
@@ -6923,7 +7049,7 @@
       "wins": 0
     },
     "sourcesTracked": 34,
-    "valueQualified": 5,
+    "valueQualified": 6,
     "watchlist": 5
   }
 }
