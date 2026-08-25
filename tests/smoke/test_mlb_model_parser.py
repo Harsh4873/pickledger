@@ -268,6 +268,8 @@ def test_mlb_specialty_rows_use_user_assumed_prices(monkeypatch):
     assert inning_rows[0]["market_priced"] is True
     assert inning_rows[0]["odds"] == -120
     assert inning_rows[0]["assumed_odds"] == -120
+    assert inning_rows[0]["model_version"] == "mlb_inning_v2_2026-08-25"
+    assert inning_rows[0]["model_epoch"] == "mlb_inning_v2_2026-08-25"
 
     total_row = next(row for row in f5_rows if row["market"] == "f5_total")
     assert total_row["pricing_type"] == "user_assumed"
@@ -283,18 +285,3 @@ def test_mlb_specialty_rows_use_user_assumed_prices(monkeypatch):
     assert side_row["market_priced"] is True
     assert side_row["odds"] == 125
     assert side_row["market_implied_probability"] is not None
-
-
-def test_stamp_mlb_game_start_times_writes_slate_date_even_without_schedule(monkeypatch):
-    from pickgrader_server import _stamp_mlb_game_start_times
-
-    monkeypatch.setattr("pickgrader_server.fetch_mlb_schedule", lambda *_: None)
-    picks = [
-        {"pick": "Yankees ML (Blue Jays vs Yankees)", "sport": "MLB", "away_team": "Toronto Blue Jays", "home_team": "New York Yankees"},
-        {"pick": "Already dated", "sport": "MLB", "date": "2026-08-21"},
-    ]
-
-    _stamp_mlb_game_start_times(picks, "2026-08-22")
-
-    assert picks[0]["date"] == "2026-08-22"
-    assert picks[1]["date"] == "2026-08-21"

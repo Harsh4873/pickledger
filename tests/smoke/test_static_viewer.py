@@ -441,6 +441,8 @@ def test_player_mode_keeps_best_bets_available_and_prop_sources_separate():
     assert "function playerRankingEpoch(" in main
     assert "function rankingComparablePicks(" in main
     assert "const PLAYER_PROP_RANKING_START_DATE = '2026-06-23'" in main
+    assert "const MLB_INNING_RANKING_START_DATE = '2026-08-25'" in main
+    assert "if (source === 'MLB Inning')" in main
     assert "if (activePickMode !== 'player') return picks" in main
     assert "function latestAvailableDateKey(" in main
     assert "function playerModelRank(" in main

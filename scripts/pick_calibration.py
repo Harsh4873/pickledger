@@ -48,7 +48,11 @@ DECISION_DOWNGRADE_EXEMPT_MODEL_KEYS = {"mlb_inning"}
 # BET/LEAN into a negative calibrated edge, blocking all publications.
 # wnba added for consistency: WNBA decisions use raw probability vs market
 # (not calibrated edge), but the stored edge value was misleading.
-GLOBAL_FALLBACK_EXEMPT_MODEL_KEYS = {"mlb_team_total", "mlb_new", "wnba"}
+# mlb_inning added 2026-08-25: it has no per-inning calibration group, so the
+# global moneyline/totals fit (slope 0.85, intercept -0.16) was shrinking
+# honest ~59% no-run probabilities to ~54% and displaying negative edge on
+# BET rows. Identity until it earns its own no_run_inning group.
+GLOBAL_FALLBACK_EXEMPT_MODEL_KEYS = {"mlb_team_total", "mlb_new", "wnba", "mlb_inning"}
 ML_OWNED_PROBABILITY_SOURCE = "player_props_ml_v1"
 
 SNAPSHOT_EXCLUDED_FIELDS = {

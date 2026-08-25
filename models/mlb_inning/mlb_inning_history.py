@@ -46,7 +46,12 @@ HISTORY_TEAM_MAX_WORKERS = 8
 # Shrinkage constants for the small-sample rates extracted from the
 # 30-game window: bullpen per-inning rates see ~30 samples (K=10 keeps
 # ~75% observed weight); a starter only appears in ~5-6 of those games.
+# Offense per-inning rates are the noisiest input — binomial SE at n=30
+# is ~9pp, and ranking the max of 8 innings was publishing that luck as
+# a 10-20pp "edge". K=50 keeps ~37% observed weight so persistent team
+# tendencies still move the needle after the pitching prior.
 BULLPEN_SHRINK_K = 10.0
+OFFENSE_SHRINK_K = 50.0
 
 
 def fetch_team_histories(games: list[dict[str, Any]], target_date: str | None = None) -> dict[str, dict[int, dict[str, float]]]:

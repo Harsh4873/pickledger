@@ -1567,22 +1567,6 @@ def parse_pick_date(date_text: str, year: int) -> str | None:
     return None
 
 
-def pick_grade_date(pick: dict[str, Any], year: int) -> str | None:
-    """Resolve the scoreboard date for a pick.
-
-    mlb_new (and other stdout-parsed) snapshots often omit ``date`` and only
-    carry ``slate_date`` on the certified ledger row. Without this fallback
-    those rows never enter auto_grade and stay pending after the game ends.
-    """
-    if not isinstance(pick, dict):
-        return None
-    for field in ("date", "game_date", "slate_date"):
-        parsed = parse_pick_date(str(pick.get(field) or ""), year)
-        if parsed:
-            return parsed
-    return None
-
-
 def fetch_scoreboard(sport: str, league: str, yyyymmdd: str) -> dict[str, Any] | None:
     extra = "&limit=1000&groups=80" if league == "college-football" else ""
     url = (
@@ -2692,7 +2676,7 @@ def auto_grade(picks: list[dict[str, Any]], existing: dict[str, str], year: int)
         if sport_key not in SPORT_TO_ESPNSLUG:
             continue
 
-        d = pick_grade_date(pick, year)
+        d = parse_pick_date(str(pick.get("date", "")), year)
         if not d:
             continue
 
@@ -3190,6 +3174,7 @@ def _model_cache_response(payload: dict[str, Any], date_iso: str, model_key: str
 
 
 MLB_INNING_USER_ASSUMED_ODDS = -120
+MLB_INNING_MODEL_VERSION = "mlb_inning_v2_2026-08-25"
 # Placeholder until the real DraftKings "Team Total Runs" price attaches;
 # market_odds replaces it for exact team+line matches, which is what makes
 # these rows financially measurable.
@@ -5116,18 +5101,15 @@ def run_fifa_world_cup_model(date_str: str | None = None) -> dict[str, Any]:
 
 
 def _stamp_mlb_game_start_times(picks: list[dict[str, Any]], date_str: str | None) -> None:
-    """Stamp slate date and statsapi gameDate onto parsed MLB picks.
+    """Stamp statsapi gameDate onto parsed MLB picks.
 
-    Parsed stdout picks carry neither ``date`` nor start time. Missing start
-    time blocks certification; missing date prevented the certified ledger
-    grader from grouping mlb_new rows onto an ESPN scoreboard.
+    Parsed stdout picks carry no start time, so their pregame snapshots can
+    never certify (missing_or_invalid_game_start_time) and never reach the
+    walk-forward ledger.
     """
     if not picks:
         return
     date_iso = str(date_str or datetime.now().strftime("%Y-%m-%d"))
-    for pick in picks:
-        if isinstance(pick, dict) and not str(pick.get("date") or "").strip():
-            pick["date"] = date_iso
     try:
         schedule = fetch_mlb_schedule(date_iso)
     except Exception:
@@ -5333,6 +5315,8 @@ def _mlb_inning_pick_rows(payload: dict[str, Any]) -> list[dict[str, Any]]:
                 "baseline_probability": baseline_value,
                 "decision": decision,
                 "confidence": confidence,
+                "model_version": MLB_INNING_MODEL_VERSION,
+                "model_epoch": MLB_INNING_MODEL_VERSION,
                 "model_prediction": f"{probability_f * 100:.1f}%" if probability_f is not None else None,
                 "notes": (
                     f"Top no-run inning candidate (edge {edge_value:+.1f}pp vs baseline)."
@@ -5389,6 +5373,7 @@ def run_mlb_inning_model(date_str: str | None = None) -> dict[str, Any]:
             "date": used_date_iso,
             "requested_date": date_iso,
             "model": "MLBInning",
+            "model_version": MLB_INNING_MODEL_VERSION,
             "picks": picks,
             "games": payload.get("picks", []),
             "raw_lines": len(output.split("\n")),

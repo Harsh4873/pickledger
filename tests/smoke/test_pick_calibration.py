@@ -486,8 +486,10 @@ def test_champion_challenger_gate_requires_quality_and_roi_safety():
 
 
 def test_downgrade_exempt_model_keeps_model_decision_and_units():
-    # mlb_inning settles at an assumed price only; calibration adjusts the
-    # displayed probability but must not veto the model's own decision.
+    # mlb_inning settles at an assumed price only; it is also exempt from
+    # the pooled global calibration until it earns its own no_run_inning
+    # group, so a hostile global intercept must not shrink the displayed
+    # probability or veto the model's decision.
     active = {
         "version": "test-v3",
         "minimum_group_samples": 30,
@@ -501,5 +503,6 @@ def test_downgrade_exempt_model_keeps_model_decision_and_units():
 
     assert adjusted["decision"] == "LEAN"
     assert adjusted["units"] == 0.25
-    assert adjusted["probability"] < 0.7
+    assert adjusted["probability"] == 0.7
+    assert adjusted["calibration"]["key"] == "identity_bootstrap"
     assert adjusted["calibration"]["applied"] is True

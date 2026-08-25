@@ -69,13 +69,15 @@ def _attach_pitching_context(game: dict[str, Any], team_contexts: dict[str, dict
 
         starter_record = (context.get("starters") or {}).get(str(safe_int(pitcher.get("id"))))
         if isinstance(starter_record, dict):
-            prior = era_derived_scoreless_rate(safe_float(pitcher.get("era"), 4.20))
+            era = safe_float(pitcher.get("era"), 4.20)
             rates: dict[str, float] = {}
             samples: dict[str, int] = {}
             for inning_key, entry in (starter_record.get("innings") or {}).items():
                 observed_n = safe_int((entry or {}).get("n"))
                 if observed_n <= 0:
                     continue
+                inning_num = safe_int(inning_key)
+                prior = era_derived_scoreless_rate(era, inning=inning_num or None)
                 scoreless = safe_int((entry or {}).get("scoreless"))
                 rates[str(inning_key)] = round(
                     (scoreless + prior * STARTER_RATE_SHRINK_K) / (observed_n + STARTER_RATE_SHRINK_K), 4

@@ -49,13 +49,20 @@ def test_strong_edge_inning_emits_bet():
     the league baseline, the model should emit a real BET pick."""
     from models.mlb_inning.mlb_inning_probability import compute_inning_probabilities
 
-    # Both teams have very high scoreless rates in inning 1 → product is
-    # well above league baseline (0.620^2 = 0.384).
+    # Both teams have very high scoreless rates in inning 1 AND two aces
+    # on the mound → product is well above league baseline (0.620^2 = 0.384).
     histories = {
-        "Yankees": {1: {"scoreless_rate": 0.86}, 2: {"scoreless_rate": 0.78}},
-        "Red Sox": {1: {"scoreless_rate": 0.84}, 2: {"scoreless_rate": 0.80}},
+        "Yankees": {1: {"scoreless_rate": 0.90}, 2: {"scoreless_rate": 0.78}},
+        "Red Sox": {1: {"scoreless_rate": 0.90}, 2: {"scoreless_rate": 0.80}},
     }
-    result = compute_inning_probabilities(_stub_game(), histories, _stub_threats())
+    result = compute_inning_probabilities(
+        _stub_game(
+            home_pitcher={"name": "Home SP", "era": 2.80},
+            away_pitcher={"name": "Away SP", "era": 2.80},
+        ),
+        histories,
+        _stub_threats(),
+    )
     picks = result["top_2_picks"]
     assert picks, f"expected at least one pick, got {picks}"
     assert picks[0]["decision"] in {"BET", "LEAN"}
@@ -402,3 +409,76 @@ def test_inning_9_excluded_from_picks():
     assert "9" not in result["full_inning_table"]
     for pick in result["top_2_picks"]:
         assert pick["inning"] != 9
+
+
+def test_era_derived_rate_follows_inning_shape():
+    """A league-average ERA must land on that inning's league scoreless
+    rate, not a flat ~0.87 that made every first inning look like a 7th."""
+    from models.mlb_inning.mlb_inning_history import MLB_AVG_SCORELESS
+    from models.mlb_inning.mlb_inning_probability import era_derived_scoreless_rate
+
+    league_era = 4.20
+    for inning in range(1, 10):
+        assert abs(era_derived_scoreless_rate(league_era, inning) - MLB_AVG_SCORELESS[inning]) < 1e-9
+    # An ace is quieter than league in every inning, but inning 1 stays
+    # well below the old flat 0.92.
+    ace_first = era_derived_scoreless_rate(3.00, 1)
+    ace_eighth = era_derived_scoreless_rate(3.00, 8)
+    assert ace_first < ace_eighth
+    assert ace_first > MLB_AVG_SCORELESS[1]
+    assert ace_first < 0.75
+    assert era_derived_scoreless_rate(3.00) > era_derived_scoreless_rate(5.50)
+
+
+def test_thirty_game_offense_history_is_shrunk_toward_league():
+    """Unshrunk 30-game inning rates were ~9pp SE and won the top-2 sort."""
+    from models.mlb_inning.mlb_inning_history import MLB_AVG_SCORELESS
+    from models.mlb_inning.mlb_inning_probability import _history_rate
+
+    noisy = {"Yankees": {1: {"scoreless_rate": 0.90, "sample_games": 30.0}}}
+    shrunk = _history_rate(noisy, "Yankees", 1)
+    assert MLB_AVG_SCORELESS[1] < shrunk < 0.90
+    # Stub histories without a sample size stay as given (tests / defaults).
+    raw = _history_rate({"Yankees": {1: {"scoreless_rate": 0.90}}}, "Yankees", 1)
+    assert abs(raw - 0.90) < 1e-9
+
+
+def test_elite_bullpen_beats_lucky_inning_one_sample():
+    """The bullpen path is why the model exists; 30-game inning-1 luck
+    must not keep innings 7-8 out of the published top-2."""
+    from models.mlb_inning.mlb_inning_probability import compute_inning_probabilities
+
+    histories = {
+        "Yankees": {
+            1: {"scoreless_rate": 0.90, "sample_games": 30},
+            **{i: {"scoreless_rate": 0.74, "sample_games": 30} for i in range(2, 10)},
+        },
+        "Red Sox": {
+            1: {"scoreless_rate": 0.90, "sample_games": 30},
+            **{i: {"scoreless_rate": 0.74, "sample_games": 30} for i in range(2, 10)},
+        },
+    }
+    game = _stub_game(
+        home_pitcher={
+            "name": "Home SP", "era": 4.20, "expected_outs": 15.0,
+            "team_bullpen": {"scoreless_rate": 0.88},
+        },
+        away_pitcher={
+            "name": "Away SP", "era": 4.20, "expected_outs": 15.0,
+            "team_bullpen": {"scoreless_rate": 0.88},
+        },
+    )
+    result = compute_inning_probabilities(game, histories, _stub_threats())
+    picked = {pick["inning"] for pick in result["top_2_picks"]}
+    assert picked & {6, 7, 8}, f"expected a late/bullpen inning in {result['top_2_picks']}"
+    assert result["full_inning_table"]["7"] > result["full_inning_table"]["1"]
+
+
+def test_inning_v2_version_stamp_and_ranking_cutover():
+    from pickgrader_server import MLB_INNING_MODEL_VERSION
+    from pathlib import Path
+
+    assert MLB_INNING_MODEL_VERSION == "mlb_inning_v2_2026-08-25"
+    main = (Path(__file__).resolve().parents[2] / "src" / "main.ts").read_text(encoding="utf-8")
+    assert "const MLB_INNING_RANKING_START_DATE = '2026-08-25'" in main
+    assert "if (source === 'MLB Inning')" in main

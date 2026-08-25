@@ -158,6 +158,11 @@ const WNBA_RESET_SOURCES = new Set(['WNBA Model', 'WNBA Spread', 'WNBA Total']);
 // low-total bias). The WNBA Total record and rankings restart at the v2
 // cutover; ML and Spread keep their 2026-07-19 reset above.
 const WNBA_TOTAL_RANKING_START_DATE = '2026-07-26';
+// MLB Inning v2 (2026-08-25): inning-shaped pitching prior + shrunk
+// 30-game team history replaced the flat ERA conversion that published
+// noisy early innings and starved the bullpen path. The MLB Inning
+// record restarts at the cutover; other MLB team variants keep 7/19.
+const MLB_INNING_RANKING_START_DATE = '2026-08-25';
 // MLS v2 (2026-07-25): the trained Dixon-Coles engine replaced the
 // FIFA-derived heuristic wholesale, so the tracked record restarts at the
 // cutover. The legacy 'MLS Model' label is included so a row that misses
@@ -429,6 +434,9 @@ function rankingComparablePicks(picks: Pick[]): Pick[] {
       if (source === 'WNBA Total') {
         return pickDateKey(pick) >= WNBA_TOTAL_RANKING_START_DATE;
       }
+      if (source === 'MLB Inning') {
+        return pickDateKey(pick) >= MLB_INNING_RANKING_START_DATE;
+      }
       if (WNBA_RESET_SOURCES.has(source)) {
         return pickDateKey(pick) >= TEAM_RANKING_START_DATE;
       }
@@ -443,9 +451,8 @@ function rankingComparablePicks(picks: Pick[]): Pick[] {
         const epoch = String(pick.ml_rank_epoch || pick.ranking_epoch || pick.model_epoch || '').trim();
         return epoch.startsWith(MLB_TEAM_CONSENSUS_EPOCH_PREFIX);
       }
-      // Non-legacy consensus sources (MLB Inning, Team Total, F5, etc.) are
-      // date-gated and don't require the epoch stamp — they only exist in
-      // the consensus era, so filtering by date is sufficient.
+      // Non-legacy consensus sources (Team Total, F5, etc.) are date-gated
+      // from the 2026-07-19 redesign. MLB Inning is gated earlier at v2.
       return pickDateKey(pick) >= TEAM_RANKING_START_DATE;
     });
   }
@@ -542,6 +549,9 @@ function rankingWindowLabel(): string {
 
 function rankingBucketScopeLabel(bucketName: string): string {
   if (activePickMode === 'player') return rankingWindowLabel();
+  if (bucketName === 'MLB Inning') {
+    return `SINCE ${dateLabel(MLB_INNING_RANKING_START_DATE).toUpperCase()}`;
+  }
   if (LEGACY_RECORD_SOURCES.has(bucketName)) {
     return 'ALL TIME | MLB TEAM CONSENSUS V1';
   }

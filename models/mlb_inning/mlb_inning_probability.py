@@ -3,12 +3,12 @@ from __future__ import annotations
 from typing import Any
 
 try:
-    from mlb_inning_history import MLB_AVG_SCORELESS
+    from mlb_inning_history import MLB_AVG_SCORELESS, OFFENSE_SHRINK_K
     from mlb_inning_fetcher import DEFAULT_PITCHER, safe_float
     from mlb_inning_bullpen import compute_fatigue_shift
     from mlb_inning_environment import park_run_factor, scoreless_weather_multiplier
 except ImportError:
-    from .mlb_inning_history import MLB_AVG_SCORELESS
+    from .mlb_inning_history import MLB_AVG_SCORELESS, OFFENSE_SHRINK_K
     from .mlb_inning_fetcher import DEFAULT_PITCHER, safe_float
     from .mlb_inning_bullpen import compute_fatigue_shift
     from .mlb_inning_environment import park_run_factor, scoreless_weather_multiplier
@@ -50,6 +50,22 @@ INNING_LEAN_PROB_FLOOR = 0.56
 # the starter with innings a middle reliever actually pitches.
 DEFAULT_STARTER_OUTS = 16.0
 STARTER_TAPER_SPAN = 2.5
+
+# Pitching (starter/bullpen, inning-shaped) is the stable signal. Raw 30-game
+# team-inning scoreless rates were 55% of the blend and were winning the
+# top-2 sort with sampling noise — innings 7-8 (the bullpen the model was
+# built to use) published once in 372 ranking-era picks.
+HISTORICAL_WEIGHT = 0.40
+PITCHING_WEIGHT = 0.60
+
+# Innings where the starter is likely to be pulled mid-frame graded 25-23
+# (45% in the 5th) against a 59% mean prediction. Haircut the mixed-share
+# window rather than a hard inning number, so a workhorse isn't penalized.
+TRANSITION_SHARE_LO = 0.15
+TRANSITION_SHARE_HI = 0.85
+TRANSITION_INNING_PENALTY = 0.04
+
+LEAGUE_ERA = 4.20
 
 
 def compute_inning_probabilities(
@@ -170,7 +186,9 @@ def _half_scoreless_probability(
     if starter_rate is None:
         starter_rate = bullpen_rate
     pitching_rate = (starter_rate * starter_share) + (bullpen_rate * (1.0 - starter_share))
-    probability = (probability * 0.55) + (pitching_rate * 0.45)
+    probability = (probability * HISTORICAL_WEIGHT) + (pitching_rate * PITCHING_WEIGHT)
+    if TRANSITION_SHARE_LO < starter_share < TRANSITION_SHARE_HI:
+        probability -= TRANSITION_INNING_PENALTY
 
     if venue_factor and venue_factor > 0 and venue_factor != 1.0:
         probability = _clamp(probability, 0.05, 0.98) ** venue_factor
@@ -194,13 +212,20 @@ def _starter_share(pitcher: dict[str, Any], inning: int) -> float:
     return _clamp((avg_ip + 1.5 - inning) / STARTER_TAPER_SPAN, 0.0, 1.0)
 
 
-def era_derived_scoreless_rate(era: float) -> float:
-    """Flat per-inning scoreless rate implied by a pitcher's ERA.
+def era_derived_scoreless_rate(era: float, inning: int | None = None) -> float:
+    """Per-inning scoreless rate implied by a pitcher's ERA.
 
-    ERA 3.00 -> ~78% half-inning scoreless; ERA 5.50 -> ~64%. Serves as
-    the prior the observed per-inning starter rates are shrunk toward.
+    The unshaped curve (``inning is None``) is the original season-average
+    mapping used by team totals: ERA 3.00 -> ~86% / ERA 5.50 -> ~64%.
+    When ``inning`` is set, a league-average ERA (4.20) lands on that
+    inning's league scoreless rate and the ERA residual is added on top,
+    so an ace is quieter than league in the first and the eighth instead
+    of every inning sitting on a flat ~87%.
     """
-    return _clamp(0.92 - (era - 3.0) * 0.045, 0.55, 0.86)
+    residual = -(era - LEAGUE_ERA) * 0.045
+    if inning not in MLB_AVG_SCORELESS:
+        return _clamp(0.92 - (era - 3.0) * 0.045, 0.55, 0.86)
+    return _clamp(MLB_AVG_SCORELESS[inning] + residual, 0.05, 0.98)
 
 
 def _starter_scoreless_rate_for_inning(pitcher: dict[str, Any], inning: int) -> float | None:
@@ -217,7 +242,10 @@ def _starter_scoreless_rate_for_inning(pitcher: dict[str, Any], inning: int) -> 
                 return _clamp(float(value), 0.05, 0.98)
             except (TypeError, ValueError):
                 continue
-    return era_derived_scoreless_rate(safe_float(pitcher.get("era"), DEFAULT_PITCHER["era"]))
+    return era_derived_scoreless_rate(
+        safe_float(pitcher.get("era"), DEFAULT_PITCHER["era"]),
+        inning=inning,
+    )
 
 
 def _bullpen_scoreless_rate(opposing_pitcher: dict[str, Any], inning: int) -> float:
@@ -300,6 +328,8 @@ def _pitcher_context(pitcher: dict[str, Any]) -> dict[str, Any]:
         "whip": safe_float(pitcher.get("whip"), DEFAULT_PITCHER["whip"]),
         "opponent_obp": safe_float(pitcher.get("opponent_obp"), DEFAULT_PITCHER["opponent_obp"]),
         "opponent_slg": safe_float(pitcher.get("opponent_slg"), DEFAULT_PITCHER["opponent_slg"]),
+        "expected_outs": safe_float(pitcher.get("expected_outs"), 0.0),
+        "inning_rate_samples": pitcher.get("inning_rate_samples") or {},
         "team_bullpen": {
             "lookback_games": bullpen.get("lookback_games"),
             "games_inspected": bullpen.get("games_inspected"),
@@ -315,7 +345,13 @@ def _pitcher_context(pitcher: dict[str, Any]) -> dict[str, Any]:
 def _history_rate(team_histories: dict[str, dict[int, dict[str, float]]], team_name: str, inning: int) -> float:
     team_history = team_histories.get(team_name) or {}
     inning_stats = team_history.get(inning) or team_history.get(str(inning)) or {}
-    return _clamp(safe_float(inning_stats.get("scoreless_rate"), MLB_AVG_SCORELESS[inning]), 0.05, 0.98)
+    raw = _clamp(safe_float(inning_stats.get("scoreless_rate"), MLB_AVG_SCORELESS[inning]), 0.05, 0.98)
+    sample_games = safe_float(inning_stats.get("sample_games"), 0.0)
+    if sample_games <= 0:
+        return raw
+    prior = MLB_AVG_SCORELESS[inning]
+    shrunk = (raw * sample_games + prior * OFFENSE_SHRINK_K) / (sample_games + OFFENSE_SHRINK_K)
+    return _clamp(shrunk, 0.05, 0.98)
 
 
 def _decision_for_edge(probability: float, edge: float) -> str:
