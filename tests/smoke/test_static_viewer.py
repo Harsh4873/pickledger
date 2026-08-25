@@ -384,6 +384,7 @@ def test_best_bets_shortlist_is_fully_restored_on_the_daily_tab():
     assert "Best Bets Date" in main
     assert "Featured Picks" in main
     assert "function isFeaturedPlayablePick(" in main
+    assert "rankingComparablePicks([pick]).length === 1" in main
     assert "const FEATURED_SOURCES = new Set([" in main
     assert "'MLB Total'" in main
     assert "'WNBA ML'" in main

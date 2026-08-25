@@ -1935,7 +1935,11 @@ function isFeaturedPlayablePick(pick: Pick): boolean {
   if (String(pick.sport || '').trim().toUpperCase() === 'TENNIS') return false;
   if (!FEATURED_SOURCES.has(sourceName(pick))) return false;
   if (!isPublishedDailyPick(pick)) return false;
-  return isFeaturedPlayablePrice(pick);
+  if (!isFeaturedPlayablePrice(pick)) return false;
+  // Same windows Rankings uses: WNBA Total v2, MLS v2, consensus-era MLB
+  // Total/ML. Dead pre-cutover rows still exist in cache and would dilute
+  // the betting card if Featured published them.
+  return rankingComparablePicks([pick]).length === 1;
 }
 
 function featuredPicksForDate(date: string, openOnly = date === centralDateKey()): Pick[] {
@@ -3156,14 +3160,14 @@ function renderDaily(): void {
   const featuredEmptyTitle = live
     ? 'Sit this one out'
     : 'No featured picks on this date';
-  const featuredEmptySub = 'Featured only publishes MLB Total, MLB Team Total, MLB ML, WNBA ML, WNBA Total, and MLS Total at posted prices. WNBA ML may keep heavy juice; everything else skips -150 or worse. An empty card is the play.';
+  const featuredEmptySub = 'Featured only publishes MLB Total, MLB Team Total, MLB ML, WNBA ML, WNBA Total, and MLS Total at posted prices, in the same ranking windows those sources actually print. WNBA ML may keep heavy juice; everything else skips -150 or worse. An empty card is the play.';
   const featuredIntro = featuredGroups.length
     ? '<div class="daily-dayform-warning daily-featured-intro"><strong>This is the betting card.</strong> In-house models with a priced record only. Singles, 0.5u–1u. Do not parlay these to manufacture action.</div>'
     : '';
   const activeBody = dailyView === 'featured'
     ? dailySection(
       'Featured Picks',
-      'MLB Total, MLB Team Total, MLB ML, WNBA ML, WNBA Total, and MLS Total. Posted price required. Juice allowed only on WNBA ML.',
+      'MLB Total, MLB Team Total, MLB ML, WNBA ML, WNBA Total, and MLS Total. Posted price required. Same ranking cutovers as the source records. Juice allowed only on WNBA ML.',
       `${featuredIntro}${dailyPickGrid(featuredGroups, featuredEmptyTitle, featuredEmptySub)}`,
       `${featuredGroups.length} playable pick${featuredGroups.length === 1 ? '' : 's'}`,
     )
