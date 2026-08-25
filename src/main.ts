@@ -442,40 +442,47 @@ function isOpenPick(pick: Pick): boolean {
   return pick.result === 'pending' && !isUnsupportedPendingPick(pick) && isPublishedDailyPick(pick);
 }
 
+function isTeamRankingWindowPick(pick: Pick): boolean {
+  const source = sourceName(pick);
+  const isConsensusSource = String(pick.sport || '').toUpperCase() === 'MLB'
+    && MLB_TEAM_CONSENSUS_SOURCES.has(source);
+  // Record resets apply ONLY to in-house model variants (MLB/WNBA at
+  // the 2026-07-19 redesign, MLS at the 2026-07-25 v2 cutover, WNBA
+  // totals again at the 2026-07-26 v2 retrain). External feeds and
+  // every other source keep their full history.
+  if (source === 'WNBA Total') {
+    return pickDateKey(pick) >= WNBA_TOTAL_RANKING_START_DATE;
+  }
+  if (source === 'MLB Inning') {
+    return pickDateKey(pick) >= MLB_INNING_RANKING_START_DATE;
+  }
+  if (WNBA_RESET_SOURCES.has(source)) {
+    return pickDateKey(pick) >= TEAM_RANKING_START_DATE;
+  }
+  if (MLS_RESET_SOURCES.has(source)) {
+    return pickDateKey(pick) >= MLS_RANKING_START_DATE;
+  }
+  if (!isConsensusSource) return true;
+  // Legacy sources (MLB ML, MLB Total, MLB Model) keep their full
+  // consensus-era history but only count picks that carry the v1 epoch
+  // stamp — this filters out any pre-consensus rows from their record.
+  if (LEGACY_RECORD_SOURCES.has(source)) {
+    const epoch = String(pick.ml_rank_epoch || pick.ranking_epoch || pick.model_epoch || '').trim();
+    return epoch.startsWith(MLB_TEAM_CONSENSUS_EPOCH_PREFIX);
+  }
+  // Non-legacy consensus sources (Team Total, F5, etc.) are date-gated
+  // from the 2026-07-19 redesign. MLB Inning is gated earlier at v2.
+  return pickDateKey(pick) >= TEAM_RANKING_START_DATE;
+}
+
+function isBestBetsWindowPick(pick: Pick): boolean {
+  if (activePickMode === 'player') return pickDateKey(pick) >= PLAYER_PROP_RANKING_START_DATE;
+  return isTeamRankingWindowPick(pick);
+}
+
 function rankingComparablePicks(picks: Pick[]): Pick[] {
   if (activePickMode !== 'player') {
-    return picks.filter(pick => {
-      const source = sourceName(pick);
-      const isConsensusSource = String(pick.sport || '').toUpperCase() === 'MLB'
-        && MLB_TEAM_CONSENSUS_SOURCES.has(source);
-      // Record resets apply ONLY to in-house model variants (MLB/WNBA at
-      // the 2026-07-19 redesign, MLS at the 2026-07-25 v2 cutover, WNBA
-      // totals again at the 2026-07-26 v2 retrain). External feeds and
-      // every other source keep their full history.
-      if (source === 'WNBA Total') {
-        return pickDateKey(pick) >= WNBA_TOTAL_RANKING_START_DATE;
-      }
-      if (source === 'MLB Inning') {
-        return pickDateKey(pick) >= MLB_INNING_RANKING_START_DATE;
-      }
-      if (WNBA_RESET_SOURCES.has(source)) {
-        return pickDateKey(pick) >= TEAM_RANKING_START_DATE;
-      }
-      if (MLS_RESET_SOURCES.has(source)) {
-        return pickDateKey(pick) >= MLS_RANKING_START_DATE;
-      }
-      if (!isConsensusSource) return true;
-      // Legacy sources (MLB ML, MLB Total, MLB Model) keep their full
-      // consensus-era history but only count picks that carry the v1 epoch
-      // stamp — this filters out any pre-consensus rows from their record.
-      if (LEGACY_RECORD_SOURCES.has(source)) {
-        const epoch = String(pick.ml_rank_epoch || pick.ranking_epoch || pick.model_epoch || '').trim();
-        return epoch.startsWith(MLB_TEAM_CONSENSUS_EPOCH_PREFIX);
-      }
-      // Non-legacy consensus sources (Team Total, F5, etc.) are date-gated
-      // from the 2026-07-19 redesign. MLB Inning is gated earlier at v2.
-      return pickDateKey(pick) >= TEAM_RANKING_START_DATE;
-    });
+    return picks.filter(isTeamRankingWindowPick);
   }
   return uniquePlayerRankingPicks(picks.filter(pick => {
     const date = pickDateKey(pick);
@@ -1938,8 +1945,9 @@ function isFeaturedPlayablePick(pick: Pick): boolean {
   if (!isFeaturedPlayablePrice(pick)) return false;
   // Same windows Rankings uses: WNBA Total v2, MLS v2, consensus-era MLB
   // Total/ML. Dead pre-cutover rows still exist in cache and would dilute
-  // the betting card if Featured published them.
-  return rankingComparablePicks([pick]).length === 1;
+  // the betting card if Featured published them. Always the team window,
+  // even when the viewer is in Player mode — this card is team sources.
+  return isTeamRankingWindowPick(pick);
 }
 
 function featuredPicksForDate(date: string, openOnly = date === centralDateKey()): Pick[] {
@@ -2864,7 +2872,9 @@ function matchingConsensusPicks(slate: Pick[]): Pick[] {
 }
 
 function buildDailyShortlist(date: string, openOnly: boolean) {
-  const picks = getAllPicks().filter(pick => pickDateKey(pick) === date);
+  const picks = getAllPicks()
+    .filter(pick => pickDateKey(pick) === date)
+    .filter(isBestBetsWindowPick);
   const slate = openOnly ? picks.filter(isOpenPick) : picks.filter(isPublishedDailyPick);
   const stats = statsFor(picks);
   const forms = dailySourceForms(date, picks, slate);
@@ -3056,7 +3066,7 @@ function dailyFilterRecordsHtml(): string {
   const rows = computeDailyFilterLedger();
   const historyNote = isPickHistoryLoading()
     ? 'History is still loading, so these records will fill in.'
-    : 'Replayed from settled slates with the same view rules. Fade counts the other side.';
+    : 'Replayed from settled slates with the same view rules and ranking cutovers. Fade counts the other side.';
   return `<section class="daily-filter-records" aria-label="Best Bets filter records">
     <div class="daily-filter-records-copy">
       <div class="daily-filter-records-kicker">FILTER RECORDS</div>

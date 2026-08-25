@@ -59,6 +59,9 @@ def test_best_bets_filter_records_replay_settled_slates_at_the_footer():
     assert "function computeDailyFilterLedger(" in main
     assert "function dailyFilterRecordsHtml(" in main
     assert "localStorage.setItem(DAILY_FILTER_LEDGER_KEY" in main
+    assert "function isTeamRankingWindowPick(" in main
+    assert "function isBestBetsWindowPick(" in main
+    assert ".filter(isBestBetsWindowPick)" in main
     assert "buildDailyShortlist(date, false)" in main
     assert '${dailyFilterRecordsHtml()}' in main
     assert "class=\"daily-filter-records\"" in main or 'class="daily-filter-records"' in main
@@ -384,7 +387,7 @@ def test_best_bets_shortlist_is_fully_restored_on_the_daily_tab():
     assert "Best Bets Date" in main
     assert "Featured Picks" in main
     assert "function isFeaturedPlayablePick(" in main
-    assert "rankingComparablePicks([pick]).length === 1" in main
+    assert "return isTeamRankingWindowPick(pick)" in main
     assert "const FEATURED_SOURCES = new Set([" in main
     assert "'MLB Total'" in main
     assert "'WNBA ML'" in main
