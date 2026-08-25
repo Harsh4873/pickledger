@@ -1567,6 +1567,22 @@ def parse_pick_date(date_text: str, year: int) -> str | None:
     return None
 
 
+def pick_grade_date(pick: dict[str, Any], year: int) -> str | None:
+    """Resolve the scoreboard date for a pick.
+
+    mlb_new (and other stdout-parsed) snapshots often omit ``date`` and only
+    carry ``slate_date`` on the certified ledger row. Without this fallback
+    those rows never enter auto_grade and stay pending after the game ends.
+    """
+    if not isinstance(pick, dict):
+        return None
+    for field in ("date", "game_date", "slate_date"):
+        parsed = parse_pick_date(str(pick.get(field) or ""), year)
+        if parsed:
+            return parsed
+    return None
+
+
 def fetch_scoreboard(sport: str, league: str, yyyymmdd: str) -> dict[str, Any] | None:
     extra = "&limit=1000&groups=80" if league == "college-football" else ""
     url = (
@@ -2676,7 +2692,7 @@ def auto_grade(picks: list[dict[str, Any]], existing: dict[str, str], year: int)
         if sport_key not in SPORT_TO_ESPNSLUG:
             continue
 
-        d = parse_pick_date(str(pick.get("date", "")), year)
+        d = pick_grade_date(pick, year)
         if not d:
             continue
 
@@ -5100,15 +5116,18 @@ def run_fifa_world_cup_model(date_str: str | None = None) -> dict[str, Any]:
 
 
 def _stamp_mlb_game_start_times(picks: list[dict[str, Any]], date_str: str | None) -> None:
-    """Stamp statsapi gameDate onto parsed MLB picks.
+    """Stamp slate date and statsapi gameDate onto parsed MLB picks.
 
-    Parsed stdout picks carry no start time, so their pregame snapshots can
-    never certify (missing_or_invalid_game_start_time) and never reach the
-    walk-forward ledger.
+    Parsed stdout picks carry neither ``date`` nor start time. Missing start
+    time blocks certification; missing date prevented the certified ledger
+    grader from grouping mlb_new rows onto an ESPN scoreboard.
     """
     if not picks:
         return
     date_iso = str(date_str or datetime.now().strftime("%Y-%m-%d"))
+    for pick in picks:
+        if isinstance(pick, dict) and not str(pick.get("date") or "").strip():
+            pick["date"] = date_iso
     try:
         schedule = fetch_mlb_schedule(date_iso)
     except Exception:

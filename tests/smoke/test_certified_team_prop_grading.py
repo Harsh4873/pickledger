@@ -101,3 +101,36 @@ def test_certified_snapshot_grader_never_grades_existing_pass_rows(monkeypatch, 
     }
     assert auto_grade_picks.grade_payload(legacy_payload) == 0
     assert legacy_payload["models"]["nba_summer"]["picks"][0]["result"] == "pending"
+
+
+def test_certified_mlb_new_candidate_copies_slate_date_onto_date():
+    from scripts.auto_grade_picks import _pending_certified_team_prop_candidate
+
+    record = {
+        "id": "mlb-new-pending",
+        "model_key": "mlb_new",
+        "result": "pending",
+        "decision": "LEAN",
+        "raw_decision": "LEAN",
+        "slate_date": "2026-08-22",
+        "sport": "MLB",
+        "certification": {"status": "certified"},
+        "pregame_snapshot": {
+            "sport": "MLB",
+            "pick": "Yankees ML (Blue Jays vs Yankees)",
+            "decision": "LEAN",
+            "away_team": "Toronto Blue Jays",
+            "home_team": "New York Yankees",
+            "game_start_time": "2026-08-22T17:35:00Z",
+        },
+    }
+
+    candidate_row = _pending_certified_team_prop_candidate(record)
+
+    assert candidate_row is not None
+    record_id, candidate = candidate_row
+    assert record_id == "mlb-new-pending"
+    assert candidate["date"] == "2026-08-22"
+    assert candidate["slate_date"] == "2026-08-22"
+    assert candidate["sport"] == "MLB"
+    assert candidate["pick"] == "Yankees ML (Blue Jays vs Yankees)"

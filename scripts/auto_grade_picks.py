@@ -301,6 +301,13 @@ def _pending_certified_team_prop_candidate(record: dict[str, Any]) -> tuple[str,
         if candidate.get(key) in {None, ""} and record.get(key) not in {None, ""}:
             candidate[key] = copy.deepcopy(record[key])
 
+    # mlb_new snapshots omit ``date``; the ledger row stores slate_date instead.
+    # auto_grade groups by date, so copy that onto the candidate.
+    if not str(candidate.get("date") or "").strip():
+        fallback_date = str(candidate.get("game_date") or candidate.get("slate_date") or "").strip()
+        if fallback_date:
+            candidate["date"] = fallback_date
+
     if not str(candidate.get("date") or candidate.get("game_date") or candidate.get("slate_date") or "").strip():
         return None
     if not str(candidate.get("sport") or "").strip() or not str(candidate.get("pick") or candidate.get("selection") or "").strip():

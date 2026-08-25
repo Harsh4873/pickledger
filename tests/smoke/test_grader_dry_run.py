@@ -334,6 +334,68 @@ def test_auto_grade_accepts_iso_dates_and_pushes_canceled_games(monkeypatch):
     assert result["startTimes"] == {"iso-date-pick": "2026-06-08T20:00:00Z"}
 
 
+def test_auto_grade_uses_slate_date_when_pick_omits_date(monkeypatch):
+    import pickgrader_server
+
+    scoreboard = {
+        "events": [
+            {
+                "id": "mlb-new-smoke",
+                "competitions": [
+                    {
+                        "date": "2026-08-22T17:35:00Z",
+                        "status": {"type": {"completed": True, "name": "STATUS_FINAL"}},
+                        "competitors": [
+                            {
+                                "score": "5",
+                                "homeAway": "home",
+                                "team": {
+                                    "displayName": "New York Yankees",
+                                    "shortDisplayName": "Yankees",
+                                    "name": "Yankees",
+                                    "abbreviation": "NYY",
+                                },
+                            },
+                            {
+                                "score": "3",
+                                "homeAway": "away",
+                                "team": {
+                                    "displayName": "Toronto Blue Jays",
+                                    "shortDisplayName": "Blue Jays",
+                                    "name": "Blue Jays",
+                                    "abbreviation": "TOR",
+                                },
+                            },
+                        ],
+                    }
+                ],
+            }
+        ]
+    }
+    monkeypatch.setattr(pickgrader_server, "fetch_scoreboard", lambda *_: scoreboard)
+
+    result = pickgrader_server.auto_grade(
+        [
+            {
+                "id": "mlb-new-slate-date",
+                "sport": "MLB",
+                "slate_date": "2026-08-22",
+                "pick": "Yankees ML (Blue Jays vs Yankees)",
+                "away_team": "Toronto Blue Jays",
+                "home_team": "New York Yankees",
+            }
+        ],
+        {},
+        2026,
+    )
+
+    assert pickgrader_server.pick_grade_date(
+        {"slate_date": "2026-08-22"},
+        2026,
+    ) == "20260822"
+    assert result["graded"] == {"mlb-new-slate-date": "win"}
+
+
 def test_grade_mlb_first_five_markets_without_network():
     import pickgrader_server
 
