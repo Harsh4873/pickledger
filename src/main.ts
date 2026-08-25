@@ -9,6 +9,7 @@ import {
   setHideTennisPicks,
   initHideTennisPicks,
   getCacheStatus,
+  isPickHistoryLoading,
   getParlayCardsPayload,
   getParlayCardPayloads,
   getProfitDeskPayload,
@@ -3809,7 +3810,7 @@ async function refreshAutoGrades(): Promise<void> {
   const button = document.getElementById('refresh-btn') as HTMLButtonElement | null;
   if (button) button.disabled = true;
   try {
-    await loadAllData();
+    await loadAllData({ includeHistory: false });
     updateSyncStatus();
     const pending = getAllPicks().filter(isOpenPick);
     const byDate = new Map<string, Pick[]>();
@@ -3854,9 +3855,11 @@ function updateSyncStatus(): void {
   const status = getCacheStatus();
   latestPicksUpdatedAt = status.updatedAt;
   const syncStatus = document.getElementById('sync-status');
-  if (syncStatus) syncStatus.textContent = status.updatedAt
+  if (!syncStatus) return;
+  const base = status.updatedAt
     ? `Picks updated ${updatedAgoLabel(status.updatedAt)}${status.runTime ? ` • ${status.runTime}` : ''}`
     : 'Latest pick update time unavailable';
+  syncStatus.textContent = isPickHistoryLoading() ? `${base} • loading records` : base;
 }
 
 function switchPickMode(mode: PickMode): void {
@@ -4013,7 +4016,24 @@ document.addEventListener('DOMContentLoaded', async () => {
   applyScrapedToggleUI(initHideScrapedPicks());
   applyTennisToggleUI(initHideTennisPicks());
   initSettingsUI();
-  await loadAllData();
+  const bootOrigin = performance.now();
+  await loadAllData({
+    onLatest: () => {
+      lastCentralDate = centralDateKey();
+      updateSyncStatus();
+      render();
+      // #region agent log
+      fetch('http://127.0.0.1:7374/ingest/2364ae9f-6809-4cb9-9468-1529ed0ef278',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'fbf5ba'},body:JSON.stringify({sessionId:'fbf5ba',runId:'post-fix',hypothesisId:'A',location:'main.ts:onLatest',message:'first paint after latest caches',data:{latestPaintMs:Math.round(performance.now()-bootOrigin),historyLoading:isPickHistoryLoading(),pickCount:getCacheStatus().pickCount},timestamp:Date.now()})}).catch(()=>{});
+      // #endregion
+    },
+    onHistory: () => {
+      updateSyncStatus();
+      render();
+      // #region agent log
+      fetch('http://127.0.0.1:7374/ingest/2364ae9f-6809-4cb9-9468-1529ed0ef278',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'fbf5ba'},body:JSON.stringify({sessionId:'fbf5ba',runId:'post-fix',hypothesisId:'A',location:'main.ts:onHistory',message:'history merged and rerendered',data:{historyMs:Math.round(performance.now()-bootOrigin),historyLoading:isPickHistoryLoading(),pickCount:getCacheStatus().pickCount},timestamp:Date.now()})}).catch(()=>{});
+      // #endregion
+    },
+  });
   lastCentralDate = centralDateKey();
   updateSyncStatus();
   render();

@@ -31,6 +31,25 @@ def test_frontend_is_static_json_only():
     assert "See how every source has performed across the picks and results collected here." in html
 
 
+def test_viewer_paints_latest_picks_before_history_archive():
+    data = (ROOT / "src" / "data.ts").read_text(encoding="utf-8")
+    main = (ROOT / "src" / "main.ts").read_text(encoding="utf-8")
+    html = (ROOT / "index.html").read_text(encoding="utf-8")
+
+    assert "?v=${Date.now()}" not in data
+    assert "cache: 'no-store'" not in data
+    assert "cache: 'no-cache'" in data
+    assert "await loadLatestCaches();" in data
+    assert "void ensureHistory()" in data
+    assert "./data/model_cache/latest.json" in data
+    assert "Finding the latest picks..." in html
+    assert "loading records" in main
+    ready = main[main.index("document.addEventListener('DOMContentLoaded'") :]
+    assert "onLatest:" in ready
+    assert "onHistory:" in ready
+    assert ready.index("onLatest:") < ready.index("onHistory:")
+
+
 def test_initial_theme_prefers_saved_choice_then_tracks_the_os():
     """A fresh visitor must not be forced onto the dark palette.
 
@@ -51,7 +70,7 @@ def test_initial_theme_prefers_saved_choice_then_tracks_the_os():
     assert "addEventListener('change'" in settings
     ready_handler = main[main.index("document.addEventListener('DOMContentLoaded'") :]
     assert "initTheme();" in ready_handler
-    assert ready_handler.index("initTheme();") < ready_handler.index("await loadAllData();")
+    assert ready_handler.index("initTheme();") < ready_handler.index("await loadAllData({")
     assert ':root[data-theme="light"]' in css
     assert 'color-scheme: light' in css
 
@@ -222,7 +241,7 @@ def test_static_viewer_keeps_public_tabs_and_client_grading():
     assert "async function gradeDate(" in main
     assert "site.api.espn.com" in main
     assert "setLocalResult(pick.id" in main
-    assert "await loadAllData();" in main
+    assert "await loadAllData({ includeHistory: false });" in main
     assert "DISPLAY_TIME_ZONE = 'America/Chicago'" in main
     assert "function centralDateKey(" in main
     assert "isOpenPick(pick) && pickDateKey(pick) === selectedDate" in main

@@ -536,10 +536,15 @@ let resultOverrides: Record<string, PickResult> = {};
 let gameTimes: Record<string, string> = {};
 let latestTeamCache: ModelCachePayload | null = null;
 let latestPlayerCache: PlayerPropsPayload | null = null;
+let teamCachePayloads: ModelCachePayload[] = [];
+let playerCachePayloads: PlayerPropsPayload[] = [];
 let parlayPayloads: ParlayCardsPayload[] = [];
 let latestParlayPayload: ParlayCardsPayload | null = null;
 let profitDeskPayloads: ProfitDeskPayload[] = [];
 let latestProfitDeskPayload: ProfitDeskPayload | null = null;
+let pickHistoryStatus: 'idle' | 'loading' | 'ready' = 'idle';
+let pickHistoryLoaded = false;
+let pickHistoryPromise: Promise<void> | null = null;
 
 function readStorage<T>(key: string, fallback: T): T {
   try {
@@ -785,73 +790,219 @@ function picksFromPlayerProps(payload: PlayerPropsPayload): Pick[] {
     .filter((pick): pick is Pick => Boolean(pick) && isTrackedPlayerProp(pick));
 }
 
+const DATED_CACHE_FILE = /^\d{4}-\d{2}-\d{2}\.json$/;
+const HISTORY_FETCH_CONCURRENCY = 8;
+const MODEL_CACHE_INDEX = './data/model_cache/index.json';
+const MODEL_CACHE_LATEST = './data/model_cache/latest.json';
+const MODEL_CACHE_DIR = './data/model_cache';
+const PLAYER_CACHE_INDEX = './data/player_props_cache/index.json';
+const PLAYER_CACHE_LATEST = './data/player_props_cache/latest.json';
+const PLAYER_CACHE_DIR = './data/player_props_cache';
+const PARLAY_CACHE_INDEX = './data/parlay_cards/index.json';
+const PARLAY_CACHE_LATEST = './data/parlay_cards/latest.json';
+const PARLAY_CACHE_DIR = './data/parlay_cards';
+const PROFIT_CACHE_INDEX = './data/profit_desk/index.json';
+const PROFIT_CACHE_LATEST = './data/profit_desk/latest.json';
+const PROFIT_CACHE_DIR = './data/profit_desk';
+
+type FetchMeter = { requests: number; bytes: number; maxMs: number; maxPath: string };
+let fetchMeter: FetchMeter = { requests: 0, bytes: 0, maxMs: 0, maxPath: '' };
+
+function takeFetchMeter(): FetchMeter {
+  const snapshot = fetchMeter;
+  fetchMeter = { requests: 0, bytes: 0, maxMs: 0, maxPath: '' };
+  return snapshot;
+}
+
 async function fetchJson<T>(path: string): Promise<T | null> {
+  const started = Date.now();
   try {
-    const response = await fetch(`${path}?v=${Date.now()}`, { cache: 'no-store' });
+    // Revalidate so auto-grader edits to dated files still land, but allow
+    // 304s. Never cache-bust with Date.now(): that forced a 200MB+ download
+    // on every launch and blocked first paint.
+    const response = await fetch(path, { cache: 'no-cache' });
+    const elapsed = Date.now() - started;
+    const bytes = Number(response.headers.get('content-length')) || 0;
+    fetchMeter.requests += 1;
+    fetchMeter.bytes += Number.isFinite(bytes) ? bytes : 0;
+    if (elapsed >= fetchMeter.maxMs) {
+      fetchMeter.maxMs = elapsed;
+      fetchMeter.maxPath = path;
+    }
     if (!response.ok) return null;
     return await response.json() as T;
   } catch {
+    fetchMeter.requests += 1;
     return null;
   }
 }
 
-async function loadCacheFiles(): Promise<ModelCachePayload[]> {
-  const manifest = await fetchJson<CacheManifest>('./data/model_cache/index.json');
-  const files = Array.isArray(manifest?.files)
-    ? manifest.files.filter(file => /^\d{4}-\d{2}-\d{2}\.json$/.test(file))
-    : [];
-  if (!files.length) {
-    const fallback = await fetchJson<ModelCachePayload>('./data/model_cache/latest.json');
-    latestTeamCache = fallback;
-    return fallback ? [fallback] : [];
+function mergePayloadsByDate<T>(existing: T[], incoming: T[], dateOf: (payload: T) => string): T[] {
+  const byDate = new Map<string, T>();
+  for (const payload of incoming) {
+    const date = dateOf(payload);
+    if (date) byDate.set(date, payload);
   }
-
-  const payloads = (await Promise.all(
-    files.map(file => fetchJson<ModelCachePayload>(`./data/model_cache/${file}`)),
-  )).filter((payload): payload is ModelCachePayload => Boolean(payload));
-  payloads.sort((a, b) => String(a.date || '').localeCompare(String(b.date || '')));
-  latestTeamCache = payloads[payloads.length - 1] || null;
-  return payloads;
+  for (const payload of existing) {
+    const date = dateOf(payload);
+    if (date) byDate.set(date, payload);
+  }
+  return [...byDate.values()].sort((left, right) => dateOf(left).localeCompare(dateOf(right)));
 }
 
-async function loadPlayerCacheFiles(): Promise<PlayerPropsPayload[]> {
-  const manifest = await fetchJson<CacheManifest>('./data/player_props_cache/index.json');
-  const files = Array.isArray(manifest?.files)
-    ? manifest.files.filter(file => /^\d{4}-\d{2}-\d{2}\.json$/.test(file))
-    : [];
-  if (!files.length) {
-    const fallback = await fetchJson<PlayerPropsPayload>('./data/player_props_cache/latest.json');
-    latestPlayerCache = fallback;
-    return fallback ? [fallback] : [];
+async function mapPool<T, R>(items: T[], limit: number, mapper: (item: T) => Promise<R>): Promise<R[]> {
+  if (!items.length) return [];
+  const results: R[] = new Array(items.length);
+  let next = 0;
+  async function worker(): Promise<void> {
+    while (true) {
+      const index = next;
+      next += 1;
+      if (index >= items.length) return;
+      results[index] = await mapper(items[index]);
+    }
   }
-
-  const payloads = (await Promise.all(
-    files.map(file => fetchJson<PlayerPropsPayload>(`./data/player_props_cache/${file}`)),
-  )).filter((payload): payload is PlayerPropsPayload => Boolean(payload));
-  payloads.sort((a, b) => String(a.date || a.slate_date || '').localeCompare(String(b.date || b.slate_date || '')));
-  latestPlayerCache = payloads[payloads.length - 1] || null;
-  return payloads;
+  await Promise.all(Array.from({ length: Math.min(limit, items.length) }, () => worker()));
+  return results;
 }
 
-async function loadParlayCardFiles(): Promise<ParlayCardsPayload[]> {
-  const manifest = await fetchJson<CacheManifest>('./data/parlay_cards/index.json');
-  const files = Array.isArray(manifest?.files)
-    ? manifest.files.filter(file => /^\d{4}-\d{2}-\d{2}\.json$/.test(file))
+async function listDatedCacheFiles(indexPath: string): Promise<string[]> {
+  const manifest = await fetchJson<CacheManifest>(indexPath);
+  return Array.isArray(manifest?.files)
+    ? manifest.files.filter(file => DATED_CACHE_FILE.test(file))
     : [];
-  if (!files.length) {
-    const fallback = await fetchJson<ParlayCardsPayload>('./data/parlay_cards/latest.json');
-    latestParlayPayload = fallback;
-    parlayPayloads = fallback ? [fallback] : [];
-    return parlayPayloads;
-  }
+}
 
-  const payloads = (await Promise.all(
-    files.map(file => fetchJson<ParlayCardsPayload>(`./data/parlay_cards/${file}`)),
-  )).filter((payload): payload is ParlayCardsPayload => Boolean(payload));
-  payloads.sort((a, b) => String(a.date || '').localeCompare(String(b.date || '')));
-  latestParlayPayload = payloads[payloads.length - 1] || null;
-  parlayPayloads = payloads;
-  return payloads;
+async function loadLatestOrLastDated<T>(latestPath: string, indexPath: string, dir: string): Promise<T | null> {
+  const latest = await fetchJson<T>(latestPath);
+  if (latest) return latest;
+  const files = [...await listDatedCacheFiles(indexPath)].sort();
+  const last = files[files.length - 1];
+  return last ? fetchJson<T>(`${dir}/${last}`) : null;
+}
+
+function rebuildPicks(): void {
+  const teamById = new Map<string, Pick>();
+  const playerById = new Map<string, Pick>();
+  teamCachePayloads.flatMap(picksFromCache).forEach(pick => {
+    if (isPlayerScopedPick(pick)) playerById.set(pick.id, pick);
+    else teamById.set(pick.id, pick);
+  });
+  playerCachePayloads.flatMap(picksFromPlayerProps).forEach(pick => playerById.set(pick.id, pick));
+  teamPicks = sortPicks([...teamById.values()].filter(pick => !ARCHIVED_SPORTS.has(pick.sport)));
+  // External player-prop feeds (scope=player rows in the team cache) render
+  // in Player mode alongside the in-house ML-era props; the
+  // scope routing above already keeps them out of Team mode and rankings.
+  playerPicks = sortPicks([...playerById.values()].filter(
+    pick => !ARCHIVED_SPORTS.has(pick.sport) && (isMlEraPlayerProp(pick) || pick.external_player_feed === true),
+  ));
+}
+
+async function loadLatestCaches(): Promise<void> {
+  const [team, player, parlays, profitRaw] = await Promise.all([
+    loadLatestOrLastDated<ModelCachePayload>(MODEL_CACHE_LATEST, MODEL_CACHE_INDEX, MODEL_CACHE_DIR),
+    loadLatestOrLastDated<PlayerPropsPayload>(PLAYER_CACHE_LATEST, PLAYER_CACHE_INDEX, PLAYER_CACHE_DIR),
+    loadLatestOrLastDated<ParlayCardsPayload>(PARLAY_CACHE_LATEST, PARLAY_CACHE_INDEX, PARLAY_CACHE_DIR),
+    loadLatestOrLastDated<ProfitDeskPayload>(PROFIT_CACHE_LATEST, PROFIT_CACHE_INDEX, PROFIT_CACHE_DIR),
+  ]);
+  if (team) {
+    teamCachePayloads = mergePayloadsByDate(teamCachePayloads, [team], payload => String(payload.date || ''));
+    latestTeamCache = teamCachePayloads[teamCachePayloads.length - 1] || team;
+  }
+  if (player) {
+    playerCachePayloads = mergePayloadsByDate(
+      playerCachePayloads,
+      [player],
+      payload => String(payload.date || payload.slate_date || ''),
+    );
+    latestPlayerCache = playerCachePayloads[playerCachePayloads.length - 1] || player;
+  }
+  if (parlays) {
+    parlayPayloads = mergePayloadsByDate(parlayPayloads, [parlays], payload => String(payload.date || ''));
+    latestParlayPayload = parlayPayloads[parlayPayloads.length - 1] || parlays;
+  }
+  const profit = profitRaw ? withoutRetiredProfitDeskSources(profitRaw) : null;
+  if (profit?.date) {
+    profitDeskPayloads = mergePayloadsByDate(profitDeskPayloads, [profit], payload => String(payload.date || ''));
+    latestProfitDeskPayload = profitDeskPayloads[profitDeskPayloads.length - 1] || profit;
+  }
+  rebuildPicks();
+}
+
+async function loadHistoryCaches(): Promise<void> {
+  const [teamFiles, playerFiles, parlayFiles, profitFiles] = await Promise.all([
+    listDatedCacheFiles(MODEL_CACHE_INDEX),
+    listDatedCacheFiles(PLAYER_CACHE_INDEX),
+    listDatedCacheFiles(PARLAY_CACHE_INDEX),
+    listDatedCacheFiles(PROFIT_CACHE_INDEX),
+  ]);
+  const loadedTeam = new Set(teamCachePayloads.map(payload => String(payload.date || '')));
+  const loadedPlayer = new Set(playerCachePayloads.map(payload => String(payload.date || payload.slate_date || '')));
+  const loadedParlay = new Set(parlayPayloads.map(payload => String(payload.date || '')));
+  const loadedProfit = new Set(profitDeskPayloads.map(payload => String(payload.date || '')));
+  const [teamIncoming, playerIncoming, parlayIncoming, profitIncoming] = await Promise.all([
+    mapPool(teamFiles.filter(file => !loadedTeam.has(file.replace(/\.json$/, ''))), HISTORY_FETCH_CONCURRENCY, file => (
+      fetchJson<ModelCachePayload>(`${MODEL_CACHE_DIR}/${file}`)
+    )),
+    mapPool(playerFiles.filter(file => !loadedPlayer.has(file.replace(/\.json$/, ''))), HISTORY_FETCH_CONCURRENCY, file => (
+      fetchJson<PlayerPropsPayload>(`${PLAYER_CACHE_DIR}/${file}`)
+    )),
+    mapPool(parlayFiles.filter(file => !loadedParlay.has(file.replace(/\.json$/, ''))), HISTORY_FETCH_CONCURRENCY, file => (
+      fetchJson<ParlayCardsPayload>(`${PARLAY_CACHE_DIR}/${file}`)
+    )),
+    mapPool(profitFiles.filter(file => !loadedProfit.has(file.replace(/\.json$/, ''))), HISTORY_FETCH_CONCURRENCY, file => (
+      fetchJson<ProfitDeskPayload>(`${PROFIT_CACHE_DIR}/${file}`)
+    )),
+  ]);
+  teamCachePayloads = mergePayloadsByDate(
+    teamCachePayloads,
+    teamIncoming.filter((payload): payload is ModelCachePayload => Boolean(payload)),
+    payload => String(payload.date || ''),
+  );
+  latestTeamCache = teamCachePayloads[teamCachePayloads.length - 1] || latestTeamCache;
+  playerCachePayloads = mergePayloadsByDate(
+    playerCachePayloads,
+    playerIncoming.filter((payload): payload is PlayerPropsPayload => Boolean(payload)),
+    payload => String(payload.date || payload.slate_date || ''),
+  );
+  latestPlayerCache = playerCachePayloads[playerCachePayloads.length - 1] || latestPlayerCache;
+  parlayPayloads = mergePayloadsByDate(
+    parlayPayloads,
+    parlayIncoming.filter((payload): payload is ParlayCardsPayload => Boolean(payload)),
+    payload => String(payload.date || ''),
+  );
+  latestParlayPayload = parlayPayloads[parlayPayloads.length - 1] || latestParlayPayload;
+  profitDeskPayloads = mergePayloadsByDate(
+    profitDeskPayloads,
+    profitIncoming
+      .filter((payload): payload is ProfitDeskPayload => Boolean(payload?.date))
+      .map(withoutRetiredProfitDeskSources),
+    payload => String(payload.date || ''),
+  );
+  latestProfitDeskPayload = profitDeskPayloads[profitDeskPayloads.length - 1] || latestProfitDeskPayload;
+  rebuildPicks();
+}
+
+async function ensureHistory(): Promise<void> {
+  if (pickHistoryLoaded) return;
+  if (!pickHistoryPromise) {
+    pickHistoryStatus = 'loading';
+    const started = Date.now();
+    pickHistoryPromise = loadHistoryCaches()
+      .then(() => {
+        pickHistoryLoaded = true;
+        pickHistoryStatus = 'ready';
+        const meter = takeFetchMeter();
+        // #region agent log
+        fetch('http://127.0.0.1:7374/ingest/2364ae9f-6809-4cb9-9468-1529ed0ef278',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'fbf5ba'},body:JSON.stringify({sessionId:'fbf5ba',runId:'post-fix',hypothesisId:'A',location:'data.ts:ensureHistory',message:'history caches loaded',data:{wallMs:Date.now()-started,teamDays:teamCachePayloads.length,playerDays:playerCachePayloads.length,parlayDays:parlayPayloads.length,profitDays:profitDeskPayloads.length,pickCount:teamPicks.length+playerPicks.length,...meter},timestamp:Date.now()})}).catch(()=>{});
+        // #endregion
+      })
+      .catch(() => {
+        pickHistoryPromise = null;
+        pickHistoryStatus = 'idle';
+      });
+  }
+  return pickHistoryPromise;
 }
 
 function isRetiredProviderName(value: unknown): boolean {
@@ -889,29 +1040,6 @@ function withoutRetiredProfitDeskSources(payload: ProfitDeskPayload): ProfitDesk
   return { ...payload, candidates, portfolio, sources };
 }
 
-async function loadProfitDeskFiles(): Promise<ProfitDeskPayload[]> {
-  const manifest = await fetchJson<CacheManifest>('./data/profit_desk/index.json');
-  const files = Array.isArray(manifest?.files)
-    ? manifest.files.filter(file => /^\d{4}-\d{2}-\d{2}\.json$/.test(file))
-    : [];
-  if (!files.length) {
-    const rawFallback = await fetchJson<ProfitDeskPayload>('./data/profit_desk/latest.json');
-    const fallback = rawFallback ? withoutRetiredProfitDeskSources(rawFallback) : null;
-    profitDeskPayloads = fallback?.date ? [fallback] : [];
-    latestProfitDeskPayload = profitDeskPayloads[0] || null;
-    return profitDeskPayloads;
-  }
-
-  const payloads = (await Promise.all(
-    files.map(file => fetchJson<ProfitDeskPayload>(`./data/profit_desk/${file}`)),
-  )).filter((payload): payload is ProfitDeskPayload => Boolean(payload?.date))
-    .map(withoutRetiredProfitDeskSources);
-  payloads.sort((a, b) => String(a.date || '').localeCompare(String(b.date || '')));
-  profitDeskPayloads = payloads;
-  latestProfitDeskPayload = payloads[payloads.length - 1] || null;
-  return payloads;
-}
-
 function sortPicks(picks: Pick[]): Pick[] {
   return picks.sort((a, b) => (
     a.date.localeCompare(b.date) ||
@@ -929,29 +1057,27 @@ export function getPickMode(): PickMode {
   return activePickMode;
 }
 
-export async function loadAllData(): Promise<Pick[]> {
+export function isPickHistoryLoading(): boolean {
+  return pickHistoryStatus === 'loading';
+}
+
+export async function loadAllData(options?: {
+  includeHistory?: boolean;
+  onLatest?: () => void;
+  onHistory?: () => void;
+}): Promise<Pick[]> {
   resultOverrides = readStorage<Record<string, PickResult>>(RESULT_STORAGE_KEY, {});
   gameTimes = readStorage<Record<string, string>>(GAME_TIME_STORAGE_KEY, {});
-  const [cachePayloads, playerPayloads] = await Promise.all([
-    loadCacheFiles(),
-    loadPlayerCacheFiles(),
-    loadParlayCardFiles(),
-    loadProfitDeskFiles(),
-  ]);
-  const teamById = new Map<string, Pick>();
-  const playerById = new Map<string, Pick>();
-  cachePayloads.flatMap(picksFromCache).forEach(pick => {
-    if (isPlayerScopedPick(pick)) playerById.set(pick.id, pick);
-    else teamById.set(pick.id, pick);
-  });
-  playerPayloads.flatMap(picksFromPlayerProps).forEach(pick => playerById.set(pick.id, pick));
-  teamPicks = sortPicks([...teamById.values()].filter(pick => !ARCHIVED_SPORTS.has(pick.sport)));
-  // External player-prop feeds (scope=player rows in the team cache) render
-  // in Player mode alongside the in-house ML-era props; the
-  // scope routing above already keeps them out of Team mode and rankings.
-  playerPicks = sortPicks([...playerById.values()].filter(
-    pick => !ARCHIVED_SPORTS.has(pick.sport) && (isMlEraPlayerProp(pick) || pick.external_player_feed === true),
-  ));
+  const latestStarted = Date.now();
+  await loadLatestCaches();
+  const meter = takeFetchMeter();
+  // #region agent log
+  fetch('http://127.0.0.1:7374/ingest/2364ae9f-6809-4cb9-9468-1529ed0ef278',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'fbf5ba'},body:JSON.stringify({sessionId:'fbf5ba',runId:'post-fix',hypothesisId:'A',location:'data.ts:loadAllData',message:'latest caches ready for first paint',data:{wallMs:Date.now()-latestStarted,teamDays:teamCachePayloads.length,playerDays:playerCachePayloads.length,pickCount:teamPicks.length+playerPicks.length,historyStatus:pickHistoryStatus,cache:'no-cache',bust:false,...meter},timestamp:Date.now()})}).catch(()=>{});
+  // #endregion
+  if (options?.includeHistory !== false && !pickHistoryLoaded) pickHistoryStatus = 'loading';
+  options?.onLatest?.();
+  if (options?.includeHistory === false) return getAllPicks();
+  void ensureHistory().then(() => options?.onHistory?.());
   return getAllPicks();
 }
 
