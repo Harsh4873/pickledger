@@ -100,11 +100,21 @@ def test_frontend_player_mode_is_persisted_isolated_and_team_defaulted():
     # loaded so flipping it back restores them.
     assert "const HIDE_SCRAPED_KEY = 'pickledger_hide_scraped'" in data
     assert "let hideScrapedPicks = false" in data
-    assert "hideScrapedPicks ? picks.filter(pick => pick.scraped !== true) : picks" in data
+    assert "if (hideScrapedPicks) picks = picks.filter(pick => pick.scraped !== true)" in data
     assert "function isScrapedBucket(" in data
     assert 'id="scraped-mode-toggle"' in html
     assert "toggleScrapedPicks" in main
     assert "hide-scraped" in css
+
+    # Tennis toggle: same view-filter shape, so tennis volume can leave
+    # home, rankings, search, and the shortlist together without deleting rows.
+    assert "const HIDE_TENNIS_KEY = 'pickledger_hide_tennis'" in data
+    assert "let hideTennisPicks = false" in data
+    assert "if (hideTennisPicks) picks = picks.filter(pick => !isTennisPick(pick))" in data
+    assert 'id="tennis-mode-toggle"' in html
+    assert "toggleTennisPicks" in main
+    assert "hide-tennis" in css
+    assert "NO TENNIS" in main
 
     assert "const activeFilters = new Set<string>()" in main
     assert "activeFilters.clear()" in main

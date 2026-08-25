@@ -105,17 +105,24 @@
   /* Theme toggle */
   .theme-toggle,
   .scraped-mode-toggle,
+  .tennis-mode-toggle,
   .mobile-mode-toggle { display: flex; align-items: center; gap: 7px; background: var(--card); border: 1px solid var(--border); border-radius: 20px; padding: 5px 10px 5px 8px; color: var(--muted); cursor: pointer; transition: border-color 0.2s, background-color 0.3s, color 0.2s; user-select: none; }
   .theme-toggle:hover,
   .scraped-mode-toggle:hover,
+  .tennis-mode-toggle:hover,
   .mobile-mode-toggle:hover { border-color: var(--accent); color: var(--text); }
   .scraped-mode-toggle,
+  .tennis-mode-toggle,
   .mobile-mode-toggle { padding: 5px 9px 5px 8px; gap: 6px; }
-  .scraped-feed-icon { width: 15px; height: 15px; flex-shrink: 0; }
+  .scraped-feed-icon,
+  .tennis-sport-icon { width: 15px; height: 15px; flex-shrink: 0; }
   /* On-state mirrors the mobile toggle, driven by body.hide-scraped. */
   body.hide-scraped .scraped-mode-toggle { border-color: rgba(0,229,160,0.42); color: var(--text); }
   body.hide-scraped .scraped-mode-toggle .mobile-toggle-track { background: var(--accent); }
   body.hide-scraped .scraped-mode-toggle .mobile-toggle-thumb { transform: translateX(14px); background: #fff; }
+  body.hide-tennis .tennis-mode-toggle { border-color: rgba(0,229,160,0.42); color: var(--text); }
+  body.hide-tennis .tennis-mode-toggle .mobile-toggle-track { background: var(--accent); }
+  body.hide-tennis .tennis-mode-toggle .mobile-toggle-thumb { transform: translateX(14px); background: #fff; }
   .pick-mode-segment {
     display: inline-grid;
     grid-template-columns: repeat(2, minmax(58px, 1fr));
@@ -155,7 +162,7 @@
   .sync-status.error { color: var(--danger); }
   .sync-status.ok { color: var(--accent); }
   .toggle-icon { font-size: 12px; line-height: 1; }
-  .toggle-label { font-family: 'DM Mono', monospace; font-size: 10px; letter-spacing: 1px; color: var(--muted); min-width: 32px; }
+  .tennis-mode-toggle .toggle-label { min-width: 64px; }
   .toggle-track { width: 34px; height: 18px; background: var(--border); border-radius: 9px; position: relative; flex-shrink: 0; transition: background-color 0.3s; }
   body[data-theme="light"] .toggle-track { background: var(--accent); }
   .toggle-thumb { width: 12px; height: 12px; background: var(--muted); border-radius: 50%; position: absolute; top: 3px; left: 3px; transition: transform 0.3s cubic-bezier(0.34,1.56,0.64,1), background-color 0.3s; }
@@ -168,6 +175,7 @@
   body.mobile-app-mode #mobile-mode-label { color: var(--accent); }
   body[data-theme="light"] .theme-toggle,
   body[data-theme="light"] .scraped-mode-toggle,
+  body[data-theme="light"] .tennis-mode-toggle,
   body[data-theme="light"] .mobile-mode-toggle,
   body[data-theme="light"] .pick-mode-segment,
   body[data-theme="light"] .refresh-btn,
@@ -4569,6 +4577,7 @@
   }
   body.mobile-app-mode .theme-toggle,
   body.mobile-app-mode .scraped-mode-toggle,
+  body.mobile-app-mode .tennis-mode-toggle,
   body.mobile-app-mode .mobile-mode-toggle,
   body.mobile-app-mode .pick-mode-segment {
     min-height: 34px;
@@ -4586,6 +4595,7 @@
   }
   body.mobile-app-mode .theme-toggle .toggle-label,
   body.mobile-app-mode .scraped-mode-toggle .toggle-label,
+  body.mobile-app-mode .tennis-mode-toggle .toggle-label,
   body.mobile-app-mode .mobile-mode-toggle .toggle-label {
     display: none;
   }

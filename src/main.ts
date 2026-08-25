@@ -4,6 +4,9 @@ import {
   getHideScrapedPicks,
   setHideScrapedPicks,
   initHideScrapedPicks,
+  getHideTennisPicks,
+  setHideTennisPicks,
+  initHideTennisPicks,
   getCacheStatus,
   getParlayCardsPayload,
   getParlayCardPayloads,
@@ -505,12 +508,7 @@ function rankingFacetCounts(pool: Pick[]): { sports: Map<string, number>; source
   return { sports, sources };
 }
 
-function toggleRankingSport(value: string): void {
-  if (value === 'ALL') rankingSportFilters.clear();
-  else if (rankingSportFilters.has(value)) rankingSportFilters.delete(value);
-  else rankingSportFilters.add(value);
-  // A source that no longer exists inside the new sport scope would leave every
-  // board empty with nothing on screen explaining why, so drop it instead.
+function pruneRankingSourceFilters(): void {
   if (!rankingSourceFilters.size) return;
   const available = new Set<string>();
   rankingPoolPicks(rankingComparablePicks(getAllPicks()))
@@ -519,6 +517,15 @@ function toggleRankingSport(value: string): void {
   [...rankingSourceFilters].forEach(name => {
     if (!available.has(name)) rankingSourceFilters.delete(name);
   });
+}
+
+function toggleRankingSport(value: string): void {
+  if (value === 'ALL') rankingSportFilters.clear();
+  else if (rankingSportFilters.has(value)) rankingSportFilters.delete(value);
+  else rankingSportFilters.add(value);
+  // A source that no longer exists inside the new sport scope would leave every
+  // board empty with nothing on screen explaining why, so drop it instead.
+  pruneRankingSourceFilters();
 }
 
 function toggleRankingSource(value: string): void {
@@ -813,7 +820,10 @@ function renderFilters(): void {
     `<button type="button" class="filter-btn ${filterActive(filter) ? 'active' : ''}" data-filter="${escapeHtml(filter)}" aria-pressed="${filterActive(filter)}">${escapeHtml(filterLabel(filter))}</button>`
   );
   const extraSelected = extraFilters.some(filterActive);
-  container.innerHTML = `${PRIMARY_FILTERS.map(filterButton).join('')}
+  const primaryFilters = getHideTennisPicks()
+    ? PRIMARY_FILTERS.filter(filter => filter !== 'TENNIS')
+    : PRIMARY_FILTERS;
+  container.innerHTML = `${primaryFilters.map(filterButton).join('')}
     <div class="filter-more-wrap" id="filter-more-wrap">
       <button type="button" class="filter-more-btn ${extraSelected ? 'has-selection' : ''}" id="filter-more-btn" aria-label="Show more sports and sources" aria-expanded="${filterMoreOpen}">+</button>
       <div class="filter-dropdown ${filterMoreOpen ? 'open' : ''}" id="filter-dropdown">
@@ -2316,8 +2326,19 @@ function parlayCardPickMode(card: ParlayCard): PickMode | 'mixed' {
   return hasPlayerLegs ? 'player' : 'team';
 }
 
+function isTennisSport(value: unknown): boolean {
+  return String(value || '').trim().toUpperCase() === 'TENNIS';
+}
+
+function parlayIncludesTennis(card: ParlayCard): boolean {
+  if ((card.sports || []).some(isTennisSport)) return true;
+  if (card.legs.some(leg => isTennisSport(leg.sport))) return true;
+  return /\btennis\b/i.test(String(card.sportMix || ''));
+}
+
 function parlayCardsForMode(payload: ParlayCardsPayload | null): ParlayCard[] {
-  return (payload?.cards || []).filter(card => parlayCardPickMode(card) === activePickMode);
+  const cards = (payload?.cards || []).filter(card => parlayCardPickMode(card) === activePickMode);
+  return getHideTennisPicks() ? cards.filter(card => !parlayIncludesTennis(card)) : cards;
 }
 
 function parlayCardDedupeKey(card: ParlayCard): string {
@@ -2341,7 +2362,8 @@ function parlayRankingCardsForDate(date: string, fallbackCards: ParlayCard[], en
     .filter(payload => String(payload.date || '') <= cutoff)
     .filter(payload => !engineVersion || payload.engineVersion === engineVersion)
     .flatMap(payload => payload.cards || [])
-    .filter(card => parlayCardPickMode(card) === activePickMode);
+    .filter(card => parlayCardPickMode(card) === activePickMode)
+    .filter(card => !getHideTennisPicks() || !parlayIncludesTennis(card));
   return dedupeParlayCards(historical.length ? historical : fallbackCards);
 }
 
@@ -2572,7 +2594,10 @@ function profitDeskCandidates(payload: ProfitDeskPayload | null): ProfitDeskCand
     const existing = byKey.get(key);
     byKey.set(key, existing ? { ...existing, ...candidate, portfolioSelected: existing.portfolioSelected || candidate.portfolioSelected || portfolio.includes(candidate) } : candidate);
   });
-  return [...byKey.values()];
+  const merged = [...byKey.values()];
+  return getHideTennisPicks()
+    ? merged.filter(candidate => !isTennisSport(candidate.sport))
+    : merged;
 }
 
 function profitDeskPortfolio(payload: ProfitDeskPayload | null): ProfitDeskCandidate[] {
@@ -3828,12 +3853,43 @@ function toggleScrapedPicks(): void {
   const hidden = !getHideScrapedPicks();
   setHideScrapedPicks(hidden);
   applyScrapedToggleUI(hidden);
+  pruneRankingSourceFilters();
+  render();
+}
+
+function applyTennisToggleUI(hidden: boolean): void {
+  document.body.classList.toggle('hide-tennis', hidden);
+  const button = document.getElementById('tennis-mode-toggle');
+  const label = document.getElementById('tennis-mode-label');
+  if (button) {
+    button.setAttribute('aria-pressed', hidden ? 'true' : 'false');
+    button.setAttribute(
+      'title',
+      hidden ? 'Tennis picks hidden — click to show' : 'Hide tennis picks from the board and rankings',
+    );
+  }
+  if (label) label.textContent = hidden ? 'NO TENNIS' : 'TENNIS';
+}
+
+/** Hide or show every tennis pick. Same shape as the scraped-feed toggle:
+ *  a view filter over loaded, graded rows so rankings, home, search, and
+ *  the shortlist all drop tennis together. */
+function toggleTennisPicks(): void {
+  const hidden = !getHideTennisPicks();
+  setHideTennisPicks(hidden);
+  applyTennisToggleUI(hidden);
+  if (hidden) {
+    activeFilters.delete('TENNIS');
+    rankingSportFilters.delete('TENNIS');
+  }
+  pruneRankingSourceFilters();
   render();
 }
 
 Object.assign(window, {
   switchTab,
   toggleScrapedPicks,
+  toggleTennisPicks,
   goHome,
   setHomeResultMode,
   setDailyView,
@@ -3889,6 +3945,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   activePickMode = initPickMode();
   setDataPickMode(activePickMode);
   applyScrapedToggleUI(initHideScrapedPicks());
+  applyTennisToggleUI(initHideTennisPicks());
   initSettingsUI();
   await loadAllData();
   lastCentralDate = centralDateKey();

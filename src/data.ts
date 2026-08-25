@@ -378,7 +378,9 @@ export interface ProfitDeskPayload {
 }
 
 const HIDE_SCRAPED_KEY = 'pickledger_hide_scraped';
+const HIDE_TENNIS_KEY = 'pickledger_hide_tennis';
 let hideScrapedPicks = false;
+let hideTennisPicks = false;
 const RESULT_STORAGE_KEY = 'pickledger_static_results_v2';
 const GAME_TIME_STORAGE_KEY = 'pickledger_static_game_times_v2';
 // NBA Summer League and the FIFA World Cup archived 2026-07-19: both
@@ -975,14 +977,42 @@ export function setHideScrapedPicks(hidden: boolean): void {
   }
 }
 
+export function initHideTennisPicks(): boolean {
+  try {
+    hideTennisPicks = localStorage.getItem(HIDE_TENNIS_KEY) === 'hidden';
+  } catch {
+    hideTennisPicks = false;
+  }
+  return hideTennisPicks;
+}
+
+export function getHideTennisPicks(): boolean {
+  return hideTennisPicks;
+}
+
+export function setHideTennisPicks(hidden: boolean): void {
+  hideTennisPicks = hidden;
+  try {
+    localStorage.setItem(HIDE_TENNIS_KEY, hidden ? 'hidden' : 'shown');
+  } catch {
+    // The viewer remains usable when storage is blocked.
+  }
+}
+
+function isTennisPick(pick: Pick): boolean {
+  return String(pick.sport || '').trim().toUpperCase() === 'TENNIS';
+}
+
 export function getAllPicks(): Pick[] {
-  const picks = activePickMode === 'player' ? playerPicks : teamPicks;
-  // A view filter and nothing more. Applied at the single point every view
-  // reads from, so hidden feeds disappear consistently — home, search,
+  let picks = activePickMode === 'player' ? playerPicks : teamPicks;
+  // View filters and nothing more. Applied at the single point every view
+  // reads from, so hidden rows disappear consistently — home, search,
   // rankings, trends, counts — without any view needing to know about it.
-  // The rows stay loaded, graded and in the cache; flipping this back restores
-  // them exactly. Default off, so an untouched viewer behaves as before.
-  return hideScrapedPicks ? picks.filter(pick => pick.scraped !== true) : picks;
+  // The rows stay loaded, graded and in the cache; flipping a filter back
+  // restores them exactly. Default off, so an untouched viewer behaves as before.
+  if (hideScrapedPicks) picks = picks.filter(pick => pick.scraped !== true);
+  if (hideTennisPicks) picks = picks.filter(pick => !isTennisPick(pick));
+  return picks;
 }
 
 export function getParlayCardsPayload(date?: string): ParlayCardsPayload | null {
