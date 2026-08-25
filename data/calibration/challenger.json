@@ -1,80 +1,104 @@
 {
-  "decided_count": 5830,
-  "evaluated_at": "2026-08-18T04:09:26.603087Z",
+  "decided_count": 6404,
+  "evaluated_at": "2026-08-25T01:55:17.832602Z",
   "global": {
-    "intercept": -0.17262592,
-    "samples": 405,
+    "intercept": -0.10332647,
+    "samples": 725,
     "shrinkage_prior_samples": 120.0,
-    "slope": 0.85488845
+    "slope": 0.70773733
   },
   "groups": {
     "model:forebet_mlb|source:forebetmlb|sport:mlb|bet:moneyline": {
-      "intercept": -0.24023787,
-      "samples": 118,
+      "intercept": -0.18650609,
+      "samples": 121,
       "shrinkage_prior_samples": 80.0,
-      "slope": 0.80967367
+      "slope": 0.66001592
     },
     "model:forebet_wnba|source:forebetwnba|sport:wnba|bet:moneyline": {
-      "intercept": -0.09422994,
-      "samples": 61,
+      "intercept": -0.01444261,
+      "samples": 66,
       "shrinkage_prior_samples": 80.0,
-      "slope": 0.91750756
+      "slope": 0.77650118
     },
     "model:mlb_first_five|source:mlb first five|sport:mlb|bet:f5_side": {
-      "intercept": -0.27977816,
+      "intercept": -0.2099075,
       "samples": 33,
       "shrinkage_prior_samples": 80.0,
-      "slope": 0.7939322
+      "slope": 0.64753965
     },
     "model:mlb_first_five|source:mlb first five|sport:mlb|bet:f5_total": {
-      "intercept": -0.23193002,
+      "intercept": -0.15583111,
       "samples": 81,
       "shrinkage_prior_samples": 80.0,
-      "slope": 0.80869587
+      "slope": 0.66705252
+    },
+    "model:mlb_new|source:mlb model|sport:mlb|bet:h2h": {
+      "intercept": -0.06948369,
+      "samples": 79,
+      "shrinkage_prior_samples": 80.0,
+      "slope": 0.55260807
+    },
+    "model:mlb_new|source:mlb model|sport:mlb|bet:totals": {
+      "intercept": 0.09688435,
+      "samples": 110,
+      "shrinkage_prior_samples": 80.0,
+      "slope": 0.79786866
     },
     "model:mlb_team_total|source:mlb team total|sport:mlb|bet:team_total": {
-      "intercept": -0.11603037,
+      "intercept": -0.04917497,
       "samples": 38,
       "shrinkage_prior_samples": 80.0,
-      "slope": 0.86970424
+      "slope": 0.72182346
     },
     "model:nba_summer|source:nba summer league|sport:nba summer|bet:h2h": {
-      "intercept": -0.25331919,
+      "intercept": -0.17066099,
       "samples": 72,
       "shrinkage_prior_samples": 80.0,
-      "slope": 0.77961634
+      "slope": 0.65129061
+    },
+    "model:wnba|source:wnba model|sport:wnba|bet:spread": {
+      "intercept": -0.13767143,
+      "samples": 38,
+      "shrinkage_prior_samples": 80.0,
+      "slope": 0.67188565
+    },
+    "model:wnba|source:wnba model|sport:wnba|bet:totals": {
+      "intercept": -0.20742792,
+      "samples": 71,
+      "shrinkage_prior_samples": 80.0,
+      "slope": 0.6062623
     }
   },
   "holdout": {
     "challenger": {
-      "brier_score": 0.24197052,
-      "calibration_error": 0.18603936,
-      "log_loss": 0.67657111,
-      "qualified_bets": 8,
-      "roi": null,
-      "samples": 20
+      "brier_score": 0.25035007,
+      "calibration_error": 0.11789245,
+      "log_loss": 0.70327957,
+      "qualified_bets": 178,
+      "roi": -0.03960111,
+      "samples": 320
     },
     "champion": {
-      "brier_score": 0.24221273,
-      "calibration_error": 0.10430708,
-      "log_loss": 0.67715989,
-      "qualified_bets": 8,
-      "roi": null,
-      "samples": 20
+      "brier_score": 0.25153921,
+      "calibration_error": 0.12971767,
+      "log_loss": 0.70735999,
+      "qualified_bets": 184,
+      "roi": -0.04612811,
+      "samples": 320
     }
   },
   "minimum_group_samples": 30,
   "promotion": {
-    "approved": false,
+    "approved": true,
     "reasons": [
-      "brier_improved=False",
-      "calibration_improved=False",
+      "brier_improved=True",
+      "calibration_improved=True",
       "log_loss_safe=True",
       "roi_safe=True"
     ]
   },
   "schema_version": 1,
-  "trainable_decided_count": 405,
+  "trainable_decided_count": 725,
   "training_contract_version": 2,
-  "version": "cal-v2-5830-2026-08-18"
+  "version": "cal-v2-6404-2026-08-25"
 }
