@@ -1,6 +1,7 @@
 import { initMobileMode, initPickMode, initSettingsUI, initTheme, type PickMode } from './settings';
 import {
   getAllPicks,
+  getTeamPicks,
   getHideScrapedPicks,
   setHideScrapedPicks,
   initHideScrapedPicks,
@@ -72,7 +73,7 @@ type WeekdaySourceForm = {
   score: number;
 };
 
-type DailyView = 'picks' | 'consensus' | 'sources' | 'research' | 'dayform' | 'fade';
+type DailyView = 'featured' | 'picks' | 'consensus' | 'sources' | 'research' | 'dayform' | 'fade';
 type ProfitView = 'card' | 'watchlist' | 'method';
 type ParlayView = string;
 type DailySort = 'time' | 'percentage';
@@ -113,7 +114,7 @@ const rankingSportFilters = new Set<string>();
 const rankingSourceFilters = new Set<string>();
 let activePickMode: PickMode = 'team';
 let homeMode: ResultMode = 'pending';
-let dailyView: DailyView = 'picks';
+let dailyView: DailyView = 'featured';
 let profitView: ProfitView = 'card';
 let profitDeskSport = 'ALL';
 let parlayView: ParlayView = 'all';
@@ -1886,6 +1887,48 @@ function isPublishedDailyPick(pick: Pick): boolean {
   return decision === 'BET' || decision === 'LEAN';
 }
 
+// In-house sources whose ranking-era posted-odds records actually print.
+// Featured Picks is this list, not the rest of the board.
+const FEATURED_SOURCES = new Set([
+  'MLB Total',
+  'MLB Team Total',
+  'MLB ML',
+  'WNBA ML',
+  'WNBA Total',
+  'MLS Total',
+]);
+const FEATURED_JUICE_CUTOFF = -150;
+const FEATURED_JUICE_EXCEPTIONS = new Set(['WNBA ML']);
+
+function featuredPostedOdds(pick: Pick): number | null {
+  if (pick.odds == null || pick.odds === 0) return null;
+  const odds = Number(pick.odds);
+  return Number.isFinite(odds) ? odds : null;
+}
+
+function isFeaturedPlayablePrice(pick: Pick): boolean {
+  const odds = featuredPostedOdds(pick);
+  if (odds == null) return false;
+  if (FEATURED_JUICE_EXCEPTIONS.has(sourceName(pick))) return true;
+  return odds > FEATURED_JUICE_CUTOFF;
+}
+
+function isFeaturedPlayablePick(pick: Pick): boolean {
+  if (pick.scraped === true) return false;
+  if (String(pick.sport || '').trim().toUpperCase() === 'TENNIS') return false;
+  if (!FEATURED_SOURCES.has(sourceName(pick))) return false;
+  if (!isPublishedDailyPick(pick)) return false;
+  return isFeaturedPlayablePrice(pick);
+}
+
+function featuredPicksForDate(date: string): Pick[] {
+  const dated = getTeamPicks().filter(pick => pickDateKey(pick) === date);
+  const published = uniqueDailyPicks(dated.filter(isFeaturedPlayablePick));
+  const today = date === centralDateKey();
+  const open = published.filter(isOpenPick);
+  return today ? open : published;
+}
+
 function dailyPickKey(pick: Pick): string {
   const selection = pick.pick.split('(', 1)[0].trim().toLowerCase()
     .replace(/\bfirst five\b/g, 'f5')
@@ -2070,8 +2113,14 @@ function dailySection(title: string, subtitle: string, body: string, meta = ''):
   return `<section class="daily-zone"><div class="daily-section-head"><div><div class="daily-section-title">${escapeHtml(title)}</div><div class="daily-section-sub">${escapeHtml(subtitle)}</div></div>${meta ? `<div class="daily-section-meta">${escapeHtml(meta)}</div>` : ''}</div>${body}</section>`;
 }
 
-function dailyPickGrid(groups: DailyPickGroup[]): string {
-  if (!groups.length) return '<div class="daily-empty"><div class="daily-empty-title">Nothing qualifies yet</div><div class="daily-empty-sub">This view fills in when today’s picks meet its rules.</div></div>';
+function dailyPickGrid(
+  groups: DailyPickGroup[],
+  emptyTitle = 'Nothing qualifies yet',
+  emptySub = 'This view fills in when today’s picks meet its rules.',
+): string {
+  if (!groups.length) {
+    return `<div class="daily-empty"><div class="daily-empty-title">${escapeHtml(emptyTitle)}</div><div class="daily-empty-sub">${escapeHtml(emptySub)}</div></div>`;
+  }
   return `<div class="daily-bet-grid">${groups.map(dailyPickGroupCard).join('')}</div>`;
 }
 
@@ -2778,8 +2827,8 @@ function bindProfitDeskControls(container: HTMLElement): void {
 }
 
 function setDailyView(view: string): void {
-  if (activePickMode === 'player' && view === 'consensus') view = 'picks';
-  if (view === 'picks' || view === 'consensus' || view === 'sources' || view === 'research' || view === 'dayform' || view === 'fade') {
+  if (activePickMode === 'player' && view === 'consensus') view = 'featured';
+  if (view === 'featured' || view === 'picks' || view === 'consensus' || view === 'sources' || view === 'research' || view === 'dayform' || view === 'fade') {
     dailyView = view;
     renderDaily();
   }
@@ -2825,7 +2874,7 @@ function renderDaily(): void {
   const picks = getAllPicks().filter(pick => pickDateKey(pick) === key);
   const stats = statsFor(picks);
   const pending = picks.filter(isOpenPick);
-  if (activePickMode === 'player' && dailyView === 'consensus') dailyView = 'picks';
+  if (activePickMode === 'player' && dailyView === 'consensus') dailyView = 'featured';
   const forms = dailySourceForms(key, picks);
   const formsBySource = new Map(forms.map(form => [form.source, form]));
   const ranked = (candidates: Pick[]) => [...candidates].sort((a, b) => dailyPickScore(b, formsBySource) - dailyPickScore(a, formsBySource));
@@ -2843,11 +2892,14 @@ function renderDaily(): void {
     tags.add(tag);
     tagsById.set(pick.id, tags);
   });
+  const featuredCandidates = featuredPicksForDate(key);
+  addTag(featuredCandidates, 'FEATURED');
   addTag(modelCalls, 'MODEL GREENLIGHT');
   addTag(valueZone, 'VALUE');
   addTag(probabilityLeaders, 'PROBABILITY LEADER');
   addTag(researchQueue, 'RESEARCH');
   addTag(pending.filter(pick => pick.odds != null && pick.odds <= -300), 'PRICEY FAVORITE');
+  const featuredGroups = sortDailyGroups(dailyPickGroups(featuredCandidates, tagsById, formsBySource, featuredCandidates));
 
   const topCandidates = [...new Map(
     [...modelCalls, ...valueZone, ...probabilityLeaders.filter(isPublishedDailyPick)]
@@ -2881,6 +2933,7 @@ function renderDaily(): void {
   pending.forEach(pick => games.set(gameKey(pick), [...(games.get(gameKey(pick)) || []), pick]));
   const consensusCount = [...games.values()].reduce((total, gamePicks) => total + trendSignalGroups(gamePicks).filter(signal => signal.matching).length, 0);
   const viewOptionsBase: DailyViewOption[] = [
+    { key: 'featured', label: 'Featured Picks', count: featuredGroups.length, description: 'In-house card at playable prices' },
     { key: 'picks', label: 'Top Picks', count: topGroups.length, description: 'Unique actionable markets' },
     { key: 'consensus', label: 'Consensus', count: consensusCount, description: 'All matching market signals' },
     { key: 'sources', label: 'Active Sources', count: hotForms.length, description: 'Sources issuing BET/LEAN calls today' },
@@ -2895,11 +2948,24 @@ function renderDaily(): void {
     { key: 'percentage', label: 'By Percentage', description: 'Highest model % first' },
   ];
   const activeSort = sortOptions.find(option => option.key === dailySort) || sortOptions[0];
-  const dailyFocus = activePickMode === 'player' ? 'top picks, sources, day form, or research' : 'picks, consensus, sources, day form, or research';
   const researchSubtitle = activePickMode === 'player'
     ? 'Next-best player prop candidates and pass research, excluding anything already in Top Picks.'
     : 'High-probability non-published calls and expensive favorites, excluding anything already in Top Picks.';
-  const activeBody = dailyView === 'picks'
+  const featuredEmptyTitle = key === centralDateKey()
+    ? 'Sit this one out'
+    : 'No featured picks on this date';
+  const featuredEmptySub = 'Featured only publishes MLB Total, MLB Team Total, MLB ML, WNBA ML, WNBA Total, and MLS Total at posted prices. WNBA ML may keep heavy juice; everything else skips -150 or worse. An empty card is the play.';
+  const featuredIntro = featuredGroups.length
+    ? '<div class="daily-dayform-warning daily-featured-intro"><strong>This is the betting card.</strong> In-house models with a priced record only. Singles, 0.5u–1u. Do not parlay these to manufacture action.</div>'
+    : '';
+  const activeBody = dailyView === 'featured'
+    ? dailySection(
+      'Featured Picks',
+      'MLB Total, MLB Team Total, MLB ML, WNBA ML, WNBA Total, and MLS Total. Posted price required. Juice allowed only on WNBA ML.',
+      `${featuredIntro}${dailyPickGrid(featuredGroups, featuredEmptyTitle, featuredEmptySub)}`,
+      `${featuredGroups.length} playable pick${featuredGroups.length === 1 ? '' : 's'}`,
+    )
+    : dailyView === 'picks'
     ? dailySection('Top Picks', 'Greenlights, value, and high-probability BET/LEAN calls merged into one card per market.', dailyPickGrid(topGroups), `${topGroups.length} unique markets`)
     : dailyView === 'consensus'
       ? dailySection('Consensus Signals', 'Same market selection from at least two independent sources.', dailyConsensusCards(pending), `${consensusCount} matching signals`)
@@ -2911,10 +2977,10 @@ function renderDaily(): void {
             ? dailySection(`Fade Board for ${dayName}s`, `The inverse of Day Form: picks published today by sources that are cold on ${dayName}s AND cold over the last ${FADE_RECENT_DAYS} days, with any in-form agreement cancelling the fade.`, dailyFadeBody(key, fadeBoard), `${fadeBoard.candidates.length} clean fade${fadeBoard.candidates.length === 1 ? '' : 's'}`)
             : dailySection('Research Queue', researchSubtitle, dailyPickGrid(researchGroups), `${researchGroups.length} unique markets`);
 
-  container.innerHTML = `<div class="daily-hero"><div class="daily-hero-row"><div><div class="daily-eyebrow">TODAY'S QUICK READ</div><div class="daily-title">The Shortlist</div><div class="daily-sub">${escapeHtml(dateLabel(key, true))} | Each unique market appears once. Choose a view to focus on ${dailyFocus}.</div></div><div class="daily-clock-wrap"><div class="daily-clock-label">PICKS FOR</div><div class="daily-clock">${escapeHtml(key)}</div></div></div></div>
+  container.innerHTML = `<div class="daily-hero"><div class="daily-hero-row"><div><div class="daily-eyebrow">TODAY'S QUICK READ</div><div class="daily-title">The Shortlist</div><div class="daily-sub">${escapeHtml(dateLabel(key, true))} | Featured Picks is the betting card. The other views are research.</div></div><div class="daily-clock-wrap"><div class="daily-clock-label">PICKS FOR</div><div class="daily-clock">${escapeHtml(key)}</div></div></div></div>
     <div class="daily-view-shell">
       <div class="daily-view-copy"><div class="daily-view-eyebrow">CHOOSE A VIEW</div><div class="daily-view-title">${escapeHtml(activeView.label)}</div><div class="daily-view-description">Sorted ${escapeHtml(activeSort.label.toLowerCase())}; ${stats.pending} picks remain open and ${priceyCount} are pricey favorites.</div></div>
-      <div class="daily-view-nav" role="tablist" aria-label="Daily shortlist categories">${viewOptions.map(option => `<button class="daily-view-tab ${dailyView === option.key ? 'active' : ''}" type="button" role="tab" aria-selected="${dailyView === option.key}" onclick="setDailyView('${option.key}')"><span class="daily-view-tab-count">${option.count}</span><span class="daily-view-tab-label">${option.label}</span><span class="daily-view-tab-desc">${option.description}</span></button>`).join('')}</div>
+      <div class="daily-view-nav" role="tablist" aria-label="Daily shortlist categories">${viewOptions.map(option => `<button class="daily-view-tab ${option.key === 'featured' ? 'is-featured' : ''} ${dailyView === option.key ? 'active' : ''}" type="button" role="tab" aria-selected="${dailyView === option.key}" onclick="setDailyView('${option.key}')"><span class="daily-view-tab-count">${option.count}</span><span class="daily-view-tab-label">${option.label}</span><span class="daily-view-tab-desc">${option.description}</span></button>`).join('')}</div>
       <div class="daily-controls-row">
         ${inlineDatePickerHtml('daily', dailyCalendarOpen, 'Best Bets Date')}
         <label class="daily-view-select-wrap"><span>Daily category</span><select class="daily-view-select" onchange="setDailyView(this.value)">${viewOptions.map(option => `<option value="${option.key}" ${dailyView === option.key ? 'selected' : ''}>${option.label} (${option.count})</option>`).join('')}</select></label>
@@ -3800,7 +3866,7 @@ function switchPickMode(mode: PickMode): void {
   rankingSportFilters.clear();
   rankingSourceFilters.clear();
   homeMode = 'pending';
-  dailyView = 'picks';
+  dailyView = 'featured';
   profitView = 'card';
   profitDeskSport = 'ALL';
   parlayView = 'all';

@@ -1003,6 +1003,10 @@ function isTennisPick(pick: Pick): boolean {
   return String(pick.sport || '').trim().toUpperCase() === 'TENNIS';
 }
 
+export function getTeamPicks(): Pick[] {
+  return teamPicks;
+}
+
 export function getAllPicks(): Pick[] {
   let picks = activePickMode === 'player' ? playerPicks : teamPicks;
   // View filters and nothing more. Applied at the single point every view

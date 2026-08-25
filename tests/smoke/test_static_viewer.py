@@ -335,12 +335,19 @@ def test_best_bets_shortlist_is_fully_restored_on_the_daily_tab():
     css = (ROOT / "src" / "styles" / "pickledger.css").read_text(encoding="utf-8")
 
     assert 'onclick="switchTab(\'daily\')">BEST BETS</button>' in html
-    assert "type DailyView = 'picks' | 'consensus' | 'sources' | 'research'" in main
-    assert "let dailyView: DailyView = 'picks'" in main
+    assert "type DailyView = 'featured' | 'picks' | 'consensus' | 'sources' | 'research'" in main
+    assert "let dailyView: DailyView = 'featured'" in main
     assert "function renderDaily(" in main
     assert "The Shortlist" in main
     assert "function dailyPickScore(" in main
     assert "Best Bets Date" in main
+    assert "Featured Picks" in main
+    assert "function isFeaturedPlayablePick(" in main
+    assert "const FEATURED_SOURCES = new Set([" in main
+    assert "'MLB Total'" in main
+    assert "'WNBA ML'" in main
+    assert "FEATURED_JUICE_EXCEPTIONS" in main
+    assert "Sit this one out" in main
     for section in ("Top Picks", "Consensus Signals", "Hot Sources", "Research Queue"):
         assert section in main
     assert "MODEL GREENLIGHT" in main
@@ -442,7 +449,7 @@ def test_player_mode_keeps_best_bets_available_and_prop_sources_separate():
     assert "function syncModeTabs(" not in main
     assert 'onclick="switchTab(\'daily\')">BEST BETS</button>' in html
     assert ">PARLAYS</button>" not in html
-    assert "dailyView = 'picks'" in main
+    assert "dailyView = 'featured'" in main
     assert "profitView = 'card'" in main
     assert "parlayView = 'all'" in main
     assert "Parlay filter" in main
