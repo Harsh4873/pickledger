@@ -50,6 +50,28 @@ def test_viewer_paints_latest_picks_before_history_archive():
     assert ready.index("onLatest:") < ready.index("onHistory:")
 
 
+def test_best_bets_filter_records_replay_settled_slates_at_the_footer():
+    main = (ROOT / "src" / "main.ts").read_text(encoding="utf-8")
+    css = (ROOT / "src" / "styles" / "pickledger.css").read_text(encoding="utf-8")
+
+    assert "const DAILY_FILTER_LEDGER_KEY = 'pickledger_bestbets_filter_ledger_v1'" in main
+    assert "function invertFadePick(" in main
+    assert "function computeDailyFilterLedger(" in main
+    assert "function dailyFilterRecordsHtml(" in main
+    assert "localStorage.setItem(DAILY_FILTER_LEDGER_KEY" in main
+    assert "buildDailyShortlist(date, false)" in main
+    assert '${dailyFilterRecordsHtml()}' in main
+    assert "class=\"daily-filter-records\"" in main or 'class="daily-filter-records"' in main
+    daily_render = main[main.index("function renderDaily()") : main.index("function renderProfit()")]
+    assert "dailyFilterRecordsHtml()" in daily_render
+    assert daily_render.index("daily-active-content") < daily_render.index("dailyFilterRecordsHtml()")
+    assert "daily-view-tab" in daily_render
+    assert "dailyFilterRecordsHtml()" not in daily_render[daily_render.index("daily-view-nav") : daily_render.index("daily-active-content")]
+    assert ".daily-filter-records" in css
+    assert ".daily-filter-record-line" in css
+    assert "127.0.0.1:7374" not in main
+
+
 def test_initial_theme_prefers_saved_choice_then_tracks_the_os():
     """A fresh visitor must not be forced onto the dark palette.
 

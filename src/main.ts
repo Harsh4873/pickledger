@@ -96,6 +96,21 @@ type DailyPickGroup = {
   score: number;
 };
 
+type DailyFilterKey = DailyView;
+type DailyFilterLedgerRow = {
+  key: DailyFilterKey;
+  label: string;
+  wins: number;
+  losses: number;
+  pushes: number;
+  pending: number;
+  decided: number;
+  winRate: number | null;
+  dates: number;
+};
+
+const DAILY_FILTER_LEDGER_KEY = 'pickledger_bestbets_filter_ledger_v1';
+
 const ESPN_ENDPOINTS: Record<string, [string, string]> = {
   MLB: ['baseball', 'mlb'],
   NBA: ['basketball', 'nba'],
@@ -116,6 +131,7 @@ const rankingSourceFilters = new Set<string>();
 let activePickMode: PickMode = 'team';
 let homeMode: ResultMode = 'pending';
 let dailyView: DailyView = 'featured';
+let filterLedgerCache: { signature: string; rows: DailyFilterLedgerRow[] } | null = null;
 let profitView: ProfitView = 'card';
 let profitDeskSport = 'ALL';
 let parlayView: ParlayView = 'all';
@@ -1922,12 +1938,10 @@ function isFeaturedPlayablePick(pick: Pick): boolean {
   return isFeaturedPlayablePrice(pick);
 }
 
-function featuredPicksForDate(date: string): Pick[] {
+function featuredPicksForDate(date: string, openOnly = date === centralDateKey()): Pick[] {
   const dated = getTeamPicks().filter(pick => pickDateKey(pick) === date);
   const published = uniqueDailyPicks(dated.filter(isFeaturedPlayablePick));
-  const today = date === centralDateKey();
-  const open = published.filter(isOpenPick);
-  return today ? open : published;
+  return openOnly ? published.filter(isOpenPick) : published;
 }
 
 function dailyPickKey(pick: Pick): string {
@@ -1950,19 +1964,20 @@ function uniqueDailyPicks(picks: Pick[]): Pick[] {
   });
 }
 
-function dailySourceForms(date: string, todaysPicks: Pick[]): DailySourceForm[] {
+function dailySourceForms(date: string, todaysPicks: Pick[], callPicks?: Pick[]): DailySourceForm[] {
   const comparable = rankingComparablePicks(getAllPicks());
   const historical = comparable.filter(pick => pickDateKey(pick) < date);
   const recentDates = [...new Set(historical.map(pickDateKey).filter(Boolean))].sort().slice(-3);
   const lastDate = recentDates.at(-1) || '';
+  const publishedCalls = (callPicks ?? todaysPicks.filter(isOpenPick)).filter(isPublishedDailyPick);
   const sources = new Set(todaysPicks.map(sourceName));
   return [...sources].map(source => {
     const recent = historical.filter(pick => sourceName(pick) === source && recentDates.includes(pickDateKey(pick)) && pick.result !== 'pending');
     const last = recent.filter(pick => pickDateKey(pick) === lastDate);
     const recentStats = statsFor(recent);
     const lastStats = statsFor(last);
-    const todayCalls = uniqueDailyPicks(todaysPicks
-      .filter(pick => sourceName(pick) === source && isOpenPick(pick) && isPublishedDailyPick(pick))
+    const todayCalls = uniqueDailyPicks(publishedCalls
+      .filter(pick => sourceName(pick) === source)
       .sort(comparePickActionableStart));
     const score = (recentStats.winRate || 0) * 100 + Math.min(recentStats.wins + recentStats.losses, 20) * 0.35 + recentStats.net * 0.08;
     return { source, recentStats, lastStats, recentDates, todayCalls, score };
@@ -1975,7 +1990,7 @@ function weekdayLabel(date: string): string {
   return parsed ? parsed.toLocaleDateString('en-US', { weekday: 'long' }) : '';
 }
 
-function weekdaySourceForms(date: string, todaysPicks: Pick[]): WeekdaySourceForm[] {
+function weekdaySourceForms(date: string, todaysPicks: Pick[], callPicks?: Pick[]): WeekdaySourceForm[] {
   const day = parseDateKey(date)?.getDay();
   if (day == null) return [];
   const historical = rankingComparablePicks(getAllPicks()).filter(pick => (
@@ -1983,12 +1998,13 @@ function weekdaySourceForms(date: string, todaysPicks: Pick[]): WeekdaySourceFor
     (pick.result === 'win' || pick.result === 'loss' || pick.result === 'push') &&
     parseDateKey(pickDateKey(pick))?.getDay() === day
   ));
+  const publishedCalls = (callPicks ?? todaysPicks.filter(isOpenPick)).filter(isPublishedDailyPick);
   const sources = new Set(todaysPicks.map(sourceName));
   return [...sources].map(source => {
     const stats = statsFor(historical.filter(pick => sourceName(pick) === source));
     const decided = stats.wins + stats.losses;
-    const todayCalls = uniqueDailyPicks(todaysPicks
-      .filter(pick => sourceName(pick) === source && isOpenPick(pick) && isPublishedDailyPick(pick))
+    const todayCalls = uniqueDailyPicks(publishedCalls
+      .filter(pick => sourceName(pick) === source)
       .sort(comparePickActionableStart));
     const score = (stats.winRate || 0) * 100 + Math.min(decided, 20) * 0.35 + stats.net * 0.08;
     return { source, stats, decided, todayCalls, score };
@@ -2827,6 +2843,235 @@ function bindProfitDeskControls(container: HTMLElement): void {
   });
 }
 
+function invertFadePick(pick: Pick): Pick {
+  if (pick.result === 'win') return { ...pick, result: 'loss' };
+  if (pick.result === 'loss') return { ...pick, result: 'win' };
+  return pick;
+}
+
+function matchingConsensusPicks(slate: Pick[]): Pick[] {
+  const games = new Map<string, Pick[]>();
+  slate.forEach(pick => games.set(gameKey(pick), [...(games.get(gameKey(pick)) || []), pick]));
+  return uniqueDailyPicks([...games.values()].flatMap(gamePicks => (
+    trendSignalGroups(gamePicks)
+      .filter(signal => signal.matching)
+      .map(signal => signal.picks[0])
+  )));
+}
+
+function buildDailyShortlist(date: string, openOnly: boolean) {
+  const picks = getAllPicks().filter(pick => pickDateKey(pick) === date);
+  const slate = openOnly ? picks.filter(isOpenPick) : picks.filter(isPublishedDailyPick);
+  const stats = statsFor(picks);
+  const forms = dailySourceForms(date, picks, slate);
+  const formsBySource = new Map(forms.map(form => [form.source, form]));
+  const ranked = (candidates: Pick[]) => [...candidates].sort((a, b) => dailyPickScore(b, formsBySource) - dailyPickScore(a, formsBySource));
+  const modelCalls = uniqueDailyPicks(ranked(slate.filter(isPublishedDailyPick))).slice(0, 8);
+  const probabilityLeaders = uniqueDailyPicks([...slate].filter(pick => pickProbability(pick) != null)
+    .sort((a, b) => (pickProbability(b) || 0) - (pickProbability(a) || 0))).slice(0, 8);
+  const valueZone = uniqueDailyPicks(ranked(slate.filter(pick => isPublishedDailyPick(pick) && ((pick.odds || 0) > 0 || (pickEdgePercent(pick) || 0) >= 10)))).slice(0, 6);
+  const researchQueue = uniqueDailyPicks([...slate].filter(pick => (
+    (pickProbability(pick) || 0) >= 0.6 && !isPublishedDailyPick(pick)
+  ) || (pick.odds != null && pick.odds <= -300)).sort((a, b) => (pickProbability(b) || 0) - (pickProbability(a) || 0))).slice(0, 6);
+  const priceyCount = uniqueDailyPicks(slate.filter(pick => pick.odds != null && pick.odds <= -300)).length;
+  const tagsById = new Map<string, Set<string>>();
+  const addTag = (tagPicks: Pick[], tag: string): void => tagPicks.forEach(pick => {
+    const tags = tagsById.get(pick.id) || new Set<string>();
+    tags.add(tag);
+    tagsById.set(pick.id, tags);
+  });
+  const featuredCandidates = featuredPicksForDate(date, openOnly);
+  addTag(featuredCandidates, 'FEATURED');
+  addTag(modelCalls, 'MODEL GREENLIGHT');
+  addTag(valueZone, 'VALUE');
+  addTag(probabilityLeaders, 'PROBABILITY LEADER');
+  addTag(researchQueue, 'RESEARCH');
+  addTag(slate.filter(pick => pick.odds != null && pick.odds <= -300), 'PRICEY FAVORITE');
+  const featuredGroups = sortDailyGroups(dailyPickGroups(featuredCandidates, tagsById, formsBySource, featuredCandidates));
+  const topCandidates = [...new Map(
+    [...modelCalls, ...valueZone, ...probabilityLeaders.filter(isPublishedDailyPick)]
+      .map(pick => [pick.id, pick]),
+  ).values()];
+  const topGroups = sortDailyGroups(dailyPickGroups(topCandidates, tagsById, formsBySource, slate));
+  const topKeys = new Set(topGroups.map(group => group.key));
+  const playerResearchPool = activePickMode === 'player'
+    ? uniqueDailyPicks(ranked(slate.filter(pick => !topKeys.has(dailyPickKey(pick)) && (
+      !isPublishedDailyPick(pick) ||
+      pickProbability(pick) != null ||
+      pickEdgePercent(pick) != null ||
+      Boolean(pick.reason || pick.rationale || pick.key_factors)
+    )))).slice(0, 8)
+    : [];
+  addTag(playerResearchPool, 'RESEARCH');
+  const researchCandidates = [...new Map(
+    [...researchQueue, ...playerResearchPool, ...probabilityLeaders.filter(pick => !isPublishedDailyPick(pick))]
+      .filter(pick => !topKeys.has(dailyPickKey(pick)))
+      .map(pick => [pick.id, pick]),
+  ).values()];
+  const researchGroups = sortDailyGroups(dailyPickGroups(researchCandidates, tagsById, formsBySource, slate));
+  const hotForms = forms.filter(form => form.todayCalls.length)
+    .sort(compareDailySourceForms)
+    .slice(0, 8);
+  const dayForms = weekdaySourceForms(date, picks, slate);
+  const fadeBoard = dailyFadeBoard(date, dayForms);
+  const consensusPicks = matchingConsensusPicks(slate);
+  const dayFormPicks = uniqueDailyPicks(dayForms
+    .filter(form => form.decided >= 3 && (form.stats.winRate || 0) >= 0.5 && form.todayCalls.length)
+    .flatMap(form => form.todayCalls));
+  const sourcePicks = uniqueDailyPicks(hotForms.flatMap(form => form.todayCalls));
+  return {
+    picks,
+    slate,
+    stats,
+    formsBySource,
+    featuredCandidates,
+    featuredGroups,
+    topCandidates,
+    topGroups,
+    researchCandidates,
+    researchGroups,
+    hotForms,
+    dayForms,
+    fadeBoard,
+    consensusPicks,
+    dayFormPicks,
+    sourcePicks,
+    priceyCount,
+  };
+}
+
+function dailyFilterLedgerSignature(): string {
+  const picks = getAllPicks();
+  const settled = picks.reduce((total, pick) => (
+    total + (pick.result === 'win' ? 1 : pick.result === 'loss' ? 3 : pick.result === 'push' ? 7 : 0)
+  ), 0);
+  return [
+    activePickMode,
+    getHideScrapedPicks() ? '1' : '0',
+    getHideTennisPicks() ? '1' : '0',
+    String(picks.length),
+    String(getTeamPicks().length),
+    String(settled),
+    isPickHistoryLoading() ? '1' : '0',
+  ].join('|');
+}
+
+function persistDailyFilterLedger(rows: DailyFilterLedgerRow[]): void {
+  try {
+    localStorage.setItem(DAILY_FILTER_LEDGER_KEY, JSON.stringify({
+      updatedAt: new Date().toISOString(),
+      pickMode: activePickMode,
+      hideScraped: getHideScrapedPicks(),
+      hideTennis: getHideTennisPicks(),
+      rows,
+    }));
+  } catch {
+    // The board still computes the ledger in memory when storage is blocked.
+  }
+}
+
+function computeDailyFilterLedger(): DailyFilterLedgerRow[] {
+  const signature = dailyFilterLedgerSignature();
+  if (filterLedgerCache?.signature === signature) return filterLedgerCache.rows;
+  const labels: Record<DailyFilterKey, string> = {
+    featured: 'Featured Picks',
+    picks: 'Top Picks',
+    consensus: 'Consensus',
+    sources: 'Active Sources',
+    dayform: 'Day Form',
+    fade: 'Fade',
+    research: 'Research',
+  };
+  const buckets: Record<DailyFilterKey, Pick[]> = {
+    featured: [],
+    picks: [],
+    consensus: [],
+    sources: [],
+    dayform: [],
+    fade: [],
+    research: [],
+  };
+  const dateHits: Record<DailyFilterKey, Set<string>> = {
+    featured: new Set(),
+    picks: new Set(),
+    consensus: new Set(),
+    sources: new Set(),
+    dayform: new Set(),
+    fade: new Set(),
+    research: new Set(),
+  };
+  const dates = [...new Set([
+    ...getAllPicks().map(pickDateKey),
+    ...getTeamPicks().map(pickDateKey),
+  ])].filter(Boolean).sort();
+  dates.forEach(date => {
+    const board = buildDailyShortlist(date, false);
+    const byView: Record<DailyFilterKey, Pick[]> = {
+      featured: uniqueDailyPicks(board.featuredCandidates),
+      picks: uniqueDailyPicks(board.topGroups.map(group => group.primary)),
+      consensus: board.consensusPicks,
+      sources: board.sourcePicks,
+      dayform: board.dayFormPicks,
+      fade: uniqueDailyPicks(board.fadeBoard.candidates.map(candidate => invertFadePick(candidate.pick))),
+      research: uniqueDailyPicks(board.researchGroups.map(group => group.primary)),
+    };
+    (Object.keys(byView) as DailyFilterKey[]).forEach(key => {
+      if (activePickMode === 'player' && key === 'consensus') return;
+      const picks = byView[key];
+      if (!picks.length) return;
+      buckets[key].push(...picks);
+      dateHits[key].add(date);
+    });
+  });
+  const rows = (Object.keys(labels) as DailyFilterKey[])
+    .filter(key => activePickMode !== 'player' || key !== 'consensus')
+    .map(key => {
+      const stats = statsFor(buckets[key]);
+      return {
+        key,
+        label: labels[key],
+        wins: stats.wins,
+        losses: stats.losses,
+        pushes: stats.pushes,
+        pending: stats.pending,
+        decided: stats.wins + stats.losses,
+        winRate: stats.winRate,
+        dates: dateHits[key].size,
+      };
+    });
+  filterLedgerCache = { signature, rows };
+  persistDailyFilterLedger(rows);
+  return rows;
+}
+
+function dailyFilterRecordText(row: DailyFilterLedgerRow): string {
+  return `${row.wins}-${row.losses}${row.pushes ? `-${row.pushes}` : ''}`;
+}
+
+function dailyFilterRecordsHtml(): string {
+  const rows = computeDailyFilterLedger();
+  const historyNote = isPickHistoryLoading()
+    ? 'History is still loading, so these records will fill in.'
+    : 'Replayed from settled slates with the same view rules. Fade counts the other side.';
+  return `<section class="daily-filter-records" aria-label="Best Bets filter records">
+    <div class="daily-filter-records-copy">
+      <div class="daily-filter-records-kicker">FILTER RECORDS</div>
+      <div class="daily-filter-records-title">How each view has done</div>
+      <p>${escapeHtml(historyNote)} Unique markets only. Open picks stay out of the win-loss until they grade.</p>
+    </div>
+    <div class="daily-filter-records-grid">${rows.map(row => {
+      const tone = row.decided === 0 ? 'is-empty' : (row.winRate != null && row.winRate >= 0.5 ? 'is-up' : 'is-down');
+      const rate = row.winRate == null ? '—' : `${(row.winRate * 100).toFixed(0)}%`;
+      const pending = row.pending ? ` • ${row.pending} open` : '';
+      return `<article class="daily-filter-record ${tone}">
+        <div class="daily-filter-record-label">${escapeHtml(row.label)}</div>
+        <div class="daily-filter-record-line">${escapeHtml(dailyFilterRecordText(row))}</div>
+        <div class="daily-filter-record-meta">${escapeHtml(rate)} • ${row.dates} slate${row.dates === 1 ? '' : 's'}${escapeHtml(pending)}</div>
+      </article>`;
+    }).join('')}</div>
+  </section>`;
+}
+
 function setDailyView(view: string): void {
   if (activePickMode === 'player' && view === 'consensus') view = 'featured';
   if (view === 'featured' || view === 'picks' || view === 'consensus' || view === 'sources' || view === 'research' || view === 'dayform' || view === 'fade') {
@@ -2872,67 +3117,23 @@ function renderDaily(): void {
   if (!container) return;
   ensureSelection();
   const key = selectedDate || latestAvailableDateKey();
-  const picks = getAllPicks().filter(pick => pickDateKey(pick) === key);
-  const stats = statsFor(picks);
-  const pending = picks.filter(isOpenPick);
+  const live = key === centralDateKey();
+  const board = buildDailyShortlist(key, live);
+  const {
+    stats,
+    featuredGroups,
+    topGroups,
+    researchGroups,
+    hotForms,
+    dayForms,
+    fadeBoard,
+    consensusPicks,
+    priceyCount,
+  } = board;
   if (activePickMode === 'player' && dailyView === 'consensus') dailyView = 'featured';
-  const forms = dailySourceForms(key, picks);
-  const formsBySource = new Map(forms.map(form => [form.source, form]));
-  const ranked = (candidates: Pick[]) => [...candidates].sort((a, b) => dailyPickScore(b, formsBySource) - dailyPickScore(a, formsBySource));
-  const modelCalls = uniqueDailyPicks(ranked(pending.filter(isPublishedDailyPick))).slice(0, 8);
-  const probabilityLeaders = uniqueDailyPicks([...pending].filter(pick => pickProbability(pick) != null)
-    .sort((a, b) => (pickProbability(b) || 0) - (pickProbability(a) || 0))).slice(0, 8);
-  const valueZone = uniqueDailyPicks(ranked(pending.filter(pick => isPublishedDailyPick(pick) && ((pick.odds || 0) > 0 || (pickEdgePercent(pick) || 0) >= 10)))).slice(0, 6);
-  const researchQueue = uniqueDailyPicks([...pending].filter(pick => (
-    (pickProbability(pick) || 0) >= 0.6 && !isPublishedDailyPick(pick)
-  ) || (pick.odds != null && pick.odds <= -300)).sort((a, b) => (pickProbability(b) || 0) - (pickProbability(a) || 0))).slice(0, 6);
-  const priceyCount = uniqueDailyPicks(pending.filter(pick => pick.odds != null && pick.odds <= -300)).length;
-  const tagsById = new Map<string, Set<string>>();
-  const addTag = (tagPicks: Pick[], tag: string): void => tagPicks.forEach(pick => {
-    const tags = tagsById.get(pick.id) || new Set<string>();
-    tags.add(tag);
-    tagsById.set(pick.id, tags);
-  });
-  const featuredCandidates = featuredPicksForDate(key);
-  addTag(featuredCandidates, 'FEATURED');
-  addTag(modelCalls, 'MODEL GREENLIGHT');
-  addTag(valueZone, 'VALUE');
-  addTag(probabilityLeaders, 'PROBABILITY LEADER');
-  addTag(researchQueue, 'RESEARCH');
-  addTag(pending.filter(pick => pick.odds != null && pick.odds <= -300), 'PRICEY FAVORITE');
-  const featuredGroups = sortDailyGroups(dailyPickGroups(featuredCandidates, tagsById, formsBySource, featuredCandidates));
-
-  const topCandidates = [...new Map(
-    [...modelCalls, ...valueZone, ...probabilityLeaders.filter(isPublishedDailyPick)]
-      .map(pick => [pick.id, pick]),
-  ).values()];
-  const topGroups = sortDailyGroups(dailyPickGroups(topCandidates, tagsById, formsBySource, pending));
-  const topKeys = new Set(topGroups.map(group => group.key));
-  const playerResearchPool = activePickMode === 'player'
-    ? uniqueDailyPicks(ranked(pending.filter(pick => !topKeys.has(dailyPickKey(pick)) && (
-      !isPublishedDailyPick(pick) ||
-      pickProbability(pick) != null ||
-      pickEdgePercent(pick) != null ||
-      Boolean(pick.reason || pick.rationale || pick.key_factors)
-    )))).slice(0, 8)
-    : [];
-  addTag(playerResearchPool, 'RESEARCH');
-  const researchCandidates = [...new Map(
-    [...researchQueue, ...playerResearchPool, ...probabilityLeaders.filter(pick => !isPublishedDailyPick(pick))]
-      .filter(pick => !topKeys.has(dailyPickKey(pick)))
-      .map(pick => [pick.id, pick]),
-  ).values()];
-  const researchGroups = sortDailyGroups(dailyPickGroups(researchCandidates, tagsById, formsBySource, pending));
-  const hotForms = forms.filter(form => form.todayCalls.length)
-    .sort(compareDailySourceForms)
-    .slice(0, 8);
-  const dayForms = weekdaySourceForms(key, picks);
   const dayName = weekdayLabel(key) || 'Day';
   const dayFormCount = dayForms.filter(form => form.decided >= 3 && form.todayCalls.length).length;
-  const fadeBoard = dailyFadeBoard(key, dayForms);
-  const games = new Map<string, Pick[]>();
-  pending.forEach(pick => games.set(gameKey(pick), [...(games.get(gameKey(pick)) || []), pick]));
-  const consensusCount = [...games.values()].reduce((total, gamePicks) => total + trendSignalGroups(gamePicks).filter(signal => signal.matching).length, 0);
+  const consensusCount = consensusPicks.length;
   const viewOptionsBase: DailyViewOption[] = [
     { key: 'featured', label: 'Featured Picks', count: featuredGroups.length, description: 'In-house card at playable prices' },
     { key: 'picks', label: 'Top Picks', count: topGroups.length, description: 'Unique actionable markets' },
@@ -2952,7 +3153,7 @@ function renderDaily(): void {
   const researchSubtitle = activePickMode === 'player'
     ? 'Next-best player prop candidates and pass research, excluding anything already in Top Picks.'
     : 'High-probability non-published calls and expensive favorites, excluding anything already in Top Picks.';
-  const featuredEmptyTitle = key === centralDateKey()
+  const featuredEmptyTitle = live
     ? 'Sit this one out'
     : 'No featured picks on this date';
   const featuredEmptySub = 'Featured only publishes MLB Total, MLB Team Total, MLB ML, WNBA ML, WNBA Total, and MLS Total at posted prices. WNBA ML may keep heavy juice; everything else skips -150 or worse. An empty card is the play.';
@@ -2969,11 +3170,11 @@ function renderDaily(): void {
     : dailyView === 'picks'
     ? dailySection('Top Picks', 'Greenlights, value, and high-probability BET/LEAN calls merged into one card per market.', dailyPickGrid(topGroups), `${topGroups.length} unique markets`)
     : dailyView === 'consensus'
-      ? dailySection('Consensus Signals', 'Same market selection from at least two independent sources.', dailyConsensusCards(pending), `${consensusCount} matching signals`)
+      ? dailySection('Consensus Signals', 'Same market selection from at least two independent sources.', dailyConsensusCards(board.slate), `${consensusCount} matching signals`)
       : dailyView === 'sources'
         ? dailySection('Hot Sources', 'Recent three-slate form plus each source’s unique BET/LEAN calls today.', hotForms.length ? `<div class="daily-model-grid">${hotForms.map(dailyHotModelCard).join('')}</div>` : '<div class="daily-empty"><div class="daily-empty-title">No hot source has a published call today</div><div class="daily-empty-sub">This view appears when a source has enough recent decisions and a current greenlight.</div></div>', `${hotForms.length} active sources`)
         : dailyView === 'dayform'
-          ? dailySection(`For ${dayName}s`, `Every source publishing today, ranked by its record on past ${dayName}s only. Some days of the week are simply weaker — this shows who has actually delivered on this one.`, dailyDayFormBody(key, dayForms, formsBySource), `${dayFormCount} ranked source${dayFormCount === 1 ? '' : 's'} with calls today`)
+          ? dailySection(`For ${dayName}s`, `Every source publishing today, ranked by its record on past ${dayName}s only. Some days of the week are simply weaker — this shows who has actually delivered on this one.`, dailyDayFormBody(key, dayForms, board.formsBySource), `${dayFormCount} ranked source${dayFormCount === 1 ? '' : 's'} with calls today`)
           : dailyView === 'fade'
             ? dailySection(`Fade Board for ${dayName}s`, `The inverse of Day Form: picks published today by sources that are cold on ${dayName}s AND cold over the last ${FADE_RECENT_DAYS} days, with any in-form agreement cancelling the fade.`, dailyFadeBody(key, fadeBoard), `${fadeBoard.candidates.length} clean fade${fadeBoard.candidates.length === 1 ? '' : 's'}`)
             : dailySection('Research Queue', researchSubtitle, dailyPickGrid(researchGroups), `${researchGroups.length} unique markets`);
@@ -2989,7 +3190,8 @@ function renderDaily(): void {
       </div>
     </div>
     <div class="daily-active-content">${activeBody}</div>
-    <div class="daily-disclaimer"><strong>Quick read, not a blind card.</strong> Model probability estimates the chance of winning. Edge compares that chance with the market price. Recent records and consensus add context, but none guarantees the next result. Duplicate market cards are merged, with every contributing source shown inside the card.</div>`;
+    <div class="daily-disclaimer"><strong>Quick read, not a blind card.</strong> Model probability estimates the chance of winning. Edge compares that chance with the market price. Recent records and consensus add context, but none guarantees the next result. Duplicate market cards are merged, with every contributing source shown inside the card.</div>
+    ${dailyFilterRecordsHtml()}`;
   bindInlineDatePicker('daily');
   bindPickCards(container);
 }
@@ -3817,6 +4019,7 @@ async function refreshAutoGrades(): Promise<void> {
     pending.forEach(pick => byDate.set(pickDateKey(pick), [...(byDate.get(pickDateKey(pick)) || []), pick]));
     let graded = 0;
     for (const [date, picks] of byDate) graded += await gradeDate(date, picks);
+    filterLedgerCache = null;
     render();
     setRefreshStatus(graded
       ? `Updated ${graded} finished pick${graded === 1 ? '' : 's'}`
@@ -3865,6 +4068,7 @@ function updateSyncStatus(): void {
 function switchPickMode(mode: PickMode): void {
   activePickMode = mode;
   setDataPickMode(mode);
+  filterLedgerCache = null;
   activeFilters.clear();
   rankingSportFilters.clear();
   rankingSourceFilters.clear();
@@ -3922,6 +4126,7 @@ function toggleScrapedPicks(): void {
   const hidden = !getHideScrapedPicks();
   setHideScrapedPicks(hidden);
   applyScrapedToggleUI(hidden);
+  filterLedgerCache = null;
   pruneRankingSourceFilters();
   render();
 }
@@ -3951,6 +4156,7 @@ function toggleTennisPicks(): void {
     activeFilters.delete('TENNIS');
     rankingSportFilters.delete('TENNIS');
   }
+  filterLedgerCache = null;
   pruneRankingSourceFilters();
   render();
 }
@@ -4016,22 +4222,16 @@ document.addEventListener('DOMContentLoaded', async () => {
   applyScrapedToggleUI(initHideScrapedPicks());
   applyTennisToggleUI(initHideTennisPicks());
   initSettingsUI();
-  const bootOrigin = performance.now();
   await loadAllData({
     onLatest: () => {
       lastCentralDate = centralDateKey();
       updateSyncStatus();
       render();
-      // #region agent log
-      fetch('http://127.0.0.1:7374/ingest/2364ae9f-6809-4cb9-9468-1529ed0ef278',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'fbf5ba'},body:JSON.stringify({sessionId:'fbf5ba',runId:'post-fix',hypothesisId:'A',location:'main.ts:onLatest',message:'first paint after latest caches',data:{latestPaintMs:Math.round(performance.now()-bootOrigin),historyLoading:isPickHistoryLoading(),pickCount:getCacheStatus().pickCount},timestamp:Date.now()})}).catch(()=>{});
-      // #endregion
     },
     onHistory: () => {
+      filterLedgerCache = null;
       updateSyncStatus();
       render();
-      // #region agent log
-      fetch('http://127.0.0.1:7374/ingest/2364ae9f-6809-4cb9-9468-1529ed0ef278',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'fbf5ba'},body:JSON.stringify({sessionId:'fbf5ba',runId:'post-fix',hypothesisId:'A',location:'main.ts:onHistory',message:'history merged and rerendered',data:{historyMs:Math.round(performance.now()-bootOrigin),historyLoading:isPickHistoryLoading(),pickCount:getCacheStatus().pickCount},timestamp:Date.now()})}).catch(()=>{});
-      // #endregion
     },
   });
   lastCentralDate = centralDateKey();

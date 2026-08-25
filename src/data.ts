@@ -805,34 +805,15 @@ const PROFIT_CACHE_INDEX = './data/profit_desk/index.json';
 const PROFIT_CACHE_LATEST = './data/profit_desk/latest.json';
 const PROFIT_CACHE_DIR = './data/profit_desk';
 
-type FetchMeter = { requests: number; bytes: number; maxMs: number; maxPath: string };
-let fetchMeter: FetchMeter = { requests: 0, bytes: 0, maxMs: 0, maxPath: '' };
-
-function takeFetchMeter(): FetchMeter {
-  const snapshot = fetchMeter;
-  fetchMeter = { requests: 0, bytes: 0, maxMs: 0, maxPath: '' };
-  return snapshot;
-}
-
 async function fetchJson<T>(path: string): Promise<T | null> {
-  const started = Date.now();
   try {
     // Revalidate so auto-grader edits to dated files still land, but allow
     // 304s. Never cache-bust with Date.now(): that forced a 200MB+ download
     // on every launch and blocked first paint.
     const response = await fetch(path, { cache: 'no-cache' });
-    const elapsed = Date.now() - started;
-    const bytes = Number(response.headers.get('content-length')) || 0;
-    fetchMeter.requests += 1;
-    fetchMeter.bytes += Number.isFinite(bytes) ? bytes : 0;
-    if (elapsed >= fetchMeter.maxMs) {
-      fetchMeter.maxMs = elapsed;
-      fetchMeter.maxPath = path;
-    }
     if (!response.ok) return null;
     return await response.json() as T;
   } catch {
-    fetchMeter.requests += 1;
     return null;
   }
 }
@@ -987,15 +968,10 @@ async function ensureHistory(): Promise<void> {
   if (pickHistoryLoaded) return;
   if (!pickHistoryPromise) {
     pickHistoryStatus = 'loading';
-    const started = Date.now();
     pickHistoryPromise = loadHistoryCaches()
       .then(() => {
         pickHistoryLoaded = true;
         pickHistoryStatus = 'ready';
-        const meter = takeFetchMeter();
-        // #region agent log
-        fetch('http://127.0.0.1:7374/ingest/2364ae9f-6809-4cb9-9468-1529ed0ef278',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'fbf5ba'},body:JSON.stringify({sessionId:'fbf5ba',runId:'post-fix',hypothesisId:'A',location:'data.ts:ensureHistory',message:'history caches loaded',data:{wallMs:Date.now()-started,teamDays:teamCachePayloads.length,playerDays:playerCachePayloads.length,parlayDays:parlayPayloads.length,profitDays:profitDeskPayloads.length,pickCount:teamPicks.length+playerPicks.length,...meter},timestamp:Date.now()})}).catch(()=>{});
-        // #endregion
       })
       .catch(() => {
         pickHistoryPromise = null;
@@ -1068,12 +1044,7 @@ export async function loadAllData(options?: {
 }): Promise<Pick[]> {
   resultOverrides = readStorage<Record<string, PickResult>>(RESULT_STORAGE_KEY, {});
   gameTimes = readStorage<Record<string, string>>(GAME_TIME_STORAGE_KEY, {});
-  const latestStarted = Date.now();
   await loadLatestCaches();
-  const meter = takeFetchMeter();
-  // #region agent log
-  fetch('http://127.0.0.1:7374/ingest/2364ae9f-6809-4cb9-9468-1529ed0ef278',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'fbf5ba'},body:JSON.stringify({sessionId:'fbf5ba',runId:'post-fix',hypothesisId:'A',location:'data.ts:loadAllData',message:'latest caches ready for first paint',data:{wallMs:Date.now()-latestStarted,teamDays:teamCachePayloads.length,playerDays:playerCachePayloads.length,pickCount:teamPicks.length+playerPicks.length,historyStatus:pickHistoryStatus,cache:'no-cache',bust:false,...meter},timestamp:Date.now()})}).catch(()=>{});
-  // #endregion
   if (options?.includeHistory !== false && !pickHistoryLoaded) pickHistoryStatus = 'loading';
   options?.onLatest?.();
   if (options?.includeHistory === false) return getAllPicks();
