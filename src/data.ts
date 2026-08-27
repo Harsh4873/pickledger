@@ -862,6 +862,32 @@ async function loadLatestOrLastDated<T>(latestPath: string, indexPath: string, d
   return last ? fetchJson<T>(`${dir}/${last}`) : null;
 }
 
+async function loadLatestAndNewestDated<T extends { date?: string }>(
+  latestPath: string,
+  indexPath: string,
+  dir: string,
+  dateOf: (payload: T) => string,
+): Promise<T[]> {
+  const [latest, files] = await Promise.all([
+    fetchJson<T>(latestPath),
+    listDatedCacheFiles(indexPath),
+  ]);
+  const sorted = [...files].sort();
+  const newestFile = sorted[sorted.length - 1];
+  const newestDate = newestFile?.replace(/\.json$/, '') ?? '';
+  const latestDate = latest ? dateOf(latest) : '';
+  const payloads: T[] = [];
+  if (latest) payloads.push(latest);
+  if (newestFile && newestDate > latestDate) {
+    const newestPayload = await fetchJson<T>(`${dir}/${newestFile}`);
+    if (newestPayload) payloads.push(newestPayload);
+  } else if (!latest && newestFile) {
+    const fallback = await fetchJson<T>(`${dir}/${newestFile}`);
+    if (fallback) payloads.push(fallback);
+  }
+  return payloads;
+}
+
 function rebuildPicks(): void {
   const teamById = new Map<string, Pick>();
   const playerById = new Map<string, Pick>();
@@ -880,32 +906,52 @@ function rebuildPicks(): void {
 }
 
 async function loadLatestCaches(): Promise<void> {
-  const [team, player, parlays, profitRaw] = await Promise.all([
-    loadLatestOrLastDated<ModelCachePayload>(MODEL_CACHE_LATEST, MODEL_CACHE_INDEX, MODEL_CACHE_DIR),
-    loadLatestOrLastDated<PlayerPropsPayload>(PLAYER_CACHE_LATEST, PLAYER_CACHE_INDEX, PLAYER_CACHE_DIR),
-    loadLatestOrLastDated<ParlayCardsPayload>(PARLAY_CACHE_LATEST, PARLAY_CACHE_INDEX, PARLAY_CACHE_DIR),
-    loadLatestOrLastDated<ProfitDeskPayload>(PROFIT_CACHE_LATEST, PROFIT_CACHE_INDEX, PROFIT_CACHE_DIR),
+  const [teamPayloads, playerPayloads, parlayList, profitList] = await Promise.all([
+    loadLatestAndNewestDated<ModelCachePayload>(
+      MODEL_CACHE_LATEST,
+      MODEL_CACHE_INDEX,
+      MODEL_CACHE_DIR,
+      payload => String(payload.date || ''),
+    ),
+    loadLatestAndNewestDated<PlayerPropsPayload>(
+      PLAYER_CACHE_LATEST,
+      PLAYER_CACHE_INDEX,
+      PLAYER_CACHE_DIR,
+      payload => String(payload.date || payload.slate_date || ''),
+    ),
+    loadLatestAndNewestDated<ParlayCardsPayload>(
+      PARLAY_CACHE_LATEST,
+      PARLAY_CACHE_INDEX,
+      PARLAY_CACHE_DIR,
+      payload => String(payload.date || ''),
+    ),
+    loadLatestAndNewestDated<ProfitDeskPayload>(
+      PROFIT_CACHE_LATEST,
+      PROFIT_CACHE_INDEX,
+      PROFIT_CACHE_DIR,
+      payload => String(payload.date || ''),
+    ),
   ]);
-  if (team) {
-    teamCachePayloads = mergePayloadsByDate(teamCachePayloads, [team], payload => String(payload.date || ''));
-    latestTeamCache = teamCachePayloads[teamCachePayloads.length - 1] || team;
+  if (teamPayloads.length > 0) {
+    teamCachePayloads = mergePayloadsByDate(teamCachePayloads, teamPayloads, payload => String(payload.date || ''));
+    latestTeamCache = teamCachePayloads[teamCachePayloads.length - 1] || null;
   }
-  if (player) {
+  if (playerPayloads.length > 0) {
     playerCachePayloads = mergePayloadsByDate(
       playerCachePayloads,
-      [player],
+      playerPayloads,
       payload => String(payload.date || payload.slate_date || ''),
     );
-    latestPlayerCache = playerCachePayloads[playerCachePayloads.length - 1] || player;
+    latestPlayerCache = playerCachePayloads[playerCachePayloads.length - 1] || null;
   }
-  if (parlays) {
-    parlayPayloads = mergePayloadsByDate(parlayPayloads, [parlays], payload => String(payload.date || ''));
-    latestParlayPayload = parlayPayloads[parlayPayloads.length - 1] || parlays;
+  if (parlayList.length > 0) {
+    parlayPayloads = mergePayloadsByDate(parlayPayloads, parlayList, payload => String(payload.date || ''));
+    latestParlayPayload = parlayPayloads[parlayPayloads.length - 1] || null;
   }
-  const profit = profitRaw ? withoutRetiredProfitDeskSources(profitRaw) : null;
-  if (profit?.date) {
-    profitDeskPayloads = mergePayloadsByDate(profitDeskPayloads, [profit], payload => String(payload.date || ''));
-    latestProfitDeskPayload = profitDeskPayloads[profitDeskPayloads.length - 1] || profit;
+  const profitClean = profitList.filter(p => p?.date).map(withoutRetiredProfitDeskSources);
+  if (profitClean.length > 0) {
+    profitDeskPayloads = mergePayloadsByDate(profitDeskPayloads, profitClean, payload => String(payload.date || ''));
+    latestProfitDeskPayload = profitDeskPayloads[profitDeskPayloads.length - 1] || null;
   }
   rebuildPicks();
 }
