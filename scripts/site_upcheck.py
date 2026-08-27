@@ -227,6 +227,61 @@ def _row_matches_target_date(row: dict[str, Any], target_date: str | None) -> bo
     return True
 
 
+
+def _scores24_feed_bucket(payload: dict[str, Any] | None, key: str) -> dict[str, Any] | None:
+    if not isinstance(payload, dict):
+        return None
+    feeds = payload.get("external_feeds") if isinstance(payload.get("external_feeds"), dict) else {}
+    models = payload.get("models") if isinstance(payload.get("models"), dict) else {}
+    bucket = feeds.get(key) or models.get(key) or payload.get(key)
+    return bucket if isinstance(bucket, dict) else None
+
+
+def _scores24_slate_complete(bucket: dict[str, Any], today: str) -> bool:
+    if bucket.get("ok") is not True:
+        return False
+    if str(bucket.get("date") or "") != today:
+        return False
+    meta = bucket.get("meta") if isinstance(bucket.get("meta"), dict) else {}
+    missing = meta.get("missingMatchups") if isinstance(meta.get("missingMatchups"), list) else []
+    expected = meta.get("expectedMatchups")
+    matched = meta.get("matchedPicks")
+    if missing or expected != matched or matched != len(bucket.get("picks") or []):
+        return False
+    return True
+
+
+def _today_scores24_complete(payload: dict[str, Any] | None, today: str) -> bool:
+    return all(
+        (bucket := _scores24_feed_bucket(payload, key)) is not None
+        and _scores24_slate_complete(bucket, today)
+        for key in REQUIRED_SCORES24_FEED_KEYS
+    )
+
+
+def _inhouse_unreadiness_when_scores24_ready(
+    message: str,
+    today: str,
+    player_date: str,
+    parlay_date: str,
+    profit_date: str,
+) -> bool:
+    """True when the failure is only 'in-house data is not today's yet'.
+
+    A complete Scores24 MLB+WNBA slate should still deploy. Broken *today's*
+    player/parlay/profit artifacts stay hard failures.
+    """
+    if message.startswith("model bucket "):
+        return True
+    if "player-props" in message or message.startswith("data/player_props_cache/"):
+        return player_date != today
+    if "parlay" in message.lower() or message.startswith("data/parlay_cards/"):
+        return parlay_date != today
+    if "Profit Desk" in message or "profit_desk" in message:
+        return profit_date != today
+    return False
+
+
 def _scheduled_game_count(bucket: dict[str, Any], *, target_date: str | None = None) -> int:
     games = bucket.get("games")
     if isinstance(games, list):
@@ -582,6 +637,24 @@ def main() -> int:
             failures.append("latest Profit Desk includes an invalid candidate tier")
         if any(not isinstance(row.get("blockers"), list) for row in candidates):
             failures.append("latest Profit Desk candidate is missing explicit blockers")
+
+
+    if latest and _today_scores24_complete(latest, today):
+        player_date = str((player_latest or {}).get("date") or "")
+        parlay_date = str((parlay_latest or {}).get("date") or "")
+        profit_date = str((profit_latest or {}).get("date") or "")
+        kept: list[str] = []
+        for message in failures:
+            if _inhouse_unreadiness_when_scores24_ready(
+                message, today, player_date, parlay_date, profit_date
+            ):
+                warnings.append(
+                    "in-house data not ready; today's Scores24 slate is complete "
+                    f"so deploy can proceed: {message}"
+                )
+            else:
+                kept.append(message)
+        failures = kept
 
     if args.data_only:
         for message in warnings:

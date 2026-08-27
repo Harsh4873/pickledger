@@ -71,10 +71,11 @@ EXTERNAL_FEED_SOURCE_LABELS = {
         "FIFA WC": "SportsGamblerFIFAWorldCup",
     },
 }
-# The in-house team models that must be present before an external-feed publish
-# may promote a day to latest.json. The gate exists so a feed writer cannot
-# advance the site to a date whose team models have not run yet — that is what
-# left 2026-07-25 briefly showing a tennis-only slate.
+# The in-house team models that, when all ok, promote a day to latest.json.
+# A complete Scores24 MLB+WNBA slate also promotes, so the 9:30 local scrape
+# can first-paint today without waiting on in-house models. Tennis-only and
+# other feed-only days still must not promote — that is what left 2026-07-25
+# showing a tennis-only slate.
 #
 # Keep this identical to site_upcheck.REQUIRED_MODEL_KEYS and to the required
 # set in model-cache-freshness-guard.yml; a drift test pins all three together.
@@ -428,13 +429,42 @@ def merge_payload(generated: dict[str, Any], cache_dir: Path) -> dict[str, Any]:
     return _without_retired_buckets(merged)
 
 
+def _scores24_feed_bucket(payload: dict[str, Any], key: str) -> dict[str, Any] | None:
+    feeds = payload.get("external_feeds") if isinstance(payload.get("external_feeds"), dict) else {}
+    models = payload.get("models") if isinstance(payload.get("models"), dict) else {}
+    bucket = feeds.get(key) or models.get(key) or payload.get(key)
+    return bucket if isinstance(bucket, dict) else None
+
+
+def _scores24_mlb_wnba_complete(payload: dict[str, Any], date_iso: str) -> bool:
+    """True when today's official Scores24 MLB and WNBA slates are complete.
+
+    Tennis-only or other feed-only days must still not promote latest.json.
+    """
+    for key in ("scores24_mlb", "scores24_wnba"):
+        bucket = _scores24_feed_bucket(payload, key)
+        if not isinstance(bucket, dict) or bucket.get("ok") is not True:
+            return False
+        if str(bucket.get("date") or "") != date_iso:
+            return False
+        meta = bucket.get("meta") if isinstance(bucket.get("meta"), dict) else {}
+        missing = meta.get("missingMatchups") if isinstance(meta.get("missingMatchups"), list) else []
+        expected = meta.get("expectedMatchups")
+        matched = meta.get("matchedPicks")
+        if missing or expected != matched or matched != len(bucket.get("picks") or []):
+            return False
+    return True
+
+
 def write_merged_payload(merged: dict[str, Any], cache_dir: Path) -> bool:
     date_iso = str(merged["date"])
     models = merged.get("models") if isinstance(merged.get("models"), dict) else {}
-    latest_updated = all(
+    team_ready = all(
         isinstance(models.get(key), dict) and models[key].get("ok") is True
         for key in REQUIRED_TEAM_MODEL_KEYS
     )
+    scores24_ready = _scores24_mlb_wnba_complete(merged, date_iso)
+    latest_updated = team_ready or scores24_ready
 
     _write_json(cache_dir / f"{date_iso}.json", merged)
     if latest_updated:

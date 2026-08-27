@@ -545,3 +545,42 @@ def test_upcheck_reports_raw_and_visible_pick_counts(tmp_path: Path):
     assert "'mlb_new': 1" in result.stdout
     assert "'mlb_player_props': 2" in result.stdout
     assert "'mlb_player_props': 1" in result.stdout
+
+
+
+def test_data_only_readiness_allows_complete_scores24_without_inhouse_models(tmp_path: Path):
+    today = datetime.now(ZoneInfo("America/Chicago")).strftime("%Y-%m-%d")
+    yesterday = (datetime.now(ZoneInfo("America/Chicago")) - timedelta(days=1)).strftime("%Y-%m-%d")
+    script = _upcheck_repo(tmp_path, today)
+
+    model_path = tmp_path / "data" / "model_cache" / "latest.json"
+    payload = json.loads(model_path.read_text(encoding="utf-8"))
+    payload["models"] = {
+        key: payload["external_feeds"][key]
+        for key in SCORES24_KEYS
+    }
+    _write_json(model_path, payload)
+    _write_json(tmp_path / "data" / "model_cache" / f"{today}.json", payload)
+
+    for cache_name in ("player_props_cache", "parlay_cards", "profit_desk"):
+        cache_dir = tmp_path / "data" / cache_name
+        latest = json.loads((cache_dir / "latest.json").read_text(encoding="utf-8"))
+        latest["date"] = yesterday
+        _write_json(cache_dir / "latest.json", latest)
+        _write_json(cache_dir / f"{yesterday}.json", latest)
+        (cache_dir / f"{today}.json").unlink()
+        manifest = json.loads((cache_dir / "index.json").read_text(encoding="utf-8"))
+        manifest["files"] = [f"{yesterday}.json"]
+        _write_json(cache_dir / "index.json", manifest)
+
+    result = subprocess.run(
+        [sys.executable, str(script), "--data-only"],
+        cwd=tmp_path,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0, result.stdout
+    assert "daily data is ready" in result.stdout
+    assert "today's Scores24 slate is complete" in result.stdout

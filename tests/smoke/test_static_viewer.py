@@ -1710,3 +1710,40 @@ def test_external_feed_publish_still_refuses_a_day_without_team_models(tmp_path)
 
     assert module.write_merged_payload(feeds_only, cache_dir) is False
     assert not (cache_dir / "latest.json").exists()
+
+
+
+def test_external_feed_publish_promotes_complete_scores24_mlb_wnba_without_team_models(tmp_path):
+    """Morning Scores24 with a complete MLB+WNBA slate must update latest.json."""
+    module = _load_module(
+        "merge_external_feed_cache_payload_scores24_promote",
+        ROOT / "scripts" / "merge_external_feed_cache_payload.py",
+    )
+    cache_dir = tmp_path / "data" / "model_cache"
+    cache_dir.mkdir(parents=True)
+    previous = {"date": "2026-08-26", "models": {"mlb_new": {"ok": True, "picks": []}}}
+    (cache_dir / "latest.json").write_text(json.dumps(previous), encoding="utf-8")
+    scores24_only = {
+        "date": "2026-08-27",
+        "models": {
+            "scores24_mlb": {"ok": True, "date": "2026-08-27", "picks": [{"pick": "Yankees ML"}]},
+            "scores24_wnba": {"ok": True, "date": "2026-08-27", "picks": [{"pick": "Aces ML"}]},
+        },
+        "external_feeds": {
+            "scores24_mlb": {
+                "ok": True,
+                "date": "2026-08-27",
+                "picks": [{"pick": "Yankees ML"}],
+                "meta": {"expectedMatchups": 1, "matchedPicks": 1, "missingMatchups": []},
+            },
+            "scores24_wnba": {
+                "ok": True,
+                "date": "2026-08-27",
+                "picks": [{"pick": "Aces ML"}],
+                "meta": {"expectedMatchups": 1, "matchedPicks": 1, "missingMatchups": []},
+            },
+        },
+    }
+
+    assert module.write_merged_payload(scores24_only, cache_dir) is True
+    assert json.loads((cache_dir / "latest.json").read_text(encoding="utf-8"))["date"] == "2026-08-27"
