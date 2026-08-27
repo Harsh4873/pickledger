@@ -8,10 +8,11 @@
     "build": "tsc --noEmit && vite build",
     "upcheck": "npm run build && python3 scripts/site_upcheck.py",
     "preview": "vite preview",
-    "test": "node --experimental-strip-types --test tests/theme.test.ts",
+    "test": "tsx --test tests/theme.test.ts tests/data.test.ts",
     "typecheck": "tsc --noEmit"
   },
   "devDependencies": {
+    "tsx": "4.20.6",
     "typescript": "^5.8.3",
     "vite": "^6.3.5"
   }

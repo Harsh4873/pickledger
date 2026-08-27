@@ -862,6 +862,35 @@ async function loadLatestOrLastDated<T>(latestPath: string, indexPath: string, d
   return last ? fetchJson<T>(`${dir}/${last}`) : null;
 }
 
+/**
+ * Load the normal first-paint cache plus the newest dated payload when it is
+ * newer. A dated payload remains a separate record: callers merge by its own
+ * date rather than blending yesterday's model buckets into today's slate.
+ */
+export async function loadLatestAndNewestDated<T>(
+  latestPath: string,
+  indexPath: string,
+  dir: string,
+  dateOf: (payload: T) => string,
+): Promise<T[]> {
+  const [latest, files] = await Promise.all([
+    fetchJson<T>(latestPath),
+    listDatedCacheFiles(indexPath),
+  ]);
+  const newestFile = [...files].sort().at(-1);
+  if (!newestFile) return latest ? [latest] : [];
+
+  const newestDate = newestFile.replace(/\.json$/, '');
+  const latestDate = latest ? dateOf(latest).trim() : '';
+  if (latest && latestDate >= newestDate) return [latest];
+
+  const newest = await fetchJson<T>(`${dir}/${newestFile}`);
+  // The manifest filename is the cache date contract. Do not let a malformed
+  // or stale payload masquerade as the newer slate.
+  if (!newest || dateOf(newest).trim() !== newestDate) return latest ? [latest] : [];
+  return latest ? [latest, newest] : [newest];
+}
+
 function rebuildPicks(): void {
   const teamById = new Map<string, Pick>();
   const playerById = new Map<string, Pick>();
@@ -880,15 +909,26 @@ function rebuildPicks(): void {
 }
 
 async function loadLatestCaches(): Promise<void> {
-  const [team, player, parlays, profitRaw] = await Promise.all([
-    loadLatestOrLastDated<ModelCachePayload>(MODEL_CACHE_LATEST, MODEL_CACHE_INDEX, MODEL_CACHE_DIR),
+  const [teamPayloads, player, parlays, profitRaw] = await Promise.all([
+    loadLatestAndNewestDated<ModelCachePayload>(
+      MODEL_CACHE_LATEST,
+      MODEL_CACHE_INDEX,
+      MODEL_CACHE_DIR,
+      payload => String(payload.date || ''),
+    ),
     loadLatestOrLastDated<PlayerPropsPayload>(PLAYER_CACHE_LATEST, PLAYER_CACHE_INDEX, PLAYER_CACHE_DIR),
     loadLatestOrLastDated<ParlayCardsPayload>(PARLAY_CACHE_LATEST, PARLAY_CACHE_INDEX, PARLAY_CACHE_DIR),
     loadLatestOrLastDated<ProfitDeskPayload>(PROFIT_CACHE_LATEST, PROFIT_CACHE_INDEX, PROFIT_CACHE_DIR),
   ]);
-  if (team) {
-    teamCachePayloads = mergePayloadsByDate(teamCachePayloads, [team], payload => String(payload.date || ''));
-    latestTeamCache = teamCachePayloads[teamCachePayloads.length - 1] || team;
+  if (teamPayloads.length) {
+    teamCachePayloads = mergePayloadsByDate(
+      teamCachePayloads,
+      teamPayloads,
+      payload => String(payload.date || ''),
+    );
+    latestTeamCache = teamCachePayloads[teamCachePayloads.length - 1]
+      || teamPayloads[teamPayloads.length - 1]
+      || null;
   }
   if (player) {
     playerCachePayloads = mergePayloadsByDate(
