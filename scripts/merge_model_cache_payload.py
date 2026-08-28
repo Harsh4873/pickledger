@@ -133,6 +133,15 @@ def _write_json(path: Path, payload: dict[str, Any]) -> None:
         handle.write("\n")
 
 
+def stamp_bucket_date_if_missing(bucket: Any, date_iso: str) -> None:
+    if not isinstance(bucket, dict):
+        return
+    existing_date = bucket.get("date")
+    if isinstance(existing_date, str) and existing_date.strip():
+        return
+    bucket["date"] = date_iso
+
+
 def _is_retired_model_key(value: Any) -> bool:
     return str(value or "").strip().lower().startswith(RETIRED_MODEL_PREFIXES)
 
@@ -339,6 +348,10 @@ def merge_payload(generated: dict[str, Any], cache_dir: Path) -> dict[str, Any]:
             continue
         if key in current:
             merged[key] = current[key]
+
+    for key in ("mlb_new", "wnba"):
+        stamp_bucket_date_if_missing(merged["models"].get(key), date_iso)
+        stamp_bucket_date_if_missing(merged.get(key), date_iso)
 
     return _without_retired_buckets(merged)
 

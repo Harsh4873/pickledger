@@ -4236,6 +4236,14 @@ document.addEventListener('DOMContentLoaded', async () => {
   applyScrapedToggleUI(initHideScrapedPicks());
   applyTennisToggleUI(initHideTennisPicks());
   initSettingsUI();
+  followCentralToday = true;
+  selectedDate = centralDateKey();
+  lastCentralDate = selectedDate;
+  if (!calendarMonth) calendarMonth = selectedDate.slice(0, 7);
+  const triggerValue = document.getElementById('home-date-trigger-value');
+  const triggerMeta = document.getElementById('home-date-trigger-meta');
+  if (triggerValue) triggerValue.textContent = dateLabel(selectedDate, true);
+  if (triggerMeta) triggerMeta.textContent = 'Today | CT';
   await loadAllData({
     onLatest: () => {
       lastCentralDate = centralDateKey();

@@ -20,7 +20,7 @@ sys.path.insert(0, str(REPO_ROOT))
 import pickgrader_server as server  # noqa: E402
 from scripts.cache_manifest import write_cache_manifest  # noqa: E402
 from scripts.market_odds import apply_market_odds_to_payload  # noqa: E402
-from scripts.merge_model_cache_payload import merge_payload  # noqa: E402
+from scripts.merge_model_cache_payload import merge_payload, stamp_bucket_date_if_missing  # noqa: E402
 from scripts.mlb_team_consensus import apply_mlb_team_consensus_to_payload  # noqa: E402
 from scripts.pick_calibration import apply_calibration_to_payload  # noqa: E402
 from scripts.team_prop_pregame_ledger import (  # noqa: E402
@@ -86,7 +86,7 @@ def _selected_model_keys(raw: str, available: dict[str, Callable[[], dict[str, A
 
 def _build_payload(date_iso: str, models: dict[str, Any], errors: list[str]) -> dict[str, Any]:
     now_iso = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
-    return {
+    payload = {
         "date": date_iso,
         "updatedAt": now_iso,
         "generatedAt": now_iso,
@@ -112,6 +112,10 @@ def _build_payload(date_iso: str, models: dict[str, Any], errors: list[str]) -> 
         "ipl": models.get("ipl", {}),
         "errors": errors,
     }
+    for key in ("mlb_new", "wnba"):
+        stamp_bucket_date_if_missing(payload["models"].get(key), date_iso)
+        stamp_bucket_date_if_missing(payload.get(key), date_iso)
+    return payload
 
 
 def _is_transient_model_error(result: Any) -> bool:

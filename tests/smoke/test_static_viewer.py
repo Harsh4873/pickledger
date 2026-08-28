@@ -100,6 +100,26 @@ def test_initial_theme_prefers_saved_choice_then_tracks_the_os():
     assert 'color-scheme: light' in css
 
 
+def test_home_date_trigger_bootstraps_central_today_before_data_load():
+    html = (ROOT / "index.html").read_text(encoding="utf-8")
+    main = (ROOT / "src" / "main.ts").read_text(encoding="utf-8")
+
+    trigger_start = html.index('id="home-date-trigger-value"')
+    trigger = html[trigger_start:html.index("</span>", trigger_start)]
+    assert "April 19" not in trigger
+
+    ready_handler = main[main.index("document.addEventListener('DOMContentLoaded'") :]
+    bootstrap = ready_handler[:ready_handler.index("await loadAllData({")]
+    assert "followCentralToday = true;" in bootstrap
+    assert "selectedDate = centralDateKey();" in bootstrap
+    assert "lastCentralDate = selectedDate;" in bootstrap
+    assert "if (!calendarMonth) calendarMonth = selectedDate.slice(0, 7);" in bootstrap
+    assert "document.getElementById('home-date-trigger-value')" in bootstrap
+    assert "document.getElementById('home-date-trigger-meta')" in bootstrap
+    assert "dateLabel(selectedDate, true)" in bootstrap
+    assert "'Today | CT'" in bootstrap
+
+
 def test_admin_allowlist_is_runtime_configuration_only():
     """No personal address belongs in a public source-level admin allowlist."""
     server = (ROOT / "pickgrader_server.py").read_text(encoding="utf-8")
@@ -922,6 +942,50 @@ def test_model_cache_merge_keeps_newer_committed_external_feed_bucket(tmp_path):
     assert scores["generatedBy"] == "local:external-feed-refresh"
     assert scores["meta"]["from"] == "local"
     assert scores["picks"][0]["pick"] == "Current local pick"
+
+
+def test_model_cache_stamps_mlb_new_and_wnba_bucket_dates(tmp_path):
+    from scripts.refresh_model_cache import _build_payload
+
+    date_iso = "2026-08-28"
+    payload = _build_payload(date_iso, {"mlb_new": {"ok": True}, "wnba": {"ok": True}}, [])
+    for key in ("mlb_new", "wnba"):
+        assert payload["models"][key]["date"] == date_iso
+        assert payload[key]["date"] == date_iso
+
+    module = _load_module("merge_model_cache_payload_bucket_dates", ROOT / "scripts" / "merge_model_cache_payload.py")
+    cache_dir = tmp_path / "data" / "model_cache"
+    cache_dir.mkdir(parents=True)
+    merged = module.merge_payload(
+        {
+            "date": date_iso,
+            "models": {"mlb_new": {"ok": True}, "wnba": {"ok": True}},
+        },
+        cache_dir,
+    )
+    for key in ("mlb_new", "wnba"):
+        assert merged["models"][key]["date"] == date_iso
+        assert merged[key]["date"] == date_iso
+
+
+def test_model_cache_preserves_existing_mlb_new_and_wnba_bucket_dates(tmp_path):
+    module = _load_module("merge_model_cache_payload_preserve_bucket_dates", ROOT / "scripts" / "merge_model_cache_payload.py")
+    cache_dir = tmp_path / "data" / "model_cache"
+    cache_dir.mkdir(parents=True)
+    existing_date = "2026-08-27"
+    merged = module.merge_payload(
+        {
+            "date": "2026-08-28",
+            "models": {
+                "mlb_new": {"date": existing_date, "ok": True},
+                "wnba": {"date": existing_date, "ok": True},
+            },
+        },
+        cache_dir,
+    )
+    for key in ("mlb_new", "wnba"):
+        assert merged["models"][key]["date"] == existing_date
+        assert merged[key]["date"] == existing_date
 
 
 def test_model_cache_merge_preserves_other_deployed_buckets(tmp_path):
