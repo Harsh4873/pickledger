@@ -3326,152 +3326,6 @@
     },
     {
       "blockers": [
-        "edge_requires_two_sided_price",
-        "edge_insufficient_source_samples",
-        "edge_insufficient_segment_samples",
-        "edge_insufficient_distinct_prior_dates",
-        "edge_probability_positive_ev_below_0.80",
-        "edge_conservative_probability_margin_below_0.02",
-        "edge_non_positive_conservative_ev",
-        "value_insufficient_source_samples",
-        "value_negative_chronological_evidence_half",
-        "value_non_positive_flat_roi",
-        "value_probability_positive_ev_below_0.70"
-      ],
-      "canonicalGame": "2026-08-28:wnba:las vegas aces|toronto tempo",
-      "consensusSources": [],
-      "date": "2026-08-28",
-      "decimalOdds": 1.662252,
-      "decision": "LEAN",
-      "dedupeRule": "exact_market_identity_best_executable_price",
-      "direction": "over",
-      "duplicateCount": 1,
-      "duplicateSources": [
-        "WNBAPlayerProps"
-      ],
-      "edgeQualified": false,
-      "estimate": {
-        "alpha": -0.062023,
-        "alphaStdError": 0.1,
-        "breakEvenProbability": 0.601594,
-        "conservativeExpectedValue": -0.316124,
-        "expectedValue": -0.103098,
-        "lowerProbability": 0.411415,
-        "marketProbability": 0.601594,
-        "method": "market_baseline_plus_hierarchically_shrunk_prior_residual",
-        "probability": 0.53957,
-        "probabilityPositiveEv": 0.267552,
-        "sourceAlpha": -0.062023,
-        "value": {
-          "alpha": -0.062023,
-          "alphaStdError": 0.049613,
-          "conservativeExpectedValue": -0.208787,
-          "expectedValue": -0.103098,
-          "lowerProbability": 0.475989,
-          "method": "source_flat_roi_shrunk_residual_vs_break_even",
-          "probability": 0.53957,
-          "probabilityPositiveEv": 0.105624
-        }
-      },
-      "evidence": {
-        "chronologicalHalvesNonnegative": true,
-        "cutoffExclusive": "2026-08-28",
-        "distinctDates": 0,
-        "firstHalfFlatNetUnits": 0,
-        "flatNetUnits": 0,
-        "flatRoi": null,
-        "losses": 0,
-        "modelVersion": "player_props_consensus_v2.0.0",
-        "policyVersion": "profit_desk_policy_v2",
-        "priorOnly": true,
-        "pushes": 0,
-        "secondHalfFlatNetUnits": 0,
-        "segmentDistinctDates": 0,
-        "segmentEvidenceKey": "player|wnba_player_props|wnba|player_props_consensus_v2.0.0|points|over|gte_0.60",
-        "segmentSamples": 0,
-        "sourceChronologicalHalvesNonnegative": false,
-        "sourceDistinctDates": 23,
-        "sourceEvidenceKey": "player|wnba_player_props|wnba",
-        "sourceFirstHalfFlatNetUnits": -6.9622,
-        "sourceFlatNetUnits": -11.8383,
-        "sourceFlatRoi": -0.200649,
-        "sourceLosses": 34,
-        "sourceSamples": 59,
-        "sourceSecondHalfFlatNetUnits": -4.8761,
-        "sourceWins": 25,
-        "wins": 0
-      },
-      "game": "Toronto Tempo @ Las Vegas Aces",
-      "gradeSupportSource": "repository_grader_default",
-      "gradeSupported": true,
-      "id": "profit-afad0171c41ebc0429fe3448",
-      "lane": null,
-      "laneBlockers": {
-        "edge": [
-          "edge_requires_two_sided_price",
-          "edge_insufficient_source_samples",
-          "edge_insufficient_segment_samples",
-          "edge_insufficient_distinct_prior_dates",
-          "edge_probability_positive_ev_below_0.80",
-          "edge_conservative_probability_margin_below_0.02",
-          "edge_non_positive_conservative_ev"
-        ],
-        "structural": [],
-        "value": [
-          "value_insufficient_source_samples",
-          "value_negative_chronological_evidence_half",
-          "value_non_positive_flat_roi",
-          "value_probability_positive_ev_below_0.70"
-        ]
-      },
-      "line": 24.5,
-      "liveQualified": false,
-      "market": "Points Milestones",
-      "marketFamily": "points",
-      "marketIdentity": "market:9438b85f83e5ae2fe1d5adeb",
-      "mode": "player",
-      "modelVersion": "player_props_consensus_v2.0.0",
-      "oddsAmerican": -151,
-      "pick": "A'ja Wilson Over 24.5 Points",
-      "player": "A'ja Wilson",
-      "policyVersion": "profit_desk_policy_v2",
-      "price": {
-        "ageHours": 23.233,
-        "breakEvenProbability": 0.601594,
-        "decimalOdds": 1.662252,
-        "eligibleForAlphaEstimate": false,
-        "fresh": true,
-        "freshPregame": true,
-        "maxAgeHours": 24.0,
-        "noVigInputs": {},
-        "noVigMethod": "unverified_single_side",
-        "noVigProbability": null,
-        "noVigVerified": false,
-        "observedExecutable": true,
-        "oddsAmerican": -151,
-        "quality": "one_sided",
-        "source": "posted_market",
-        "sourceField": "pick.odds_source",
-        "startTime": "2026-08-29T02:00Z",
-        "tier": "C",
-        "tierLabel": "posted_one_sided",
-        "timestamp": "2026-08-28T02:46Z",
-        "timestampField": "pick.market_updated_at",
-        "twoSided": false,
-        "updatedAt": "2026-08-28T02:46Z"
-      },
-      "rawModelProbabilityIgnored": 0.6368,
-      "result": "pending",
-      "shadowQualified": false,
-      "source": "WNBAPlayerProps",
-      "sourceKey": "wnba_player_props",
-      "sport": "WNBA",
-      "stakeUnits": 0.0,
-      "tier": "watch",
-      "valueQualified": false
-    },
-    {
-      "blockers": [
         "edge_insufficient_segment_samples",
         "edge_negative_chronological_evidence_half",
         "edge_probability_positive_ev_below_0.80",
@@ -8234,7 +8088,7 @@
   "date": "2026-08-28",
   "engineVersion": "profit_desk_v2_live",
   "firstLiveDate": "2026-07-11",
-  "generatedAt": "2026-08-28T23:39:58.537459Z",
+  "generatedAt": "2026-08-28T23:50:29.217202Z",
   "notices": [
     "Qualified picks carry real flat stakes: EDGE 1.0u, VALUE 0.5u; everything else stays 0u.",
     "The market price is the baseline; historical residual alpha is shrunk and uncertainty-adjusted.",
@@ -9958,7 +9812,7 @@
     },
     {
       "alpha": -0.062023,
-      "candidatesToday": 1,
+      "candidatesToday": 0,
       "distinctDates": 23,
       "evidenceQualified": false,
       "flatNetUnits": -11.8383,
@@ -9997,7 +9851,7 @@
       "mode": "player",
       "probabilityPositiveEv": 0.105624,
       "samples": 59,
-      "source": "WNBAPlayerProps",
+      "source": "wnba_player_props",
       "sourceKey": "wnba_player_props",
       "sport": "wnba",
       "wins": 25
@@ -10695,12 +10549,12 @@
   ],
   "summary": {
     "avoid": 41,
-    "candidateCount": 67,
-    "candidatesEvaluated": 67,
+    "candidateCount": 66,
+    "candidatesEvaluated": 66,
     "deduplicatedPicks": 6,
     "edgeQualified": 0,
     "evidenceRows": 3293,
-    "inputPicks": 73,
+    "inputPicks": 72,
     "livePortfolioCandidates": 2,
     "liveQualified": 4,
     "liveRecord": {
@@ -10732,19 +10586,19 @@
     "modes": {
       "player": {
         "avoid": 0,
-        "candidateCount": 5,
-        "candidates": 5,
-        "candidatesEvaluated": 5,
+        "candidateCount": 4,
+        "candidates": 4,
+        "candidatesEvaluated": 4,
         "edgeQualified": 0,
         "evidenceRows": 731,
         "liveQualified": 2,
-        "observedPriceCandidates": 5,
+        "observedPriceCandidates": 4,
         "portfolioCandidates": 2,
         "researchQualified": 4,
         "selected": 2,
         "shadowQualified": 4,
         "valueQualified": 4,
-        "watchlist": 1
+        "watchlist": 0
       },
       "team": {
         "avoid": 41,
@@ -10763,7 +10617,7 @@
         "watchlist": 21
       }
     },
-    "observedPriceCandidates": 28,
+    "observedPriceCandidates": 27,
     "portfolioCandidates": 2,
     "researchQualified": 4,
     "researchRecord": {
@@ -10795,6 +10649,6 @@
     },
     "sourcesTracked": 35,
     "valueQualified": 4,
-    "watchlist": 22
+    "watchlist": 21
   }
 }
