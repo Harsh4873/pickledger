@@ -9,14 +9,14 @@
   "evaluation_windows": {
     "MLB": {
       "holdout": {
-        "end": "2026-08-27",
-        "start": "2026-08-14",
-        "train_through": "2026-08-13"
+        "end": "2026-08-28",
+        "start": "2026-08-15",
+        "train_through": "2026-08-14"
       },
       "validation": {
-        "end": "2026-08-13",
-        "start": "2026-07-31",
-        "train_through": "2026-07-30"
+        "end": "2026-08-14",
+        "start": "2026-08-01",
+        "train_through": "2026-07-31"
       }
     },
     "WNBA": {
@@ -54,7 +54,7 @@
       "totalRebounds": 3
     }
   },
-  "market_rows": 195724,
+  "market_rows": 195933,
   "models": {
     "mlb_history": "2022-26 five-year roster-aware outcome-history classifiers",
     "mlb_season": "2026 market classifier",
@@ -85,18 +85,18 @@
     "MLB": {
       "active": true,
       "combined_out_of_sample": {
-        "accuracy": 0.7718446601941747,
-        "losses": 47,
-        "samples": 206,
-        "wins": 159
+        "accuracy": 0.7909090909090909,
+        "losses": 46,
+        "samples": 220,
+        "wins": 174
       },
       "failed_policies": {
         "hits": {
           "active": false,
           "holdout": {
-            "accuracy": 0.6666666666666666,
-            "losses": 1,
-            "samples": 3,
+            "accuracy": 1.0,
+            "losses": 0,
+            "samples": 2,
             "wins": 2
           },
           "minimum_history_probability": 0.5,
@@ -109,40 +109,40 @@
           "require_classifier_agreement": true,
           "search_near_miss": {
             "holdout": {
-              "accuracy": 0.6,
-              "losses": 4,
-              "samples": 10,
-              "wins": 6
+              "accuracy": 0.5625,
+              "losses": 7,
+              "samples": 16,
+              "wins": 9
             },
             "policy": {
               "minimum_history_probability": 0.55,
               "minimum_implied": 0.5,
-              "minimum_season_probability": 0.55,
-              "minimum_season_rate": 0.5,
+              "minimum_season_probability": 0.5,
+              "minimum_season_rate": 0.55,
               "require_classifier_agreement": true,
               "selection": null
             },
             "validation": {
-              "accuracy": 0.5,
-              "losses": 31,
-              "samples": 62,
-              "wins": 31
+              "accuracy": 0.5555555555555556,
+              "losses": 20,
+              "samples": 45,
+              "wins": 25
             }
           },
           "validation": {
-            "accuracy": 0.8,
-            "losses": 3,
-            "samples": 15,
-            "wins": 12
+            "accuracy": 0.7222222222222222,
+            "losses": 5,
+            "samples": 18,
+            "wins": 13
           }
         },
         "hits_runs_rbis": {
           "active": false,
           "holdout": {
-            "accuracy": 0.6153846153846154,
+            "accuracy": 0.5,
             "losses": 5,
-            "samples": 13,
-            "wins": 8
+            "samples": 10,
+            "wins": 5
           },
           "line": 1.5,
           "minimum_history_probability": 0.7,
@@ -155,39 +155,39 @@
           "require_classifier_agreement": true,
           "search_near_miss": {
             "holdout": {
-              "accuracy": 0.6428571428571429,
-              "losses": 10,
-              "samples": 28,
-              "wins": 18
+              "accuracy": 0.6153846153846154,
+              "losses": 25,
+              "samples": 65,
+              "wins": 40
             },
             "policy": {
               "minimum_history_probability": 0.65,
-              "minimum_implied": 0.6,
-              "minimum_season_probability": 0.6,
-              "minimum_season_rate": 0.7,
+              "minimum_implied": 0.55,
+              "minimum_season_probability": 0.5,
+              "minimum_season_rate": 0.6,
               "require_classifier_agreement": true,
               "selection": null
             },
             "validation": {
-              "accuracy": 0.7,
-              "losses": 6,
-              "samples": 20,
-              "wins": 14
+              "accuracy": 0.620253164556962,
+              "losses": 30,
+              "samples": 79,
+              "wins": 49
             }
           },
           "validation": {
-            "accuracy": 0.8823529411764706,
-            "losses": 2,
-            "samples": 17,
-            "wins": 15
+            "accuracy": 0.7727272727272727,
+            "losses": 5,
+            "samples": 22,
+            "wins": 17
           }
         },
         "pitcher_walks_allowed": {
           "active": false,
           "holdout": {
-            "accuracy": 0.5,
-            "losses": 15,
-            "samples": 30,
+            "accuracy": 0.625,
+            "losses": 9,
+            "samples": 24,
             "wins": 15
           },
           "minimum_history_probability": 0.65,
@@ -200,40 +200,40 @@
           "require_classifier_agreement": true,
           "search_near_miss": {
             "holdout": {
-              "accuracy": 0.5476190476190477,
-              "losses": 19,
-              "samples": 42,
-              "wins": 23
+              "accuracy": 0.64,
+              "losses": 9,
+              "samples": 25,
+              "wins": 16
             },
             "policy": {
               "minimum_history_probability": 0.5,
-              "minimum_implied": 0.5,
+              "minimum_implied": 0.6,
               "minimum_season_probability": 0.5,
-              "minimum_season_rate": 0.6,
+              "minimum_season_rate": 0.55,
               "require_classifier_agreement": true,
-              "selection": null
+              "selection": "Over"
             },
             "validation": {
-              "accuracy": 0.6111111111111112,
-              "losses": 7,
-              "samples": 18,
-              "wins": 11
+              "accuracy": 0.6666666666666666,
+              "losses": 4,
+              "samples": 12,
+              "wins": 8
             }
           },
           "validation": {
-            "accuracy": 0.7692307692307693,
-            "losses": 3,
-            "samples": 13,
-            "wins": 10
+            "accuracy": 0.5,
+            "losses": 9,
+            "samples": 18,
+            "wins": 9
           }
         },
         "rbis": {
           "active": false,
           "holdout": {
-            "accuracy": 1.0,
-            "losses": 0,
-            "samples": 1,
-            "wins": 1
+            "accuracy": 0.6666666666666666,
+            "losses": 2,
+            "samples": 6,
+            "wins": 4
           },
           "minimum_history_probability": 0.55,
           "minimum_history_rate": 0.0,
@@ -244,19 +244,19 @@
           "minimum_validation_samples": 25,
           "require_classifier_agreement": true,
           "validation": {
-            "accuracy": 0.6666666666666666,
+            "accuracy": 0.5,
             "losses": 1,
-            "samples": 3,
-            "wins": 2
+            "samples": 2,
+            "wins": 1
           }
         },
         "strikeouts": {
           "active": false,
           "holdout": {
-            "accuracy": 0.8,
-            "losses": 1,
-            "samples": 5,
-            "wins": 4
+            "accuracy": 0.6363636363636364,
+            "losses": 4,
+            "samples": 11,
+            "wins": 7
           },
           "minimum_history_probability": 0.625,
           "minimum_history_rate": 0.0,
@@ -268,31 +268,31 @@
           "require_classifier_agreement": true,
           "search_near_miss": {
             "holdout": {
-              "accuracy": 0.6428571428571429,
-              "losses": 5,
-              "samples": 14,
-              "wins": 9
+              "accuracy": 0.6363636363636364,
+              "losses": 8,
+              "samples": 22,
+              "wins": 14
             },
             "policy": {
-              "minimum_history_probability": 0.6,
-              "minimum_implied": 0.55,
+              "minimum_history_probability": 0.5,
+              "minimum_implied": 0.5,
               "minimum_season_probability": 0.6,
-              "minimum_season_rate": 0.5,
+              "minimum_season_rate": 0.55,
               "require_classifier_agreement": true,
               "selection": null
             },
             "validation": {
-              "accuracy": 0.5806451612903226,
-              "losses": 13,
-              "samples": 31,
-              "wins": 18
+              "accuracy": 0.6071428571428571,
+              "losses": 11,
+              "samples": 28,
+              "wins": 17
             }
           },
           "validation": {
-            "accuracy": 0.42857142857142855,
-            "losses": 8,
-            "samples": 14,
-            "wins": 6
+            "accuracy": 0.47058823529411764,
+            "losses": 9,
+            "samples": 17,
+            "wins": 8
           }
         }
       },
@@ -304,10 +304,10 @@
         "batter_walks": {
           "active": true,
           "holdout": {
-            "accuracy": 0.7341772151898734,
-            "losses": 21,
-            "samples": 79,
-            "wins": 58
+            "accuracy": 0.7701149425287356,
+            "losses": 20,
+            "samples": 87,
+            "wins": 67
           },
           "minimum_history_probability": 0.5,
           "minimum_history_rate": 0.0,
@@ -318,10 +318,10 @@
           "minimum_validation_samples": 25,
           "require_classifier_agreement": true,
           "validation": {
-            "accuracy": 0.7952755905511811,
+            "accuracy": 0.8045112781954887,
             "losses": 26,
-            "samples": 127,
-            "wins": 101
+            "samples": 133,
+            "wins": 107
           }
         }
       }
@@ -522,6 +522,6 @@
     }
   },
   "target_accuracy": 0.7,
-  "training_fingerprint": "726feb2ff4e3b113624a28e8ba928b269d541958ea9097fa1a0f5dd0a740b8f1",
+  "training_fingerprint": "6d600f44a364ae22d1c0ca17be09eb9f463af2aa19735f489bf265e413c5d88d",
   "version": "player_props_consensus_v2.0.0"
 }
