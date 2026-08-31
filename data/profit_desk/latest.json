@@ -281,15 +281,19 @@
         "value_probability_positive_ev_below_0.70"
       ],
       "canonicalGame": "2026-08-31:mlb:los angeles angels|new york yankees",
-      "consensusSources": [],
+      "consensusSources": [
+        "Scores24MLB",
+        "SportsGamblerMLB"
+      ],
       "date": "2026-08-31",
       "decimalOdds": 1.8,
       "decision": "BET",
       "dedupeRule": "exact_market_identity_best_executable_price",
       "direction": "side",
-      "duplicateCount": 1,
+      "duplicateCount": 2,
       "duplicateSources": [
-        "Scores24MLB"
+        "Scores24MLB",
+        "SportsGamblerMLB"
       ],
       "edgeQualified": false,
       "estimate": {
@@ -2528,6 +2532,838 @@
     },
     {
       "blockers": [
+        "missing_or_invalid_game_start_time",
+        "value_negative_chronological_evidence_half",
+        "value_probability_positive_ev_below_0.70"
+      ],
+      "canonicalGame": "2026-08-31:mlb:chicago white sox|houston astros",
+      "consensusSources": [],
+      "date": "2026-08-31",
+      "decimalOdds": 2.53,
+      "decision": "BET",
+      "dedupeRule": "exact_market_identity_best_executable_price",
+      "direction": "side",
+      "duplicateCount": 1,
+      "duplicateSources": [
+        "SportyTraderMLB"
+      ],
+      "edgeQualified": false,
+      "estimate": {
+        "alpha": 0.067141,
+        "alphaStdError": 0.056612,
+        "breakEvenProbability": 0.395257,
+        "conservativeExpectedValue": 0.386495,
+        "expectedValue": 0.570049,
+        "lowerProbability": 0.548022,
+        "marketProbability": 0.553432,
+        "method": "market_baseline_plus_hierarchically_shrunk_prior_residual",
+        "probability": 0.620573,
+        "probabilityPositiveEv": 0.999966,
+        "sourceAlpha": 0.008012,
+        "value": {
+          "alpha": 0.008012,
+          "alphaStdError": 0.024358,
+          "conservativeExpectedValue": -0.058704,
+          "expectedValue": 0.020271,
+          "lowerProbability": 0.372054,
+          "method": "source_flat_roi_shrunk_residual_vs_break_even",
+          "probability": 0.403269,
+          "probabilityPositiveEv": 0.628903
+        }
+      },
+      "evidence": {
+        "chronologicalHalvesNonnegative": true,
+        "cutoffExclusive": "2026-08-31",
+        "distinctDates": 31,
+        "firstHalfFlatNetUnits": 5.1177,
+        "flatNetUnits": 9.5583,
+        "flatRoi": 0.222285,
+        "losses": 14,
+        "modelVersion": "source_identity:sportytrader_mlb",
+        "policyVersion": "profit_desk_policy_v2",
+        "priorOnly": true,
+        "pushes": 0,
+        "secondHalfFlatNetUnits": 4.4406,
+        "segmentDistinctDates": 31,
+        "segmentEvidenceKey": "team|sportytrader_mlb|mlb|source_identity:sportytrader_mlb|market|side|0.55_0.60",
+        "segmentSamples": 43,
+        "sourceChronologicalHalvesNonnegative": false,
+        "sourceDistinctDates": 70,
+        "sourceEvidenceKey": "team|sportytrader_mlb|mlb",
+        "sourceFirstHalfFlatNetUnits": -2.1854,
+        "sourceFlatNetUnits": 3.6761,
+        "sourceFlatRoi": 0.010071,
+        "sourceLosses": 171,
+        "sourceSamples": 365,
+        "sourceSecondHalfFlatNetUnits": 5.8615,
+        "sourceWins": 194,
+        "wins": 29
+      },
+      "game": "Houston Astros vs Chicago White Sox",
+      "gradeSupportSource": "repository_grader_default",
+      "gradeSupported": true,
+      "id": "profit-67af9a7c309c289fbb904129",
+      "lane": null,
+      "laneBlockers": {
+        "edge": [],
+        "structural": [
+          "missing_or_invalid_game_start_time"
+        ],
+        "value": [
+          "value_negative_chronological_evidence_half",
+          "value_probability_positive_ev_below_0.70"
+        ]
+      },
+      "line": null,
+      "liveQualified": false,
+      "market": "market",
+      "marketFamily": "market",
+      "marketIdentity": "market:8c5e73ed2e144598b30a729c",
+      "mode": "team",
+      "modelVersion": "source_identity:sportytrader_mlb",
+      "oddsAmerican": 153,
+      "pick": "Astros -1.5 (Astros vs White Sox)",
+      "player": null,
+      "policyVersion": "profit_desk_policy_v2",
+      "price": {
+        "ageHours": null,
+        "breakEvenProbability": 0.395257,
+        "decimalOdds": 2.53,
+        "eligibleForAlphaEstimate": true,
+        "fresh": false,
+        "freshPregame": false,
+        "maxAgeHours": 24.0,
+        "noVigInputs": {
+          "field": "market_no_vig_selected_probability"
+        },
+        "noVigMethod": "explicit:pick.market_no_vig_selected_probability",
+        "noVigProbability": 0.553432,
+        "noVigVerified": true,
+        "observedExecutable": true,
+        "oddsAmerican": 153,
+        "quality": "verified_two_sided",
+        "source": "scraped_feed:sportytrader_mlb",
+        "sourceField": "source_registry.scraped_odds",
+        "startTime": null,
+        "tier": "B",
+        "tierLabel": "posted_two_sided",
+        "timestamp": "2026-08-31T23:49:14.056630Z",
+        "timestampField": "pick.market_updated_at",
+        "twoSided": true,
+        "updatedAt": "2026-08-31T23:49:14.056630Z"
+      },
+      "rawModelProbabilityIgnored": null,
+      "result": "pending",
+      "shadowQualified": false,
+      "source": "SportyTraderMLB",
+      "sourceKey": "sportytrader_mlb",
+      "sport": "MLB",
+      "stakeUnits": 0.0,
+      "tier": "avoid",
+      "valueQualified": false
+    },
+    {
+      "blockers": [
+        "missing_or_invalid_game_start_time",
+        "unsupported_grading",
+        "edge_insufficient_segment_samples",
+        "edge_insufficient_distinct_prior_dates",
+        "value_negative_chronological_evidence_half",
+        "value_probability_positive_ev_below_0.70"
+      ],
+      "canonicalGame": "2026-08-31:mlb:athletics|texas rangers",
+      "consensusSources": [],
+      "date": "2026-08-31",
+      "decimalOdds": 2.04,
+      "decision": "BET",
+      "dedupeRule": "exact_market_identity_best_executable_price",
+      "direction": "side",
+      "duplicateCount": 1,
+      "duplicateSources": [
+        "SportyTraderMLB"
+      ],
+      "edgeQualified": false,
+      "estimate": {
+        "alpha": 0.008012,
+        "alphaStdError": 0.1,
+        "breakEvenProbability": 0.490196,
+        "conservativeExpectedValue": 0.115236,
+        "expectedValue": 0.376672,
+        "lowerProbability": 0.546684,
+        "marketProbability": 0.666827,
+        "method": "market_baseline_plus_hierarchically_shrunk_prior_residual",
+        "probability": 0.674839,
+        "probabilityPositiveEv": 0.967585,
+        "sourceAlpha": 0.008012,
+        "value": {
+          "alpha": 0.008012,
+          "alphaStdError": 0.024358,
+          "conservativeExpectedValue": -0.047334,
+          "expectedValue": 0.016345,
+          "lowerProbability": 0.466993,
+          "method": "source_flat_roi_shrunk_residual_vs_break_even",
+          "probability": 0.498208,
+          "probabilityPositiveEv": 0.628903
+        }
+      },
+      "evidence": {
+        "chronologicalHalvesNonnegative": true,
+        "cutoffExclusive": "2026-08-31",
+        "distinctDates": 0,
+        "firstHalfFlatNetUnits": 0,
+        "flatNetUnits": 0,
+        "flatRoi": null,
+        "losses": 0,
+        "modelVersion": "source_identity:sportytrader_mlb",
+        "policyVersion": "profit_desk_policy_v2",
+        "priorOnly": true,
+        "pushes": 0,
+        "secondHalfFlatNetUnits": 0,
+        "segmentDistinctDates": 0,
+        "segmentEvidenceKey": "team|sportytrader_mlb|mlb|source_identity:sportytrader_mlb|external team mismatch|side|gte_0.60",
+        "segmentSamples": 0,
+        "sourceChronologicalHalvesNonnegative": false,
+        "sourceDistinctDates": 70,
+        "sourceEvidenceKey": "team|sportytrader_mlb|mlb",
+        "sourceFirstHalfFlatNetUnits": -2.1854,
+        "sourceFlatNetUnits": 3.6761,
+        "sourceFlatRoi": 0.010071,
+        "sourceLosses": 171,
+        "sourceSamples": 365,
+        "sourceSecondHalfFlatNetUnits": 5.8615,
+        "sourceWins": 194,
+        "wins": 0
+      },
+      "game": "Texas Rangers vs Athletics",
+      "gradeSupportSource": "explicit_false",
+      "gradeSupported": false,
+      "id": "profit-a82631868c468e74b80af0eb",
+      "lane": null,
+      "laneBlockers": {
+        "edge": [
+          "edge_insufficient_segment_samples",
+          "edge_insufficient_distinct_prior_dates"
+        ],
+        "structural": [
+          "missing_or_invalid_game_start_time",
+          "unsupported_grading"
+        ],
+        "value": [
+          "value_negative_chronological_evidence_half",
+          "value_probability_positive_ev_below_0.70"
+        ]
+      },
+      "line": null,
+      "liveQualified": false,
+      "market": "external_team_mismatch",
+      "marketFamily": "external team mismatch",
+      "marketIdentity": "market:c68c7323e7f7825700b00102",
+      "mode": "team",
+      "modelVersion": "source_identity:sportytrader_mlb",
+      "oddsAmerican": 104,
+      "pick": "Texas -1.,5 (Rangers vs Athletics)",
+      "player": null,
+      "policyVersion": "profit_desk_policy_v2",
+      "price": {
+        "ageHours": null,
+        "breakEvenProbability": 0.490196,
+        "decimalOdds": 2.04,
+        "eligibleForAlphaEstimate": true,
+        "fresh": false,
+        "freshPregame": false,
+        "maxAgeHours": 24.0,
+        "noVigInputs": {
+          "field": "market_no_vig_selected_probability"
+        },
+        "noVigMethod": "explicit:pick.market_no_vig_selected_probability",
+        "noVigProbability": 0.666827,
+        "noVigVerified": true,
+        "observedExecutable": true,
+        "oddsAmerican": 104,
+        "quality": "verified_two_sided",
+        "source": "scraped_feed:sportytrader_mlb",
+        "sourceField": "source_registry.scraped_odds",
+        "startTime": null,
+        "tier": "B",
+        "tierLabel": "posted_two_sided",
+        "timestamp": "2026-08-31T23:49:14.056630Z",
+        "timestampField": "pick.market_updated_at",
+        "twoSided": true,
+        "updatedAt": "2026-08-31T23:49:14.056630Z"
+      },
+      "rawModelProbabilityIgnored": null,
+      "result": "pending",
+      "shadowQualified": false,
+      "source": "SportyTraderMLB",
+      "sourceKey": "sportytrader_mlb",
+      "sport": "MLB",
+      "stakeUnits": 0.0,
+      "tier": "avoid",
+      "valueQualified": false
+    },
+    {
+      "blockers": [
+        "missing_or_invalid_game_start_time",
+        "value_negative_chronological_evidence_half",
+        "value_probability_positive_ev_below_0.70"
+      ],
+      "canonicalGame": "2026-08-31:mlb:baltimore orioles|colorado rockies",
+      "consensusSources": [],
+      "date": "2026-08-31",
+      "decimalOdds": 2.14,
+      "decision": "BET",
+      "dedupeRule": "exact_market_identity_best_executable_price",
+      "direction": "side",
+      "duplicateCount": 1,
+      "duplicateSources": [
+        "SportyTraderMLB"
+      ],
+      "edgeQualified": false,
+      "estimate": {
+        "alpha": 0.027452,
+        "alphaStdError": 0.051424,
+        "breakEvenProbability": 0.46729,
+        "conservativeExpectedValue": 0.065305,
+        "expectedValue": 0.206336,
+        "lowerProbability": 0.497806,
+        "marketProbability": 0.536256,
+        "method": "market_baseline_plus_hierarchically_shrunk_prior_residual",
+        "probability": 0.563708,
+        "probabilityPositiveEv": 0.969603,
+        "sourceAlpha": 0.008012,
+        "value": {
+          "alpha": 0.008012,
+          "alphaStdError": 0.024358,
+          "conservativeExpectedValue": -0.049655,
+          "expectedValue": 0.017147,
+          "lowerProbability": 0.444087,
+          "method": "source_flat_roi_shrunk_residual_vs_break_even",
+          "probability": 0.475302,
+          "probabilityPositiveEv": 0.628903
+        }
+      },
+      "evidence": {
+        "chronologicalHalvesNonnegative": true,
+        "cutoffExclusive": "2026-08-31",
+        "distinctDates": 43,
+        "firstHalfFlatNetUnits": 0.0513,
+        "flatNetUnits": 4.9005,
+        "flatRoi": 0.072066,
+        "losses": 30,
+        "modelVersion": "source_identity:sportytrader_mlb",
+        "policyVersion": "profit_desk_policy_v2",
+        "priorOnly": true,
+        "pushes": 0,
+        "secondHalfFlatNetUnits": 4.8492,
+        "segmentDistinctDates": 43,
+        "segmentEvidenceKey": "team|sportytrader_mlb|mlb|source_identity:sportytrader_mlb|market|side|0.50_0.55",
+        "segmentSamples": 68,
+        "sourceChronologicalHalvesNonnegative": false,
+        "sourceDistinctDates": 70,
+        "sourceEvidenceKey": "team|sportytrader_mlb|mlb",
+        "sourceFirstHalfFlatNetUnits": -2.1854,
+        "sourceFlatNetUnits": 3.6761,
+        "sourceFlatRoi": 0.010071,
+        "sourceLosses": 171,
+        "sourceSamples": 365,
+        "sourceSecondHalfFlatNetUnits": 5.8615,
+        "sourceWins": 194,
+        "wins": 38
+      },
+      "game": "Colorado Rockies vs Baltimore Orioles",
+      "gradeSupportSource": "repository_grader_default",
+      "gradeSupported": true,
+      "id": "profit-e3fef8233a70229954c92580",
+      "lane": null,
+      "laneBlockers": {
+        "edge": [],
+        "structural": [
+          "missing_or_invalid_game_start_time"
+        ],
+        "value": [
+          "value_negative_chronological_evidence_half",
+          "value_probability_positive_ev_below_0.70"
+        ]
+      },
+      "line": null,
+      "liveQualified": false,
+      "market": "market",
+      "marketFamily": "market",
+      "marketIdentity": "market:aa3e2c2cf92d117d90f3bc29",
+      "mode": "team",
+      "modelVersion": "source_identity:sportytrader_mlb",
+      "oddsAmerican": 114,
+      "pick": "Orioles -1.5 (Rockies vs Orioles)",
+      "player": null,
+      "policyVersion": "profit_desk_policy_v2",
+      "price": {
+        "ageHours": null,
+        "breakEvenProbability": 0.46729,
+        "decimalOdds": 2.14,
+        "eligibleForAlphaEstimate": true,
+        "fresh": false,
+        "freshPregame": false,
+        "maxAgeHours": 24.0,
+        "noVigInputs": {
+          "field": "market_no_vig_selected_probability"
+        },
+        "noVigMethod": "explicit:pick.market_no_vig_selected_probability",
+        "noVigProbability": 0.536256,
+        "noVigVerified": true,
+        "observedExecutable": true,
+        "oddsAmerican": 114,
+        "quality": "verified_two_sided",
+        "source": "scraped_feed:sportytrader_mlb",
+        "sourceField": "source_registry.scraped_odds",
+        "startTime": null,
+        "tier": "B",
+        "tierLabel": "posted_two_sided",
+        "timestamp": "2026-08-31T23:49:14.056630Z",
+        "timestampField": "pick.market_updated_at",
+        "twoSided": true,
+        "updatedAt": "2026-08-31T23:49:14.056630Z"
+      },
+      "rawModelProbabilityIgnored": null,
+      "result": "pending",
+      "shadowQualified": false,
+      "source": "SportyTraderMLB",
+      "sourceKey": "sportytrader_mlb",
+      "sport": "MLB",
+      "stakeUnits": 0.0,
+      "tier": "avoid",
+      "valueQualified": false
+    },
+    {
+      "blockers": [
+        "missing_or_invalid_game_start_time",
+        "edge_requires_two_sided_price",
+        "edge_negative_chronological_evidence_half",
+        "edge_probability_positive_ev_below_0.80",
+        "edge_conservative_probability_margin_below_0.02",
+        "edge_non_positive_conservative_ev",
+        "value_negative_chronological_evidence_half",
+        "value_non_positive_flat_roi",
+        "value_probability_positive_ev_below_0.70"
+      ],
+      "canonicalGame": "2026-08-31:mlb:chicago cubs|milwaukee brewers",
+      "consensusSources": [],
+      "date": "2026-08-31",
+      "decimalOdds": 1.925926,
+      "decision": "BET",
+      "dedupeRule": "exact_market_identity_best_executable_price",
+      "direction": "side",
+      "duplicateCount": 1,
+      "duplicateSources": [
+        "SportsGamblerMLB"
+      ],
+      "edgeQualified": false,
+      "estimate": {
+        "alpha": -0.003929,
+        "alphaStdError": 0.037525,
+        "breakEvenProbability": 0.519231,
+        "conservativeExpectedValue": -0.100186,
+        "expectedValue": -0.007568,
+        "lowerProbability": 0.467211,
+        "marketProbability": 0.519231,
+        "method": "market_baseline_plus_hierarchically_shrunk_prior_residual",
+        "probability": 0.515301,
+        "probabilityPositiveEv": 0.458301,
+        "sourceAlpha": 0.003571,
+        "value": {
+          "alpha": 0.003571,
+          "alphaStdError": 0.019207,
+          "conservativeExpectedValue": -0.040529,
+          "expectedValue": 0.006878,
+          "lowerProbability": 0.498187,
+          "method": "source_flat_roi_shrunk_residual_vs_break_even",
+          "probability": 0.522802,
+          "probabilityPositiveEv": 0.573755
+        }
+      },
+      "evidence": {
+        "chronologicalHalvesNonnegative": false,
+        "cutoffExclusive": "2026-08-31",
+        "distinctDates": 65,
+        "firstHalfFlatNetUnits": 4.6853,
+        "flatNetUnits": -5.3225,
+        "flatRoi": -0.034788,
+        "losses": 74,
+        "modelVersion": "source_identity:sportsgambler_mlb",
+        "policyVersion": "profit_desk_policy_v2",
+        "priorOnly": true,
+        "pushes": 0,
+        "secondHalfFlatNetUnits": -10.0078,
+        "segmentDistinctDates": 65,
+        "segmentEvidenceKey": "team|sportsgambler_mlb|mlb|source_identity:sportsgambler_mlb|market|side|0.50_0.55",
+        "segmentSamples": 153,
+        "sourceChronologicalHalvesNonnegative": false,
+        "sourceDistinctDates": 79,
+        "sourceEvidenceKey": "team|sportsgambler_mlb|mlb",
+        "sourceFirstHalfFlatNetUnits": 6.9141,
+        "sourceFlatNetUnits": -12.6112,
+        "sourceFlatRoi": -0.020811,
+        "sourceLosses": 280,
+        "sourceSamples": 606,
+        "sourceSecondHalfFlatNetUnits": -19.5253,
+        "sourceWins": 326,
+        "wins": 79
+      },
+      "game": "Chicago Cubs vs Milwaukee Brewers",
+      "gradeSupportSource": "repository_grader_default",
+      "gradeSupported": true,
+      "id": "profit-fc4559557304c9b4051038ef",
+      "lane": null,
+      "laneBlockers": {
+        "edge": [
+          "edge_requires_two_sided_price",
+          "edge_negative_chronological_evidence_half",
+          "edge_probability_positive_ev_below_0.80",
+          "edge_conservative_probability_margin_below_0.02",
+          "edge_non_positive_conservative_ev"
+        ],
+        "structural": [
+          "missing_or_invalid_game_start_time"
+        ],
+        "value": [
+          "value_negative_chronological_evidence_half",
+          "value_non_positive_flat_roi",
+          "value_probability_positive_ev_below_0.70"
+        ]
+      },
+      "line": null,
+      "liveQualified": false,
+      "market": "market",
+      "marketFamily": "market",
+      "marketIdentity": "market:daed2c925d4df97d9cba088b",
+      "mode": "team",
+      "modelVersion": "source_identity:sportsgambler_mlb",
+      "oddsAmerican": -108,
+      "pick": "Milwaukee Brewers to Win (Chicago Cubs vs Milwaukee Brewers)",
+      "player": null,
+      "policyVersion": "profit_desk_policy_v2",
+      "price": {
+        "ageHours": null,
+        "breakEvenProbability": 0.519231,
+        "decimalOdds": 1.925926,
+        "eligibleForAlphaEstimate": false,
+        "fresh": false,
+        "freshPregame": false,
+        "maxAgeHours": 24.0,
+        "noVigInputs": {},
+        "noVigMethod": "unverified_single_side",
+        "noVigProbability": null,
+        "noVigVerified": false,
+        "observedExecutable": true,
+        "oddsAmerican": -108,
+        "quality": "one_sided",
+        "source": "scraped_feed:sportsgambler_mlb",
+        "sourceField": "source_registry.scraped_odds",
+        "startTime": null,
+        "tier": "C",
+        "tierLabel": "posted_one_sided",
+        "timestamp": "2026-08-31T23:46:47.802408Z",
+        "timestampField": "bucket.updatedAt",
+        "twoSided": false,
+        "updatedAt": "2026-08-31T23:46:47.802408Z"
+      },
+      "rawModelProbabilityIgnored": null,
+      "result": "pending",
+      "shadowQualified": false,
+      "source": "SportsGamblerMLB",
+      "sourceKey": "sportsgambler_mlb",
+      "sport": "MLB",
+      "stakeUnits": 0.0,
+      "tier": "avoid",
+      "valueQualified": false
+    },
+    {
+      "blockers": [
+        "missing_or_invalid_game_start_time",
+        "edge_negative_chronological_evidence_half",
+        "edge_probability_positive_ev_below_0.80",
+        "edge_conservative_probability_margin_below_0.02",
+        "edge_non_positive_conservative_ev",
+        "value_negative_chronological_evidence_half",
+        "value_non_positive_flat_roi",
+        "value_probability_positive_ev_below_0.70"
+      ],
+      "canonicalGame": "2026-08-31:mlb:baltimore orioles|colorado rockies",
+      "consensusSources": [],
+      "date": "2026-08-31",
+      "decimalOdds": 1.70922,
+      "decision": "BET",
+      "dedupeRule": "exact_market_identity_best_executable_price",
+      "direction": "side",
+      "duplicateCount": 1,
+      "duplicateSources": [
+        "SportsGamblerMLB"
+      ],
+      "edgeQualified": false,
+      "estimate": {
+        "alpha": -0.003929,
+        "alphaStdError": 0.037525,
+        "breakEvenProbability": 0.585062,
+        "conservativeExpectedValue": -0.172333,
+        "expectedValue": -0.090137,
+        "lowerProbability": 0.484237,
+        "marketProbability": 0.536256,
+        "method": "market_baseline_plus_hierarchically_shrunk_prior_residual",
+        "probability": 0.532327,
+        "probabilityPositiveEv": 0.079958,
+        "sourceAlpha": 0.003571,
+        "value": {
+          "alpha": 0.003571,
+          "alphaStdError": 0.019207,
+          "conservativeExpectedValue": -0.035968,
+          "expectedValue": 0.006104,
+          "lowerProbability": 0.564019,
+          "method": "source_flat_roi_shrunk_residual_vs_break_even",
+          "probability": 0.588634,
+          "probabilityPositiveEv": 0.573755
+        }
+      },
+      "evidence": {
+        "chronologicalHalvesNonnegative": false,
+        "cutoffExclusive": "2026-08-31",
+        "distinctDates": 65,
+        "firstHalfFlatNetUnits": 4.6853,
+        "flatNetUnits": -5.3225,
+        "flatRoi": -0.034788,
+        "losses": 74,
+        "modelVersion": "source_identity:sportsgambler_mlb",
+        "policyVersion": "profit_desk_policy_v2",
+        "priorOnly": true,
+        "pushes": 0,
+        "secondHalfFlatNetUnits": -10.0078,
+        "segmentDistinctDates": 65,
+        "segmentEvidenceKey": "team|sportsgambler_mlb|mlb|source_identity:sportsgambler_mlb|market|side|0.50_0.55",
+        "segmentSamples": 153,
+        "sourceChronologicalHalvesNonnegative": false,
+        "sourceDistinctDates": 79,
+        "sourceEvidenceKey": "team|sportsgambler_mlb|mlb",
+        "sourceFirstHalfFlatNetUnits": 6.9141,
+        "sourceFlatNetUnits": -12.6112,
+        "sourceFlatRoi": -0.020811,
+        "sourceLosses": 280,
+        "sourceSamples": 606,
+        "sourceSecondHalfFlatNetUnits": -19.5253,
+        "sourceWins": 326,
+        "wins": 79
+      },
+      "game": "Colorado Rockies vs Baltimore Orioles",
+      "gradeSupportSource": "repository_grader_default",
+      "gradeSupported": true,
+      "id": "profit-43bb0fee2685d509e0a615cb",
+      "lane": null,
+      "laneBlockers": {
+        "edge": [
+          "edge_negative_chronological_evidence_half",
+          "edge_probability_positive_ev_below_0.80",
+          "edge_conservative_probability_margin_below_0.02",
+          "edge_non_positive_conservative_ev"
+        ],
+        "structural": [
+          "missing_or_invalid_game_start_time"
+        ],
+        "value": [
+          "value_negative_chronological_evidence_half",
+          "value_non_positive_flat_roi",
+          "value_probability_positive_ev_below_0.70"
+        ]
+      },
+      "line": null,
+      "liveQualified": false,
+      "market": "market",
+      "marketFamily": "market",
+      "marketIdentity": "market:c94f6d4bb2ddb65d32e67e4b",
+      "mode": "team",
+      "modelVersion": "source_identity:sportsgambler_mlb",
+      "oddsAmerican": -141,
+      "pick": "Baltimore Orioles to Win (Colorado Rockies vs Baltimore Orioles)",
+      "player": null,
+      "policyVersion": "profit_desk_policy_v2",
+      "price": {
+        "ageHours": null,
+        "breakEvenProbability": 0.585062,
+        "decimalOdds": 1.70922,
+        "eligibleForAlphaEstimate": true,
+        "fresh": false,
+        "freshPregame": false,
+        "maxAgeHours": 24.0,
+        "noVigInputs": {
+          "field": "market_no_vig_selected_probability"
+        },
+        "noVigMethod": "explicit:pick.market_no_vig_selected_probability",
+        "noVigProbability": 0.536256,
+        "noVigVerified": true,
+        "observedExecutable": true,
+        "oddsAmerican": -141,
+        "quality": "verified_two_sided",
+        "source": "scraped_feed:sportsgambler_mlb",
+        "sourceField": "source_registry.scraped_odds",
+        "startTime": null,
+        "tier": "B",
+        "tierLabel": "posted_two_sided",
+        "timestamp": "2026-08-31T23:49:14.056630Z",
+        "timestampField": "pick.market_updated_at",
+        "twoSided": true,
+        "updatedAt": "2026-08-31T23:49:14.056630Z"
+      },
+      "rawModelProbabilityIgnored": null,
+      "result": "pending",
+      "shadowQualified": false,
+      "source": "SportsGamblerMLB",
+      "sourceKey": "sportsgambler_mlb",
+      "sport": "MLB",
+      "stakeUnits": 0.0,
+      "tier": "avoid",
+      "valueQualified": false
+    },
+    {
+      "blockers": [
+        "missing_or_invalid_game_start_time",
+        "edge_negative_chronological_evidence_half",
+        "edge_probability_positive_ev_below_0.80",
+        "edge_conservative_probability_margin_below_0.02",
+        "edge_non_positive_conservative_ev",
+        "value_negative_chronological_evidence_half",
+        "value_non_positive_flat_roi",
+        "value_probability_positive_ev_below_0.70"
+      ],
+      "canonicalGame": "2026-08-31:mlb:arizona diamondbacks|philadelphia phillies",
+      "consensusSources": [],
+      "date": "2026-08-31",
+      "decimalOdds": 1.769231,
+      "decision": "BET",
+      "dedupeRule": "exact_market_identity_best_executable_price",
+      "direction": "side",
+      "duplicateCount": 1,
+      "duplicateSources": [
+        "SportsGamblerMLB"
+      ],
+      "edgeQualified": false,
+      "estimate": {
+        "alpha": -0.003929,
+        "alphaStdError": 0.037525,
+        "breakEvenProbability": 0.565217,
+        "conservativeExpectedValue": -0.178366,
+        "expectedValue": -0.093284,
+        "lowerProbability": 0.464402,
+        "marketProbability": 0.516421,
+        "method": "market_baseline_plus_hierarchically_shrunk_prior_residual",
+        "probability": 0.512492,
+        "probabilityPositiveEv": 0.079997,
+        "sourceAlpha": 0.003571,
+        "value": {
+          "alpha": 0.003571,
+          "alphaStdError": 0.019207,
+          "conservativeExpectedValue": -0.037231,
+          "expectedValue": 0.006319,
+          "lowerProbability": 0.544174,
+          "method": "source_flat_roi_shrunk_residual_vs_break_even",
+          "probability": 0.568789,
+          "probabilityPositiveEv": 0.573755
+        }
+      },
+      "evidence": {
+        "chronologicalHalvesNonnegative": false,
+        "cutoffExclusive": "2026-08-31",
+        "distinctDates": 65,
+        "firstHalfFlatNetUnits": 4.6853,
+        "flatNetUnits": -5.3225,
+        "flatRoi": -0.034788,
+        "losses": 74,
+        "modelVersion": "source_identity:sportsgambler_mlb",
+        "policyVersion": "profit_desk_policy_v2",
+        "priorOnly": true,
+        "pushes": 0,
+        "secondHalfFlatNetUnits": -10.0078,
+        "segmentDistinctDates": 65,
+        "segmentEvidenceKey": "team|sportsgambler_mlb|mlb|source_identity:sportsgambler_mlb|market|side|0.50_0.55",
+        "segmentSamples": 153,
+        "sourceChronologicalHalvesNonnegative": false,
+        "sourceDistinctDates": 79,
+        "sourceEvidenceKey": "team|sportsgambler_mlb|mlb",
+        "sourceFirstHalfFlatNetUnits": 6.9141,
+        "sourceFlatNetUnits": -12.6112,
+        "sourceFlatRoi": -0.020811,
+        "sourceLosses": 280,
+        "sourceSamples": 606,
+        "sourceSecondHalfFlatNetUnits": -19.5253,
+        "sourceWins": 326,
+        "wins": 79
+      },
+      "game": "Arizona Diamondbacks vs Philadelphia Phillies",
+      "gradeSupportSource": "repository_grader_default",
+      "gradeSupported": true,
+      "id": "profit-0d5397d022cc5596fa93a005",
+      "lane": null,
+      "laneBlockers": {
+        "edge": [
+          "edge_negative_chronological_evidence_half",
+          "edge_probability_positive_ev_below_0.80",
+          "edge_conservative_probability_margin_below_0.02",
+          "edge_non_positive_conservative_ev"
+        ],
+        "structural": [
+          "missing_or_invalid_game_start_time"
+        ],
+        "value": [
+          "value_negative_chronological_evidence_half",
+          "value_non_positive_flat_roi",
+          "value_probability_positive_ev_below_0.70"
+        ]
+      },
+      "line": null,
+      "liveQualified": false,
+      "market": "market",
+      "marketFamily": "market",
+      "marketIdentity": "market:2156ea69fe3f12da86e09266",
+      "mode": "team",
+      "modelVersion": "source_identity:sportsgambler_mlb",
+      "oddsAmerican": -130,
+      "pick": "Philadelphia Phillies to Win (Arizona Diamondbacks vs Philadelphia Phillies)",
+      "player": null,
+      "policyVersion": "profit_desk_policy_v2",
+      "price": {
+        "ageHours": null,
+        "breakEvenProbability": 0.565217,
+        "decimalOdds": 1.769231,
+        "eligibleForAlphaEstimate": true,
+        "fresh": false,
+        "freshPregame": false,
+        "maxAgeHours": 24.0,
+        "noVigInputs": {
+          "field": "market_no_vig_selected_probability"
+        },
+        "noVigMethod": "explicit:pick.market_no_vig_selected_probability",
+        "noVigProbability": 0.516421,
+        "noVigVerified": true,
+        "observedExecutable": true,
+        "oddsAmerican": -130,
+        "quality": "verified_two_sided",
+        "source": "scraped_feed:sportsgambler_mlb",
+        "sourceField": "source_registry.scraped_odds",
+        "startTime": null,
+        "tier": "B",
+        "tierLabel": "posted_two_sided",
+        "timestamp": "2026-08-31T23:49:14.056630Z",
+        "timestampField": "pick.market_updated_at",
+        "twoSided": true,
+        "updatedAt": "2026-08-31T23:49:14.056630Z"
+      },
+      "rawModelProbabilityIgnored": null,
+      "result": "pending",
+      "shadowQualified": false,
+      "source": "SportsGamblerMLB",
+      "sourceKey": "sportsgambler_mlb",
+      "sport": "MLB",
+      "stakeUnits": 0.0,
+      "tier": "avoid",
+      "valueQualified": false
+    },
+    {
+      "blockers": [
         "missing_executable_odds",
         "edge_no_usable_price_baseline",
         "value_no_usable_price_baseline"
@@ -3084,15 +3920,19 @@
         "value_no_usable_price_baseline"
       ],
       "canonicalGame": "2026-08-31:tennis:ben shelton|tallon griekspoor",
-      "consensusSources": [],
+      "consensusSources": [
+        "Tennis Model",
+        "TennisTonic"
+      ],
       "date": "2026-08-31",
       "decimalOdds": null,
       "decision": "BET",
       "dedupeRule": "exact_market_identity_best_executable_price",
       "direction": "side",
-      "duplicateCount": 1,
+      "duplicateCount": 2,
       "duplicateSources": [
-        "Tennis Model"
+        "Tennis Model",
+        "TennisTonic"
       ],
       "edgeQualified": false,
       "estimate": null,
@@ -3855,15 +4695,19 @@
         "value_no_usable_price_baseline"
       ],
       "canonicalGame": "2026-08-31:tennis:facundo diaz acosta|quentin halys",
-      "consensusSources": [],
+      "consensusSources": [
+        "Tennis Model",
+        "TennisTonic"
+      ],
       "date": "2026-08-31",
       "decimalOdds": null,
       "decision": "BET",
       "dedupeRule": "exact_market_identity_best_executable_price",
       "direction": "side",
-      "duplicateCount": 1,
+      "duplicateCount": 2,
       "duplicateSources": [
-        "Tennis Model"
+        "Tennis Model",
+        "TennisTonic"
       ],
       "edgeQualified": false,
       "estimate": null,
@@ -4075,15 +4919,19 @@
         "value_no_usable_price_baseline"
       ],
       "canonicalGame": "2026-08-31:tennis:frances tiafoe|martin damm",
-      "consensusSources": [],
+      "consensusSources": [
+        "Tennis Model",
+        "TennisTonic"
+      ],
       "date": "2026-08-31",
       "decimalOdds": null,
       "decision": "BET",
       "dedupeRule": "exact_market_identity_best_executable_price",
       "direction": "side",
-      "duplicateCount": 1,
+      "duplicateCount": 2,
       "duplicateSources": [
-        "Tennis Model"
+        "Tennis Model",
+        "TennisTonic"
       ],
       "edgeQualified": false,
       "estimate": null,
@@ -4184,15 +5032,19 @@
         "value_no_usable_price_baseline"
       ],
       "canonicalGame": "2026-08-31:tennis:liudmila samsonova|maya joint",
-      "consensusSources": [],
+      "consensusSources": [
+        "Tennis Model",
+        "TennisTonic"
+      ],
       "date": "2026-08-31",
       "decimalOdds": null,
       "decision": "LEAN",
       "dedupeRule": "exact_market_identity_best_executable_price",
       "direction": "side",
-      "duplicateCount": 1,
+      "duplicateCount": 2,
       "duplicateSources": [
-        "Tennis Model"
+        "Tennis Model",
+        "TennisTonic"
       ],
       "edgeQualified": false,
       "estimate": null,
@@ -5178,15 +6030,19 @@
         "value_no_usable_price_baseline"
       ],
       "canonicalGame": "2026-08-31:tennis:harry wendelken|luciano darderi",
-      "consensusSources": [],
+      "consensusSources": [
+        "Tennis Model",
+        "TennisTonic"
+      ],
       "date": "2026-08-31",
       "decimalOdds": null,
       "decision": "BET",
       "dedupeRule": "exact_market_identity_best_executable_price",
       "direction": "side",
-      "duplicateCount": 1,
+      "duplicateCount": 2,
       "duplicateSources": [
-        "Tennis Model"
+        "Tennis Model",
+        "TennisTonic"
       ],
       "edgeQualified": false,
       "estimate": null,
@@ -5732,15 +6588,19 @@
         "value_no_usable_price_baseline"
       ],
       "canonicalGame": "2026-08-31:tennis:learner tien|nuno borges",
-      "consensusSources": [],
+      "consensusSources": [
+        "Tennis Model",
+        "TennisTonic"
+      ],
       "date": "2026-08-31",
       "decimalOdds": null,
       "decision": "LEAN",
       "dedupeRule": "exact_market_identity_best_executable_price",
       "direction": "side",
-      "duplicateCount": 1,
+      "duplicateCount": 2,
       "duplicateSources": [
-        "Tennis Model"
+        "Tennis Model",
+        "TennisTonic"
       ],
       "edgeQualified": false,
       "estimate": null,
@@ -5841,15 +6701,19 @@
         "value_no_usable_price_baseline"
       ],
       "canonicalGame": "2026-08-31:tennis:karen khachanov|roman andres burruchaga",
-      "consensusSources": [],
+      "consensusSources": [
+        "Tennis Model",
+        "TennisTonic"
+      ],
       "date": "2026-08-31",
       "decimalOdds": null,
       "decision": "BET",
       "dedupeRule": "exact_market_identity_best_executable_price",
       "direction": "side",
-      "duplicateCount": 1,
+      "duplicateCount": 2,
       "duplicateSources": [
-        "Tennis Model"
+        "Tennis Model",
+        "TennisTonic"
       ],
       "edgeQualified": false,
       "estimate": null,
@@ -5950,15 +6814,19 @@
         "value_no_usable_price_baseline"
       ],
       "canonicalGame": "2026-08-31:tennis:anastasia zakharova|naomi osaka",
-      "consensusSources": [],
+      "consensusSources": [
+        "Tennis Model",
+        "TennisTonic"
+      ],
       "date": "2026-08-31",
       "decimalOdds": null,
       "decision": "BET",
       "dedupeRule": "exact_market_identity_best_executable_price",
       "direction": "side",
-      "duplicateCount": 1,
+      "duplicateCount": 2,
       "duplicateSources": [
-        "Tennis Model"
+        "Tennis Model",
+        "TennisTonic"
       ],
       "edgeQualified": false,
       "estimate": null,
@@ -6392,15 +7260,19 @@
         "value_no_usable_price_baseline"
       ],
       "canonicalGame": "2026-08-31:tennis:elisabetta cocciaretto|katerina siniakova",
-      "consensusSources": [],
+      "consensusSources": [
+        "Tennis Model",
+        "TennisTonic"
+      ],
       "date": "2026-08-31",
       "decimalOdds": null,
       "decision": "LEAN",
       "dedupeRule": "exact_market_identity_best_executable_price",
       "direction": "side",
-      "duplicateCount": 1,
+      "duplicateCount": 2,
       "duplicateSources": [
-        "Tennis Model"
+        "Tennis Model",
+        "TennisTonic"
       ],
       "edgeQualified": false,
       "estimate": null,
@@ -6501,15 +7373,19 @@
         "value_no_usable_price_baseline"
       ],
       "canonicalGame": "2026-08-31:tennis:alexei popyrin|grigor dimitrov",
-      "consensusSources": [],
+      "consensusSources": [
+        "Tennis Model",
+        "TennisTonic"
+      ],
       "date": "2026-08-31",
       "decimalOdds": null,
       "decision": "LEAN",
       "dedupeRule": "exact_market_identity_best_executable_price",
       "direction": "side",
-      "duplicateCount": 1,
+      "duplicateCount": 2,
       "duplicateSources": [
-        "Tennis Model"
+        "Tennis Model",
+        "TennisTonic"
       ],
       "edgeQualified": false,
       "estimate": null,
@@ -7054,15 +7930,19 @@
         "value_no_usable_price_baseline"
       ],
       "canonicalGame": "2026-08-31:tennis:jakub mensik|shintaro mochizuki",
-      "consensusSources": [],
+      "consensusSources": [
+        "Tennis Model",
+        "TennisTonic"
+      ],
       "date": "2026-08-31",
       "decimalOdds": null,
       "decision": "BET",
       "dedupeRule": "exact_market_identity_best_executable_price",
       "direction": "side",
-      "duplicateCount": 1,
+      "duplicateCount": 2,
       "duplicateSources": [
-        "Tennis Model"
+        "Tennis Model",
+        "TennisTonic"
       ],
       "edgeQualified": false,
       "estimate": null,
@@ -7936,7 +8816,7 @@
   "date": "2026-08-31",
   "engineVersion": "profit_desk_v2_live",
   "firstLiveDate": "2026-07-11",
-  "generatedAt": "2026-08-31T21:18:14.381600Z",
+  "generatedAt": "2026-08-31T23:46:47.802408Z",
   "notices": [
     "Qualified picks carry real flat stakes: EDGE 1.0u, VALUE 0.5u; everything else stays 0u.",
     "The market price is the baseline; historical residual alpha is shrunk and uncertainty-adjusted.",
@@ -8724,7 +9604,7 @@
     },
     {
       "alpha": 0.008012,
-      "candidatesToday": 0,
+      "candidatesToday": 3,
       "distinctDates": 70,
       "evidenceQualified": false,
       "flatNetUnits": 3.6761,
@@ -8763,7 +9643,7 @@
       "mode": "team",
       "probabilityPositiveEv": 0.628903,
       "samples": 365,
-      "source": "sportytrader_mlb",
+      "source": "SportyTraderMLB",
       "sourceKey": "sportytrader_mlb",
       "sport": "mlb",
       "wins": 194
@@ -8816,7 +9696,7 @@
     },
     {
       "alpha": 0.003571,
-      "candidatesToday": 0,
+      "candidatesToday": 3,
       "distinctDates": 79,
       "evidenceQualified": false,
       "flatNetUnits": -12.6112,
@@ -8855,7 +9735,7 @@
       "mode": "team",
       "probabilityPositiveEv": 0.573755,
       "samples": 606,
-      "source": "sportsgambler_mlb",
+      "source": "SportsGamblerMLB",
       "sourceKey": "sportsgambler_mlb",
       "sport": "mlb",
       "wins": 326
@@ -9966,13 +10846,13 @@
     }
   ],
   "summary": {
-    "avoid": 49,
-    "candidateCount": 67,
-    "candidatesEvaluated": 67,
-    "deduplicatedPicks": 1,
+    "avoid": 55,
+    "candidateCount": 73,
+    "candidatesEvaluated": 73,
+    "deduplicatedPicks": 13,
     "edgeQualified": 0,
     "evidenceRows": 3349,
-    "inputPicks": 68,
+    "inputPicks": 86,
     "livePortfolioCandidates": 1,
     "liveQualified": 1,
     "liveRecord": {
@@ -10019,14 +10899,14 @@
         "watchlist": 0
       },
       "team": {
-        "avoid": 49,
-        "candidateCount": 66,
-        "candidates": 66,
-        "candidatesEvaluated": 66,
+        "avoid": 55,
+        "candidateCount": 72,
+        "candidates": 72,
+        "candidatesEvaluated": 72,
         "edgeQualified": 0,
         "evidenceRows": 2610,
         "liveQualified": 0,
-        "observedPriceCandidates": 17,
+        "observedPriceCandidates": 23,
         "portfolioCandidates": 0,
         "researchQualified": 0,
         "selected": 0,
@@ -10035,7 +10915,7 @@
         "watchlist": 17
       }
     },
-    "observedPriceCandidates": 18,
+    "observedPriceCandidates": 24,
     "portfolioCandidates": 1,
     "researchQualified": 1,
     "researchRecord": {
