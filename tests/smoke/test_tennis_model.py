@@ -452,12 +452,14 @@ def test_generate_tennis_picks_emits_gradeable_rows() -> None:
     assert pick["home_team"] == "Jannik Sinner"
     assert pick["market_type"] == "tennis_moneyline"
     assert pick["grade_supported"] is True
-    assert pick["decision"] in {"BET", "LEAN", "PASS"}
     assert 0.5 <= pick["probability"] <= 1.0
-    # Unpriced by design: nothing may imply an edge against a price we never saw.
+    # Unpriced by design: confidence is recorded, but the published row is not a bet.
     assert pick["odds"] is None
     assert pick["edge"] is None
     assert pick["pricing_type"] == "unpriced"
+    assert pick["decision"] == "PASS"
+    assert pick["units"] == 0
+    assert pick["source_decision"] in {"BET", "LEAN", "PASS"}
     assert pick["pick"].startswith(pick["selected_player"])
 
 

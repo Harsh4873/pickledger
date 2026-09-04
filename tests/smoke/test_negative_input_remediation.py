@@ -9,6 +9,7 @@ edit and each of which cost real units:
 2. An unpriced win must not be credited at even money, which silently
    manufactured P&L.
 3. Scraped third-party tip feeds must not publish as staked BET/LEAN picks.
+4. Unpriced in-house tennis must not publish as staked BET/LEAN picks.
 """
 
 from __future__ import annotations
@@ -245,3 +246,82 @@ def test_model_cache_merge_also_demotes_scraped_feeds(tmp_path):
     assert scraped["scraped_tip_demoted"] is True
     assert merged["models"]["mlb_new"]["picks"][0]["decision"] == "BET"
     assert merged["models"]["mlb_new"]["picks"][0]["units"] == 0.5
+
+
+# ---------------------------------------------------------------------------
+# 4. Unpriced in-house tennis must not publish as staked BET/LEAN picks
+# ---------------------------------------------------------------------------
+
+def test_unpriced_tennis_picks_are_demoted_to_pass():
+    from scripts.merge_model_cache_payload import _demote_unpriced_tennis_picks
+
+    payload = {
+        "date": "2026-09-04",
+        "models": {
+            "tennis": {
+                "ok": True,
+                "picks": [
+                    {"sport": "Tennis", "pick": "Alcaraz ML", "decision": "BET", "units": 1, "odds": None},
+                    {"sport": "Tennis", "pick": "Paul ML", "decision": "LEAN", "units": 0.5, "odds": None},
+                    {"sport": "Tennis", "pick": "Priced ML", "decision": "BET", "units": 0.5, "odds": -150},
+                ],
+            },
+            "mlb_new": {
+                "ok": True,
+                "picks": [{"sport": "MLB", "pick": "Under 9.0", "decision": "BET", "units": 0.5, "odds": -105}],
+            },
+        },
+        "tennis": {
+            "ok": True,
+            "picks": [{"sport": "Tennis", "pick": "Alcaraz ML", "decision": "BET", "units": 1, "odds": None}],
+        },
+    }
+
+    demoted, changed = _demote_unpriced_tennis_picks(payload)
+    tennis = demoted["models"]["tennis"]["picks"]
+    assert changed == 3
+    assert tennis[0]["decision"] == "PASS" and tennis[0]["units"] == 0
+    assert tennis[0]["source_decision"] == "BET" and tennis[0]["source_units"] == 1
+    assert tennis[0]["unpriced_tennis_demoted"] is True
+    assert tennis[1]["decision"] == "PASS" and tennis[1]["units"] == 0
+    assert tennis[1]["source_decision"] == "LEAN"
+    assert tennis[2]["decision"] == "BET" and tennis[2]["units"] == 0.5
+    assert demoted["models"]["mlb_new"]["picks"][0]["decision"] == "BET"
+    assert demoted["tennis"]["picks"][0]["decision"] == "PASS"
+
+
+def test_model_cache_merge_demotes_unpriced_tennis(tmp_path):
+    from scripts.merge_model_cache_payload import merge_payload
+
+    cache_dir = tmp_path / "data" / "model_cache"
+    cache_dir.mkdir(parents=True)
+    current = {
+        "date": "2026-09-04",
+        "models": {
+            "tennis": {
+                "ok": True,
+                "picks": [{"sport": "Tennis", "pick": "Alcaraz ML", "decision": "BET", "units": 1, "odds": None}],
+            },
+            "mlb_new": {
+                "ok": True,
+                "picks": [{"sport": "MLB", "pick": "Under 9.0", "decision": "BET", "units": 0.5, "odds": -105}],
+            },
+        },
+    }
+    (cache_dir / "2026-09-04.json").write_text(json.dumps(current), encoding="utf-8")
+    generated = {
+        "date": "2026-09-04",
+        "models": {
+            "mlb_new": {
+                "ok": True,
+                "picks": [{"sport": "MLB", "pick": "Under 9.0", "decision": "BET", "units": 0.5, "odds": -105}],
+            },
+        },
+    }
+
+    merged = merge_payload(generated, cache_dir)
+    tennis = merged["models"]["tennis"]["picks"][0]
+    assert tennis["decision"] == "PASS"
+    assert tennis["units"] == 0
+    assert tennis["unpriced_tennis_demoted"] is True
+    assert merged["models"]["mlb_new"]["picks"][0]["decision"] == "BET"

@@ -147,7 +147,11 @@ def grade_payload(payload: dict[str, Any], *, ml_player_props_only: bool = False
             changed += pickgrader_server.apply_external_pick_metadata(pick)
             if ml_player_props_only and is_ml_era_pick is not None and not is_ml_era_pick(pick, fallback_timestamp):
                 continue
-            if str(pick.get("decision") or "").strip().upper() not in {"BET", "LEAN"}:
+            decision = str(pick.get("decision") or "").strip().upper()
+            tennis = is_tennis_pick(pick)
+            # Unpriced tennis publishes as PASS, but those rows still grade
+            # against the ESPN winner flag so the research record settles.
+            if decision not in {"BET", "LEAN"} and not tennis:
                 continue
             if pick.get("grade_supported") is False:
                 continue

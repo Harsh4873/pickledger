@@ -15,6 +15,72 @@ from cache_manifest import write_cache_manifest  # noqa: E402
 from merge_external_feed_cache_payload import _demote_scraped_feed_picks  # noqa: E402
 
 
+def _missing_executable_odds(pick: Any) -> bool:
+    if not isinstance(pick, dict):
+        return True
+    odds = pick.get("odds")
+    if odds in (None, ""):
+        return True
+    try:
+        return float(odds) == 0
+    except (TypeError, ValueError):
+        return True
+
+
+def _demote_unpriced_tennis_picks(payload: dict[str, Any]) -> tuple[dict[str, Any], int]:
+    """Publish unpriced in-house tennis as research rows, never as bets.
+
+    The tennis model emits a real probability but no market price — ESPN tennis
+    moneylines are not on the shared odds attachment. After unpriced wins
+    stopped being booked at even money, those rows still showed as 1u BET/LEAN
+    recommendations with no measurable P&L. Demote them the same way scraped
+    tips are demoted: PASS at 0u, preserve source_decision/source_units.
+    """
+    demoted = dict(payload)
+    changed = 0
+
+    def demote_bucket(bucket: Any) -> Any:
+        nonlocal changed
+        if not isinstance(bucket, dict):
+            return bucket
+        picks = bucket.get("picks")
+        if not isinstance(picks, list):
+            return bucket
+        updated_picks: list[Any] = []
+        bucket_changed = False
+        for pick in picks:
+            if not isinstance(pick, dict):
+                updated_picks.append(pick)
+                continue
+            sport = str(pick.get("sport") or "").strip().lower()
+            decision = str(pick.get("decision") or "").strip().upper()
+            if sport == "tennis" and decision in {"BET", "LEAN"} and _missing_executable_odds(pick):
+                revised = dict(pick)
+                revised["decision"] = "PASS"
+                revised["units"] = 0
+                revised["unpriced_tennis_demoted"] = True
+                revised.setdefault("source_decision", decision)
+                revised.setdefault("source_units", pick.get("units"))
+                updated_picks.append(revised)
+                bucket_changed = True
+                changed += 1
+            else:
+                updated_picks.append(pick)
+        if not bucket_changed:
+            return bucket
+        revised_bucket = dict(bucket)
+        revised_bucket["picks"] = updated_picks
+        return revised_bucket
+
+    models = payload.get("models")
+    if isinstance(models, dict):
+        demoted["models"] = {key: demote_bucket(bucket) for key, bucket in models.items()}
+    tennis_alias = payload.get("tennis")
+    if isinstance(tennis_alias, dict):
+        demoted["tennis"] = demote_bucket(tennis_alias)
+    return demoted, changed
+
+
 MODEL_CACHE_DIR = Path("data/model_cache")
 EXTERNAL_FEED_MODEL_KEYS = {
     "sportytrader",
@@ -360,7 +426,11 @@ def merge_payload(generated: dict[str, Any], cache_dir: Path) -> dict[str, Any]:
     # Same demotion as the feed-writer merge: a model-cache refresh copies
     # scraped buckets through from the dated file, and without this those
     # rows would republish as BET/LEAN the next time in-house models land.
-    return _demote_scraped_feed_picks(_without_retired_buckets(merged))
+    # Unpriced tennis is demoted here too so a refresh cannot republish
+    # confidence-only rows as staked recommendations.
+    scraped = _demote_scraped_feed_picks(_without_retired_buckets(merged))
+    demoted, _ = _demote_unpriced_tennis_picks(scraped)
+    return demoted
 
 
 def main() -> int:

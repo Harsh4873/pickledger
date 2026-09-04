@@ -1567,6 +1567,22 @@ def parse_pick_date(date_text: str, year: int) -> str | None:
     return None
 
 
+def pick_grade_date(pick: dict[str, Any], year: int) -> str | None:
+    """Resolve the scoreboard date for a pick.
+
+    mlb_new (and other stdout-parsed) snapshots often omit ``date`` and only
+    carry ``slate_date`` on the certified ledger row. Without this fallback
+    those rows never enter auto_grade and stay pending after the game ends.
+    """
+    if not isinstance(pick, dict):
+        return None
+    for field in ("date", "game_date", "slate_date"):
+        parsed = parse_pick_date(str(pick.get(field) or ""), year)
+        if parsed:
+            return parsed
+    return None
+
+
 def fetch_scoreboard(sport: str, league: str, yyyymmdd: str) -> dict[str, Any] | None:
     extra = "&limit=1000&groups=80" if league == "college-football" else ""
     url = (
@@ -2676,7 +2692,7 @@ def auto_grade(picks: list[dict[str, Any]], existing: dict[str, str], year: int)
         if sport_key not in SPORT_TO_ESPNSLUG:
             continue
 
-        d = parse_pick_date(str(pick.get("date", "")), year)
+        d = pick_grade_date(pick, year)
         if not d:
             continue
 

@@ -13,8 +13,9 @@ What is published is the *market-free* model probability. Tennis moneylines are
 not carried by the shared market-odds attachment (its scoreboard parser is
 built for team sports, where competitors hang off ``event.competitions``
 instead of tennis's ``groupings``), so these rows are unpriced by design and
-say so. The pick decision is therefore a confidence gate rather than an edge
-gate, with thresholds taken from the held-out backtest.
+say so. Confidence thresholds from the held-out backtest are recorded as
+``source_decision`` / ``source_units``, but an unpriced row publishes as PASS
+at 0u — a 0.98 model probability is not a bet until there is a price.
 """
 from __future__ import annotations
 
@@ -414,7 +415,8 @@ def generate_tennis_picks(
         pick_p1 = p1_probability >= 0.5
         selected = p1_name if pick_p1 else p2_name
         probability = p1_probability if pick_p1 else 1.0 - p1_probability
-        decision = _decision(probability)
+        confidence_decision = _decision(probability)
+        confidence_units = _confidence_units(probability)
         matchup = f"{away} vs {home}"
 
         picks.append({
@@ -437,15 +439,18 @@ def generate_tennis_picks(
             "surface": meta.get("surface"),
             "best_of": int(meta.get("best_of") or 3),
             "odds": None,
-            "units": _confidence_units(probability),
+            "units": 0,
             "probability": round(probability, 4),
             "model_probability": round(probability, 4),
             "edge": None,
-            "decision": decision,
+            "decision": "PASS",
+            "source_decision": confidence_decision,
+            "source_units": confidence_units,
             "market_type": "tennis_moneyline",
             "grade_supported": True,
             # Tennis moneylines are not covered by the shared odds attachment,
-            # so there is no price to devig and no edge to claim.
+            # so there is no price to devig and no edge to claim. Confidence
+            # is preserved on source_* so the row stays auditable.
             "pricing_type": "unpriced",
             "market_priced": False,
             # No tennis calibration model exists yet; these rows carry a real
