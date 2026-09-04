@@ -419,6 +419,7 @@ const SOURCE_LABELS: Record<string, string> = {
   scores24_wnba: 'Scores24WNBA',
   scores24_mlb: 'Scores24MLB',
   scores24_fifa_world_cup: 'Scores24FIFAWorldCup',
+  scores24_cfb: 'Scores24CFB',
   forebet_mls: 'ForebetMLS',
   forebet_mlb: 'ForebetMLB',
   forebet_wnba: 'ForebetWNBA',

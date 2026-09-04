@@ -133,6 +133,7 @@ SOURCE_LABELS: dict[str, str] = {
     "scores24_wnba": "Scores24WNBA",
     "scores24_mlb": "Scores24MLB",
     "scores24_fifa_world_cup": "Scores24FIFAWorldCup",
+    "scores24_cfb": "Scores24CFB",
     "scores24_tennis": "Scores24Tennis",
     "tennistonic_tennis": "TennisTonic",
 }

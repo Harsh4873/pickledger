@@ -32,6 +32,7 @@ EXTERNAL_FEED_MODEL_KEYS = {
     "scores24_wnba",
     "scores24_mlb",
     "scores24_fifa_world_cup",
+    "scores24_cfb",
     "forebet_mls",
     "forebet_mlb",
     "forebet_wnba",
@@ -73,9 +74,14 @@ EXTERNAL_FEED_SOURCE_LABELS = {
 }
 # The in-house team models that, when all ok, promote a day to latest.json.
 # A complete Scores24 MLB+WNBA slate also promotes, so the 9:30 local scrape
-# can first-paint today without waiting on in-house models. Tennis-only and
-# other feed-only days still must not promote — that is what left 2026-07-25
-# showing a tennis-only slate.
+# can first-paint today without waiting on in-house models. Tennis-only,
+# CFB-only, FIFA/NBA Summer, and other feed-only days still must not promote
+# — that is what left 2026-07-25 showing a tennis-only slate.
+#
+# Scores24 CFB is scraped on the same weekday morning/afternoon run as
+# MLB+WNBA, but it is intentionally absent from this gate. Incomplete,
+# blocked, or hung CFB must not prevent publishing a complete MLB+WNBA slate
+# (same soft-fail as tennis).
 #
 # Keep this identical to site_upcheck.REQUIRED_MODEL_KEYS and to the required
 # set in model-cache-freshness-guard.yml; a drift test pins all three together.
@@ -508,7 +514,9 @@ def _scores24_feed_bucket(payload: dict[str, Any], key: str) -> dict[str, Any] |
 def _scores24_mlb_wnba_complete(payload: dict[str, Any], date_iso: str) -> bool:
     """True when today's official Scores24 MLB and WNBA slates are complete.
 
-    Tennis-only or other feed-only days must still not promote latest.json.
+    Tennis, CFB, FIFA, and NBA Summer must still not promote latest.json.
+    scores24_cfb is scraped best-effort on the same local run; its absence or
+    failure must not block this gate.
     """
     for key in ("scores24_mlb", "scores24_wnba"):
         bucket = _scores24_feed_bucket(payload, key)

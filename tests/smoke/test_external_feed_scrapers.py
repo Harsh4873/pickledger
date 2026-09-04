@@ -1441,6 +1441,195 @@ def test_scores24_fifa_world_cup_supports_usa_alias():
     assert module._matchup_matches_blob(matchup, "USA vs Australia Prediction")
 
 
+def test_scores24_cfb_config_listing_urls_and_official_matchup_scrape():
+    module = _load_module(
+        "scores24_cfb_test",
+        ROOT / "scripts" / "scrapers" / "scores24_scraper.py",
+    )
+    config = module.SPORT_CONFIG["cfb"]
+    assert config["espn_sport"] == "football"
+    assert config["espn_league"] == "college-football"
+    assert config["espn_query"] == "limit=1000&groups=80"
+    assert config["scores24_sport"] == "american-football"
+    assert config["source"] == "Scores24CFB"
+    assert config["label"] == "CFB"
+    assert config["cache_keys"] == ("cfb",)
+    assert config["listing_url"].endswith("/l-ncaa-regular-season-standings/predictions")
+    assert config["listing_urls"] == (
+        "https://scores24.live/en/american-football/l-ncaa-regular-season-standings/predictions",
+        "https://scores24.live/en/predictions/american-football",
+        "https://scores24.live/en/predictions/american-football/today",
+    )
+    espn_url = module._espn_scoreboard_url(config, "2026-09-05")
+    assert espn_url.endswith("/football/college-football/scoreboard?dates=20260905&limit=1000&groups=80")
+    assert callable(module.run_scores24_cfb)
+
+    ncaa_listing = (
+        "https://scores24.live/en/american-football/"
+        "m-04-09-2026-michigan-state-spartans-toledo-rockets-prediction"
+    )
+    sport_listing = (
+        "https://scores24.live/en/american-football/"
+        "m-05-09-2026-usc-trojans-fresno-state-bulldogs-prediction"
+    )
+    listing_pages = {
+        config["listing_urls"][0]: f'<a href="{ncaa_listing}">Michigan State Spartans Toledo Rockets</a>',
+        config["listing_urls"][1]: f'<a href="{sport_listing}">USC Trojans Fresno State Bulldogs</a>',
+        config["listing_urls"][2]: "<html><body>today</body></html>",
+    }
+    details = {
+        ncaa_listing: """
+        <html><head><title>Michigan State Spartans vs Toledo Rockets Prediction</title></head>
+        <body><script>window.__DATA__ = "{\\"prediction\\":[\\"handicap2\\",\\"8_5\\"],\\"predictionValue\\":\\"1.98\\"}";</script></body>
+        </html>
+        """,
+        sport_listing: """
+        <html><head><title>USC Trojans vs Fresno State Bulldogs Prediction</title></head>
+        <body><script>window.__DATA__ = "{\\"prediction\\":[\\"one_two\\",\\"w1\\"],\\"predictionValue\\":\\"1.70\\"}";</script></body>
+        </html>
+        """,
+    }
+
+    class Client:
+        def __init__(self):
+            self.listing_urls = []
+
+        def get_html(self, url: str, attempts: int = 3):
+            if url in listing_pages:
+                self.listing_urls.append(url)
+                return listing_pages[url], 200, False
+            if url in details:
+                return details[url], 200, False
+            return "", 404, False
+
+        def close(self):
+            return None
+
+    client = Client()
+    result = module.scrape_scores24(
+        "cfb",
+        "2026-09-04",
+        client=client,
+        matchups=[
+            {
+                "away": "Toledo Rockets",
+                "home": "Michigan State Spartans",
+                "start_time": "2026-09-04T23:00:00Z",
+            }
+        ],
+    )
+
+    assert result["ok"] is True
+    assert result["picks"][0]["source"] == "Scores24CFB"
+    assert result["picks"][0]["sport"] == "CFB"
+    assert result["picks"][0]["pick"] == (
+        "Toledo Rockets Handicap (+8,5) (Toledo Rockets @ Michigan State Spartans)"
+    )
+    assert client.listing_urls == list(config["listing_urls"])
+
+
+def test_scores24_cfb_empty_official_slate_is_ok():
+    module = _load_module(
+        "scores24_cfb_offday_test",
+        ROOT / "scripts" / "scrapers" / "scores24_scraper.py",
+    )
+    result = module.scrape_scores24(
+        "cfb",
+        "2026-09-08",
+        client=module.Scores24Client(browser_fallback=False),
+        matchups=[],
+    )
+    assert result["ok"] is True
+    assert result["picks"] == []
+    assert result["meta"]["officialMatchups"] == 0
+    assert result["meta"]["expectedMatchups"] == 0
+    assert result["meta"]["matchedPicks"] == 0
+
+
+def test_scores24_cfb_aliases_common_nicknames_and_drops_mascot_slugs():
+    module = _load_module(
+        "scores24_cfb_alias_test",
+        ROOT / "scripts" / "scrapers" / "scores24_scraper.py",
+    )
+    assert module._team_matches("Ole Miss Rebels", "Mississippi Rebels")
+    assert module._team_matches("LSU Tigers", "Louisiana State Tigers")
+    assert module._team_matches("USC Trojans", "Southern California Trojans")
+    assert module._team_matches("Miami Hurricanes", "Miami Florida Hurricanes")
+    assert not module._team_matches("Miami Hurricanes", "Miami (OH) RedHawks")
+    slugs = module._team_slug_variants("Ohio State Buckeyes", "cfb")
+    assert "ohio-state-buckeyes" in slugs
+    assert "ohio-state" in slugs
+    urls = module.candidate_prediction_urls(
+        "cfb",
+        "2026-09-05",
+        {"away": "Fresno State Bulldogs", "home": "USC Trojans"},
+    )
+    assert any("usc-trojans-fresno-state-bulldogs" in url for url in urls)
+    assert any("/en/american-football/" in url for url in urls)
+
+
+def test_scores24_parses_numbered_american_football_handicaps():
+    module = _load_module(
+        "scores24_cfb_handicap_test",
+        ROOT / "scripts" / "scrapers" / "scores24_scraper.py",
+    )
+    matchup = {"away": "Toledo Rockets", "home": "Michigan State Spartans"}
+    away_html = r"""
+    <html><body>
+      <script>
+        window.__DATA__ = "{\"prediction\":[\"handicap2\",\"8_5\"],\"predictionValue\":\"1.98\"}";
+      </script>
+    </body></html>
+    """
+    tip, odds = module.extract_our_choice(away_html, matchup=matchup)
+    assert tip == "Toledo Rockets Handicap (+8,5)"
+    assert odds == module._decimal_odds_to_american(1.98)
+
+    home_html = r"""
+    <html><body>
+      <script>
+        window.__DATA__ = "{\"prediction\":[\"handicap1\",\"24_5\"],\"predictionValue\":\"1.83\"}";
+      </script>
+    </body></html>
+    """
+    stanford_miami = {"away": "Miami Hurricanes", "home": "Stanford Cardinal"}
+    tip, odds = module.extract_our_choice(home_html, matchup=stanford_miami)
+    assert tip == "Stanford Cardinal Handicap (+24,5)"
+    assert odds == module._decimal_odds_to_american(1.83)
+
+
+def test_scores24_cfb_is_wired_soft_fail_across_the_pipeline():
+    key = "scores24_cfb"
+
+    refresh = _load_module("refresh_external_feeds_cfb_test", ROOT / "scripts" / "refresh_external_feeds.py")
+    assert key in refresh.FEED_RUNNERS
+    assert key not in refresh.SPLIT_PROVIDER_FEEDS
+
+    merge = _load_module("merge_external_feed_cfb_test", ROOT / "scripts" / "merge_external_feed_cache_payload.py")
+    assert key in merge.EXTERNAL_FEED_MODEL_KEYS
+    model_merge = _load_module("merge_model_cache_cfb_test", ROOT / "scripts" / "merge_model_cache_payload.py")
+    assert key in model_merge.EXTERNAL_FEED_MODEL_KEYS
+
+    site_upcheck = _load_module("site_upcheck_cfb_test", ROOT / "scripts" / "site_upcheck.py")
+    assert key not in site_upcheck.REQUIRED_SCORES24_FEED_KEYS
+
+    data_ts = (ROOT / "src" / "data.ts").read_text(encoding="utf-8")
+    assert "scores24_cfb: 'Scores24CFB'" in data_ts
+    assert "cfb: 'CFB Model'" in data_ts
+
+    parlay = (ROOT / "scripts" / "build_parlay_cards.py").read_text(encoding="utf-8")
+    assert '"scores24_cfb": "Scores24CFB"' in parlay
+
+    workflow = (ROOT / ".github" / "workflows" / "external-feed-refresh.yml").read_text(encoding="utf-8")
+    assert "scores24_cfb" not in workflow
+
+    publisher = (ROOT / "scripts" / "scrapers" / "scores24_publish.sh").read_text(encoding="utf-8")
+    assert 'OPTIONAL_FEEDS="${SCORES24_OPTIONAL_FEEDS:-scores24_cfb}"' in publisher
+    assert 'PUBLISH_FEEDS="${SCORES24_PUBLISH_FEEDS:-scores24_mlb,scores24_wnba}"' in publisher
+    assert "will not block MLB+WNBA publish" in publisher
+    assert "OPTIONAL_FEED_TIMEOUT" in publisher
+
+
 def test_scores24_retries_blocked_matchup_without_hammering_candidates(monkeypatch):
     module = _load_module(
         "scores24_retry_test",
@@ -1783,10 +1972,12 @@ def test_local_scores24_publisher_registers_separate_models():
         "scores24_wnba",
         "scores24_mlb",
         "scores24_fifa_world_cup",
+        "scores24_cfb",
     ):
         assert model_key in refresh  # runner registry keeps archived keys for manual runs
     for model_key in ("scores24_wnba", "scores24_mlb"):
         assert model_key in publisher
+    assert "scores24_cfb" in publisher  # optional same-run scrape, not the completeness gate
     for model_key in ("scores24_nba_summer", "scores24_fifa_world_cup"):
         assert model_key not in publisher  # archived from the daily local publish
     for model_key in (
@@ -1803,10 +1994,12 @@ def test_local_scores24_publisher_registers_separate_models():
     assert 'default="sportytrader,sportsgambler"' in refresh
     assert "scores24_wnba" not in workflow
     assert "scores24_fifa_world_cup" not in workflow
+    assert "scores24_cfb" not in workflow
     assert 'GH_BIN="$(command -v gh || true)"' in publisher
     assert "SCORES24_BROWSER_FALLBACK=true" in publisher
     assert "SCORES24_CAMOUFOX_FALLBACK=true" in publisher
     assert 'PUBLISH_FEEDS="${SCORES24_PUBLISH_FEEDS:-scores24_mlb,scores24_wnba}"' in publisher
+    assert 'OPTIONAL_FEEDS="${SCORES24_OPTIONAL_FEEDS:-scores24_cfb}"' in publisher
     assert 'SCORES24_REQUEST_INTERVAL_SECONDS="${REQUEST_INTERVAL}"' in publisher
     assert 'SCORES24_REQUEST_ATTEMPTS="${REQUEST_ATTEMPTS}"' in publisher
     assert 'SCORES24_ATTEMPT_RETRY_DELAY_SECONDS="${ATTEMPT_RETRY_DELAY}"' in publisher

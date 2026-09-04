@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Publish Scores24 NBA Summer/WNBA/MLB/FIFA feeds from a non-GitHub-Actions IP.
+# Publish Scores24 MLB/WNBA (required) plus CFB (soft-fail optional) from a
+# non-GitHub-Actions IP. FIFA and NBA Summer stay archived from the daily run.
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -21,8 +22,14 @@ if [[ -z "${GH_BIN}" ]]; then
 fi
 
 DATE_ISO="${SCORES24_DATE:-$(date +%F)}"
+# MLB+WNBA remain the publish gate. CFB rides the same weekday morning/afternoon
+# Scores24 run as a soft-fail optional feed (like tennis): scrape when the slate
+# exists, but incomplete/blocked/hung CFB must not prevent publishing a complete
+# MLB+WNBA slate, and must not gate latestUpdated / site_upcheck.
 PUBLISH_FEEDS="${SCORES24_PUBLISH_FEEDS:-scores24_mlb,scores24_wnba}"
-PUBLISH_SPORTS="${SCORES24_PUBLISH_SPORTS:-mlb,wnba}"
+OPTIONAL_FEEDS="${SCORES24_OPTIONAL_FEEDS:-scores24_cfb}"
+PUBLISH_SPORTS="${SCORES24_PUBLISH_SPORTS:-mlb,wnba,cfb}"
+OPTIONAL_FEED_TIMEOUT="${SCORES24_OPTIONAL_FEED_TIMEOUT_SECONDS:-900}"
 REQUEST_INTERVAL="${SCORES24_REQUEST_INTERVAL_SECONDS:-12}"
 REQUEST_ATTEMPTS="${SCORES24_REQUEST_ATTEMPTS:-1}"
 ATTEMPT_RETRY_DELAY="${SCORES24_ATTEMPT_RETRY_DELAY_SECONDS:-0}"
@@ -144,6 +151,8 @@ import sys
 from pathlib import Path
 
 date_iso = os.environ["DATE_ISO"]
+# Completeness gate is PUBLISH_FEEDS only (default MLB+WNBA). Optional feeds
+# such as scores24_cfb are scraped after this check and must never fail it.
 required = tuple(
     feed.strip()
     for feed in os.environ.get(
@@ -170,6 +179,73 @@ for key in required:
 if failures:
     raise SystemExit("Scores24 refresh incomplete; refusing to publish:\n- " + "\n- ".join(failures))
 PY
+
+# MLB+WNBA are complete. CFB (and any other OPTIONAL_FEEDS) is best-effort:
+# a hang, Cloudflare block, or incomplete college slate must not prevent
+# publishing the required feeds. Timeout so a stuck Camoufox session cannot
+# wedge the morning/afternoon commit.
+IFS=',' read -r -a OPTIONAL_KEYS <<< "${OPTIONAL_FEEDS}"
+required_csv=",$(printf '%s' "${PUBLISH_FEEDS}" | tr -d '[:space:]'),"
+for raw_feed_key in "${OPTIONAL_KEYS[@]}"; do
+  feed_key="$(printf '%s' "${raw_feed_key}" | tr -d '[:space:]')"
+  if [[ -z "${feed_key}" ]]; then
+    continue
+  fi
+  if [[ "${required_csv}" == *",${feed_key},"* ]]; then
+    continue
+  fi
+  if [[ "${feed_index}" -gt 0 ]]; then
+    sleep "${FEED_COOLDOWN}"
+  fi
+  echo "Refreshing optional ${feed_key} for ${DATE_ISO} (soft-fail; will not block MLB+WNBA publish)."
+  set +e
+  SCORES24_BROWSER_FALLBACK=true \
+  SCORES24_CAMOUFOX_FALLBACK=true \
+  SCORES24_REQUEST_INTERVAL_SECONDS="${REQUEST_INTERVAL}" \
+  SCORES24_REQUEST_ATTEMPTS="${REQUEST_ATTEMPTS}" \
+  SCORES24_ATTEMPT_RETRY_DELAY_SECONDS="${ATTEMPT_RETRY_DELAY}" \
+  SCORES24_BLOCK_RETRY_DELAY_SECONDS="${BLOCK_RETRY_DELAY}" \
+  SCORES24_BLOCK_RETRY_ROUNDS="${BLOCK_RETRY_ROUNDS}" \
+  SCORES24_HOST_BLOCK_COOLDOWN_SECONDS="${HOST_BLOCK_COOLDOWN}" \
+  SCORES24_CURL_SESSION_MAX_REQUESTS="${CURL_SESSION_MAX_REQUESTS}" \
+  OPTIONAL_FEED_KEY="${feed_key}" \
+  OPTIONAL_FEED_TIMEOUT="${OPTIONAL_FEED_TIMEOUT}" \
+  DATE_ISO="${DATE_ISO}" \
+  PUBLISH_SPORTS="${PUBLISH_SPORTS}" \
+  TEMP_REPO="${TEMP_REPO}" \
+  PYTHON_BIN="${PYTHON_BIN}" \
+  "${PYTHON_BIN}" - <<'PY'
+import os
+import subprocess
+import sys
+
+cmd = [
+    os.environ["PYTHON_BIN"],
+    os.path.join(os.environ["TEMP_REPO"], "scripts/refresh_external_feeds.py"),
+    "--date", os.environ["DATE_ISO"],
+    "--feeds", os.environ["OPTIONAL_FEED_KEY"],
+    "--sports", os.environ["PUBLISH_SPORTS"],
+    "--skip-firestore",
+]
+timeout = float(os.environ.get("OPTIONAL_FEED_TIMEOUT") or "900")
+try:
+    result = subprocess.run(cmd, timeout=timeout)
+except subprocess.TimeoutExpired:
+    print(
+        f"Optional {os.environ['OPTIONAL_FEED_KEY']} scrape timed out after {timeout:.0f}s; "
+        "continuing with MLB+WNBA publish.",
+        file=sys.stderr,
+    )
+    raise SystemExit(0)
+raise SystemExit(result.returncode)
+PY
+  optional_rc=$?
+  set -e
+  if [[ "${optional_rc}" -ne 0 ]]; then
+    echo "Optional ${feed_key} scrape failed (rc=${optional_rc}); continuing with MLB+WNBA publish."
+  fi
+  feed_index=$((feed_index + 1))
+done
 
 cp "${SCORES24_CACHE_FILE}" "${GENERATED_CACHE}"
 

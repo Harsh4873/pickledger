@@ -70,6 +70,25 @@ SPORT_CONFIG = {
         "label": "FIFA WC",
         "cache_keys": ("fifa_world_cup",),
     },
+    # Sport key `cfb` matches the in-house CFBShadow bucket; the feed cache key is
+    # scores24_cfb. ESPN uses football/college-football (FBS via groups=80).
+    # Scores24 NCAA and sport-wide American Football listings cover complementary
+    # days, so scrape_scores24 walks the full listing_urls tuple.
+    "cfb": {
+        "espn_sport": "football",
+        "espn_league": "college-football",
+        "espn_query": "limit=1000&groups=80",
+        "scores24_sport": "american-football",
+        "listing_url": f"{BASE_URL}/en/american-football/l-ncaa-regular-season-standings/predictions",
+        "listing_urls": (
+            f"{BASE_URL}/en/american-football/l-ncaa-regular-season-standings/predictions",
+            f"{BASE_URL}/en/predictions/american-football",
+            f"{BASE_URL}/en/predictions/american-football/today",
+        ),
+        "source": "Scores24CFB",
+        "label": "CFB",
+        "cache_keys": ("cfb",),
+    },
 }
 CLOUDFLARE_SIGNALS = (
     "attention required",
@@ -88,12 +107,30 @@ TEAM_TEXT_ALIASES = {
     "saint louis": "st louis",
     "turkiye": "turkey",
     "usa": "united states",
+    "ole miss": "mississippi",
+    "lsu": "louisiana state",
+    "usc": "southern california",
+    "tcu": "texas christian",
+    "smu": "southern methodist",
+    "byu": "brigham young",
+    "ucf": "central florida",
+    "utep": "texas el paso",
+    "utsa": "texas san antonio",
+    "miami hurricanes": "miami florida",
+    "miami fl": "miami florida",
+    "miami oh": "miami ohio",
+    "miami redhawks": "miami ohio",
 }
 TEAM_SLUG_ALIASES = {
     "Cleveland Guardians": ("Cleveland Gardians",),
     "Czechia": ("Czech Republic",),
     "Athletics": ("Oakland Athletics",),
     "United States": ("USA", "United States of America"),
+    "LSU Tigers": ("LSU", "Louisiana State"),
+    "Ole Miss Rebels": ("Ole Miss", "Mississippi"),
+    "USC Trojans": ("USC", "Southern California"),
+    "Miami Hurricanes": ("Miami FL", "Miami Florida", "Miami (FL)"),
+    "Miami (OH) RedHawks": ("Miami OH", "Miami Ohio", "Miami (OH)"),
 }
 
 
@@ -225,6 +262,18 @@ def _cache_matchups(
     return []
 
 
+def _espn_scoreboard_url(config: dict[str, Any], date_iso: str) -> str:
+    compact = date_iso.replace("-", "")
+    url = (
+        "http://site.api.espn.com/apis/site/v2/sports/"
+        f"{config['espn_sport']}/{config['espn_league']}/scoreboard?dates={compact}"
+    )
+    extra = str(config.get("espn_query") or "").strip().lstrip("&")
+    if extra:
+        url = f"{url}&{extra}"
+    return url
+
+
 def fetch_daily_matchups(
     sport: str,
     date_iso: str,
@@ -239,10 +288,7 @@ def fetch_daily_matchups(
     (e.g. Forebet) reuse this slate resolution with their own sport table.
     """
     config = config or SPORT_CONFIG[sport]
-    url = (
-        "http://site.api.espn.com/apis/site/v2/sports/"
-        f"{config['espn_sport']}/{config['espn_league']}/scoreboard?dates={date_iso.replace('-', '')}"
-    )
+    url = _espn_scoreboard_url(config, date_iso)
     client = session or requests.Session()
     matchups: dict[tuple[str, str], dict[str, str]] = {}
     espn_resolved = False
@@ -785,6 +831,15 @@ def _tip_from_prediction_codes(
             f"{team} Total {team_total.group(2).title()} "
             f"({_scores24_line_token(selection_key)})"
         )
+    numbered_handicap = re.fullmatch(r"handicap([12])", market_key)
+    if numbered_handicap:
+        if not matchup:
+            return ""
+        team = matchup["home"] if numbered_handicap.group(1) == "1" else matchup["away"]
+        line = _scores24_line_token(selection_key)
+        if line and not line.startswith(("+", "-")):
+            line = f"+{line}"
+        return f"{team} Handicap ({line})"
     if market_key in {"handicap", "european_handicap", "ah"} or market_key.startswith("handicap"):
         if not matchup:
             return ""
@@ -897,6 +952,13 @@ def _team_slug_variants(team: str, sport: str) -> list[str]:
     labels = [team, *TEAM_SLUG_ALIASES.get(team, ())]
     if sport == "wnba":
         labels.extend(f"{label} W" for label in list(labels))
+    if sport == "cfb":
+        # ESPN uses "Ohio State Buckeyes"; Scores24 often keeps the mascot in
+        # the slug but sometimes drops it. Keep both.
+        for label in list(labels):
+            tokens = [token for token in str(label).split() if token]
+            if len(tokens) >= 2:
+                labels.append(" ".join(tokens[:-1]))
     return list(dict.fromkeys(_slugify(label) for label in labels if _slugify(label)))
 
 
@@ -1141,8 +1203,9 @@ def scrape_scores24(
                         continue
                     seen_listing_links.add(link["url"])
                     listing_links.append(link)
-                if listing_links:
-                    break
+                # Keep walking listing_urls: CFB's NCAA page and the sport-wide
+                # American Football pages cover complementary days. A first
+                # non-empty listing must not hide later tips.
 
             max_candidates = int(_env_float("SCORES24_MAX_CANDIDATES_PER_MATCHUP", 36, 1))
 
@@ -1354,6 +1417,10 @@ def run_scores24_mlb(date_iso: str, _sports: list[str] | None = None) -> dict[st
 
 def run_scores24_fifa_world_cup(date_iso: str, _sports: list[str] | None = None) -> dict[str, Any]:
     return scrape_scores24("fifa_world_cup", date_iso)
+
+
+def run_scores24_cfb(date_iso: str, _sports: list[str] | None = None) -> dict[str, Any]:
+    return scrape_scores24("cfb", date_iso)
 
 
 def main() -> int:

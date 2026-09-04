@@ -27,6 +27,7 @@ from scripts.scrapers.forebet_scraper import (  # noqa: E402
     run_forebet_wnba,
 )
 from scripts.scrapers.scores24_scraper import (  # noqa: E402
+    run_scores24_cfb,
     run_scores24_fifa_world_cup,
     run_scores24_mlb,
     run_scores24_nba_summer,
@@ -45,6 +46,7 @@ FEED_RUNNERS: dict[str, Callable[[str, list[str]], dict[str, Any]]] = {
     "scores24_wnba": run_scores24_wnba,
     "scores24_mlb": run_scores24_mlb,
     "scores24_fifa_world_cup": run_scores24_fifa_world_cup,
+    "scores24_cfb": run_scores24_cfb,
     "forebet_mls": run_forebet_mls,
     "forebet_mlb": run_forebet_mlb,
     "forebet_wnba": run_forebet_wnba,
