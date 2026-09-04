@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""SportsGambler scraper for NBA, NBA Summer, WNBA, MLB, and FIFA picks."""
+"""SportsGambler scraper for NBA, NBA Summer, WNBA, MLB, FIFA, and CFB picks."""
 from __future__ import annotations
 import argparse, json, re, sys, unicodedata
 from datetime import date, datetime
@@ -20,6 +20,16 @@ NBA_SUMMER_URLS = (
 WNBA_URL = "https://www.sportsgambler.com/betting-tips/basketball/wnba-predictions/"
 MLB_URL = "https://www.sportsgambler.com/betting-tips/baseball/"
 FIFA_WORLD_CUP_URL = "https://www.sportsgambler.com/betting-tips/football/fifa-world-cup-predictions/"
+# Dedicated NCAAF listing. `/betting-tips/ncaaf/` currently redirects here;
+# keep both so a later CMS shuffle still finds the JSON-LD tip cards.
+# Detail pages live under `/betting-tips/ncaaf/...` — that path is the
+# strict league filter when a mixed American-football listing is reused.
+CFB_URLS = (
+    "https://www.sportsgambler.com/betting-tips/american-football/ncaa-college-football-predictions/",
+    "https://www.sportsgambler.com/betting-tips/ncaaf/",
+    "https://www.sportsgambler.com/betting-tips/american-football/",
+)
+CFB_DETAIL_PATH = "/ncaaf/"
 BLOCK_SIGNALS = (
     "attention required",
     "just a moment",
@@ -105,6 +115,9 @@ def scrape_basketball(
     url: str | tuple[str, ...],
     league: str,
     expected_matchups: list[str] | None = None,
+    *,
+    href_contains: str | None = None,
+    require_complete_listings: bool = True,
 ) -> list[dict]:
     expected = _expected_matchup_whitelist(expected_matchups)
     articles, seen = [], set()
@@ -136,6 +149,8 @@ def scrape_basketball(
                 matchup = _matchup_from_node(item)
                 if not detail_url or not matchup or detail_url in seen:
                     continue
+                if href_contains and href_contains not in detail_url:
+                    continue
                 matchup_key = _matchup_key(matchup)
                 if matchup_key not in expected:
                     continue
@@ -146,7 +161,7 @@ def scrape_basketball(
             f"unable to load {league} prediction listing(s): "
             f"{'; '.join(listing_failures[:2]) or 'unknown transport failure'}"
         )
-    if listing_failures:
+    if listing_failures and require_complete_listings:
         raise RuntimeError(
             f"incomplete {league} listing coverage: "
             f"{'; '.join(listing_failures[:2])}"
@@ -198,6 +213,17 @@ def scrape_wnba(target: date | None, expected_matchups: list[str] | None = None)
 
 def scrape_fifa_world_cup(target: date | None, expected_matchups: list[str] | None = None) -> list[dict]:
     return scrape_basketball(target, FIFA_WORLD_CUP_URL, "FIFA WC", expected_matchups)
+
+def scrape_cfb(target: date | None, expected_matchups: list[str] | None = None) -> list[dict]:
+    """NCAAF tip cards from the dedicated college listing, never NFL."""
+    return scrape_basketball(
+        target,
+        CFB_URLS,
+        "CFB",
+        expected_matchups,
+        href_contains=CFB_DETAIL_PATH,
+        require_complete_listings=False,
+    )
 
 def scrape_mlb(target: date | None, expected_matchups: list[str] | None = None) -> list[dict]:
     expected = _expected_matchup_whitelist(expected_matchups)
@@ -255,10 +281,12 @@ def main() -> None:
             rows = scrape_mlb(target, expected_matchups)
         elif sport in ("fifa", "fifa_world_cup", "football", "soccer", "world_cup"):
             rows = scrape_fifa_world_cup(target, expected_matchups)
+        elif sport in ("cfb", "ncaaf", "college_football", "ncaa"):
+            rows = scrape_cfb(target, expected_matchups)
         else:
             raise ValueError(
                 "supported sports: nba/basketball, nba_summer, wnba, mlb/baseball, "
-                "fifa_world_cup/soccer"
+                "fifa_world_cup/soccer, cfb/ncaaf/college_football"
             )
     except Exception as exc:
         print(f"Error: {exc}", file=sys.stderr)

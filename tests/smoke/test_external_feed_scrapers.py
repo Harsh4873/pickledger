@@ -233,6 +233,100 @@ def test_sportytrader_current_basketball_wording_preserves_market_identity():
     ) == "Wings ML (Wings vs Liberty)"
 
 
+def test_sportytrader_cfb_config_and_card_extraction():
+    module = _load_module(
+        "sportytrader_cfb_scraper_test",
+        ROOT / "scripts" / "scrapers" / "sportytrader_scraper.py",
+    )
+    config = module.SPORT_CONFIG["cfb"]
+    assert config["url"].endswith("/football/usa/ncaa/")
+    assert config["aliases"] == {"cfb", "ncaaf", "college_football", "ncaa"}
+    assert "football" not in config["aliases"]
+    assert "soccer" not in config["aliases"]
+    assert module._normalize_sport("ncaaf") == "cfb"
+    assert module._normalize_sport("college_football") == "cfb"
+    assert module._normalize_sport("ncaa") == "cfb"
+    assert module._normalize_sport("football") == "fifa_world_cup"
+    assert "NCAAF" in module.SPORTYTRADER_CARDS_JS
+    assert "College Football" in module.SPORTYTRADER_CARDS_JS
+    assert "NFL" in module.SPORTYTRADER_CARDS_JS
+    rows = module._extract_rows(
+        [
+            {
+                "datetime": "Sep 4, 2026, 7:00 PM",
+                "league": "USA - NCAA",
+                "home": "Michigan State Spartans",
+                "away": "Toledo Rockets",
+                "tip": "Toledo Rockets +10.5",
+                "odds": "-115",
+                "href": "https://www.sportytrader.com/us/picks/michigan-state-toledo-1/",
+            },
+            {
+                "datetime": "Sep 4, 2026, 8:20 PM",
+                "league": "USA - NFL",
+                "home": "Kansas City Chiefs",
+                "away": "Baltimore Ravens",
+                "tip": "Kansas City Chiefs -3.5",
+                "odds": "-110",
+                "href": "https://www.sportytrader.com/us/picks/baltimore-kansas-city-2/",
+            },
+        ],
+        module._parse_target_date("2026-09-04"),
+        "cfb",
+        ["Toledo Rockets @ Michigan State Spartans", "Baltimore Ravens @ Kansas City Chiefs"],
+    )
+    assert len(rows) == 1
+    assert rows[0]["league"] == "USA - NCAA"
+    assert rows[0]["tip"] == "Toledo Rockets +10.5"
+
+
+def test_sportytrader_cfb_text_cards_keep_ncaa_and_drop_nfl():
+    module = _load_module(
+        "sportytrader_cfb_text_cards_test",
+        ROOT / "scripts" / "scrapers" / "sportytrader_scraper.py",
+    )
+    body_text = """
+04 Sep 2026, 19:00
+USA - NCAA
+Toledo Rockets
+Toledo Rockets
+-
+Michigan State Spartans
+Michigan State Spartans
+Toledo Rockets vs Michigan State Spartans Prediction
+Toledo Rockets +10.5
+Detail
+04 Sep 2026, 20:20
+USA - NFL
+Baltimore Ravens
+Baltimore Ravens
+-
+Kansas City Chiefs
+Kansas City Chiefs
+Baltimore Ravens vs Kansas City Chiefs Prediction
+Kansas City Chiefs -3.5
+Detail
+"""
+    matchups = [
+        "Toledo Rockets @ Michigan State Spartans",
+        "Baltimore Ravens @ Kansas City Chiefs",
+    ]
+    cards = module._extract_text_cards(
+        body_text,
+        module.SPORT_CONFIG["cfb"]["url"],
+        matchups,
+    )
+    rows = module._extract_rows(
+        cards,
+        module._parse_target_date("2026-09-04"),
+        "cfb",
+        matchups,
+    )
+    assert len(rows) == 1
+    assert rows[0]["tip"] == "Toledo Rockets +10.5"
+    assert rows[0]["league"] == "USA - NCAA"
+
+
 def test_sportytrader_fifa_world_cup_config_and_known_matchup_alias():
     module = _load_module(
         "sportytrader_fifa_scraper_test",
@@ -619,6 +713,142 @@ def test_sportsgambler_fifa_world_cup_reads_tip_without_visible_title(monkeypatc
     assert rows[0]["odds"] == "-149"
 
 
+def test_sportsgambler_cfb_listing_and_detail_filters_nfl(monkeypatch):
+    module = _load_module(
+        "sportsgambler_cfb_scraper_test",
+        ROOT / "scripts" / "scrapers" / "sportsgambler_scraper.py",
+    )
+    ncaaf_url = (
+        "https://www.sportsgambler.com/betting-tips/ncaaf/"
+        "toledo-rockets-vs-michigan-state-spartans-prediction-odds-2026-09-04/"
+    )
+    nfl_url = (
+        "https://www.sportsgambler.com/betting-tips/nfl/"
+        "baltimore-ravens-vs-kansas-city-chiefs-prediction-odds-2026-09-04/"
+    )
+    listing = {
+        "@context": "https://schema.org",
+        "mainEntity": {
+            "@type": "ItemList",
+            "itemListElement": [
+                {
+                    "@type": "ListItem",
+                    "item": {
+                        "@type": "SportsEvent",
+                        "name": "Michigan State Spartans vs Toledo Rockets",
+                        "startDate": "2026-09-05T00:00:00Z",
+                        "url": ncaaf_url,
+                    },
+                },
+                {
+                    "@type": "ListItem",
+                    "item": {
+                        "@type": "SportsEvent",
+                        "name": "Kansas City Chiefs vs Baltimore Ravens",
+                        "startDate": "2026-09-05T00:20:00Z",
+                        "url": nfl_url,
+                    },
+                },
+            ],
+        },
+    }
+    listing_html = f'<script type="application/ld+json">{json.dumps(listing)}</script>'
+    detail_html = (
+        '<div class="tpbot_container"><div class="tpbot_title">Our Game Prediction</div>'
+        '<a class="tpbot_tip"><span>Pick</span><span>Toledo +10.5 @ -115</span></a></div>'
+    )
+    nfl_html = (
+        '<div class="tpbot_container"><div class="tpbot_title">Our Game Prediction</div>'
+        '<a class="tpbot_tip"><span>Pick</span><span>Chiefs -3.5 @ -110</span></a></div>'
+    )
+    requested: list[str] = []
+
+    class Response:
+        status_code = 200
+
+        def __init__(self, text: str):
+            self.text = text
+
+    def fake_get(url, **_kwargs):
+        requested.append(url)
+        if url == ncaaf_url:
+            return Response(detail_html)
+        if url == nfl_url:
+            return Response(nfl_html)
+        return Response(listing_html)
+
+    monkeypatch.setattr(module.requests, "get", fake_get)
+    rows = module.scrape_cfb(
+        date(2026, 9, 4),
+        [
+            "Toledo Rockets @ Michigan State Spartans",
+            "Baltimore Ravens @ Kansas City Chiefs",
+        ],
+    )
+    assert rows == [
+        {
+            "datetime": "2026-09-05T00:00:00Z",
+            "league": "CFB",
+            "matchup": "Michigan State Spartans vs Toledo Rockets",
+            "tip": "Toledo +10.5",
+            "odds": "-115",
+            "href": ncaaf_url,
+        }
+    ]
+    assert ncaaf_url in requested
+    assert nfl_url not in requested
+    assert any("ncaa-college-football-predictions" in url for url in requested)
+
+
+def test_sportsgambler_cli_cfb_aliases_do_not_steal_football(monkeypatch):
+    module = _load_module(
+        "sportsgambler_cfb_cli_test",
+        ROOT / "scripts" / "scrapers" / "sportsgambler_scraper.py",
+    )
+    captured: list[str] = []
+
+    def _cfb_rows(*_args, **_kwargs):
+        captured.append("cfb")
+        return [{
+            "matchup": "Michigan State Spartans vs Toledo Rockets",
+            "datetime": "2026-09-04",
+            "league": "CFB",
+            "tip": "Toledo +10.5",
+            "odds": "-115",
+            "href": "https://example.com/ncaaf",
+        }]
+
+    def _fifa_rows(*_args, **_kwargs):
+        captured.append("fifa")
+        return [{
+            "matchup": "Qatar vs Switzerland",
+            "datetime": "2026-06-13",
+            "league": "FIFA WC",
+            "tip": "Switzerland To Win",
+            "odds": "-114",
+            "href": "https://example.com/fifa",
+        }]
+
+    monkeypatch.setattr(module, "scrape_cfb", _cfb_rows)
+    monkeypatch.setattr(module, "scrape_fifa_world_cup", _fifa_rows)
+    monkeypatch.setattr(
+        module.sys,
+        "argv",
+        ["scraper", "--sport", "football", "--date", "2026-09-04", "--expected-matchup", "Qatar vs Switzerland"],
+    )
+    module.main()
+    assert captured == ["fifa"]
+
+    captured.clear()
+    monkeypatch.setattr(
+        module.sys,
+        "argv",
+        ["scraper", "--sport", "ncaaf", "--date", "2026-09-04", "--expected-matchup", "Toledo Rockets @ Michigan State Spartans"],
+    )
+    module.main()
+    assert captured == ["cfb"]
+
+
 def test_server_passes_known_matchups_to_sportsgambler(monkeypatch):
     import pickgrader_server as server
 
@@ -652,6 +882,151 @@ def test_server_passes_known_matchups_to_sportsgambler(monkeypatch):
     assert result["ok"] is True
     assert captured[-2:] == ["--expected-matchup", "Phoenix Mercury @ Dallas Wings"]
     assert result["picks"][0]["source"] == "SportsGamblerWNBA"
+
+
+def test_server_accepts_sportsgambler_cfb_league_and_source_label(monkeypatch):
+    import pickgrader_server as server
+
+    monkeypatch.setattr(
+        server,
+        "_known_external_slate_matchups",
+        lambda _date, _sport: ["Toledo Rockets @ Michigan State Spartans"],
+    )
+    monkeypatch.setattr(server, "_save_admin_picks_doc", lambda *_args, **_kwargs: None)
+
+    def fake_run(command, **_kwargs):
+        assert command[command.index("--sport") + 1] == "cfb"
+        return subprocess.CompletedProcess(
+            command,
+            0,
+            stdout=(
+                "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
+                "Match: Michigan State Spartans vs Toledo Rockets\n"
+                "League: CFB\n"
+                "Tip: Toledo +10.5\n"
+                "Odds: -115\n"
+                "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
+            ),
+            stderr="",
+        )
+
+    monkeypatch.setattr(server, "_subprocess_run", fake_run)
+    result = server.run_sportsgambler_scraper("2026-09-04", ["cfb"])
+
+    assert result["ok"] is True
+    assert result["picks"][0]["source"] == "SportsGamblerCFB"
+    assert result["picks"][0]["sport"] == "CFB"
+    assert result["picks"][0]["pick"] == "Toledo +10.5 (Michigan State Spartans vs Toledo Rockets)"
+
+
+def test_cfb_soft_fail_does_not_block_mlb_refresh(monkeypatch):
+    import pickgrader_server as server
+
+    def fake_matchups(_date, sport):
+        if sport == "mlb":
+            return ["St. Louis Cardinals @ Chicago Cubs"]
+        if sport == "cfb":
+            return ["Toledo Rockets @ Michigan State Spartans"]
+        return []
+
+    monkeypatch.setattr(server, "_known_external_slate_matchups", fake_matchups)
+    monkeypatch.setattr(server, "_save_admin_picks_doc", lambda *_args, **_kwargs: None)
+
+    def fake_run(command, **_kwargs):
+        sport = command[command.index("--sport") + 1]
+        if sport == "cfb":
+            return subprocess.CompletedProcess(
+                command,
+                1,
+                stdout="",
+                stderr="Error: SportyTrader CFB page hit Cloudflare verification",
+            )
+        return subprocess.CompletedProcess(
+            command,
+            0,
+            stdout=(
+                "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
+                "Match: Chicago Cubs vs St. Louis Cardinals\n"
+                "League: USA - MLB\n"
+                "Tip: Chicago Cubs to win\n"
+                "Odds: -115\n"
+                "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
+            ),
+            stderr="",
+        )
+
+    monkeypatch.setattr(server, "_subprocess_run", fake_run)
+    for runner in (server.run_sportytrader_scraper, server.run_sportsgambler_scraper):
+        result = runner("2026-09-04", ["mlb", "cfb"])
+        assert result["ok"] is True, result
+        assert result["picks"][0]["sport"] == "MLB"
+        assert "cfb:" in ";".join(result["errors"])
+        assert result["meta"]["sportErrors"]["cfb"]
+        assert result["picks"][0]["source"] in {"SportyTraderMLB", "SportsGamblerMLB"}
+
+
+def test_unresolved_cfb_slate_does_not_fail_mlb_provider(monkeypatch):
+    import pickgrader_server as server
+
+    def fake_matchups(_date, sport):
+        return ["St. Louis Cardinals @ Chicago Cubs"] if sport == "mlb" else []
+
+    monkeypatch.setattr(server, "_known_external_slate_matchups", fake_matchups)
+    monkeypatch.setattr(
+        server,
+        "_espn_event_count_for_date",
+        lambda sport, _date: 8 if sport == "CFB" else 0,
+    )
+    monkeypatch.setattr(server, "_save_admin_picks_doc", lambda *_args, **_kwargs: None)
+
+    def fake_run(command, **_kwargs):
+        sport = command[command.index("--sport") + 1]
+        assert sport != "cfb"
+        return subprocess.CompletedProcess(
+            command,
+            0,
+            stdout=(
+                "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
+                "Match: Chicago Cubs vs St. Louis Cardinals\n"
+                "League: MLB\n"
+                "Tip: Chicago Cubs to Win\n"
+                "Odds: -115\n"
+                "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
+            ),
+            stderr="",
+        )
+
+    monkeypatch.setattr(server, "_subprocess_run", fake_run)
+    result = server.run_sportsgambler_scraper("2026-09-04", ["mlb", "cfb"])
+    assert result["ok"] is True
+    assert result["picks"][0]["sport"] == "MLB"
+    assert "cfb:" in ";".join(result["errors"])
+    assert "no provider scraper was run" in result["meta"]["sportErrors"]["cfb"]
+
+
+def test_external_feed_aliases_keep_football_as_fifa_and_ncaaf_as_cfb():
+    import pickgrader_server as server
+    from scripts.merge_external_feed_cache_payload import (
+        EXTERNAL_FEED_MODEL_KEYS,
+        _canonical_sport_label,
+        _split_feed_key,
+        _split_source_label,
+    )
+
+    assert server.external_feed_model_key("sportytrader", "football") == "sportytrader_fifa_world_cup"
+    assert server.external_feed_model_key("sportytrader", "ncaaf") == "sportytrader_cfb"
+    assert server.external_feed_model_key("sportsgambler", "college_football") == "sportsgambler_cfb"
+    assert server.external_feed_source_label("sportytrader", "CFB") == "SportyTraderCFB"
+    assert server.external_feed_source_label("sportsgambler", "ncaaf") == "SportsGamblerCFB"
+    assert server._normalize_sportytrader_sport("USA - NCAA") == "CFB"
+    assert server._normalize_sportytrader_sport("NCAAF") == "CFB"
+    assert _canonical_sport_label("football") == "FIFA WC"
+    assert _canonical_sport_label("ncaaf") == "CFB"
+    assert _canonical_sport_label("ncaa") == "CFB"
+    assert _split_feed_key("sportytrader", "CFB") == "sportytrader_cfb"
+    assert _split_source_label("sportsgambler", "College Football") == "SportsGamblerCFB"
+    assert "sportytrader_cfb" in EXTERNAL_FEED_MODEL_KEYS
+    assert "sportsgambler_cfb" in EXTERNAL_FEED_MODEL_KEYS
 
 
 def test_external_provider_scrapers_return_confirmed_zero_slate_without_launching(monkeypatch):
@@ -703,6 +1078,7 @@ def test_external_slate_whitelists_preserve_every_supported_nonempty_sport(monke
         "wnba": ["Chicago Sky @ Indiana Fever"],
         "mlb": ["St. Louis Cardinals @ Chicago Cubs"],
         "fifa_world_cup": ["Switzerland @ Qatar"],
+        "cfb": ["Toledo Rockets @ Michigan State Spartans"],
     }
     monkeypatch.setattr(server, "_known_external_slate_matchups", lambda _date, sport: matchups[sport])
     monkeypatch.setattr(
@@ -896,17 +1272,18 @@ def test_external_feed_refresh_splits_provider_buckets_by_sport():
                 {"source": "SportyTrader", "sport": "NBA SUMMER", "pick": "Thunder -2.5"},
                 {"source": "SportyTrader", "sport": "WNBA", "pick": "Fever -4.5"},
                 {"source": "SportyTrader", "sport": "FIFA WC", "pick": "France team total"},
+                {"source": "SportyTrader", "sport": "CFB", "pick": "Toledo +10.5"},
             ],
         },
         "2026-06-16",
-        ["nba_summer", "mlb", "wnba", "fifa_world_cup"],
+        ["nba_summer", "mlb", "wnba", "fifa_world_cup", "cfb"],
         "2026-06-16T12:00:00Z",
     )
     split = module._split_provider_result(
         "sportytrader",
         result,
         "2026-06-16",
-        ["nba_summer", "mlb", "wnba", "fifa_world_cup"],
+        ["nba_summer", "mlb", "wnba", "fifa_world_cup", "cfb"],
         "2026-06-16T12:00:00Z",
     )
 
@@ -915,11 +1292,45 @@ def test_external_feed_refresh_splits_provider_buckets_by_sport():
         "sportytrader_mlb",
         "sportytrader_wnba",
         "sportytrader_fifa_world_cup",
+        "sportytrader_cfb",
     }
     assert split["sportytrader_nba_summer"]["picks"][0]["source"] == "SportyTraderNBASummer"
     assert split["sportytrader_mlb"]["picks"][0]["source"] == "SportyTraderMLB"
     assert split["sportytrader_wnba"]["picks"][0]["source"] == "SportyTraderWNBA"
     assert split["sportytrader_fifa_world_cup"]["picks"][0]["source"] == "SportyTraderFIFAWorldCup"
+    assert split["sportytrader_cfb"]["picks"][0]["source"] == "SportyTraderCFB"
+
+
+def test_external_feed_refresh_marks_soft_failed_cfb_bucket_without_dropping_mlb():
+    module = _load_module(
+        "refresh_external_feeds_cfb_soft_fail_test",
+        ROOT / "scripts" / "refresh_external_feeds.py",
+    )
+    result = module._normalize_feed_result(
+        "sportytrader",
+        {
+            "ok": True,
+            "date": "2026-09-04",
+            "picks": [{"source": "SportyTraderMLB", "sport": "MLB", "pick": "Cubs ML"}],
+            "errors": ["cfb: Cloudflare verification"],
+            "meta": {"sportErrors": {"cfb": "cfb: Cloudflare verification"}},
+        },
+        "2026-09-04",
+        ["mlb", "cfb"],
+        "2026-09-04T12:00:00Z",
+    )
+    split = module._split_provider_result(
+        "sportytrader",
+        result,
+        "2026-09-04",
+        ["mlb", "cfb"],
+        "2026-09-04T12:00:00Z",
+    )
+    assert split["sportytrader_mlb"]["ok"] is True
+    assert split["sportytrader_mlb"]["picks"][0]["pick"] == "Cubs ML"
+    assert split["sportytrader_cfb"]["ok"] is False
+    assert split["sportytrader_cfb"]["picks"] == []
+    assert "Cloudflare" in split["sportytrader_cfb"]["error"]
 
 
 def test_external_feed_refresh_records_runtime_provenance(monkeypatch):
@@ -977,12 +1388,16 @@ def test_external_feed_schedule_requests_nba_summer_wnba_and_fifa_world_cup():
     refresh = (ROOT / "scripts" / "refresh_external_feeds.py").read_text(encoding="utf-8")
     server = (ROOT / "pickgrader_server.py").read_text(encoding="utf-8")
     # nba_summer + fifa_world_cup archived 2026-07-19 (seasons ended).
-    assert '--sports "nba,mlb,wnba"' in workflow
-    assert 'default="nba,mlb,wnba"' in refresh
+    assert '--sports "nba,mlb,wnba,cfb"' in workflow
+    assert 'default="nba,mlb,wnba,cfb"' in refresh
     assert '"nba_summer": "nba_summer"' in server
     assert '"wnba": "wnba"' in server
     assert '"fifa_world_cup": "fifa_world_cup"' in server
     assert '"fifa_world_cup": {"label": "FIFA WC"' in server
+    assert '"cfb": "cfb"' in server
+    assert '"cfb": {"label": "CFB"' in server
+    assert 'football": "fifa_world_cup"' in server
+    assert '"ncaaf": "cfb"' in server
 
 
 def test_scores24_extracts_our_choice_and_normalizes_pick():
@@ -1985,10 +2400,12 @@ def test_local_scores24_publisher_registers_separate_models():
         "sportytrader_nba_summer",
         "sportytrader_wnba",
         "sportytrader_fifa_world_cup",
+        "sportytrader_cfb",
         "sportsgambler_mlb",
         "sportsgambler_nba_summer",
         "sportsgambler_wnba",
         "sportsgambler_fifa_world_cup",
+        "sportsgambler_cfb",
     ):
         assert model_key in refresh
     assert 'default="sportytrader,sportsgambler"' in refresh

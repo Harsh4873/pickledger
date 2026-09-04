@@ -22,12 +22,14 @@ EXTERNAL_FEED_MODEL_KEYS = {
     "sportytrader_mlb",
     "sportytrader_wnba",
     "sportytrader_fifa_world_cup",
+    "sportytrader_cfb",
     "sportsgambler",
     "sportsgambler_nba",
     "sportsgambler_nba_summer",
     "sportsgambler_mlb",
     "sportsgambler_wnba",
     "sportsgambler_fifa_world_cup",
+    "sportsgambler_cfb",
     "scores24_nba_summer",
     "scores24_wnba",
     "scores24_mlb",
@@ -55,6 +57,7 @@ EXTERNAL_FEED_SPORT_KEYS = {
     "WNBA": "wnba",
     "MLB": "mlb",
     "FIFA WC": "fifa_world_cup",
+    "CFB": "cfb",
 }
 EXTERNAL_FEED_SOURCE_LABELS = {
     "sportytrader": {
@@ -63,6 +66,7 @@ EXTERNAL_FEED_SOURCE_LABELS = {
         "WNBA": "SportyTraderWNBA",
         "MLB": "SportyTraderMLB",
         "FIFA WC": "SportyTraderFIFAWorldCup",
+        "CFB": "SportyTraderCFB",
     },
     "sportsgambler": {
         "NBA": "SportsGamblerNBA",
@@ -70,6 +74,7 @@ EXTERNAL_FEED_SOURCE_LABELS = {
         "WNBA": "SportsGamblerWNBA",
         "MLB": "SportsGamblerMLB",
         "FIFA WC": "SportsGamblerFIFAWorldCup",
+        "CFB": "SportsGamblerCFB",
     },
 }
 # The in-house team models that, when all ok, promote a day to latest.json.
@@ -312,6 +317,11 @@ def _canonical_sport_label(value: Any) -> str:
         "world_cup": "FIFA WC",
         "soccer": "FIFA WC",
         "football": "FIFA WC",
+        "cfb": "CFB",
+        "ncaaf": "CFB",
+        "college_football": "CFB",
+        "ncaa": "CFB",
+        "ncaa_football": "CFB",
     }
     if normalized in aliases:
         return aliases[normalized]
