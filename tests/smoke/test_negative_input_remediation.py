@@ -196,3 +196,52 @@ def test_every_registered_external_feed_key_is_covered():
         picks = _demote_scraped_feed_picks(payload)["models"][key]["picks"]
         assert picks[0]["decision"] == "PASS"
         assert picks[0]["units"] == 0
+
+
+def test_model_cache_merge_also_demotes_scraped_feeds(tmp_path):
+    """An in-house model refresh must not republish tipster rows as bets."""
+    from scripts.merge_model_cache_payload import merge_payload
+
+    cache_dir = tmp_path / "data" / "model_cache"
+    cache_dir.mkdir(parents=True)
+    current = {
+        "date": "2026-09-03",
+        "models": {
+            "scores24_mlb": {
+                "ok": True,
+                "picks": [{"pick": "Cubs ML", "decision": "BET", "units": 1}],
+            },
+            "mlb_new": {
+                "ok": True,
+                "picks": [{"pick": "Under 9.0", "decision": "BET", "units": 0.5}],
+            },
+        },
+        "external_feeds": {
+            "scores24_mlb": {
+                "ok": True,
+                "picks": [{"pick": "Cubs ML", "decision": "BET", "units": 1}],
+            },
+        },
+        "scores24_mlb": {
+            "ok": True,
+            "picks": [{"pick": "Cubs ML", "decision": "BET", "units": 1}],
+        },
+    }
+    (cache_dir / "2026-09-03.json").write_text(json.dumps(current), encoding="utf-8")
+    generated = {
+        "date": "2026-09-03",
+        "models": {
+            "mlb_new": {
+                "ok": True,
+                "picks": [{"pick": "Under 9.0", "decision": "BET", "units": 0.5}],
+            },
+        },
+    }
+
+    merged = merge_payload(generated, cache_dir)
+    scraped = merged["models"]["scores24_mlb"]["picks"][0]
+    assert scraped["decision"] == "PASS"
+    assert scraped["units"] == 0
+    assert scraped["scraped_tip_demoted"] is True
+    assert merged["models"]["mlb_new"]["picks"][0]["decision"] == "BET"
+    assert merged["models"]["mlb_new"]["picks"][0]["units"] == 0.5

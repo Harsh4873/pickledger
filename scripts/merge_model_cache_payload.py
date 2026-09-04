@@ -12,6 +12,7 @@ from typing import Any
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from cache_manifest import write_cache_manifest  # noqa: E402
+from merge_external_feed_cache_payload import _demote_scraped_feed_picks  # noqa: E402
 
 
 MODEL_CACHE_DIR = Path("data/model_cache")
@@ -353,7 +354,10 @@ def merge_payload(generated: dict[str, Any], cache_dir: Path) -> dict[str, Any]:
         stamp_bucket_date_if_missing(merged["models"].get(key), date_iso)
         stamp_bucket_date_if_missing(merged.get(key), date_iso)
 
-    return _without_retired_buckets(merged)
+    # Same demotion as the feed-writer merge: a model-cache refresh copies
+    # scraped buckets through from the dated file, and without this those
+    # rows would republish as BET/LEAN the next time in-house models land.
+    return _demote_scraped_feed_picks(_without_retired_buckets(merged))
 
 
 def main() -> int:
