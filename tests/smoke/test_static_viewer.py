@@ -1811,3 +1811,76 @@ def test_external_feed_publish_promotes_complete_scores24_mlb_wnba_without_team_
 
     assert module.write_merged_payload(scores24_only, cache_dir) is True
     assert json.loads((cache_dir / "latest.json").read_text(encoding="utf-8"))["date"] == "2026-08-27"
+
+
+def test_external_feed_publish_promotes_mlb_wnba_when_scores24_cfb_is_blocked(tmp_path):
+    """Incomplete/blocked CFB must not prevent the MLB+WNBA first-paint gate."""
+    module = _load_module(
+        "merge_external_feed_cache_payload_cfb_soft_fail",
+        ROOT / "scripts" / "merge_external_feed_cache_payload.py",
+    )
+    cache_dir = tmp_path / "data" / "model_cache"
+    cache_dir.mkdir(parents=True)
+    previous = {"date": "2026-09-03", "models": {"mlb_new": {"ok": True, "picks": []}}}
+    (cache_dir / "latest.json").write_text(json.dumps(previous), encoding="utf-8")
+    payload = {
+        "date": "2026-09-04",
+        "models": {
+            "scores24_mlb": {"ok": True, "date": "2026-09-04", "picks": [{"pick": "Yankees ML"}]},
+            "scores24_wnba": {"ok": True, "date": "2026-09-04", "picks": [{"pick": "Aces ML"}]},
+            "scores24_cfb": {
+                "ok": False,
+                "date": "2026-09-04",
+                "error": "blocked before official slate completed",
+                "picks": [],
+            },
+        },
+        "external_feeds": {
+            "scores24_mlb": {
+                "ok": True,
+                "date": "2026-09-04",
+                "picks": [{"pick": "Yankees ML"}],
+                "meta": {"expectedMatchups": 1, "matchedPicks": 1, "missingMatchups": []},
+            },
+            "scores24_wnba": {
+                "ok": True,
+                "date": "2026-09-04",
+                "picks": [{"pick": "Aces ML"}],
+                "meta": {"expectedMatchups": 1, "matchedPicks": 1, "missingMatchups": []},
+            },
+            "scores24_cfb": {
+                "ok": False,
+                "date": "2026-09-04",
+                "picks": [],
+                "error": "blocked before official slate completed",
+                "meta": {"expectedMatchups": 12, "matchedPicks": 0, "missingMatchups": ["Toledo @ Michigan State"]},
+            },
+        },
+    }
+
+    assert module.write_merged_payload(payload, cache_dir) is True
+    assert json.loads((cache_dir / "latest.json").read_text(encoding="utf-8"))["date"] == "2026-09-04"
+
+
+def test_external_feed_publish_does_not_promote_cfb_only_slate(tmp_path):
+    module = _load_module(
+        "merge_external_feed_cache_payload_cfb_only",
+        ROOT / "scripts" / "merge_external_feed_cache_payload.py",
+    )
+    cache_dir = tmp_path / "data" / "model_cache"
+    cache_dir.mkdir(parents=True)
+    payload = {
+        "date": "2026-09-04",
+        "models": {"scores24_cfb": {"ok": True, "date": "2026-09-04", "picks": [{"pick": "Ohio State ML"}]}},
+        "external_feeds": {
+            "scores24_cfb": {
+                "ok": True,
+                "date": "2026-09-04",
+                "picks": [{"pick": "Ohio State ML"}],
+                "meta": {"expectedMatchups": 1, "matchedPicks": 1, "missingMatchups": []},
+            }
+        },
+    }
+
+    assert module.write_merged_payload(payload, cache_dir) is False
+    assert not (cache_dir / "latest.json").exists()

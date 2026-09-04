@@ -24,6 +24,7 @@ After the script finishes, report:
 - exit code
 - whether a commit was pushed
 - Scores24WNBA, Scores24MLB, and Scores24FIFAWorldCup pick counts for today (America/Chicago)
+- Scores24CFB pick counts if present (optional/soft-fail: incomplete or blocked CFB must not fail the run)
 - any scrape or push errors
 
 If Scores24 blocks the cloud IP, say so clearly in the run summary. Do not add AI co-author lines to commits.

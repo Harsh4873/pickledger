@@ -131,6 +131,7 @@ def test_registration_is_shared_but_cfb_is_not_a_core_freshness_requirement():
     assert "cfb" in _model_jobs("2026-09-05")
     assert "cfb" not in site_upcheck.REQUIRED_MODEL_KEYS
     assert "cfb" not in REQUIRED_TEAM_MODEL_KEYS
+    assert "scores24_cfb" not in site_upcheck.REQUIRED_SCORES24_FEED_KEYS
 
 
 def test_shadow_rows_are_contained_from_every_public_surface():

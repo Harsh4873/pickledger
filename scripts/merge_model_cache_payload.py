@@ -33,6 +33,7 @@ EXTERNAL_FEED_MODEL_KEYS = {
     "scores24_wnba",
     "scores24_mlb",
     "scores24_fifa_world_cup",
+    "scores24_cfb",
     "forebet_mls",
     "forebet_mlb",
     "forebet_wnba",

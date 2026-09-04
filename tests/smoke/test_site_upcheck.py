@@ -406,6 +406,37 @@ def test_data_only_readiness_allows_stale_but_valid_scores24_feed(tmp_path: Path
     assert f"scores24_mlb is {yesterday}" in result.stdout
 
 
+def test_data_only_readiness_ignores_blocked_scores24_cfb(tmp_path: Path):
+    today = datetime.now(ZoneInfo("America/Chicago")).strftime("%Y-%m-%d")
+    script = _upcheck_repo(tmp_path, today)
+    cache_path = tmp_path / "data" / "model_cache" / "latest.json"
+    payload = json.loads(cache_path.read_text(encoding="utf-8"))
+    payload["external_feeds"]["scores24_cfb"] = {
+        "ok": False,
+        "date": today,
+        "picks": [],
+        "error": "blocked before official slate completed",
+        "meta": {
+            "expectedMatchups": 8,
+            "matchedPicks": 0,
+            "missingMatchups": ["Toledo @ Michigan State"],
+        },
+    }
+    _write_json(cache_path, payload)
+
+    result = subprocess.run(
+        [sys.executable, str(script), "--data-only"],
+        cwd=tmp_path,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0
+    assert "daily data is ready" in result.stdout
+    assert "scores24_cfb" not in result.stdout
+
+
 def test_data_only_readiness_allows_weak_parlay_slate_without_team_cards(tmp_path: Path):
     today = datetime.now(ZoneInfo("America/Chicago")).strftime("%Y-%m-%d")
     script = _upcheck_repo(tmp_path, today)
