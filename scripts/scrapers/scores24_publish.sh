@@ -23,9 +23,9 @@ fi
 
 DATE_ISO="${SCORES24_DATE:-$(date +%F)}"
 # MLB+WNBA remain the publish gate. CFB rides the same weekday morning/afternoon
-# Scores24 run as a soft-fail optional feed (like tennis): scrape when the slate
-# exists, but incomplete/blocked/hung CFB must not prevent publishing a complete
-# MLB+WNBA slate, and must not gate latestUpdated / site_upcheck.
+# Scores24 run as a soft-fail optional feed: scrape when the slate exists, but
+# incomplete/blocked/hung CFB must not prevent publishing a complete MLB+WNBA
+# slate, and must not gate latestUpdated / site_upcheck.
 PUBLISH_FEEDS="${SCORES24_PUBLISH_FEEDS:-scores24_mlb,scores24_wnba}"
 OPTIONAL_FEEDS="${SCORES24_OPTIONAL_FEEDS:-scores24_cfb}"
 PUBLISH_SPORTS="${SCORES24_PUBLISH_SPORTS:-mlb,wnba,cfb}"
