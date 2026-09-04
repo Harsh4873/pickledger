@@ -422,7 +422,37 @@ def _american(value: Any) -> int | None:
     return int(round(number)) if number is not None and (number <= -100 or number >= 100) else None
 
 
-def load_live_slate(date_iso: str) -> list[dict[str, Any]]:
+def _priced_side(node: Any, side: str, field: str = "odds") -> Any:
+    """Read ``node.<side>.close|open.<field>`` from ESPN's current odds shape.
+
+    ESPN moved per-side prices out of ``homeTeamOdds.moneyLine`` into dedicated
+    ``moneyline`` / ``pointSpread`` / ``total`` nodes, each shaped
+    ``{side: {"close": {...}, "open": {...}}}``. A book that is not offering the
+    market returns the string ``"OFF"``, which ``_american``/``_num`` reject.
+    """
+    if not isinstance(node, Mapping):
+        return None
+    entry = node.get(side)
+    if not isinstance(entry, Mapping):
+        return None
+    for window in ("close", "open"):
+        block = entry.get(window)
+        if isinstance(block, Mapping) and block.get(field) is not None:
+            return block.get(field)
+    return entry.get(field)
+
+
+def _moneyline_for(odds: Mapping[str, Any], side: str) -> int | None:
+    """Moneyline for one side, legacy path first then the current node."""
+    legacy = odds.get(f"{side}TeamOdds")
+    if isinstance(legacy, Mapping):
+        got = _american(legacy.get("moneyLine"))
+        if got is not None:
+            return got
+    return _american(_priced_side(odds.get("moneyline"), side))
+
+
+def load_live_slate(date_iso: str, *, require_moneyline: bool = True) -> list[dict[str, Any]]:
     """Load the FBS scoreboard slate with stable ESPN identities and prices."""
 
     response = requests.get(
@@ -452,10 +482,22 @@ def load_live_slate(date_iso: str) -> list[dict[str, Any]]:
         odds = odds_rows[0] if odds_rows else {}
         home_line = _num(odds.get("spread"))
         total_line = _num(odds.get("overUnder"))
-        home_ml = _american((odds.get("homeTeamOdds") or {}).get("moneyLine"))
-        away_ml = _american((odds.get("awayTeamOdds") or {}).get("moneyLine"))
+        home_ml = _moneyline_for(odds, "home")
+        away_ml = _moneyline_for(odds, "away")
+        # ESPN now also publishes the real juice on the two-way markets, so the
+        # assumed -110 is only a fallback when a side is genuinely unpriced.
+        spread_odds_home = _american(_priced_side(odds.get("pointSpread"), "home"))
+        spread_odds_away = _american(_priced_side(odds.get("pointSpread"), "away"))
+        total_odds_over = _american(_priced_side(odds.get("total"), "over"))
+        total_odds_under = _american(_priced_side(odds.get("total"), "under"))
         state = _text(((event.get("status") or {}).get("type") or {}).get("state"))
-        if state != "pre" or None in (home_line, total_line, home_ml, away_ml):
+        # Books pull the moneyline on lopsided games (ESPN reports "OFF"), so a
+        # consumer that only needs the two-way markets can opt out of the
+        # requirement instead of losing the game entirely.
+        required = [home_line, total_line]
+        if require_moneyline:
+            required += [home_ml, away_ml]
+        if state != "pre" or None in required:
             continue
         season = int(date_iso[:4])
         week = int(_num(((event.get("week") or {}).get("number")), 1) or 1)
@@ -482,6 +524,10 @@ def load_live_slate(date_iso: str) -> list[dict[str, Any]]:
                 "total_line": float(total_line),
                 "home_moneyline": home_ml,
                 "away_moneyline": away_ml,
+                "spread_odds_home": spread_odds_home,
+                "spread_odds_away": spread_odds_away,
+                "total_odds_over": total_odds_over,
+                "total_odds_under": total_odds_under,
                 "odds_source": f"espn_scoreboard:{_text(provider.get('name') or provider.get('displayName')) or 'unknown'}",
             }
         )

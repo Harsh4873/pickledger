@@ -5047,6 +5047,29 @@ def run_cfb_model(date_str: str | None = None) -> dict[str, Any]:
         return {"ok": False, "error": str(exc)}
 
 
+def run_cfb_totals_model(date_str: str | None = None) -> dict[str, Any]:
+    """Execute the in-house CFB market-residual totals model.
+
+    Distinct from `run_cfb_model`: that one is the market-free originator, this
+    one consumes the posted total and bets its own predicted deviation from it,
+    but only above the threshold certified during training.
+    """
+    target_iso, _ = _parse_model_date_arg(date_str)
+    totals_dir = os.path.join(BASE_DIR, "CFBTotalsModel")
+    if not os.path.exists(totals_dir):
+        return {"ok": False, "error": "CFB totals model directory not found"}
+    try:
+        from CFBTotalsModel import generate_cfb_totals_picks
+
+        result = generate_cfb_totals_picks(target_iso)
+        if not isinstance(result, dict):
+            return {"ok": False, "error": "CFB totals model returned an invalid payload"}
+        _save_admin_picks_doc("cfb_totals", result, target_iso)
+        return result
+    except Exception as exc:
+        return {"ok": False, "error": str(exc)}
+
+
 def run_tennis_model(date_str: str | None = None) -> dict[str, Any]:
     """Execute the in-house tennis model (Elo/WElo ratings + calibrated ML)."""
     target_iso, _ = _parse_model_date_arg(date_str)

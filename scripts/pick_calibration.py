@@ -27,7 +27,15 @@ MIN_GROUP_SAMPLES = 30
 # over 22,912 held-out matches), so re-shrinking it here would calibrate a
 # calibrated number twice. Its rows also carry calibration_excluded; the model
 # key is listed for belt-and-braces.
-CALIBRATION_EXCLUDED_MODEL_KEYS = {"fifa_world_cup", "mls", "forebet_mls", "tennis", "cfb"}
+#
+# cfb_totals added 2026-09-03: it does not publish a model SCORE, it publishes
+# the MEASURED out-of-sample hit rate of a certified confidence band (58.9% at
+# |deviation| >= 5, n=460, p=0.0028 vs the -110 break-even, profitable in 5 of 5
+# walk-forward seasons). That number is already an empirical frequency, so the
+# global shrink was calibrating a calibrated number twice -- it pulled 58.9%
+# down to 53.8%, left a 2.7pp adjusted edge, and the <7pp downgrade PASSed the
+# whole slate. Same failure mode documented for mlb_inning below.
+CALIBRATION_EXCLUDED_MODEL_KEYS = {"fifa_world_cup", "mls", "forebet_mls", "tennis", "cfb", "cfb_totals"}
 # Research models with no real market (settlement at an assumed price only)
 # keep their calibrated probabilities for display, but the model's own
 # decision and stake publish untouched — there is no executable price for
