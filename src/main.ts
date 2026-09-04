@@ -117,6 +117,7 @@ const ESPN_ENDPOINTS: Record<string, [string, string]> = {
   'NBA SUMMER': ['basketball', 'nba-summer'],
   WNBA: ['basketball', 'wnba'],
   NFL: ['football', 'nfl'],
+  CFB: ['football', 'college-football'],
   'FIFA WC': ['soccer', 'fifa.world'],
   'MLS': ['soccer', 'usa.1'],
   NHL: ['hockey', 'nhl'],
@@ -190,7 +191,7 @@ const MLB_INNING_RANKING_START_DATE = '2026-08-25';
 // the per-market split can never carry the old engine's record forward.
 const MLS_RESET_SOURCES = new Set(['MLS Model', 'MLS ML', 'MLS Spread', 'MLS Total']);
 const MLS_RANKING_START_DATE = '2026-07-25';
-const PRIMARY_FILTERS = ['ALL', 'MLB', 'WNBA', 'NFL', 'MLS', 'TENNIS'];
+const PRIMARY_FILTERS = ['ALL', 'MLB', 'WNBA', 'NFL', 'CFB', 'MLS', 'TENNIS'];
 let lastCentralDate = '';
 
 function escapeHtml(value: unknown): string {

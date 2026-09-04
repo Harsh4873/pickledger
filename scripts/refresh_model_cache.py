@@ -34,7 +34,7 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument("--date", default="", help="Target date in YYYY-MM-DD or MM/DD/YYYY format.")
     parser.add_argument(
         "--models",
-        default="mlb_new,mlb_inning,mlb_first_five,mlb_team_total,wnba,nba,nba_playoffs,mls,nfl,cfb,tennis",
+        default="mlb_new,mlb_inning,mlb_first_five,mlb_team_total,wnba,nba,nba_playoffs,mls,nfl,cfb,cfb_totals,tennis",
         help="Comma-separated model keys to refresh, or 'all'.",
     )
     parser.add_argument("--max-workers", type=int, default=3, help="Maximum parallel model jobs.")
@@ -59,6 +59,7 @@ def _model_jobs(date_iso: str) -> dict[str, Callable[[], dict[str, Any]]]:
         "mls": lambda: server.run_mls_model(date_iso),
         "nfl": lambda: server.run_nfl_model(date_iso),
         "cfb": lambda: server.run_cfb_model(date_iso),
+        "cfb_totals": lambda: server.run_cfb_totals_model(date_iso),
         "tennis": lambda: server.run_tennis_model(date_iso),
     }
     if getattr(server, "IPL_AVAILABLE", False):
@@ -108,6 +109,7 @@ def _build_payload(date_iso: str, models: dict[str, Any], errors: list[str]) -> 
         "mls": models.get("mls", {}),
         "nfl": models.get("nfl", {}),
         "cfb": models.get("cfb", {}),
+        "cfb_totals": models.get("cfb_totals", {}),
         "tennis": models.get("tennis", {}),
         "ipl": models.get("ipl", {}),
         "errors": errors,

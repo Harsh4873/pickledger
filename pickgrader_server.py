@@ -1866,6 +1866,33 @@ def parse_player_prop_pick(pick: dict[str, Any] | str) -> dict[str, Any] | None:
         "totalassists": "assists",
         "totalhits": "hits",
         "totalstrikeouts": "strikeouts",
+        # Football (CFB / NFL) player-prop stat keys. Keys are stored with
+        # non-alphanumerics stripped and lowercased to match the raw_stat_key
+        # normalization applied below.
+        "passingyards": "passing_yards",
+        "passyards": "passing_yards",
+        "passing_yards": "passing_yards",
+        "rushingyards": "rushing_yards",
+        "rushyards": "rushing_yards",
+        "rushing_yards": "rushing_yards",
+        "receivingyards": "receiving_yards",
+        "recyards": "receiving_yards",
+        "receiving_yards": "receiving_yards",
+        "receptions": "receptions",
+        "reception": "receptions",
+        "recs": "receptions",
+        "passingtouchdowns": "passing_touchdowns",
+        "passingtds": "passing_touchdowns",
+        "passtds": "passing_touchdowns",
+        "passing_touchdowns": "passing_touchdowns",
+        "rushingtouchdowns": "rushing_touchdowns",
+        "rushingtds": "rushing_touchdowns",
+        "rushtds": "rushing_touchdowns",
+        "rushing_touchdowns": "rushing_touchdowns",
+        "rushingreceivingyards": "rushing_receiving_yards",
+        "rushrecyards": "rushing_receiving_yards",
+        "rushingandreceivingyards": "rushing_receiving_yards",
+        "rushing_receiving_yards": "rushing_receiving_yards",
     }
     if isinstance(payload, dict):
         player_name = str(payload.get("player_name") or "").strip()
@@ -2315,6 +2342,78 @@ def _extract_nba_player_stat(summary: dict[str, Any], player_name: str, stat_key
     return None
 
 
+def _extract_cfb_player_stat(
+    summary: dict[str, Any], player_name: str, stat_key: str
+) -> float | None:
+    """Extract a college-football player stat from an ESPN game summary.
+
+    Football box scores are CATEGORY-GROUPED, unlike the flat label/stat rows
+    NBA/MLB expose. ``summary['boxscore']['players']`` is a list of two team
+    blocks; each block has a ``statistics`` list of category dicts (passing,
+    rushing, receiving, ...). Each category carries a parallel ``keys`` array
+    (e.g. ``passing`` -> ``['completions/passingAttempts', 'passingYards',
+    'yardsPerPassAttempt', 'passingTouchdowns', 'interceptions', 'adjQBR']``)
+    and an ``athletes`` list, where each athlete's ``stats`` string array is
+    POSITIONALLY ALIGNED to that category's ``keys``. Key order differs per
+    category, so we look up the column via ``keys.index(<espn_key>)`` rather
+    than hardcoding offsets.
+    """
+    # Combined rush+rec stats are summed from their component ESPN keys.
+    combo_components: dict[str, tuple[str, ...]] = {
+        "rushing_receiving_yards": ("rushing_yards", "receiving_yards"),
+    }
+    if stat_key in combo_components:
+        component_values = [
+            _extract_cfb_player_stat(summary, player_name, component)
+            for component in combo_components[stat_key]
+        ]
+        return (
+            sum(component_values)
+            if all(value is not None for value in component_values)
+            else None
+        )
+
+    # Map our normalized stat_key onto the ESPN per-category key it lives under.
+    espn_key_for_stat = {
+        "passing_yards": "passingYards",
+        "passing_touchdowns": "passingTouchdowns",
+        "rushing_yards": "rushingYards",
+        "rushing_touchdowns": "rushingTouchdowns",
+        "receiving_yards": "receivingYards",
+        "receptions": "receptions",
+    }
+    espn_key = espn_key_for_stat.get(stat_key)
+    if not espn_key:
+        return None
+
+    boxscore = summary.get("boxscore", {}) if isinstance(summary, dict) else {}
+    players = boxscore.get("players", []) if isinstance(boxscore, dict) else []
+    for team_block in players if isinstance(players, list) else []:
+        categories = team_block.get("statistics", []) if isinstance(team_block, dict) else []
+        for category in categories if isinstance(categories, list) else []:
+            if not isinstance(category, dict):
+                continue
+            keys = category.get("keys", [])
+            if not isinstance(keys, list) or espn_key not in keys:
+                continue
+            col = keys.index(espn_key)
+            athletes = category.get("athletes", [])
+            for athlete in athletes if isinstance(athletes, list) else []:
+                if not isinstance(athlete, dict):
+                    continue
+                athlete_info = athlete.get("athlete", {}) if isinstance(athlete, dict) else {}
+                display_name = str(athlete_info.get("displayName", "")).strip()
+                if not _person_names_match_loose(player_name, display_name):
+                    continue
+                stats = athlete.get("stats", [])
+                if not isinstance(stats, list) or col >= len(stats):
+                    continue
+                value = _summary_stat_value_to_float(stats[col])
+                if value is not None:
+                    return value
+    return None
+
+
 def _clean_player_ids(*values: Any) -> set[str]:
     return {str(value).strip() for value in values if str(value or "").strip()}
 
@@ -2459,7 +2558,10 @@ def grade_player_prop_pick(
             player_ids,
         )
     if actual is None and summary:
-        actual = _extract_nba_player_stat(summary, str(prop["player_name"]), str(prop["stat_key"]))
+        if str(pick.get("sport") or "").strip().upper() == "CFB":
+            actual = _extract_cfb_player_stat(summary, str(prop["player_name"]), str(prop["stat_key"]))
+        else:
+            actual = _extract_nba_player_stat(summary, str(prop["player_name"]), str(prop["stat_key"]))
     if actual is None:
         if str(pick.get("sport") or "").strip().upper() == "MLB" and _mlb_game_is_final(mlb_live_feed):
             participation = _mlb_live_player_participation(
@@ -5052,6 +5154,29 @@ def run_cfb_model(date_str: str | None = None) -> dict[str, Any]:
         if not isinstance(result, dict):
             return {"ok": False, "error": "CFB model returned an invalid payload"}
         _save_admin_picks_doc("cfb", result, target_iso)
+        return result
+    except Exception as exc:
+        return {"ok": False, "error": str(exc)}
+
+
+def run_cfb_totals_model(date_str: str | None = None) -> dict[str, Any]:
+    """Execute the in-house CFB market-residual totals model.
+
+    Distinct from `run_cfb_model`: that one is the market-free originator, this
+    one consumes the posted total and bets its own predicted deviation from it,
+    but only above the threshold certified during training.
+    """
+    target_iso, _ = _parse_model_date_arg(date_str)
+    totals_dir = os.path.join(BASE_DIR, "CFBTotalsModel")
+    if not os.path.exists(totals_dir):
+        return {"ok": False, "error": "CFB totals model directory not found"}
+    try:
+        from CFBTotalsModel import generate_cfb_totals_picks
+
+        result = generate_cfb_totals_picks(target_iso)
+        if not isinstance(result, dict):
+            return {"ok": False, "error": "CFB totals model returned an invalid payload"}
+        _save_admin_picks_doc("cfb_totals", result, target_iso)
         return result
     except Exception as exc:
         return {"ok": False, "error": str(exc)}

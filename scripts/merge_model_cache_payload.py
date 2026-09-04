@@ -86,6 +86,7 @@ MODEL_ALIAS_KEYS = {
     "mls",
     "nfl",
     "cfb",
+    "cfb_totals",
 }
 MODEL_ALIAS_TO_MODEL_KEY = {
     "mlb": "mlb_old",

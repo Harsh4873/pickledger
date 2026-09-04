@@ -1,0 +1,540 @@
+{
+  "model_version": "cfb_totals_residual_v1",
+  "trained_at": "2026-09-04T00:27:31.854027Z",
+  "model_class": "market_residual",
+  "targets": {
+    "totals": "game_total - posted_total_line",
+    "spread": "home_margin + posted_home_line"
+  },
+  "data_source": "SportsDataverse ESPN-derived schedules + resolved betting releases",
+  "train_window": [
+    2017,
+    2025
+  ],
+  "games": 5431,
+  "population": "FBS-vs-FBS games with posted spread and total",
+  "feature_names": [
+    "home_offense_ewma",
+    "home_defense_ewma",
+    "away_offense_ewma",
+    "away_defense_ewma",
+    "net_efficiency_diff",
+    "elo_diff",
+    "schedule_strength_diff",
+    "home_games_log",
+    "away_games_log",
+    "home_rest_days",
+    "away_rest_days",
+    "rest_diff",
+    "neutral_site",
+    "conference_game",
+    "week",
+    "early_season",
+    "home_line",
+    "total_line"
+  ],
+  "market_features": [
+    "home_line",
+    "total_line"
+  ],
+  "market_free": false,
+  "market_free_note": "This model intentionally consumes the posted line. It is a market-residual model, NOT an originator, and must not be compared to CFBPredictionModel's market-free contract.",
+  "walk_forward": [
+    {
+      "season": 2021,
+      "games": 732,
+      "total_residual_mae": 12.71249,
+      "margin_residual_mae": 12.8643
+    },
+    {
+      "season": 2022,
+      "games": 734,
+      "total_residual_mae": 12.31586,
+      "margin_residual_mae": 12.5194
+    },
+    {
+      "season": 2023,
+      "games": 792,
+      "total_residual_mae": 12.84366,
+      "margin_residual_mae": 12.25847
+    },
+    {
+      "season": 2024,
+      "games": 798,
+      "total_residual_mae": 12.61597,
+      "margin_residual_mae": 12.0206
+    },
+    {
+      "season": 2025,
+      "games": 808,
+      "total_residual_mae": 12.62278,
+      "margin_residual_mae": 11.91785
+    }
+  ],
+  "residual_sigma": 15.11805,
+  "margin_residual_sigma": 14.85418,
+  "break_even": 0.5238,
+  "threshold_certification": {
+    "market": "totals",
+    "candidates": [
+      {
+        "threshold": 2.0,
+        "n": 1905,
+        "hits": 971,
+        "rate": 0.50971,
+        "p_value_vs_break_even": 0.895078,
+        "roi_at_minus_110": -0.02691,
+        "seasons_beating_break_even": 1,
+        "seasons_evaluated": 5,
+        "per_season": {
+          "2021": {
+            "n": 443,
+            "hits": 238,
+            "rate": 0.53725,
+            "beats_break_even": true
+          },
+          "2022": {
+            "n": 385,
+            "hits": 187,
+            "rate": 0.48571,
+            "beats_break_even": false
+          },
+          "2023": {
+            "n": 357,
+            "hits": 184,
+            "rate": 0.51541,
+            "beats_break_even": false
+          },
+          "2024": {
+            "n": 352,
+            "hits": 180,
+            "rate": 0.51136,
+            "beats_break_even": false
+          },
+          "2025": {
+            "n": 368,
+            "hits": 182,
+            "rate": 0.49457,
+            "beats_break_even": false
+          }
+        },
+        "qualifies": false
+      },
+      {
+        "threshold": 3.0,
+        "n": 1254,
+        "hits": 669,
+        "rate": 0.53349,
+        "p_value_vs_break_even": 0.255041,
+        "roi_at_minus_110": 0.01849,
+        "seasons_beating_break_even": 3,
+        "seasons_evaluated": 5,
+        "per_season": {
+          "2021": {
+            "n": 332,
+            "hits": 182,
+            "rate": 0.54819,
+            "beats_break_even": true
+          },
+          "2022": {
+            "n": 256,
+            "hits": 125,
+            "rate": 0.48828,
+            "beats_break_even": false
+          },
+          "2023": {
+            "n": 219,
+            "hits": 120,
+            "rate": 0.54795,
+            "beats_break_even": true
+          },
+          "2024": {
+            "n": 221,
+            "hits": 115,
+            "rate": 0.52036,
+            "beats_break_even": false
+          },
+          "2025": {
+            "n": 226,
+            "hits": 127,
+            "rate": 0.56195,
+            "beats_break_even": true
+          }
+        },
+        "qualifies": false
+      },
+      {
+        "threshold": 4.0,
+        "n": 801,
+        "hits": 434,
+        "rate": 0.54182,
+        "p_value_vs_break_even": 0.162086,
+        "roi_at_minus_110": 0.03439,
+        "seasons_beating_break_even": 3,
+        "seasons_evaluated": 5,
+        "per_season": {
+          "2021": {
+            "n": 240,
+            "hits": 136,
+            "rate": 0.56667,
+            "beats_break_even": true
+          },
+          "2022": {
+            "n": 168,
+            "hits": 81,
+            "rate": 0.48214,
+            "beats_break_even": false
+          },
+          "2023": {
+            "n": 125,
+            "hits": 75,
+            "rate": 0.6,
+            "beats_break_even": true
+          },
+          "2024": {
+            "n": 132,
+            "hits": 68,
+            "rate": 0.51515,
+            "beats_break_even": false
+          },
+          "2025": {
+            "n": 136,
+            "hits": 74,
+            "rate": 0.54412,
+            "beats_break_even": true
+          }
+        },
+        "qualifies": false
+      },
+      {
+        "threshold": 5.0,
+        "n": 460,
+        "hits": 271,
+        "rate": 0.58913,
+        "p_value_vs_break_even": 0.002827,
+        "roi_at_minus_110": 0.1247,
+        "seasons_beating_break_even": 5,
+        "seasons_evaluated": 5,
+        "per_season": {
+          "2021": {
+            "n": 159,
+            "hits": 92,
+            "rate": 0.57862,
+            "beats_break_even": true
+          },
+          "2022": {
+            "n": 94,
+            "hits": 50,
+            "rate": 0.53191,
+            "beats_break_even": true
+          },
+          "2023": {
+            "n": 68,
+            "hits": 44,
+            "rate": 0.64706,
+            "beats_break_even": true
+          },
+          "2024": {
+            "n": 69,
+            "hits": 40,
+            "rate": 0.57971,
+            "beats_break_even": true
+          },
+          "2025": {
+            "n": 70,
+            "hits": 45,
+            "rate": 0.64286,
+            "beats_break_even": true
+          }
+        },
+        "qualifies": true
+      },
+      {
+        "threshold": 6.0,
+        "n": 260,
+        "hits": 154,
+        "rate": 0.59231,
+        "p_value_vs_break_even": 0.015547,
+        "roi_at_minus_110": 0.13077,
+        "seasons_beating_break_even": 5,
+        "seasons_evaluated": 5,
+        "per_season": {
+          "2021": {
+            "n": 111,
+            "hits": 63,
+            "rate": 0.56757,
+            "beats_break_even": true
+          },
+          "2022": {
+            "n": 51,
+            "hits": 27,
+            "rate": 0.52941,
+            "beats_break_even": true
+          },
+          "2023": {
+            "n": 32,
+            "hits": 24,
+            "rate": 0.75,
+            "beats_break_even": true
+          },
+          "2024": {
+            "n": 38,
+            "hits": 23,
+            "rate": 0.60526,
+            "beats_break_even": true
+          },
+          "2025": {
+            "n": 28,
+            "hits": 17,
+            "rate": 0.60714,
+            "beats_break_even": true
+          }
+        },
+        "qualifies": true
+      }
+    ],
+    "selected_threshold": 5.0,
+    "selected_evidence": {
+      "n": 460,
+      "rate": 0.58913,
+      "p_value_vs_break_even": 0.002827,
+      "roi_at_minus_110": 0.1247,
+      "seasons_beating_break_even": 5
+    }
+  },
+  "spread_certification": {
+    "market": "spread",
+    "candidates": [
+      {
+        "threshold": 2.0,
+        "n": 1613,
+        "hits": 817,
+        "rate": 0.50651,
+        "p_value_vs_break_even": 0.921469,
+        "roi_at_minus_110": -0.03303,
+        "seasons_beating_break_even": 2,
+        "seasons_evaluated": 5,
+        "per_season": {
+          "2021": {
+            "n": 355,
+            "hits": 188,
+            "rate": 0.52958,
+            "beats_break_even": true
+          },
+          "2022": {
+            "n": 372,
+            "hits": 174,
+            "rate": 0.46774,
+            "beats_break_even": false
+          },
+          "2023": {
+            "n": 349,
+            "hits": 192,
+            "rate": 0.55014,
+            "beats_break_even": true
+          },
+          "2024": {
+            "n": 302,
+            "hits": 144,
+            "rate": 0.47682,
+            "beats_break_even": false
+          },
+          "2025": {
+            "n": 235,
+            "hits": 119,
+            "rate": 0.50638,
+            "beats_break_even": false
+          }
+        },
+        "qualifies": false
+      },
+      {
+        "threshold": 3.0,
+        "n": 947,
+        "hits": 467,
+        "rate": 0.49314,
+        "p_value_vs_break_even": 0.972634,
+        "roi_at_minus_110": -0.05856,
+        "seasons_beating_break_even": 2,
+        "seasons_evaluated": 5,
+        "per_season": {
+          "2021": {
+            "n": 251,
+            "hits": 129,
+            "rate": 0.51394,
+            "beats_break_even": false
+          },
+          "2022": {
+            "n": 238,
+            "hits": 103,
+            "rate": 0.43277,
+            "beats_break_even": false
+          },
+          "2023": {
+            "n": 194,
+            "hits": 104,
+            "rate": 0.53608,
+            "beats_break_even": true
+          },
+          "2024": {
+            "n": 154,
+            "hits": 70,
+            "rate": 0.45455,
+            "beats_break_even": false
+          },
+          "2025": {
+            "n": 110,
+            "hits": 61,
+            "rate": 0.55455,
+            "beats_break_even": true
+          }
+        },
+        "qualifies": false
+      },
+      {
+        "threshold": 4.0,
+        "n": 539,
+        "hits": 266,
+        "rate": 0.49351,
+        "p_value_vs_break_even": 0.926585,
+        "roi_at_minus_110": -0.05785,
+        "seasons_beating_break_even": 1,
+        "seasons_evaluated": 5,
+        "per_season": {
+          "2021": {
+            "n": 169,
+            "hits": 87,
+            "rate": 0.51479,
+            "beats_break_even": false
+          },
+          "2022": {
+            "n": 148,
+            "hits": 63,
+            "rate": 0.42568,
+            "beats_break_even": false
+          },
+          "2023": {
+            "n": 97,
+            "hits": 50,
+            "rate": 0.51546,
+            "beats_break_even": false
+          },
+          "2024": {
+            "n": 81,
+            "hits": 41,
+            "rate": 0.50617,
+            "beats_break_even": false
+          },
+          "2025": {
+            "n": 44,
+            "hits": 25,
+            "rate": 0.56818,
+            "beats_break_even": true
+          }
+        },
+        "qualifies": false
+      },
+      {
+        "threshold": 5.0,
+        "n": 289,
+        "hits": 139,
+        "rate": 0.48097,
+        "p_value_vs_break_even": 0.93526,
+        "roi_at_minus_110": -0.08179,
+        "seasons_beating_break_even": 3,
+        "seasons_evaluated": 5,
+        "per_season": {
+          "2021": {
+            "n": 105,
+            "hits": 56,
+            "rate": 0.53333,
+            "beats_break_even": true
+          },
+          "2022": {
+            "n": 83,
+            "hits": 36,
+            "rate": 0.43373,
+            "beats_break_even": false
+          },
+          "2023": {
+            "n": 43,
+            "hits": 16,
+            "rate": 0.37209,
+            "beats_break_even": false
+          },
+          "2024": {
+            "n": 38,
+            "hits": 20,
+            "rate": 0.52632,
+            "beats_break_even": true
+          },
+          "2025": {
+            "n": 20,
+            "hits": 11,
+            "rate": 0.55,
+            "beats_break_even": true
+          }
+        },
+        "qualifies": false
+      },
+      {
+        "threshold": 6.0,
+        "n": 145,
+        "hits": 70,
+        "rate": 0.48276,
+        "p_value_vs_break_even": 0.858266,
+        "roi_at_minus_110": -0.07837,
+        "seasons_beating_break_even": 1,
+        "seasons_evaluated": 5,
+        "per_season": {
+          "2021": {
+            "n": 56,
+            "hits": 29,
+            "rate": 0.51786,
+            "beats_break_even": false
+          },
+          "2022": {
+            "n": 48,
+            "hits": 21,
+            "rate": 0.4375,
+            "beats_break_even": false
+          },
+          "2023": {
+            "n": 17,
+            "hits": 7,
+            "rate": 0.41176,
+            "beats_break_even": false
+          },
+          "2024": {
+            "n": 15,
+            "hits": 9,
+            "rate": 0.6,
+            "beats_break_even": true
+          },
+          "2025": {
+            "n": 9,
+            "hits": 4,
+            "rate": 0.44444,
+            "beats_break_even": false
+          }
+        },
+        "qualifies": false
+      }
+    ],
+    "selected_threshold": null,
+    "selected_evidence": null
+  },
+  "market_status": {
+    "totals": "certified",
+    "spread": "uncertified",
+    "moneyline": "uncertified_derived_from_margin"
+  },
+  "criteria": {
+    "min_sample": 200,
+    "alpha_vs_break_even": 0.05,
+    "min_seasons_beating_break_even": "4/5"
+  },
+  "promotion_status": "qualified_totals_threshold",
+  "shadow_mode": false,
+  "notes": "Only picks whose |predicted deviation| clears their market's CERTIFIED threshold are actionable; everything else is PASS. Spread and moneyline are published for visibility but are marked uncertified unless their own certification qualified -- do not treat an uncertified row as a bet."
+}

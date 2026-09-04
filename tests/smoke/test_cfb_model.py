@@ -138,12 +138,20 @@ def test_shadow_rows_are_contained_from_every_public_surface():
     data_ts = (ROOT / "src" / "data.ts").read_text(encoding="utf-8")
     parlay = (ROOT / "scripts" / "build_parlay_cards.py").read_text(encoding="utf-8")
     profit = (ROOT / "scripts" / "build_profit_desk.py").read_text(encoding="utf-8")
-    main_ts = (ROOT / "src" / "main.ts").read_text(encoding="utf-8")
     assert "if (bucket.shadow_mode === true) continue;" in data_ts
     assert "if (rawRecord.shadow_mode === true) continue;" in data_ts
     assert "if pick.get(\"shadow_mode\") is True:" in parlay
     assert "if record.get(\"shadow_mode\") is True:" in profit
-    assert "'CFB'" not in main_ts.split("PRIMARY_FILTERS")[1][:120]
+    # CFB now HAS a public surface: the certified market-residual model
+    # (CFBTotalsModel -> bucket "cfb_totals") publishes, so a blanket "CFB must
+    # not appear in the UI" check no longer describes intended behaviour. What
+    # must still hold is that THIS model -- the market-free originator -- stays
+    # shadow and is therefore dropped by the filters asserted above.
+    metadata = json.loads(
+        (ROOT / "CFBPredictionModel" / "artifacts" / "metadata.json").read_text(encoding="utf-8")
+    )
+    assert metadata["shadow_mode"] is True
+    assert metadata["promotion_status"] == "not_qualified"
 
 
 def test_pass_rows_enter_forecast_audit_ledger(tmp_path):

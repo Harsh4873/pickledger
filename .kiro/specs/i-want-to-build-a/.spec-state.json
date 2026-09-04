@@ -1,0 +1,48 @@
+{
+  "decisions": [
+    {
+      "id": "code-location",
+      "title": "Where should the CFB code live?",
+      "options": [
+        "Evolve existing CFBPredictionModel/ in place",
+        "Stand up a fresh CFBv2PredictionModel/ mirroring the NFL model"
+      ],
+      "recommended": "Evolve existing CFBPredictionModel/ in place",
+      "answer": "Evolve existing CFBPredictionModel/ in place"
+    },
+    {
+      "id": "props-separation",
+      "title": "How are player props structured?",
+      "options": [
+        "Separate subsystem in the player_props/ framework",
+        "Bolted onto the team model"
+      ],
+      "recommended": "Separate subsystem in the player_props/ framework",
+      "answer": "Separate subsystem in the player_props/ framework"
+    },
+    {
+      "id": "coverage-default",
+      "title": "Initial publishable coverage scope?",
+      "options": [
+        "SEC-only publishable, rest of FBS shadow-only",
+        "Full FBS publishable once gated"
+      ],
+      "recommended": "SEC-only publishable, rest of FBS shadow-only",
+      "answer": "SEC-only publishable, rest of FBS shadow-only"
+    },
+    {
+      "id": "model-selection",
+      "title": "How is the best model variant chosen?",
+      "options": [
+        "LRT for nested + walk-forward metric / AIC-BIC tie-break",
+        "Hand-picked by MAE like the current model"
+      ],
+      "recommended": "LRT for nested + walk-forward metric / AIC-BIC tie-break",
+      "answer": "LRT for nested + walk-forward metric / AIC-BIC tie-break"
+    }
+  ],
+  "blocking": "Awaiting user review of design.md before drafting tasks.md.",
+  "context": {
+    "template": "CFBPredictionModel (evolve in place) + NFLPredictionModel (team-market training/serving pattern) + player_props/ framework (separate CFB prop subsystem)"
+  }
+}

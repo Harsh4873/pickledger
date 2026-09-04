@@ -398,6 +398,7 @@ const SOURCE_LABELS: Record<string, string> = {
   mls: 'MLS Model',
   nfl: 'NFL Model',
   cfb: 'CFB Model',
+  cfb_totals: 'CFB Market Model',
   wnba: 'WNBA Model',
   nba: 'NBA New',
   nba_playoffs: 'NBA Playoffs',
@@ -483,6 +484,15 @@ const MARKET_SOURCE_LABELS: Record<string, Record<string, string>> = {
   mls: { moneyline: 'MLS ML', total: 'MLS Total', totals: 'MLS Total', spread: 'MLS Spread' },
   nfl: { h2h: 'NFL ML', moneyline: 'NFL ML', totals: 'NFL Total', total: 'NFL Total', spread: 'NFL Spread' },
   cfb: { h2h: 'CFB ML', moneyline: 'CFB ML', totals: 'CFB Total', total: 'CFB Total', spread: 'CFB Spread' },
+  // Market-residual CFB model. Only its totals rows are a certified edge; the
+  // spread/ML rows publish as PASS for visibility and carry market_status.
+  cfb_totals: {
+    h2h: 'CFB ML (Research)',
+    moneyline: 'CFB ML (Research)',
+    totals: 'CFB Total',
+    total: 'CFB Total',
+    spread: 'CFB Spread (Research)',
+  },
 };
 
 function teamSourceLabel(modelKey: string, raw: Record<string, unknown>): string {
@@ -497,6 +507,7 @@ const PLAYER_PROP_SOURCE_LABELS: Record<string, string> = {
   nba_player_props: 'NBAPlayerProps',
   mlb_player_props: 'MLBPlayerProps',
   wnba_player_props: 'WNBAPlayerProps',
+  cfb_player_props: 'CFBPlayerProps',
   wnba_3pm: 'WNBA3PM',
   mlb_player_props_season: 'MLB Season Props',
   mlb_player_props_all_time: 'MLB All Time Props',
