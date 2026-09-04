@@ -17,6 +17,10 @@ Cards are deliberately few and disciplined:
     trailing-excess edge gate (proven-alpha sources only).
   * Player "Prop Double" — at most 1 2-leg slip from consensus-qualified,
     market-priced props, preferring mixed market families for decorrelation.
+No card is published unless its own ``parlayEv`` is strictly positive — a
+slip the engine prices at or below zero is not a recommendation. Team and
+prop paths share that invariant; a missing prop-edge gate cannot leak a
+negative-EV card onto the board.
 No same-game, same-player, or same-side duplicates are allowed (game and side
 keys are canonicalized across sources, so "A vs B" and "B @ A" collide).
 
@@ -980,6 +984,18 @@ def _card_within_odds(card: dict[str, Any]) -> bool:
     return CARD_ODDS_MIN <= int(card["oddsAmerican"]) <= CARD_ODDS_MAX
 
 
+def _card_has_positive_ev(card: dict[str, Any]) -> bool:
+    """Refuse any slip the engine itself prices at or below zero.
+
+    Team cards already require a 6pp trailing-edge gate. Prop cards historically
+    did not, so a below-market pair could still mint as a Prop Double. The card's
+    own ``parlayEv`` is the number the site would advertise; if that number is
+    not positive, the card is not a bet.
+    """
+    ev = _number(card.get("parlayEv"))
+    return ev is not None and ev > 0
+
+
 def select_team_cards(legs: list[Leg]) -> list[dict[str, Any]]:
     eligible = [
         leg
@@ -995,7 +1011,7 @@ def select_team_cards(legs: list[Leg]) -> list[dict[str, Any]]:
         if not valid_combo(combo):
             continue
         card = _card_from_legs(tuple(combo), "edge_double")
-        if not _card_within_odds(card):
+        if not _card_within_odds(card) or not _card_has_positive_ev(card):
             continue
         candidates.append(card)
     candidates.sort(key=lambda card: (-float(card["estimatedProbability"]), str(card["comboKey"])))
@@ -1025,7 +1041,7 @@ def select_player_cards(legs: list[Leg]) -> list[dict[str, Any]]:
         if not valid_combo(combo):
             continue
         card = _card_from_legs(tuple(combo), "prop_double")
-        if not _card_within_odds(card):
+        if not _card_within_odds(card) or not _card_has_positive_ev(card):
             continue
         mixed = len({leg.market_family for leg in combo}) > 1
         candidates.append((mixed, card))
@@ -1153,7 +1169,9 @@ def build_parlay_payload(
     legs = collect_legs(date_iso, team_payload, prop_payload, trailing)
     team_cards = select_team_cards(legs)
     player_cards = select_player_cards(legs)
-    cards = team_cards + player_cards
+    cards = [card for card in team_cards + player_cards if _card_has_positive_ev(card)]
+    team_cards = [card for card in cards if card.get("pickMode") == "team"]
+    player_cards = [card for card in cards if card.get("pickMode") == "player"]
 
     engine_prior_payloads = [
         payload for payload in prior_payloads
@@ -1199,6 +1217,7 @@ def build_parlay_payload(
         "Leg probabilities are anchored to market prices and adjusted only by each source's proven trailing excess.",
         "No same-game, same-player, or same-side duplicate legs are allowed; game keys are canonicalized across sources.",
         "Slates without qualified edges show fewer cards (or none) instead of forcing action.",
+        "A card is unpublished when its own parlay EV is zero or negative.",
     ]
     if not cards:
         notices.append("No qualified parlay cards met the trailing-edge, price, and overlap rules for this slate.")

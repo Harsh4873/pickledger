@@ -478,6 +478,7 @@ def test_parlays_tab_renders_card_level_filters_and_rankings():
     assert "Team / Player" in main
     assert "Switch to ${otherMode === 'team' ? 'Team' : 'Player'} mode for this slate" in main
     assert "ENGINE_VERSION = \"parlay_cards_v6_proven_legs\"" in builder
+    assert "def _card_has_positive_ev(" in builder
     assert "ENGINE_CUTOVER_DATE = \"2026-07-01\"" in builder
     assert "Records count each whole parlay slip once" in main
     assert "function parlayCardsForMode(" in main

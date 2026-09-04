@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from dataclasses import replace
 from pathlib import Path
 
 from scripts import build_parlay_cards as parlays
@@ -317,6 +318,42 @@ def test_select_team_cards_are_leg_disjoint(monkeypatch):
     assert len(leg_ids) == len(set(leg_ids))
 
 
+def test_select_player_cards_drops_nonpositive_ev():
+    """Prop Doubles used to mint on probability alone, including below-market legs."""
+    prop_payload = make_payload(
+        {
+            "mlb_player_props": [
+                make_pick(
+                    pick="Eli White Under 1.5 Hits + Runs + RBIs",
+                    game="A @ B",
+                    player="Eli White",
+                    odds=-175,
+                    consensus=True,
+                    market="Total Hits + Runs + RBIs",
+                    market_probability=0.6223,
+                ),
+                make_pick(
+                    pick="Jackson Chourio Under 1.5 Hits",
+                    game="C @ D",
+                    player="Jackson Chourio",
+                    odds=-166,
+                    consensus=True,
+                    market="Total Hits",
+                    market_probability=0.61,
+                ),
+            ]
+        }
+    )
+    legs = parlays.collect_legs(DATE, None, prop_payload, parlays.TrailingExcess())
+    cards = parlays.select_player_cards(legs)
+    assert cards == []
+    payload = parlays.build_parlay_payload(
+        DATE, None, prop_payload, team_history=[], prop_history=[], prior_payloads=[]
+    )
+    assert payload["cards"] == []
+    assert all(float(card["parlayEv"]) > 0 for card in payload["cards"])
+
+
 def test_select_player_cards_prefers_mixed_families_and_caps_at_one():
     prop_payload = make_payload(
         {
@@ -328,8 +365,15 @@ def test_select_player_cards_prefers_mixed_families_and_caps_at_one():
         }
     )
     legs = parlays.collect_legs(DATE, None, prop_payload, parlays.TrailingExcess())
+    # Market-priced props with a zero positive-edge cap sit at 0 EV. Lift
+    # probability so the mixed-family preference is tested on a real +EV slip.
+    legs = [
+        replace(leg, probability=min(0.84, leg.market_probability + 0.08), calibrated_edge=0.08)
+        for leg in legs
+    ]
     cards = parlays.select_player_cards(legs)
     assert len(cards) == parlays.MAX_PLAYER_CARDS == 1
+    assert float(cards[0]["parlayEv"]) > 0
     families = {leg["market"] for leg in cards[0]["legs"]}
     assert len(families) == 2
 

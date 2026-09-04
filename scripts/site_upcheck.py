@@ -557,6 +557,19 @@ def main() -> int:
             failures.append(f"latest parlay board has mode count(s) above 6: {oversized_modes}")
         if any(int(card.get("legCount") or 0) < 2 for card in parlay_cards):
             failures.append("latest parlay board includes a 1-leg card")
+        nonpositive_ev = []
+        for card in parlay_cards:
+            try:
+                ev = float(card.get("parlayEv"))
+            except (TypeError, ValueError):
+                ev = None
+            if ev is None or ev <= 0:
+                nonpositive_ev.append(str(card.get("id") or card.get("category") or "card"))
+        if nonpositive_ev:
+            failures.append(
+                "latest parlay board publishes a card with parlayEv <= 0: "
+                + ", ".join(nonpositive_ev[:4])
+            )
         category_counts: dict[tuple[str, str], int] = {}
         for mode, cards in mode_cards.items():
             for card in cards:
