@@ -29,8 +29,16 @@ CONSENSUS_EXEMPT_MODEL_KEYS = {"mlb_inning"}
 MLB_TEAM_CONSENSUS_VERSION = "mlb_team_consensus_v1.2.0"
 MLB_TEAM_RANKING_EPOCH_PREFIX = f"MLB:{MLB_TEAM_CONSENSUS_VERSION}"
 MIN_WALK_FORWARD_SAMPLES = 30
-VALIDATION_LEAN_MODELS = {"mlb_new"}
+# Empty: mlb_new graduated off the probation fallback. Keep the helper so a
+# leftover promotion path still cannot fire, and so a future model can opt in
+# without rebuilding the -EV guards.
+VALIDATION_LEAN_MODELS: set[str] = set()
 VALIDATION_LEAN_LIMIT = 3
+# Live mlb_new stakes are quarter-Kelly on a 10u bankroll, not the schema's
+# display formula (quarter * 100 on a 100u bankroll, which reaches 2u).
+MLB_NEW_KELLY_BANKROLL_UNITS = 10.0
+MLB_NEW_STAKE_FLOOR = 0.25
+MLB_NEW_STAKE_CEILING = 0.60
 
 MODEL_BET_TYPE_DEFAULTS = {
     "mlb_new": "h2h",
@@ -43,9 +51,9 @@ PUBLICATION_THRESHOLDS = {
     "mlb_new": {"lean_edge": 3.0, "bet_edge": 7.0, "lean_prob": 0.53, "bet_prob": 0.56, "lean_signals": 3, "bet_signals": 4},
     "mlb_first_five": {"lean_edge": 3.0, "bet_edge": 7.0, "lean_prob": 0.54, "bet_prob": 0.58, "lean_signals": 4, "bet_signals": 5},
     "mlb_inning": {"lean_edge": 5.0, "bet_edge": 10.0, "lean_prob": 0.55, "bet_prob": 0.60, "lean_signals": 4, "bet_signals": 5},
-    # Team totals launch strict-only (no validation-lean lane): real
+    # Team totals stay strict-only (no validation-lean lane): real
     # DraftKings prices mean the model earns publication through the
-    # walk-forward ledger like mlb_new, not through fallback promotions.
+    # walk-forward ledger, not through fallback promotions.
     "mlb_team_total": {"lean_edge": 4.0, "bet_edge": 8.0, "lean_prob": 0.56, "bet_prob": 0.60, "lean_signals": 3, "bet_signals": 4},
 }
 
@@ -668,7 +676,8 @@ def evaluate_mlb_team_pick(
     game_lookup: dict[str, dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     bucket = bucket or {}
-    performance = performance or _walk_forward_performance()
+    if performance is None:
+        performance = _walk_forward_performance()
     lookup = game_lookup if game_lookup is not None else _game_lookup(bucket)
     bet_type = _bet_type(pick, model_key)
     thresholds = PUBLICATION_THRESHOLDS.get(model_key, PUBLICATION_THRESHOLDS["mlb_new"])
@@ -767,35 +776,60 @@ def evaluate_mlb_team_pick(
     }
 
 
-def _stake_units(pick: dict[str, Any], decision: str, *, bootstrap: bool = False) -> float:
-    if decision == "PASS":
-        return 0.0
+def _raw_stake_units(pick: dict[str, Any], decision: str) -> float:
     raw_units = _number(pick.get("raw_units"))
     if raw_units is None:
         raw_units = _number((pick.get("pregame_snapshot") or {}).get("units")) if isinstance(pick.get("pregame_snapshot"), dict) else None
     if raw_units is None:
         raw_units = _number(pick.get("units"))
     if raw_units is None or raw_units <= 0:
-        units = 0.25 if decision == "LEAN" else 0.5
-    else:
-        units = round(min(1.5, raw_units if decision == "BET" else raw_units * 0.6), 2)
+        return 0.25 if decision == "LEAN" else 0.5
+    return round(min(1.5, raw_units if decision == "BET" else raw_units * 0.6), 2)
+
+
+def _quarter_kelly_units(pick: dict[str, Any], probability: float | None) -> float | None:
+    odds = _number(pick.get("odds"))
+    if probability is None or odds is None or odds == 0 or -100.0 < odds < 100.0:
+        return None
+    _full, quarter = kelly(float(probability), int(round(odds)))
+    if quarter <= 0:
+        return None
+    return round(
+        max(MLB_NEW_STAKE_FLOOR, min(MLB_NEW_STAKE_CEILING, quarter * MLB_NEW_KELLY_BANKROLL_UNITS)),
+        2,
+    )
+
+
+def _stake_units(
+    pick: dict[str, Any],
+    decision: str,
+    *,
+    bootstrap: bool = False,
+    model_key: str | None = None,
+    calibrated_probability: float | None = None,
+) -> float:
+    if decision == "PASS":
+        return 0.0
     # Bootstrap publications exist to accumulate decided history, not to
-    # size up an unvalidated family — same exposure cap as validation leans.
-    return min(units, 0.25) if bootstrap else units
+    # size up an unvalidated family — same 0.25u cap as the old probation leans.
+    if bootstrap:
+        return min(_raw_stake_units(pick, decision), 0.25)
+    if model_key == "mlb_new":
+        sized = _quarter_kelly_units(pick, calibrated_probability)
+        return sized if sized is not None else MLB_NEW_STAKE_FLOOR
+    return _raw_stake_units(pick, decision)
 
 
 def _kelly_stake_fields(pick: dict[str, Any], result: dict[str, Any], decision: str) -> dict[str, Any]:
-    """Quarter-Kelly stake suggestion at the actual price.
-
-    Display-only guidance on a 100u bankroll: the flat-record staking in
-    ``units`` and the Profit Desk ledgers are unchanged.
-    """
+    """Quarter-Kelly stake suggestion at the actual price on a 10u bankroll."""
     probability = normalize_probability(result.get("calibrated_model_probability"))
     odds = _number(pick.get("odds"))
     if probability is None or odds is None or odds == 0 or -100.0 < odds < 100.0:
         return {}
     full, quarter = kelly(probability, int(round(odds)))
-    recommended = 0.0 if decision == "PASS" else round(min(2.0, quarter * 100.0), 2)
+    recommended = 0.0 if decision == "PASS" else (
+        _quarter_kelly_units(pick, probability) or 0.0
+    )
     return {
         "full_kelly": full,
         "quarter_kelly": quarter,
@@ -937,7 +971,8 @@ def apply_mlb_team_consensus_to_payload(
     models = payload.get("models")
     if not isinstance(models, dict):
         return payload
-    performance = performance or _walk_forward_performance()
+    if performance is None:
+        performance = _walk_forward_performance()
     for model_key, bucket in models.items():
         if model_key not in MLB_TEAM_MODEL_KEYS or not isinstance(bucket, dict):
             continue
@@ -963,6 +998,9 @@ def apply_mlb_team_consensus_to_payload(
             )
             evaluated.append((pick, result))
             decision = result["decision"]
+            pick.pop("validation_lean", None)
+            pick.pop("validation_score", None)
+            pick.pop("validation_reason", None)
             pick.update({
                 "consensus_required": True,
                 "consensus_gate_version": MLB_TEAM_CONSENSUS_VERSION,
@@ -991,7 +1029,13 @@ def apply_mlb_team_consensus_to_payload(
                 "walk_forward_roi": (result["walk_forward"] or {}).get("roi"),
                 "actionability": result["actionability"],
                 "decision": decision,
-                "units": _stake_units(pick, decision, bootstrap=result["walk_forward_bootstrap"]),
+                "units": _stake_units(
+                    pick,
+                    decision,
+                    bootstrap=result["walk_forward_bootstrap"],
+                    model_key=str(model_key),
+                    calibrated_probability=result.get("calibrated_model_probability"),
+                ),
                 **_kelly_stake_fields(pick, result, decision),
                 "ml_rank_epoch": f"{MLB_TEAM_RANKING_EPOCH_PREFIX}:{model_key}",
                 "ranking_epoch": f"{MLB_TEAM_RANKING_EPOCH_PREFIX}:{model_key}",
@@ -1001,6 +1045,9 @@ def apply_mlb_team_consensus_to_payload(
         if promoted:
             bucket["validation_leans_published"] = promoted
             bucket["validation_publication_mode"] = "fallback_when_strict_gate_empty"
+        else:
+            bucket.pop("validation_leans_published", None)
+            bucket.pop("validation_publication_mode", None)
         summary: dict[str, int] = {}
         for pick in picks:
             if not isinstance(pick, dict):

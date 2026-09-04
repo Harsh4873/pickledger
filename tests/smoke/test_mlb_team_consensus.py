@@ -2,11 +2,17 @@ from __future__ import annotations
 
 from copy import deepcopy
 
+from player_props.schema import kelly
+from scripts import mlb_team_consensus as consensus
 from scripts.mlb_team_consensus import (
+    MLB_NEW_STAKE_CEILING,
+    MLB_NEW_STAKE_FLOOR,
     MLB_TEAM_CONSENSUS_VERSION,
+    VALIDATION_LEAN_MODELS,
     apply_mlb_team_consensus_to_payload,
     evaluate_mlb_team_pick,
 )
+from scripts.merge_external_feed_cache_payload import _demote_scraped_feed_picks
 
 
 GOOD_PERFORMANCE = {
@@ -199,9 +205,14 @@ def test_bad_walk_forward_history_blocks_high_probability_pick():
     assert "failed_walk_forward_validation" in result["hard_blockers"]
 
 
-def test_dry_mlb_new_bucket_publishes_top_raw_signal_as_validation_lean():
-    # Calibrated 0.545 vs -110 implied 0.5238 is +2.1pp: positive enough for
-    # the fallback but below the 3pp strict LEAN gate.
+def test_mlb_new_is_off_validation_lean_probation():
+    assert "mlb_new" not in VALIDATION_LEAN_MODELS
+    assert VALIDATION_LEAN_MODELS == set()
+
+
+def test_dry_mlb_new_bucket_stays_pass_without_validation_fallback():
+    # Calibrated 0.545 vs -110 implied 0.5238 is +2.1pp: below the 3pp strict
+    # LEAN gate. With probation removed, a dry slate must stay PASS.
     pick = _mlb_new_pick(
         pick="Under 8.0 (Dodgers vs Padres)",
         market_type="totals",
@@ -229,17 +240,18 @@ def test_dry_mlb_new_bucket_publishes_top_raw_signal_as_validation_lean():
     gated = apply_mlb_team_consensus_to_payload(payload, performance=GOOD_PERFORMANCE)
     published = gated["models"]["mlb_new"]["picks"][0]
 
-    assert published["decision"] == "LEAN"
-    assert published["actionability"] == "validation_lean"
-    assert published["units"] == 0.25
-    assert published["consensus_passed"] is True
-    assert published["primary_consensus_passed"] is False
-    assert published["consensus_publication_mode"] == "validation_fallback"
-    assert published["validation_lean"] is True
+    assert published["decision"] == "PASS"
+    assert published["units"] == 0.0
+    assert published["consensus_passed"] is False
+    assert published.get("validation_lean") is not True
+    assert published.get("consensus_publication_mode") != "validation_fallback"
     assert "edge_signal_threshold_not_met" in published["consensus_rejection_reason"]
 
 
-def test_validation_lean_never_promotes_negative_calibrated_edge():
+def test_validation_lean_never_promotes_negative_calibrated_edge(monkeypatch):
+    # If a model is put back on the fallback, raw enthusiasm still cannot
+    # promote a pick whose calibrated edge against the real price is negative.
+    monkeypatch.setattr(consensus, "VALIDATION_LEAN_MODELS", {"mlb_new"})
     # Raw model enthusiasm (raw_edge 11.4) cannot promote a pick whose
     # calibrated edge against the real price is negative.
     pick = _mlb_new_pick(
@@ -532,3 +544,77 @@ def test_bootstrap_publication_mode_is_labeled_in_payload():
     assert published["consensus_publication_mode"] == "bootstrap"
     assert published["walk_forward_bootstrap"] is True
     assert published["units"] == 0.25
+
+
+def test_qualified_mlb_new_bet_uses_quarter_kelly_on_ten_unit_bankroll():
+    # Typical -105 with p=0.62: quarter Kelly * 10 lands near 0.5u, inside the
+    # 0.3-0.6 live band. Must not stay at the 0.25 probation cap or jump to 1u+.
+    pick = _mlb_new_pick()
+    payload = {
+        "date": "2026-09-03",
+        "models": {
+            "mlb_new": {
+                "ok": True,
+                "artifact_status": {"ready": True},
+                "model_stack": "v2",
+                "picks": [pick],
+            },
+        },
+    }
+
+    gated = apply_mlb_team_consensus_to_payload(payload, performance=GOOD_PERFORMANCE)
+    published = gated["models"]["mlb_new"]["picks"][0]
+    _full, quarter = kelly(0.62, -105)
+    expected = round(max(MLB_NEW_STAKE_FLOOR, min(MLB_NEW_STAKE_CEILING, quarter * 10.0)), 2)
+
+    assert published["decision"] == "BET"
+    assert published["units"] == expected
+    assert 0.30 <= published["units"] <= 0.60
+    assert published["units"] != 0.25
+    assert published["units"] < 1.0
+    assert published["recommended_units"] == expected
+    assert published["recommended_units"] < 1.0
+
+
+def test_first_five_stake_still_uses_raw_units_path():
+    pick = _f5_pick()
+    bucket = _f5_bucket(pick)
+    payload = {"date": "2026-06-25", "models": {"mlb_first_five": bucket}}
+
+    gated = apply_mlb_team_consensus_to_payload(payload, performance=GOOD_PERFORMANCE)
+    published = gated["models"]["mlb_first_five"]["picks"][0]
+
+    assert published["decision"] == "BET"
+    assert published["units"] == 0.7
+    assert published["units"] != 0.25
+
+
+def test_consensus_gate_does_not_restake_demoted_scraped_feeds():
+    scraped = {
+        "ok": True,
+        "picks": [{"pick": "Cubs ML", "decision": "BET", "units": 1, "odds": -132}],
+    }
+    payload = _demote_scraped_feed_picks({
+        "date": "2026-09-03",
+        "models": {
+            "mlb_new": {
+                "ok": True,
+                "artifact_status": {"ready": True},
+                "model_stack": "v2",
+                "picks": [_mlb_new_pick()],
+            },
+            "scores24_mlb": scraped,
+        },
+        "scores24_mlb": scraped,
+    })
+
+    gated = apply_mlb_team_consensus_to_payload(payload, performance=GOOD_PERFORMANCE)
+    tip = gated["models"]["scores24_mlb"]["picks"][0]
+    inhouse = gated["models"]["mlb_new"]["picks"][0]
+
+    assert tip["decision"] == "PASS"
+    assert tip["units"] == 0
+    assert tip["scraped_tip_demoted"] is True
+    assert inhouse["decision"] == "BET"
+    assert 0.30 <= inhouse["units"] <= 0.60
+
