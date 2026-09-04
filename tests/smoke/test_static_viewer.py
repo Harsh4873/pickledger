@@ -29,6 +29,8 @@ def test_frontend_is_static_json_only():
     assert "cannon_mlb_daily" not in data
     assert '<link rel="stylesheet" href="./src/styles/pickledger.css">' in html
     assert "See how every source has performed across the picks and results collected here." in html
+    assert "sportytrader_cfb: 'SportyTraderCFB'" in data
+    assert "sportsgambler_cfb: 'SportsGamblerCFB'" in data
 
 
 def test_viewer_paints_latest_picks_before_history_archive():

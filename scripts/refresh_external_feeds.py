@@ -59,6 +59,7 @@ SPLIT_PROVIDER_MODEL_KEYS = {
         "sportytrader_mlb",
         "sportytrader_wnba",
         "sportytrader_fifa_world_cup",
+        "sportytrader_cfb",
     ),
     "sportsgambler": (
         "sportsgambler_nba",
@@ -66,6 +67,7 @@ SPLIT_PROVIDER_MODEL_KEYS = {
         "sportsgambler_mlb",
         "sportsgambler_wnba",
         "sportsgambler_fifa_world_cup",
+        "sportsgambler_cfb",
     ),
 }
 
@@ -84,7 +86,7 @@ def _parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--sports",
-        default="nba,mlb,wnba",
+        default="nba,mlb,wnba,cfb",
         help="Comma-separated sports passed to each feed scraper.",
     )
     parser.add_argument("--skip-firestore", action="store_true", help="Write JSON only; useful for local checks.")
@@ -213,6 +215,8 @@ def _split_provider_result(
         split_key: _empty_split_bucket(feed_key, split_key, result, date_iso, sports, now_iso)
         for split_key in sorted(split_keys)
     }
+    meta = result.get("meta") if isinstance(result.get("meta"), dict) else {}
+    sport_errors = meta.get("sportErrors") if isinstance(meta.get("sportErrors"), dict) else {}
 
     for raw_pick in result.get("picks") or []:
         if not isinstance(raw_pick, dict):
@@ -229,6 +233,14 @@ def _split_provider_result(
         bucket["picks"].append(pick)
 
     for split_key, bucket in buckets.items():
+        sport_key = ""
+        prefix = f"{feed_key}_"
+        if split_key.startswith(prefix):
+            sport_key = split_key[len(prefix):]
+        sport_error = sport_errors.get(sport_key)
+        if sport_error:
+            bucket["ok"] = False
+            bucket["error"] = sport_error
         bucket["note"] = f"Scheduled {split_key} refresh returned {len(bucket['picks'])} pick(s)."
         bucket["meta"] = {
             **(bucket.get("meta") if isinstance(bucket.get("meta"), dict) else {}),
@@ -264,6 +276,7 @@ def main() -> int:
         "mlb",
         "wnba",
         "fifa_world_cup",
+        "cfb",
     ]
     now_iso = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
 

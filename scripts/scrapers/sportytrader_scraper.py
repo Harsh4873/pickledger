@@ -2,7 +2,7 @@
 """
 SportyTrader Scraper
 ====================
-    Scrapes NBA, NBA Summer League, WNBA, MLB, and FIFA World Cup picks from
+    Scrapes NBA, NBA Summer League, WNBA, MLB, FIFA World Cup, and CFB picks from
 SportyTrader and prints structured pick blocks for the backend parser.
 """
 
@@ -79,6 +79,31 @@ SPORT_CONFIG = {
         "title": "FIFA World Cup",
         "url": "https://www.sportytrader.com/us/picks/soccer/world/world-cup-1811/",
     },
+    "cfb": {
+        "aliases": {"cfb", "ncaaf", "college_football", "ncaa"},
+        "league": "USA - NCAA",
+        "league_aliases": {
+            "USA - NCAA",
+            "USA - NCAAF",
+            "NCAA",
+            "NCAAF",
+            "College Football",
+            "NCAA Football",
+            "NCAA College Football",
+        },
+        "title": "CFB",
+        # NCAA-only listing (Cloudflare typically requires Playwright).
+        # No numeric league id analogous to mlb-597 is published; NFL is nfl-598.
+        "url": "https://www.sportytrader.com/us/picks/football/usa/ncaa/",
+        "fallback_urls": (
+            "https://www.sportytrader.com/en/betting-tips/american-football/usa/ncaa/",
+            "https://www.sportytrader.com/en/betting-tips/american-football/",
+        ),
+        # Mixed American-football fallbacks may 403 independently of the NCAA
+        # listing; CFB is optional at the provider runner, so one working page
+        # is enough to publish a partial slate.
+        "allow_partial_listings": True,
+    },
 }
 
 SPORT_ALIAS_MAP = {
@@ -128,7 +153,7 @@ SPORTYTRADER_CARDS_JS = r"""
             /\b\d{1,2}\s+[A-Z][a-z]{2,8}\s+\d{4},\s+\d{1,2}:\d{2}\b/.test(line)
             || /\b[A-Z][a-z]{2,8}\s+\d{1,2},\s+\d{4},\s+\d{1,2}:\d{2}/.test(line)
         )) || '';
-        const league = paragraphs.find((line) => /\b(?:NBA Summer League|Summer League|NBA|WNBA|MLB|World Cup)\b/i.test(line)) || '';
+        const league = paragraphs.find((line) => /\b(?:NBA Summer League|Summer League|NBA|WNBA|MLB|World Cup|NCAAF|College Football|NCAA|NFL)\b/i.test(line)) || '';
         const tipNode = card.querySelector('.bg-gray-100 p.font-semibold');
         const lines = (card.innerText || '').split(/\n+/).map(text).filter(Boolean);
         const headingIndex = lines.findIndex((line) => line === heading);
@@ -333,6 +358,16 @@ def _extract_text_cards(
             continue
 
         preceding = lines[max(0, index - 16):index]
+        clipped: list[str] = []
+        for candidate in reversed(preceding):
+            if re.fullmatch(
+                r".+?\s+vs\.?\s+.+?\s+Prediction",
+                candidate,
+                flags=re.IGNORECASE,
+            ):
+                break
+            clipped.append(candidate)
+        preceding = list(reversed(clipped))
         date_text = next(
             (candidate for candidate in reversed(preceding) if _parse_english_datetime(candidate)),
             "",
@@ -342,7 +377,7 @@ def _extract_text_cards(
                 candidate
                 for candidate in reversed(preceding)
                 if re.search(
-                    r"\b(?:NBA Summer League|Summer League|NBA|WNBA|MLB|World Cup)\b",
+                    r"\b(?:NBA Summer League|Summer League|NBA|WNBA|MLB|World Cup|NCAAF|College Football|NCAA|NFL)\b",
                     candidate,
                     flags=re.IGNORECASE,
                 )
@@ -424,7 +459,7 @@ def main() -> None:
         "--sport",
         "-s",
         default="nba",
-        help="Supported: nba/nba_summer/wnba/mlb/fifa_world_cup",
+        help="Supported: nba/nba_summer/wnba/mlb/fifa_world_cup/cfb",
     )
     ap.add_argument("--date", "-d", help="Date in YYYY-MM-DD")
     ap.add_argument("--expected-matchup", action="append", default=[])
@@ -443,7 +478,7 @@ def main() -> None:
     if not sport_key:
         print(
             "Error: SportyTrader scraper supports NBA/basketball, NBA Summer League, "
-            "WNBA, MLB/baseball, and FIFA World Cup/soccer."
+            "WNBA, MLB/baseball, FIFA World Cup/soccer, and CFB/NCAAF."
         )
         sys.exit(1)
 
@@ -499,15 +534,20 @@ def main() -> None:
     blocked_page_count = sum(
         1 for text in page_texts if _looks_like_cloudflare_block("", text)
     )
+    allow_partial = bool(sport_config.get("allow_partial_listings"))
+    unblocked_page_count = sum(
+        1 for text in page_texts if not _looks_like_cloudflare_block("", text)
+    )
     if load_errors or blocked_page_count:
-        detail = "; ".join(load_errors[:2])
-        if blocked_page_count:
-            prefix = f"{detail}; " if detail else ""
-            detail = f"{prefix}{blocked_page_count} listing page(s) were blocked"
-        print(
-            f"Error: incomplete SportyTrader {target_title} listing coverage: {detail}"
-        )
-        sys.exit(1)
+        if not (allow_partial and unblocked_page_count):
+            detail = "; ".join(load_errors[:2])
+            if blocked_page_count:
+                prefix = f"{detail}; " if detail else ""
+                detail = f"{prefix}{blocked_page_count} listing page(s) were blocked"
+            print(
+                f"Error: incomplete SportyTrader {target_title} listing coverage: {detail}"
+            )
+            sys.exit(1)
 
     try:
         rows = _extract_rows(cards, target_date, sport_key, expected_matchups)
