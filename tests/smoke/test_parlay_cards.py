@@ -114,13 +114,27 @@ def test_trailing_excess_ignores_target_date_and_future():
     assert samples_before == 0
 
 
-def test_trailing_adjustment_is_shrunk_and_capped():
+def test_trailing_adjustment_is_shrunk_and_capped(monkeypatch):
     trailing = parlays.TrailingExcess.build(DATE, winning_team_history(), [])
+
+    # Shipped policy: the positive side is capped at ADJ_POSITIVE_CAP (0.0), so a
+    # winning trailing history can never mark a leg UP above the market price.
+    # Trailing excess over the market was audited and does not persist forward.
     adjustment, samples = trailing.adjustment(
         mode="team", source="MLB Model", market_probability=0.52, pick_text="Any ML"
     )
     assert samples == 30
-    assert 0 < adjustment <= parlays.ADJ_CAP
+    assert adjustment == parlays.ADJ_POSITIVE_CAP == 0.0
+
+    # With the cap lifted, the shrinkage machinery itself must still work: a
+    # winning history produces a positive adjustment bounded by ADJ_CAP. This
+    # keeps the estimator covered so raising the cap stays a one-line decision.
+    monkeypatch.setattr(parlays, "ADJ_POSITIVE_CAP", parlays.ADJ_CAP)
+    raised_adjustment, raised_samples = trailing.adjustment(
+        mode="team", source="MLB Model", market_probability=0.52, pick_text="Any ML"
+    )
+    assert raised_samples == 30
+    assert 0 < raised_adjustment <= parlays.ADJ_CAP
 
     empty = parlays.TrailingExcess()
     zero_adjustment, zero_samples = empty.adjustment(
@@ -128,6 +142,18 @@ def test_trailing_adjustment_is_shrunk_and_capped():
     )
     assert zero_adjustment == 0.0
     assert zero_samples == 0
+
+
+def test_trailing_deficit_can_still_mark_a_leg_down():
+    """The cap is one-sided: a demonstrated deficit must still reduce probability."""
+    trailing = parlays.TrailingExcess()
+    trailing.by_source[("team", "MLB Model")] = [-12.0, 30]
+    trailing.by_band[("team", "MLB Model", parlays._probability_band(0.52))] = [-12.0, 30]
+    adjustment, samples = trailing.adjustment(
+        mode="team", source="MLB Model", market_probability=0.52, pick_text="Any ML"
+    )
+    assert samples == 30
+    assert -parlays.ADJ_CAP <= adjustment < 0
 
 
 # ---------------------------------------------------------------------------
@@ -252,10 +278,25 @@ def qualified_team_payload() -> dict:
     )
 
 
-def test_select_team_cards_requires_trailing_edge():
+def test_shipped_policy_mints_no_team_cards_from_trailing_excess():
+    """At ADJ_POSITIVE_CAP=0 a hot trailing history cannot manufacture a card.
+
+    A card's displayed EV is made entirely of the claimed per-leg edge: at pure
+    no-vig market probability a parlay's EV is exactly 0.0000. Since claimed edge
+    has no forward predictive power, no card should be mintable on that basis.
+    """
+    trailing = parlays.TrailingExcess.build(DATE, winning_team_history(), [])
+    legs = parlays.collect_legs(DATE, qualified_team_payload(), None, trailing)
+    assert parlays.select_team_cards(legs) == []
+
+
+def test_select_team_cards_requires_trailing_edge(monkeypatch):
     legs_cold = parlays.collect_legs(DATE, qualified_team_payload(), None, parlays.TrailingExcess())
     assert parlays.select_team_cards(legs_cold) == []
 
+    # Exercise the minting machinery with the positive cap lifted, so leg
+    # selection, pricing and the odds band stay covered independently of policy.
+    monkeypatch.setattr(parlays, "ADJ_POSITIVE_CAP", parlays.ADJ_CAP)
     trailing = parlays.TrailingExcess.build(DATE, winning_team_history(), [])
     legs_hot = parlays.collect_legs(DATE, qualified_team_payload(), None, trailing)
     cards = parlays.select_team_cards(legs_hot)
@@ -266,7 +307,8 @@ def test_select_team_cards_requires_trailing_edge():
         assert parlays.CARD_ODDS_MIN <= card["oddsAmerican"] <= parlays.CARD_ODDS_MAX
 
 
-def test_select_team_cards_are_leg_disjoint():
+def test_select_team_cards_are_leg_disjoint(monkeypatch):
+    monkeypatch.setattr(parlays, "ADJ_POSITIVE_CAP", parlays.ADJ_CAP)
     trailing = parlays.TrailingExcess.build(DATE, winning_team_history(), [])
     legs = parlays.collect_legs(DATE, qualified_team_payload(), None, trailing)
     cards = parlays.select_team_cards(legs)

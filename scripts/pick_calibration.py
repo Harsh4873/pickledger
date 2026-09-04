@@ -361,7 +361,14 @@ def _profit(
     if odds is None or odds == 0:
         if implied_probability is not None:
             return units * (1 - implied_probability) / implied_probability
-        return units
+        # No price was ever captured for this pick, so its payout is unknowable.
+        # Returning `units` here credited the win at even money (+100), which
+        # silently manufactured P&L: an audit found 472 graded picks booked this
+        # way, whose "profit" was exactly wins minus losses, and two feeds whose
+        # entire apparent profit (+30.00u and +26.00u) consisted of nothing else.
+        # None keeps the pick graded for win-rate purposes while excluding it
+        # from every money calculation, which is the honest treatment.
+        return None
     return units * (odds / 100 if odds > 0 else 100 / abs(odds))
 
 

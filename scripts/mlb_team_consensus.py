@@ -273,10 +273,16 @@ def _walk_forward_performance(ledger_path: Path = OUTCOME_LEDGER_PATH) -> dict[t
             group["wins"] += 1
         else:
             group["losses"] += 1
-        group["profit"] += float(record.get("profit") or 0.0)
-        group["stake"] += abs(
-            float(record.get("stake_units") or record.get("units") or record.get("raw_units") or 1.0)
-        )
+        # An unpriced pick (profit is None) still counts toward win rate, but it
+        # must contribute to neither profit nor stake: adding its stake while
+        # booking 0 profit would drag ROI toward zero on picks we simply cannot
+        # price. Keep the money math over priced picks only.
+        record_profit = record.get("profit")
+        if record_profit is not None:
+            group["profit"] += float(record_profit)
+            group["stake"] += abs(
+                float(record.get("stake_units") or record.get("units") or record.get("raw_units") or 1.0)
+            )
         probability = normalize_probability(
             record.get("calibrated_probability") if record.get("calibrated_probability") is not None
             else record.get("probability")
@@ -295,20 +301,32 @@ def _walk_forward_performance(ledger_path: Path = OUTCOME_LEDGER_PATH) -> dict[t
         group["roi"] = (float(group["profit"]) / stake) if stake else None
         group["brier"] = (group["brier_sum"] / group["brier_n"]) if group["brier_n"] else None
         group["avg_clv"] = (group["clv_sum"] / group["clv_n"]) if group["clv_n"] else None
-        # Profitability OR consistently beating the close qualifies a group;
-        # a Brier score worse than the sanity ceiling disqualifies it because
-        # its probabilities cannot be trusted regardless of a lucky record.
+        # Profitability alone qualifies a group; a Brier score worse than the
+        # sanity ceiling disqualifies it because its probabilities cannot be
+        # trusted regardless of a lucky record.
         # (Calibration research: well-calibrated probabilities, not raw
         # accuracy, are what separate +ROI from -ROI model selection.)
+        #
+        # `beats_close` is deliberately NOT part of the gate. It is measured
+        # against our own last pregame capture (see capture_closing_lines.py),
+        # not a true market close: captures land a median ~42 minutes before
+        # start and may come from a different book than the entry price. Audited
+        # against the graded ledger, that movement carries no information about
+        # whether a pick won (r is approximately zero, n=1657) and is strongly
+        # positive for feeds that lose heavily, so gating on it could certify a
+        # losing model on capture-timing artifact alone. It stays recorded for
+        # visibility and can return to the gate once a true close (same book,
+        # captured at scheduled start) is being journaled.
         profitable = float(group.get("profit") or 0.0) > 0
         beats_close = group["avg_clv"] is not None and group["clv_n"] >= 10 and group["avg_clv"] > 0
+        group["beats_close"] = beats_close
         brier_sane = (
             group["brier"] is None
             or group["brier_n"] < MIN_BRIER_SAMPLES
             or group["brier"] <= BRIER_SANITY_CEILING
         )
         group["qualified"] = (
-            samples >= MIN_WALK_FORWARD_SAMPLES and (profitable or beats_close) and brier_sane
+            samples >= MIN_WALK_FORWARD_SAMPLES and profitable and brier_sane
         )
     return groups
 

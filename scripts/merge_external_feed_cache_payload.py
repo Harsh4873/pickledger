@@ -161,6 +161,75 @@ def _without_retired_buckets(payload: dict[str, Any]) -> dict[str, Any]:
     return cleaned
 
 
+def _demote_scraped_feed_picks(payload: dict[str, Any]) -> dict[str, Any]:
+    """Publish scraped tipster feeds as untracked research rows, never as bets.
+
+    Every source in EXTERNAL_FEED_MODEL_KEYS republishes a third party's FINISHED
+    pick (SportsGambler's tip anchor, SportyTrader's tip box, Scores24's "Our
+    choice", Forebet's tip sign, TennisTonic's prediction_set). Those arrive with
+    no probability of their own, and the scrapers hardcode decision="BET" with
+    units=1, so a stranger's opinion entered the book at full stake and counted
+    as a high-conviction pick.
+
+    Audited against the graded ledger, this class runs about -5.5% ROI with a
+    t-statistic near -3.5 -- provably negative rather than unlucky -- and it is
+    what made the BET tier perform WORSE than the LEAN tier.
+
+    Demoting decision to PASS with units 0 keeps every row visible, attributed,
+    and gradeable as a sentiment column while removing it from anything that
+    reads as a recommendation: isTrackedPick() in the viewer admits only
+    BET/LEAN, and the parlay builder's TEAM_VISIBLE_DECISIONS does the same.
+    Applied at merge time so it holds for every writer and cannot be reintroduced
+    by an individual scraper.
+    """
+    demoted = dict(payload)
+
+    def demote_bucket(bucket: Any) -> Any:
+        if not isinstance(bucket, dict):
+            return bucket
+        picks = bucket.get("picks")
+        if not isinstance(picks, list):
+            return bucket
+        updated_picks: list[Any] = []
+        changed = False
+        for pick in picks:
+            if not isinstance(pick, dict):
+                updated_picks.append(pick)
+                continue
+            decision = str(pick.get("decision") or "").strip().upper()
+            if decision in {"BET", "LEAN"}:
+                revised = dict(pick)
+                revised["decision"] = "PASS"
+                revised["units"] = 0
+                revised["scraped_tip_demoted"] = True
+                # Preserve what the source actually said so the demotion is
+                # auditable and reversible rather than destructive.
+                revised.setdefault("source_decision", decision)
+                revised.setdefault("source_units", pick.get("units"))
+                updated_picks.append(revised)
+                changed = True
+            else:
+                updated_picks.append(pick)
+        if not changed:
+            return bucket
+        revised_bucket = dict(bucket)
+        revised_bucket["picks"] = updated_picks
+        revised_bucket["scraped_tip_feed"] = True
+        return revised_bucket
+
+    for container_key in ("models", "external_feeds"):
+        container = demoted.get(container_key)
+        if isinstance(container, dict):
+            demoted[container_key] = {
+                key: (demote_bucket(value) if key in EXTERNAL_FEED_MODEL_KEYS else value)
+                for key, value in container.items()
+            }
+    for key in list(demoted):
+        if key in EXTERNAL_FEED_MODEL_KEYS:
+            demoted[key] = demote_bucket(demoted[key])
+    return demoted
+
+
 def _seed_external_feeds_from_latest(latest_payload: dict[str, Any]) -> dict[str, Any]:
     seeded: dict[str, Any] = {}
     external_feeds = latest_payload.get("external_feeds")
@@ -426,7 +495,7 @@ def merge_payload(generated: dict[str, Any], cache_dir: Path) -> dict[str, Any]:
             else:
                 merged[split_key] = split_bucket
 
-    return _without_retired_buckets(merged)
+    return _demote_scraped_feed_picks(_without_retired_buckets(merged))
 
 
 def _scores24_feed_bucket(payload: dict[str, Any], key: str) -> dict[str, Any] | None:

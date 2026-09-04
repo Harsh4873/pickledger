@@ -80,6 +80,26 @@ K_SOURCE = 25
 K_BAND = 12
 K_DIRECTION = 15
 ADJ_CAP = 0.15
+# Ceiling on the POSITIVE side of the trailing-excess adjustment.
+#
+# The adjustment claims a source beats the market price by some margin, and that
+# claim is what a card's displayed EV is made of: at pure no-vig market
+# probability a parlay's EV is exactly 0.0000, so a +53.84% card was entirely
+# self-generated alpha (+12.72pp per leg, riding near ADJ_CAP).
+#
+# Audited against the graded record, the claim does not survive out of sample.
+# Bucketing legs by claimed edge against realized excess over break-even gives a
+# correlation indistinguishable from zero (r about -0.02 on 336 parlay legs and
+# on 1657 ledger picks), and in the >=0.12 band the live cards actually occupied
+# the realized excess turned NEGATIVE and significantly so (t about -2.1). The
+# estimator is well built and does not leak in-sample; trailing excess over the
+# market simply does not persist forward.
+#
+# So the positive side is capped at 0: a source may still be marked DOWN for a
+# demonstrated deficit, but never marked up above the market's own price. Cards
+# therefore price at market instead of advertising an edge that is not there.
+# Raise this only against evidence that claimed edge predicts realized edge.
+ADJ_POSITIVE_CAP = 0.0
 CONSENSUS_BONUS = 0.01
 P_CAL_FLOOR = 0.05
 P_CAL_CEIL = 0.85
@@ -605,7 +625,7 @@ class TrailingExcess:
                 dir_total, dir_count = self.by_direction[(mode, source, direction)]
                 if dir_count:
                     adjustment += 0.35 * (dir_count / (dir_count + K_DIRECTION)) * (dir_total / dir_count)
-        return max(-ADJ_CAP, min(ADJ_CAP, adjustment)), count
+        return max(-ADJ_CAP, min(ADJ_POSITIVE_CAP, adjustment)), count
 
 
 def _payloads_before(cache_dir: Path, target_date: str) -> list[dict[str, Any]]:
