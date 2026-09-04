@@ -504,6 +504,7 @@ const PLAYER_PROP_SOURCE_LABELS: Record<string, string> = {
   nba_player_props: 'NBAPlayerProps',
   mlb_player_props: 'MLBPlayerProps',
   wnba_player_props: 'WNBAPlayerProps',
+  cfb_player_props: 'CFBPlayerProps',
   wnba_3pm: 'WNBA3PM',
   mlb_player_props_season: 'MLB Season Props',
   mlb_player_props_all_time: 'MLB All Time Props',

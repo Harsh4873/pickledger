@@ -7,9 +7,10 @@ from typing import Any
 
 from .api import DirectApiClient
 from .basketball import generate_basketball_candidate_model, generate_wnba_3pm_candidate_model
+from .cfb import generate_cfb_candidate_model
 from .ml import assign_ml_ranks
 from .mlb import generate_mlb_candidate_model
-from .variants import build_variant_buckets, build_wnba_3pm_bucket
+from .variants import build_variant_buckets, build_wnba_3pm_bucket, player_prop_sport_key
 
 
 def generate_payload(
@@ -24,11 +25,19 @@ def generate_payload(
     wnba_candidates = generate_basketball_candidate_model(api, "wnba", "WNBA", date_iso)
     wnba_3pm_candidates = generate_wnba_3pm_candidate_model(api, date_iso)
     mlb_candidates = generate_mlb_candidate_model(api, date_iso)
+    # CFB is added as a SINGLE bucket rather than through build_variant_buckets:
+    # the variant machinery's matchup/H2H adjustments are baseball/basketball
+    # specific and would contribute no signal for football, and CFB has no ML
+    # artifact (registering one would widen FEATURE_NAMES and break the existing
+    # MLB/WNBA joblib models). assign_ml_ranks below is a no-op for CFB beyond
+    # stamping ml_rank, so decisions and stakes publish as the model set them.
+    cfb_candidates = generate_cfb_candidate_model(api, date_iso)
     models = {
         **build_variant_buckets(sport="NBA", date_iso=date_iso, base_model=nba_candidates),
         **build_variant_buckets(sport="WNBA", date_iso=date_iso, base_model=wnba_candidates),
         **build_wnba_3pm_bucket(date_iso=date_iso, base_model=wnba_3pm_candidates),
         **build_variant_buckets(sport="MLB", date_iso=date_iso, base_model=mlb_candidates),
+        player_prop_sport_key("CFB"): cfb_candidates,
     }
     payload = {
         "date": date_iso,

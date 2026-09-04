@@ -21,6 +21,7 @@ PUBLIC_PLAYER_PROP_MODEL_KEYS = {
     "nba_player_props",
     "mlb_player_props",
     "wnba_player_props",
+    "cfb_player_props",
 }
 PICK_METADATA_FIELDS = {"result", "start_time", "game_start_time", "pregame_snapshot"}
 MARKET_METADATA_FIELDS = {"start_time", "game_start_time", "pregame_snapshot"}
