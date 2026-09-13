@@ -1,0 +1,175 @@
+import assert from 'node:assert/strict';
+import { test } from 'node:test';
+
+import type { Pick } from '../src/data.ts';
+import {
+  TEAM_RANKING_START_DATE,
+  isTeamRankingWindowPick,
+  rankingComparableTeamPicks,
+  rankingOverallPool,
+  rankingScopedPicks,
+  type RankingScope,
+} from '../src/rankings.ts';
+
+function pick(overrides: Partial<Pick> & { id: string }): Pick {
+  return {
+    source: 'CFB ML',
+    pick: 'Home State ML',
+    sport: 'CFB',
+    date: '2026-09-12',
+    units: 0.5,
+    odds: -110,
+    result: 'pending',
+    pl: 0,
+    decision: 'BET',
+    price_verified: true,
+    ...overrides,
+  };
+}
+
+function record(picks: Pick[]): { wins: number; losses: number; pending: number; net: number } {
+  return {
+    wins: picks.filter(item => item.result === 'win').length,
+    losses: picks.filter(item => item.result === 'loss').length,
+    pending: picks.filter(item => item.result === 'pending').length,
+    net: Number(picks.reduce((sum, item) => sum + item.pl, 0).toFixed(2)),
+  };
+}
+
+function scope(partial: Partial<RankingScope> = {}): RankingScope {
+  return {
+    sports: new Set<string>(),
+    sources: new Set<string>(),
+    decision: 'STAKED',
+    ...partial,
+  };
+}
+
+const mlbWin = pick({
+  id: 'mlb-win',
+  sport: 'MLB',
+  source: 'MLB ML',
+  date: '2026-08-01',
+  decision: 'BET',
+  result: 'win',
+  pl: 0.91,
+  ml_rank_epoch: 'MLB:mlb_team_consensus_v1:keep',
+});
+const cfbBetWin = pick({
+  id: 'cfb-bet-win',
+  sport: 'CFB',
+  source: 'CFB ML',
+  decision: 'BET',
+  result: 'win',
+  units: 0.5,
+  pl: 0.45,
+});
+const cfbLeanLoss = pick({
+  id: 'cfb-lean-loss',
+  sport: 'CFB',
+  source: 'CFB Spread',
+  pick: 'Home State -3.5',
+  decision: 'LEAN',
+  result: 'loss',
+  units: 0.25,
+  pl: -0.25,
+});
+const cfbPassWin = pick({
+  id: 'cfb-pass-win',
+  sport: 'CFB',
+  source: 'CFB Total',
+  pick: 'Under 54.5',
+  decision: 'PASS',
+  result: 'win',
+  units: 0,
+  pl: 0,
+});
+const nflLeanWin = pick({
+  id: 'nfl-lean-win',
+  sport: 'NFL',
+  source: 'NFL ML',
+  pick: 'Seahawks ML',
+  decision: 'LEAN',
+  result: 'win',
+  units: 0.25,
+  pl: 0.23,
+});
+const nflPassPending = pick({
+  id: 'nfl-pass-pending',
+  sport: 'NFL',
+  source: 'NFL Spread',
+  pick: 'Seahawks -3',
+  decision: 'PASS',
+  result: 'pending',
+  units: 0,
+  pl: 0,
+});
+
+const slate = [mlbWin, cfbBetWin, cfbLeanLoss, cfbPassWin, nflLeanWin, nflPassPending];
+
+test('CFB and NFL settled rows stay in the team ranking window', () => {
+  const earlyCfb = pick({
+    id: 'cfb-early',
+    date: '2026-07-01',
+    result: 'win',
+  });
+  const earlyNfl = pick({
+    id: 'nfl-early',
+    sport: 'NFL',
+    source: 'NFL ML',
+    date: '2026-07-01',
+    result: 'loss',
+  });
+  assert.ok(earlyCfb.date < TEAM_RANKING_START_DATE);
+  assert.equal(isTeamRankingWindowPick(earlyCfb), true);
+  assert.equal(isTeamRankingWindowPick(earlyNfl), true);
+  assert.equal(isTeamRankingWindowPick(cfbPassWin), true);
+  assert.deepEqual(
+    rankingComparableTeamPicks(slate).map(item => item.id).sort(),
+    slate.map(item => item.id).sort(),
+  );
+});
+
+test('ranking sport and decision filters recompute the top-section pool', () => {
+  const allStaked = rankingOverallPool(slate, scope());
+  assert.deepEqual(allStaked.map(item => item.id).sort(), [
+    'cfb-bet-win',
+    'cfb-lean-loss',
+    'mlb-win',
+    'nfl-lean-win',
+  ]);
+  assert.deepEqual(record(allStaked), { wins: 3, losses: 1, pending: 0, net: 1.34 });
+
+  const cfbStaked = rankingOverallPool(slate, scope({ sports: new Set(['CFB']) }));
+  assert.deepEqual(cfbStaked.map(item => item.id).sort(), ['cfb-bet-win', 'cfb-lean-loss']);
+  assert.deepEqual(record(cfbStaked), { wins: 1, losses: 1, pending: 0, net: 0.20 });
+
+  const cfbPass = rankingOverallPool(slate, scope({
+    sports: new Set(['CFB']),
+    decision: 'PASS',
+  }));
+  assert.deepEqual(cfbPass.map(item => item.id), ['cfb-pass-win']);
+  assert.deepEqual(record(cfbPass), { wins: 1, losses: 0, pending: 0, net: 0 });
+
+  const nflMl = rankingOverallPool(slate, scope({
+    sports: new Set(['NFL']),
+    sources: new Set(['NFL ML']),
+  }));
+  assert.deepEqual(nflMl.map(item => item.id), ['nfl-lean-win']);
+  assert.deepEqual(record(nflMl), { wins: 1, losses: 0, pending: 0, net: 0.23 });
+
+  const nflPass = rankingOverallPool(slate, scope({
+    sports: new Set(['NFL']),
+    decision: 'PASS',
+  }));
+  assert.deepEqual(nflPass.map(item => item.id), ['nfl-pass-pending']);
+  assert.deepEqual(record(nflPass), { wins: 0, losses: 0, pending: 1, net: 0 });
+});
+
+test('source filters intersect sports instead of unioning unrelated buckets', () => {
+  const mixed = rankingScopedPicks(slate, scope({
+    sports: new Set(['CFB']),
+    sources: new Set(['MLB ML', 'CFB ML']),
+  }));
+  assert.deepEqual(mixed.map(item => item.id), ['cfb-bet-win']);
+});

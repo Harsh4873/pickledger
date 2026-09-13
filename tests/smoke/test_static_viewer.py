@@ -64,7 +64,7 @@ def test_best_bets_filter_records_replay_settled_slates_at_the_footer():
     assert "function computeDailyFilterLedger(" in main
     assert "function dailyFilterRecordsHtml(" in main
     assert "localStorage.setItem(DAILY_FILTER_LEDGER_KEY" in main
-    assert "function isTeamRankingWindowPick(" in main
+    assert "function isTeamRankingWindowPick(" in (ROOT / "src" / "rankings.ts").read_text(encoding="utf-8")
     assert "function isBestBetsWindowPick(" in main
     assert ".filter(isBestBetsWindowPick)" in main
     assert "buildDailyShortlist(date, false)" in main
@@ -319,7 +319,7 @@ def test_static_viewer_keeps_public_tabs_and_client_grading():
     assert "function setRankingDecisionFilter(" in main
     assert "home-decision-board" in css
     assert "rankingDecisionFilter" in main
-    assert "getAllPicks().filter(isPublishedDailyPick)" in main
+    assert "function isPublishedDailyPick(" in main
     assert "Scraped source picks" in main
 
 
@@ -348,7 +348,9 @@ def test_source_rankings_expand_period_records_and_static_cards_do_not_fake_clic
     for label in ("TODAY", "YESTERDAY", "LAST 7 DAYS", "ALL TIME"):
         assert f"label: '{label}'" in main
     assert "function isSettledPick(" in main
-    assert "const PLAYER_PROP_RANKING_START_DATE = '2026-06-23'" in main
+    assert "const PLAYER_PROP_RANKING_START_DATE = '2026-06-23'" in (
+        ROOT / "src" / "rankings.ts"
+    ).read_text(encoding="utf-8")
     assert "if (activePickMode !== 'player') return picks" in main
     assert "date >= PLAYER_PROP_RANKING_START_DATE" in main
     assert "function rankingWindowLabel(" in main
@@ -453,6 +455,8 @@ def test_profit_and_roi_exclude_missing_assumed_and_unverified_prices():
 
     assert "function normalizedPriceProvenance(" in data
     assert "assumed|synthetic|proxy|fallback|default|estimated|model[_ ]price" in data
+    assert "raw.market_odds_provider" in data
+    assert "espn_scoreboard|nflverse" in data
     assert "raw.market_priced === true && observedMarker" in data
     assert "if (pick.price_verified !== true) return 0" in data
     assert "const pricedPicks = picks.filter(pick => pick.price_verified === true" in main
@@ -546,9 +550,12 @@ def test_player_mode_keeps_best_bets_available_and_prop_sources_separate():
     assert "getParlayCardsPayload(requestedDate)" in main
     assert "function playerRankingEpoch(" in main
     assert "function rankingComparablePicks(" in main
-    assert "const PLAYER_PROP_RANKING_START_DATE = '2026-06-23'" in main
-    assert "const MLB_INNING_RANKING_START_DATE = '2026-08-25'" in main
-    assert "if (source === 'MLB Inning')" in main
+    assert "PLAYER_PROP_RANKING_START_DATE" in main
+    assert "MLB_INNING_RANKING_START_DATE" in main
+    rankings = (ROOT / "src" / "rankings.ts").read_text(encoding="utf-8")
+    assert "const PLAYER_PROP_RANKING_START_DATE = '2026-06-23'" in rankings
+    assert "const MLB_INNING_RANKING_START_DATE = '2026-08-25'" in rankings
+    assert "if (source === 'MLB Inning')" in rankings
     assert "if (activePickMode !== 'player') return picks" in main
     assert "function latestAvailableDateKey(" in main
     assert "function playerModelRank(" in main
@@ -786,6 +793,72 @@ def test_auto_grader_only_tracks_bet_and_lean_decisions(monkeypatch):
     monkeypatch.setattr(module.pickgrader_server, "auto_grade", fail_if_called)
     assert module.grade_payload(payload) == 0
     assert all(pick["result"] == "pending" for pick in payload["models"]["mlb_new"]["picks"])
+
+
+def test_auto_grader_grades_in_house_cfb_and_nfl_pass(monkeypatch):
+    module = _load_module("auto_grade_football_pass_test", ROOT / "scripts" / "auto_grade_picks.py")
+    payload = {
+        "date": "2026-09-12",
+        "models": {
+            "cfb": {
+                "picks": [
+                    {
+                        "id": "cfb-pass",
+                        "source": "CFB Total",
+                        "sport": "CFB",
+                        "pick": "Under 54.5 (Rice Owls @ Notre Dame Fighting Irish)",
+                        "decision": "PASS",
+                        "result": "pending",
+                    },
+                    {
+                        "id": "cfb-bet",
+                        "source": "CFB ML",
+                        "sport": "CFB",
+                        "pick": "Minnesota Golden Gophers ML",
+                        "decision": "BET",
+                        "result": "pending",
+                    },
+                ]
+            },
+            "nfl": {
+                "picks": [
+                    {
+                        "id": "nfl-pass",
+                        "source": "NFL ML",
+                        "sport": "NFL",
+                        "pick": "Seahawks ML",
+                        "decision": "PASS",
+                        "result": "pending",
+                    }
+                ]
+            },
+            "scores24_cfb": {
+                "picks": [
+                    {
+                        "id": "scraped-pass",
+                        "source": "Scores24CFB",
+                        "sport": "CFB",
+                        "pick": "Alabama ML",
+                        "decision": "PASS",
+                        "result": "pending",
+                    }
+                ]
+            },
+        },
+    }
+    captured: list[str] = []
+
+    def fake_grade(picks, _existing, _year):
+        captured.extend(pick["id"] for pick in picks)
+        return {"graded": {pick["id"]: "win" for pick in picks}, "startTimes": {}}
+
+    monkeypatch.setattr(module.pickgrader_server, "auto_grade", fake_grade)
+    assert module.grade_payload(payload) == 3
+    assert captured == ["cfb-pass", "cfb-bet", "nfl-pass"]
+    assert payload["models"]["cfb"]["picks"][0]["result"] == "win"
+    assert payload["models"]["cfb"]["picks"][1]["result"] == "win"
+    assert payload["models"]["nfl"]["picks"][0]["result"] == "win"
+    assert payload["models"]["scores24_cfb"]["picks"][0]["result"] == "pending"
 
 
 def test_auto_grader_ignores_player_props_from_before_ml_retraining(monkeypatch):
@@ -1606,11 +1679,15 @@ def test_rankings_tab_drops_the_profit_desk_qualification_board():
     assert "sources?: ProfitDeskSourceCard[]" in data
 
 
-def test_rankings_boards_follow_a_sport_and_source_filter_while_overall_stats_stay_global():
-    """Rankings gets a Home-style scope filter: sport profitability, source
-    rankings, and day-of-week all read from the same scoped pool, while the
-    Overall Stats row above stays all-time across every source."""
+def test_rankings_boards_and_overall_stats_follow_sport_source_and_decision_filters():
+    """Rankings sport/source/decision filters drive the boards AND Overall Stats.
+
+    Home keeps its own filter Set so tagging a sport on the daily board cannot
+    silently rewrite the leaderboard; Rankings top numbers must still match
+    whatever Rankings filters are active.
+    """
     main = (ROOT / "src" / "main.ts").read_text(encoding="utf-8")
+    rankings = (ROOT / "src" / "rankings.ts").read_text(encoding="utf-8")
     html = (ROOT / "index.html").read_text(encoding="utf-8")
     css = (ROOT / "src" / "styles" / "pickledger.css").read_text(encoding="utf-8")
 
@@ -1620,6 +1697,7 @@ def test_rankings_boards_follow_a_sport_and_source_filter_while_overall_stats_st
     # The filter sits between Overall Stats and the three boards it drives.
     assert html.index("Overall Stats") < html.index('id="rank-filter-groups"')
     assert html.index('id="rank-filter-groups"') < html.index("Sport Profitability")
+    assert "Overall Stats and the boards below all follow sport, source, and BET / LEAN / PASS." in html
 
     # Rankings scope is its own state — sharing Home's Set would make every
     # Home tag silently rewrite the leaderboard.
@@ -1631,15 +1709,23 @@ def test_rankings_boards_follow_a_sport_and_source_filter_while_overall_stats_st
     assert "renderDayOfWeekTable(scopedPicks)" in main
     assert "function renderDayOfWeekTable(comparablePicks: Pick[]): void" in main
     # Sports, sources, and BET/LEAN/PASS intersect; a flat OR would union unrelated buckets.
-    assert "matchesRankingSports(pick) && matchesRankingSources(pick) && matchesRankingDecision(pick)" in main
+    assert "rankingDecisionMatches(pick, scope.decision)" in rankings
     assert "function matchesRankingDecision(" in main
     assert "rankingDecisionFilter === 'STAKED'" in main
-    # Overall Stats never reads the scoped pool.
+    # Overall Stats recompute from the same scoped pool whenever filters change.
     stats_start = main.index("function updateOverallStats(): void {")
     stats_end = main.index("function ", stats_start + 1)
-    assert "rankingScopedPicks" not in main[stats_start:stats_end]
-    assert "rankingSportFilters" not in main[stats_start:stats_end]
-    assert "getAllPicks().filter(isPublishedDailyPick)" in main[stats_start:stats_end]
+    assert "rankingScopedPicks(rankingComparablePicks(getAllPicks()))" in main[stats_start:stats_end]
+    assert "getAllPicks().filter(isPublishedDailyPick)" not in main[stats_start:stats_end]
+    rankings_start = main.index("function renderRankings(): void {")
+    rankings_end = main.index("function bindSourceCards(", rankings_start)
+    assert "updateOverallStats();" in main[rankings_start:rankings_end]
+    # Home's hero numbers follow the active board filters, not the unfiltered slate.
+    home_start = main.index("function renderHome(): void {")
+    home_end = main.index("function clearBoardFilters(): void {")
+    assert "const picks = boardPicks();" in main[home_start:home_end]
+    assert "const stats = statsFor(picks);" in main[home_start:home_end]
+    assert "getElementById('home-summary-grid')" in main[home_start:home_end]
 
     # Switching Team/Player mode rebuilds the buckets, so the scope must reset.
     mode_start = main.index("function switchPickMode(mode: PickMode): void {")

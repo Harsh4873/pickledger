@@ -151,7 +151,12 @@ def grade_payload(payload: dict[str, Any], *, ml_player_props_only: bool = False
             tennis = is_tennis_pick(pick)
             # Unpriced tennis publishes as PASS, but those rows still grade
             # against the ESPN winner flag so the research record settles.
-            if decision not in {"BET", "LEAN"} and not tennis:
+            # In-house CFB/NFL PASS rows are public board picks; Rankings
+            # must settle them when the PASS decision filter is on.
+            in_house_football_pass = (
+                decision == "PASS" and str(scope).strip().lower() in {"cfb", "nfl"}
+            )
+            if decision not in {"BET", "LEAN"} and not tennis and not in_house_football_pass:
                 continue
             if pick.get("grade_supported") is False:
                 continue

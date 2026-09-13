@@ -479,6 +479,6 @@ def test_inning_v2_version_stamp_and_ranking_cutover():
     from pathlib import Path
 
     assert MLB_INNING_MODEL_VERSION == "mlb_inning_v2_2026-08-25"
-    main = (Path(__file__).resolve().parents[2] / "src" / "main.ts").read_text(encoding="utf-8")
-    assert "const MLB_INNING_RANKING_START_DATE = '2026-08-25'" in main
-    assert "if (source === 'MLB Inning')" in main
+    rankings = (Path(__file__).resolve().parents[2] / "src" / "rankings.ts").read_text(encoding="utf-8")
+    assert "const MLB_INNING_RANKING_START_DATE = '2026-08-25'" in rankings
+    assert "if (source === 'MLB Inning')" in rankings

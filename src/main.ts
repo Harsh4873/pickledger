@@ -32,6 +32,19 @@ import {
   type ProfitDeskModeSummary,
   type ProfitDeskPayload,
 } from './data';
+import {
+  LEGACY_RECORD_SOURCES,
+  MLB_INNING_RANKING_START_DATE,
+  MLB_TEAM_CONSENSUS_SOURCES,
+  PLAYER_PROP_RANKING_START_DATE,
+  TEAM_RANKING_START_DATE,
+  WNBA_RESET_SOURCES,
+  isTeamRankingWindowPick,
+  rankingDecisionMatches,
+  rankingScopedPicks as applyRankingScope,
+  rankingSportName,
+  type RankingDecisionFilter as SharedRankingDecisionFilter,
+} from './rankings';
 
 type Stats = {
   total: number;
@@ -135,7 +148,7 @@ const activeFilters = new Set<string>();
 const rankingSportFilters = new Set<string>();
 const rankingSourceFilters = new Set<string>();
 type HomeDecisionFilter = 'ALL' | 'BET' | 'LEAN' | 'PASS';
-type RankingDecisionFilter = 'STAKED' | 'BET' | 'LEAN' | 'PASS';
+type RankingDecisionFilter = SharedRankingDecisionFilter;
 const HOME_DECISION_FILTERS: HomeDecisionFilter[] = ['ALL', 'BET', 'LEAN', 'PASS'];
 const RANKING_DECISION_FILTERS: RankingDecisionFilter[] = ['STAKED', 'BET', 'LEAN', 'PASS'];
 let homeDecisionFilter: HomeDecisionFilter = 'ALL';
@@ -168,41 +181,6 @@ let latestPicksUpdatedAt = '';
 const HOME_SCORE_TTL_MS = 45_000;
 const DISPLAY_TIME_ZONE = 'America/Chicago';
 const AUTO_REFRESH_MS = 5 * 60_000;
-const PLAYER_PROP_RANKING_START_DATE = '2026-06-23';
-const MLB_TEAM_CONSENSUS_EPOCH_PREFIX = 'MLB:mlb_team_consensus_v1';
-const MLB_TEAM_CONSENSUS_SOURCES = new Set([
-  'MLB Model', 'MLB ML', 'MLB Total',
-  'MLB First Five', 'MLB F5', 'MLB F5 Total',
-  'MLB Inning', 'MLB Team Total',
-]);
-// The 2026-07-19 board rebuild: rankings restart from this date so stale
-// records don't carry into the redesigned source split. The proven MLB
-// moneyline/total split (formerly "MLB Model") keeps its full
-// consensus-era history — that record is the one worth preserving.
-const TEAM_RANKING_START_DATE = '2026-07-19';
-// "MLB Model" stays listed as a safety net: any mlb_new row whose market
-// tag fails the ML/Total split must never drop out of the record.
-const LEGACY_RECORD_SOURCES = new Set(['MLB ML', 'MLB Total', 'MLB Model']);
-// WNBA redesign (2026-07-19): the proven moneyline record carries over as
-// WNBA ML; the rebuilt spread/total variants (and any stray legacy label)
-// restart from the redesign date.
-const WNBA_RESET_SOURCES = new Set(['WNBA Model', 'WNBA Spread', 'WNBA Total']);
-// WNBA totals v2 (2026-07-26): the totals projection was retrained after
-// the v1 run finished 24-44 (93% Unders — the model carried a systematic
-// low-total bias). The WNBA Total record and rankings restart at the v2
-// cutover; ML and Spread keep their 2026-07-19 reset above.
-const WNBA_TOTAL_RANKING_START_DATE = '2026-07-26';
-// MLB Inning v2 (2026-08-25): inning-shaped pitching prior + shrunk
-// 30-game team history replaced the flat ERA conversion that published
-// noisy early innings and starved the bullpen path. The MLB Inning
-// record restarts at the cutover; other MLB team variants keep 7/19.
-const MLB_INNING_RANKING_START_DATE = '2026-08-25';
-// MLS v2 (2026-07-25): the trained Dixon-Coles engine replaced the
-// FIFA-derived heuristic wholesale, so the tracked record restarts at the
-// cutover. The legacy 'MLS Model' label is included so a row that misses
-// the per-market split can never carry the old engine's record forward.
-const MLS_RESET_SOURCES = new Set(['MLS Model', 'MLS ML', 'MLS Spread', 'MLS Total']);
-const MLS_RANKING_START_DATE = '2026-07-25';
 const PRIMARY_FILTERS = ['ALL', 'NFL', 'CFB', 'MLB', 'WNBA', 'MLS', 'TENNIS'];
 let lastCentralDate = '';
 
@@ -455,39 +433,6 @@ function isOpenPick(pick: Pick): boolean {
   return pick.result === 'pending' && !isUnsupportedPendingPick(pick) && isPostedDecision(pick);
 }
 
-function isTeamRankingWindowPick(pick: Pick): boolean {
-  const source = sourceName(pick);
-  const isConsensusSource = String(pick.sport || '').toUpperCase() === 'MLB'
-    && MLB_TEAM_CONSENSUS_SOURCES.has(source);
-  // Record resets apply ONLY to in-house model variants (MLB/WNBA at
-  // the 2026-07-19 redesign, MLS at the 2026-07-25 v2 cutover, WNBA
-  // totals again at the 2026-07-26 v2 retrain). External feeds and
-  // every other source keep their full history.
-  if (source === 'WNBA Total') {
-    return pickDateKey(pick) >= WNBA_TOTAL_RANKING_START_DATE;
-  }
-  if (source === 'MLB Inning') {
-    return pickDateKey(pick) >= MLB_INNING_RANKING_START_DATE;
-  }
-  if (WNBA_RESET_SOURCES.has(source)) {
-    return pickDateKey(pick) >= TEAM_RANKING_START_DATE;
-  }
-  if (MLS_RESET_SOURCES.has(source)) {
-    return pickDateKey(pick) >= MLS_RANKING_START_DATE;
-  }
-  if (!isConsensusSource) return true;
-  // Legacy sources (MLB ML, MLB Total, MLB Model) keep their full
-  // consensus-era history but only count picks that carry the v1 epoch
-  // stamp — this filters out any pre-consensus rows from their record.
-  if (LEGACY_RECORD_SOURCES.has(source)) {
-    const epoch = String(pick.ml_rank_epoch || pick.ranking_epoch || pick.model_epoch || '').trim();
-    return epoch.startsWith(MLB_TEAM_CONSENSUS_EPOCH_PREFIX);
-  }
-  // Non-legacy consensus sources (Team Total, F5, etc.) are date-gated
-  // from the 2026-07-19 redesign. MLB Inning is gated earlier at v2.
-  return pickDateKey(pick) >= TEAM_RANKING_START_DATE;
-}
-
 function isBestBetsWindowPick(pick: Pick): boolean {
   if (activePickMode === 'player') return pickDateKey(pick) >= PLAYER_PROP_RANKING_START_DATE;
   return isTeamRankingWindowPick(pick);
@@ -511,10 +456,6 @@ function rankingPoolPicks(comparablePicks: Pick[]): Pick[] {
   return comparablePicks;
 }
 
-function rankingSportName(pick: Pick): string {
-  return String(pick.sport || '').trim() || 'Other';
-}
-
 function matchesRankingSports(pick: Pick): boolean {
   return rankingSportFilters.size === 0 || rankingSportFilters.has(rankingSportName(pick));
 }
@@ -524,15 +465,15 @@ function matchesRankingSources(pick: Pick): boolean {
 }
 
 function rankingScopedPicks(comparablePicks: Pick[]): Pick[] {
-  return comparablePicks.filter(pick => (
-    matchesRankingSports(pick) && matchesRankingSources(pick) && matchesRankingDecision(pick)
-  ));
+  return applyRankingScope(comparablePicks, {
+    sports: rankingSportFilters,
+    sources: rankingSourceFilters,
+    decision: rankingDecisionFilter,
+  }, rankingBucketNames);
 }
 
 function matchesRankingDecision(pick: Pick): boolean {
-  const decision = dailyDecision(pick);
-  if (rankingDecisionFilter === 'STAKED') return decision === 'BET' || decision === 'LEAN';
-  return decision === rankingDecisionFilter;
+  return rankingDecisionMatches(pick, rankingDecisionFilter);
 }
 
 function rankingDecisionCounts(pool: Pick[]): Record<RankingDecisionFilter, number> {
@@ -1701,11 +1642,7 @@ function bindPickCards(container: HTMLElement): void {
 }
 
 function updateOverallStats(): void {
-  const stats = statsFor(
-    activePickMode === 'player'
-      ? rankingComparablePicks(getAllPicks())
-      : getAllPicks().filter(isPublishedDailyPick),
-  );
+  const stats = statsFor(rankingScopedPicks(rankingComparablePicks(getAllPicks())));
   const values: Record<string, string | number> = {
     'stat-picks': stats.total,
     'stat-wins': stats.wins,
@@ -1755,7 +1692,7 @@ function renderRankingFilters(comparablePicks: Pick[], scopedPicks: Pick[]): voi
 
   const sub = document.getElementById('rank-filter-sub');
   if (sub) {
-    sub.textContent = `Pick a sport, then one or more ${rankingSourceNoun(true)}. Overall Stats stay BET+LEAN all-time; the boards below follow sport, source, and BET / LEAN / PASS.`;
+    sub.textContent = `Pick a sport, then one or more ${rankingSourceNoun(true)}. Overall Stats and the boards below all follow sport, source, and BET / LEAN / PASS.`;
   }
 
   container.innerHTML = `<div class="rank-filter-row">
@@ -1827,6 +1764,7 @@ function renderRankings(): void {
   const comparablePicks = rankingComparablePicks(allPicks);
   const scopedPicks = rankingScopedPicks(comparablePicks);
   const scoped = rankingSportFilters.size > 0 || rankingSourceFilters.size > 0 || rankingDecisionFilter !== 'STAKED';
+  updateOverallStats();
   renderRankingFilters(comparablePicks, scopedPicks);
   const rankingPicks = scopedPicks.filter(isSettledPick);
   const rankingTitle = document.getElementById('source-rankings-title');
