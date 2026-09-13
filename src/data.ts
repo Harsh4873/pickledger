@@ -643,7 +643,7 @@ export function calculateProfit(pick: Pick, result: PickResult = pick.result): n
   return Number((odds > 0 ? pick.units * odds / 100 : pick.units * 100 / Math.abs(odds)).toFixed(2));
 }
 
-function normalizedPriceProvenance(raw: Record<string, unknown>, odds: number | null): {
+export function normalizedPriceProvenance(raw: Record<string, unknown>, odds: number | null): {
   verified: boolean;
   provenance: Pick['price_provenance'];
 } {
@@ -658,11 +658,15 @@ function normalizedPriceProvenance(raw: Record<string, unknown>, odds: number | 
     raw.odds_source,
     raw.line_source,
     raw.market_source,
+    raw.market_odds_provider,
   ].map(value => String(value || '').trim().toLowerCase()).filter(Boolean).join(' ');
   const nonExecutable = /assumed|synthetic|proxy|fallback|default|estimated|model[_ ]price/.test(provenanceText);
   const usesAssumedPrice = raw.odds == null && raw.american_odds == null && raw.price == null && raw.assumed_odds != null;
   if (usesAssumedPrice || quality === 'assumed' || nonExecutable) return { verified: false, provenance: 'assumed' };
-  const observedMarker = /posted|sportsbook|bookmaker|observed|executable/.test(provenanceText);
+  // CFB/NFL stamp ESPN scoreboard / nflverse lines instead of the
+  // generic `posted_market` token MLB uses. Those are still executable
+  // sportsbook prices and must count in Rankings units.
+  const observedMarker = /posted|sportsbook|bookmaker|observed|executable|espn_scoreboard|nflverse/.test(provenanceText);
   if (raw.market_priced === true && observedMarker) return { verified: true, provenance: 'verified' };
   return { verified: false, provenance: 'unverified' };
 }

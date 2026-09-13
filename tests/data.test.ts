@@ -9,6 +9,7 @@ import {
   getProfitDeskPayload,
   loadAllData,
   loadLatestAndNewestDated,
+  normalizedPriceProvenance,
   setPickMode,
   setHideScrapedPicks,
   setHideTennisPicks,
@@ -486,3 +487,89 @@ test('CFB baseline projections stay visible with PASS and explain unvalidated st
   assert.ok(getAllPicks().some(pick => pick.id === 'cfb-baseline' && pick.units === 0));
   setPickMode('team');
 });
+
+test('CFB ESPN scoreboard odds verify, assumed model prices do not', () => {
+  assert.equal(normalizedPriceProvenance({
+    market_priced: true,
+    pricing_type: 'market',
+    odds_source: 'espn_scoreboard:DraftKings',
+    market_odds_provider: 'espn_scoreboard:DraftKings',
+  }, -110).verified, true);
+  assert.equal(normalizedPriceProvenance({
+    market_priced: true,
+    pricing_type: 'market',
+    odds_source: 'nflverse_market_lines',
+  }, -170).verified, true);
+  assert.equal(normalizedPriceProvenance({
+    market_priced: true,
+    pricing_type: 'assumed',
+    odds_source: 'model_price',
+  }, -110).verified, false);
+});
+
+test('ESPN scoreboard and nflverse market prices count as verified CFB/NFL units', { concurrency: false }, async () => {
+  const date = '2026-09-12';
+  installFetch(new Map([
+    ['./data/model_cache/latest.json', { date, models: {
+      cfb: { ok: true, shadow_mode: false, picks: [
+        {
+          id: 'cfb-priced-win',
+          sport: 'CFB',
+          market: 'h2h',
+          pick: 'Minnesota Golden Gophers ML',
+          decision: 'BET',
+          result: 'win',
+          units: 0.5,
+          odds: -110,
+          market_priced: true,
+          pricing_type: 'market',
+          odds_source: 'espn_scoreboard:DraftKings',
+          market_odds_provider: 'espn_scoreboard:DraftKings',
+        },
+        {
+          id: 'cfb-priced-pass',
+          sport: 'CFB',
+          market: 'totals',
+          pick: 'Under 54.5',
+          decision: 'PASS',
+          result: 'loss',
+          units: 0,
+          odds: -108,
+          probability: 0.61,
+          market_priced: true,
+          pricing_type: 'market',
+          odds_source: 'espn_scoreboard:DraftKings',
+        },
+      ] },
+      nfl: { ok: true, shadow_mode: false, picks: [
+        {
+          id: 'nfl-priced-lean',
+          sport: 'NFL',
+          market: 'h2h',
+          pick: 'Seahawks ML',
+          decision: 'LEAN',
+          result: 'win',
+          units: 0.25,
+          odds: -170,
+          market_priced: true,
+          pricing_type: 'market',
+          odds_source: 'nflverse_market_lines',
+          market_odds_provider: 'espn_scoreboard:Draft Kings',
+        },
+      ] },
+    } }],
+  ]));
+  await loadAllData({ includeHistory: false });
+  const team = getTeamPicks().filter(row => row.date === date);
+  const byId = new Map(team.map(row => [row.id, row]));
+  assert.equal(byId.get('cfb-priced-win')?.source, 'CFB ML');
+  assert.equal(byId.get('cfb-priced-win')?.price_verified, true);
+  assert.equal(byId.get('cfb-priced-win')?.pl, 0.45);
+  assert.equal(byId.get('cfb-priced-pass')?.source, 'CFB Total');
+  assert.equal(byId.get('cfb-priced-pass')?.price_verified, true);
+  assert.equal(byId.get('cfb-priced-pass')?.pl || 0, 0);
+  assert.equal(byId.get('nfl-priced-lean')?.source, 'NFL ML');
+  assert.equal(byId.get('nfl-priced-lean')?.price_verified, true);
+  assert.equal(byId.get('nfl-priced-lean')?.pl, 0.15);
+});
+
