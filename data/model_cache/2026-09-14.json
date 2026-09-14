@@ -17,7 +17,9 @@
     "shadow_mode": false
   },
   "date": "2026-09-14",
-  "errors": [],
+  "errors": [
+    "mlb_first_five: MLB First Five runtime failed (    for game in _recent_team_games(team_id, game_date, lookback_days=14): |                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ |   File \"/home/runner/work/pickledger/pickledger/models/mlb_inning/mlb_inning_fetcher.py\", line 447, in _recent_team_games |     payload = api_get_json( |               ^^^^^^^^^^^^^ |   File \"/home/runner/work/pickledger/pickledger/models/mlb_inning/mlb_inning_fetcher.py\", line 116, in api_get_json |     cache_set(cache_key, payload) |   File \"/home/runner/work/pickledger/pickledger/models/mlb_inning/mlb_inning_fetcher.py\", line 100, in cache_set |     tmp_path.replace(path) |   File \"/opt/hostedtoolcache/Python/3.11.16/x64/lib/python3.11/pathlib.py\", line 1188, in replace |     os.replace(self, target) | FileNotFoundError: [Errno 2] No such file or directory: '/home/runner/work/pickledger/pickledger/models/mlb_inning/.cache/recent_games_141_2026-08-30_2026-09-13..json.1789405249287950756.tmp' -> '/home/runner/work/pickledger/pickledger/models/mlb_inning/.cache/recent_games_141_2026-08-30_2026-09-13.json')"
+  ],
   "externalFeedsUpdatedAt": "2026-09-14T12:09:51.910290Z",
   "external_feed_errors": [
     "forebet_mlb: ForebetMLB: listing fetch blocked by Cloudflare",
@@ -5562,7 +5564,7 @@
     "refreshStatus": "ok",
     "updatedAt": "2026-09-14T12:09:51.910290Z"
   },
-  "generatedAt": "2026-09-14T15:09:20.131245Z",
+  "generatedAt": "2026-09-14T17:10:03.733992Z",
   "generatedBy": "github-actions:model-cache-refresh",
   "mlb_first_five": {
     "consensus_gate_version": "mlb_team_consensus_v1.2.0",
@@ -5573,6 +5575,7 @@
     },
     "consensus_required": true,
     "date": "2026-09-14",
+    "error": "MLB First Five runtime failed (    for game in _recent_team_games(team_id, game_date, lookback_days=14): |                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ |   File \"/home/runner/work/pickledger/pickledger/models/mlb_inning/mlb_inning_fetcher.py\", line 447, in _recent_team_games |     payload = api_get_json( |               ^^^^^^^^^^^^^ |   File \"/home/runner/work/pickledger/pickledger/models/mlb_inning/mlb_inning_fetcher.py\", line 116, in api_get_json |     cache_set(cache_key, payload) |   File \"/home/runner/work/pickledger/pickledger/models/mlb_inning/mlb_inning_fetcher.py\", line 100, in cache_set |     tmp_path.replace(path) |   File \"/opt/hostedtoolcache/Python/3.11.16/x64/lib/python3.11/pathlib.py\", line 1188, in replace |     os.replace(self, target) | FileNotFoundError: [Errno 2] No such file or directory: '/home/runner/work/pickledger/pickledger/models/mlb_inning/.cache/recent_games_141_2026-08-30_2026-09-13..json.1789405249287950756.tmp' -> '/home/runner/work/pickledger/pickledger/models/mlb_inning/.cache/recent_games_141_2026-08-30_2026-09-13.json')",
     "firebase_saved": false,
     "games": [
       {
@@ -8384,7 +8387,7 @@
     ],
     "model": "MLBFirstFive",
     "note": "MLB First Five processed 10 game(s), returned 20 side/total row(s).",
-    "ok": true,
+    "ok": false,
     "picks": [
       {
         "actionability": "research_signal",
@@ -16215,6 +16218,7 @@
         "walk_forward_samples": 81
       }
     ],
+    "preserved_after_refresh_error": true,
     "ranking_epoch": "MLB:mlb_team_consensus_v1.2.0:mlb_first_five",
     "raw_lines": 2,
     "requested_date": "2026-09-14"
@@ -17403,23 +17407,23 @@
         },
         "edge_table": {
           "1": 0.0758,
-          "2": -0.0286,
+          "2": -0.0271,
           "3": 0.0892,
           "4": 0.0291,
-          "5": -0.0932,
+          "5": -0.0917,
           "6": -0.0456,
           "7": -0.0601,
-          "8": -0.143
+          "8": -0.1413
         },
         "full_inning_table": {
           "1": 0.46,
-          "2": 0.49,
+          "2": 0.491,
           "3": 0.579,
           "4": 0.547,
-          "5": 0.411,
+          "5": 0.412,
           "6": 0.473,
           "7": 0.487,
-          "8": 0.42
+          "8": 0.421
         },
         "game_id": "823981",
         "game_order": 8,
@@ -17675,8 +17679,8 @@
           "version": "cal-v2-6404-2026-08-25"
         },
         "certification_timing": {
-          "data_as_of": "2026-09-14T15:09:20.131245Z",
-          "published_at": "2026-09-14T15:09:20.131245Z",
+          "data_as_of": "2026-09-14T17:10:03.733992Z",
+          "published_at": "2026-09-14T17:10:03.733992Z",
           "source": "model-cache-refresh",
           "trusted": true
         },
@@ -17773,8 +17777,8 @@
           "version": "cal-v2-6404-2026-08-25"
         },
         "certification_timing": {
-          "data_as_of": "2026-09-14T15:09:20.131245Z",
-          "published_at": "2026-09-14T15:09:20.131245Z",
+          "data_as_of": "2026-09-14T17:10:03.733992Z",
+          "published_at": "2026-09-14T17:10:03.733992Z",
           "source": "model-cache-refresh",
           "trusted": true
         },
@@ -17798,7 +17802,7 @@
         "model_epoch": "mlb_inning_v2_2026-08-25",
         "model_prediction": "57.9%",
         "model_version": "mlb_inning_v2_2026-08-25",
-        "notes": "Top no-run inning candidate (edge +8.9pp vs baseline). Full table: {\"1\": 0.46, \"2\": 0.49, \"3\": 0.579, \"4\": 0.547, \"5\": 0.411, \"6\": 0.473, \"7\": 0.487, \"8\": 0.42}",
+        "notes": "Top no-run inning candidate (edge +8.9pp vs baseline). Full table: {\"1\": 0.46, \"2\": 0.491, \"3\": 0.579, \"4\": 0.547, \"5\": 0.412, \"6\": 0.473, \"7\": 0.487, \"8\": 0.421}",
         "odds": -120,
         "odds_source": "user_assumed_no_run_inning_-120",
         "pick": "Inning 3 - No Run Scored",
@@ -17905,7 +17909,7 @@
         "actionability": "research_signal",
         "assumed_odds_replaced": true,
         "away_team": "Los Angeles Dodgers",
-        "calibrated_edge": -19.956999378881985,
+        "calibrated_edge": -19.7629,
         "calibrated_model_probability": 0.489871,
         "calibrated_probability": 0.489871,
         "calibration": {
@@ -17917,8 +17921,8 @@
           "version": "cal-v2-6404-2026-08-25"
         },
         "certification_timing": {
-          "data_as_of": "2026-09-14T15:09:20.131245Z",
-          "published_at": "2026-09-14T15:09:20.131245Z",
+          "data_as_of": "2026-09-14T17:10:03.733992Z",
+          "published_at": "2026-09-14T17:10:03.733992Z",
           "source": "model-cache-refresh",
           "trusted": true
         },
@@ -18002,7 +18006,7 @@
         "home_team": "Cincinnati Reds",
         "market_away_odds": -226,
         "market_home_odds": 183,
-        "market_no_vig_probability": 0.6894409937888198,
+        "market_no_vig_probability": 0.6875,
         "market_no_vig_selected_probability": 0.662379,
         "market_odds_captured_at": "2026-09-14T11:49:44.055473Z",
         "market_odds_provider": "espn_scoreboard:DraftKings",
@@ -18069,7 +18073,7 @@
         "raw_units": 0.0,
         "recommended_units": 0.0,
         "selected_odds": -226,
-        "selected_side_implied_probability": 0.6894409937888198,
+        "selected_side_implied_probability": 0.6875,
         "source": "MLB Model",
         "sport": "MLB",
         "start_time": "2026-09-14T22:40:00Z",
@@ -18095,8 +18099,8 @@
           "version": "cal-v2-6404-2026-08-25"
         },
         "certification_timing": {
-          "data_as_of": "2026-09-14T15:09:20.131245Z",
-          "published_at": "2026-09-14T15:09:20.131245Z",
+          "data_as_of": "2026-09-14T17:10:03.733992Z",
+          "published_at": "2026-09-14T17:10:03.733992Z",
           "source": "model-cache-refresh",
           "trusted": true
         },
@@ -18260,7 +18264,7 @@
         "actionability": "research_signal",
         "assumed_odds_replaced": true,
         "away_team": "Chicago White Sox",
-        "calibrated_edge": -7.608099999999995,
+        "calibrated_edge": -8.545599999999997,
         "calibrated_model_probability": 0.523919,
         "calibrated_probability": 0.523919,
         "calibration": {
@@ -18272,8 +18276,8 @@
           "version": "cal-v2-6404-2026-08-25"
         },
         "certification_timing": {
-          "data_as_of": "2026-09-14T15:09:20.131245Z",
-          "published_at": "2026-09-14T15:09:20.131245Z",
+          "data_as_of": "2026-09-14T17:10:03.733992Z",
+          "published_at": "2026-09-14T17:10:03.733992Z",
           "source": "model-cache-refresh",
           "trusted": true
         },
@@ -18356,7 +18360,7 @@
         "home_team": "Cleveland Guardians",
         "market_away_odds": 128,
         "market_home_odds": -155,
-        "market_no_vig_probability": 0.6,
+        "market_no_vig_probability": 0.609375,
         "market_no_vig_selected_probability": 0.580868,
         "market_odds_captured_at": "2026-09-14T11:49:44.055473Z",
         "market_odds_provider": "espn_scoreboard:DraftKings",
@@ -18423,7 +18427,7 @@
         "raw_units": 0.4,
         "recommended_units": 0.0,
         "selected_odds": -155,
-        "selected_side_implied_probability": 0.6,
+        "selected_side_implied_probability": 0.609375,
         "source": "MLB Model",
         "sport": "MLB",
         "start_time": "2026-09-14T22:40:00Z",
@@ -18449,8 +18453,8 @@
           "version": "cal-v2-6404-2026-08-25"
         },
         "certification_timing": {
-          "data_as_of": "2026-09-14T15:09:20.131245Z",
-          "published_at": "2026-09-14T15:09:20.131245Z",
+          "data_as_of": "2026-09-14T17:10:03.733992Z",
+          "published_at": "2026-09-14T17:10:03.733992Z",
           "source": "model-cache-refresh",
           "trusted": true
         },
@@ -18632,8 +18636,8 @@
           "version": "cal-v2-6404-2026-08-25"
         },
         "certification_timing": {
-          "data_as_of": "2026-09-14T15:09:20.131245Z",
-          "published_at": "2026-09-14T15:09:20.131245Z",
+          "data_as_of": "2026-09-14T17:10:03.733992Z",
+          "published_at": "2026-09-14T17:10:03.733992Z",
           "source": "model-cache-refresh",
           "trusted": true
         },
@@ -18810,8 +18814,8 @@
           "version": "cal-v2-6404-2026-08-25"
         },
         "certification_timing": {
-          "data_as_of": "2026-09-14T15:09:20.131245Z",
-          "published_at": "2026-09-14T15:09:20.131245Z",
+          "data_as_of": "2026-09-14T17:10:03.733992Z",
+          "published_at": "2026-09-14T17:10:03.733992Z",
           "source": "model-cache-refresh",
           "trusted": true
         },
@@ -18987,8 +18991,8 @@
           "version": "cal-v2-6404-2026-08-25"
         },
         "certification_timing": {
-          "data_as_of": "2026-09-14T15:09:20.131245Z",
-          "published_at": "2026-09-14T15:09:20.131245Z",
+          "data_as_of": "2026-09-14T17:10:03.733992Z",
+          "published_at": "2026-09-14T17:10:03.733992Z",
           "source": "model-cache-refresh",
           "trusted": true
         },
@@ -19164,8 +19168,8 @@
           "version": "cal-v2-6404-2026-08-25"
         },
         "certification_timing": {
-          "data_as_of": "2026-09-14T15:09:20.131245Z",
-          "published_at": "2026-09-14T15:09:20.131245Z",
+          "data_as_of": "2026-09-14T17:10:03.733992Z",
+          "published_at": "2026-09-14T17:10:03.733992Z",
           "source": "model-cache-refresh",
           "trusted": true
         },
@@ -19347,8 +19351,8 @@
           "version": "cal-v2-6404-2026-08-25"
         },
         "certification_timing": {
-          "data_as_of": "2026-09-14T15:09:20.131245Z",
-          "published_at": "2026-09-14T15:09:20.131245Z",
+          "data_as_of": "2026-09-14T17:10:03.733992Z",
+          "published_at": "2026-09-14T17:10:03.733992Z",
           "source": "model-cache-refresh",
           "trusted": true
         },
@@ -19524,8 +19528,8 @@
           "version": "cal-v2-6404-2026-08-25"
         },
         "certification_timing": {
-          "data_as_of": "2026-09-14T15:09:20.131245Z",
-          "published_at": "2026-09-14T15:09:20.131245Z",
+          "data_as_of": "2026-09-14T17:10:03.733992Z",
+          "published_at": "2026-09-14T17:10:03.733992Z",
           "source": "model-cache-refresh",
           "trusted": true
         },
@@ -19709,8 +19713,8 @@
           "version": "cal-v2-6404-2026-08-25"
         },
         "certification_timing": {
-          "data_as_of": "2026-09-14T15:09:20.131245Z",
-          "published_at": "2026-09-14T15:09:20.131245Z",
+          "data_as_of": "2026-09-14T17:10:03.733992Z",
+          "published_at": "2026-09-14T17:10:03.733992Z",
           "source": "model-cache-refresh",
           "trusted": true
         },
@@ -19888,8 +19892,8 @@
           "version": "cal-v2-6404-2026-08-25"
         },
         "certification_timing": {
-          "data_as_of": "2026-09-14T15:09:20.131245Z",
-          "published_at": "2026-09-14T15:09:20.131245Z",
+          "data_as_of": "2026-09-14T17:10:03.733992Z",
+          "published_at": "2026-09-14T17:10:03.733992Z",
           "source": "model-cache-refresh",
           "trusted": true
         },
@@ -20085,7 +20089,7 @@
         "actionability": "research_signal",
         "assumed_odds_replaced": true,
         "away_team": "San Francisco Giants",
-        "calibrated_edge": -6.455836625514399,
+        "calibrated_edge": -6.624493442622947,
         "calibrated_model_probability": 0.523919,
         "calibrated_probability": 0.523919,
         "calibration": {
@@ -20097,8 +20101,8 @@
           "version": "cal-v2-6404-2026-08-25"
         },
         "certification_timing": {
-          "data_as_of": "2026-09-14T15:09:20.131245Z",
-          "published_at": "2026-09-14T15:09:20.131245Z",
+          "data_as_of": "2026-09-14T17:10:03.733992Z",
+          "published_at": "2026-09-14T17:10:03.733992Z",
           "source": "model-cache-refresh",
           "trusted": true
         },
@@ -20181,7 +20185,7 @@
         "home_team": "St. Louis Cardinals",
         "market_away_odds": 119,
         "market_home_odds": -144,
-        "market_no_vig_probability": 0.588477366255144,
+        "market_no_vig_probability": 0.5901639344262295,
         "market_no_vig_selected_probability": 0.563787,
         "market_odds_captured_at": "2026-09-14T11:49:44.055473Z",
         "market_odds_provider": "espn_scoreboard:DraftKings",
@@ -20248,7 +20252,7 @@
         "raw_units": 0.4,
         "recommended_units": 0.0,
         "selected_odds": -144,
-        "selected_side_implied_probability": 0.588477366255144,
+        "selected_side_implied_probability": 0.5901639344262295,
         "source": "MLB Model",
         "sport": "MLB",
         "start_time": "2026-09-14T23:45:00Z",
@@ -20274,8 +20278,8 @@
           "version": "cal-v2-6404-2026-08-25"
         },
         "certification_timing": {
-          "data_as_of": "2026-09-14T15:09:20.131245Z",
-          "published_at": "2026-09-14T15:09:20.131245Z",
+          "data_as_of": "2026-09-14T17:10:03.733992Z",
+          "published_at": "2026-09-14T17:10:03.733992Z",
           "source": "model-cache-refresh",
           "trusted": true
         },
@@ -20459,8 +20463,8 @@
           "version": "cal-v2-6404-2026-08-25"
         },
         "certification_timing": {
-          "data_as_of": "2026-09-14T15:09:20.131245Z",
-          "published_at": "2026-09-14T15:09:20.131245Z",
+          "data_as_of": "2026-09-14T17:10:03.733992Z",
+          "published_at": "2026-09-14T17:10:03.733992Z",
           "source": "model-cache-refresh",
           "trusted": true
         },
@@ -20637,8 +20641,8 @@
           "version": "cal-v2-6404-2026-08-25"
         },
         "certification_timing": {
-          "data_as_of": "2026-09-14T15:09:20.131245Z",
-          "published_at": "2026-09-14T15:09:20.131245Z",
+          "data_as_of": "2026-09-14T17:10:03.733992Z",
+          "published_at": "2026-09-14T17:10:03.733992Z",
           "source": "model-cache-refresh",
           "trusted": true
         },
@@ -20814,8 +20818,8 @@
           "version": "cal-v2-6404-2026-08-25"
         },
         "certification_timing": {
-          "data_as_of": "2026-09-14T15:09:20.131245Z",
-          "published_at": "2026-09-14T15:09:20.131245Z",
+          "data_as_of": "2026-09-14T17:10:03.733992Z",
+          "published_at": "2026-09-14T17:10:03.733992Z",
           "source": "model-cache-refresh",
           "trusted": true
         },
@@ -20992,8 +20996,8 @@
           "version": "cal-v2-6404-2026-08-25"
         },
         "certification_timing": {
-          "data_as_of": "2026-09-14T15:09:20.131245Z",
-          "published_at": "2026-09-14T15:09:20.131245Z",
+          "data_as_of": "2026-09-14T17:10:03.733992Z",
+          "published_at": "2026-09-14T17:10:03.733992Z",
           "source": "model-cache-refresh",
           "trusted": true
         },
@@ -21175,8 +21179,8 @@
           "version": "cal-v2-6404-2026-08-25"
         },
         "certification_timing": {
-          "data_as_of": "2026-09-14T15:09:20.131245Z",
-          "published_at": "2026-09-14T15:09:20.131245Z",
+          "data_as_of": "2026-09-14T17:10:03.733992Z",
+          "published_at": "2026-09-14T17:10:03.733992Z",
           "source": "model-cache-refresh",
           "trusted": true
         },
@@ -21352,9 +21356,9 @@
       },
       {
         "actionability": "research_signal",
-        "assumed_odds": -110,
+        "assumed_odds_replaced": true,
         "away_team": "Miami Marlins",
-        "calibrated_edge": 0.47684761904761563,
+        "calibrated_edge": -0.41322803738317315,
         "calibrated_model_probability": 0.528578,
         "calibrated_probability": 0.528578,
         "calibration": {
@@ -21366,8 +21370,8 @@
           "version": "cal-v2-6404-2026-08-25"
         },
         "certification_timing": {
-          "data_as_of": "2026-09-14T15:09:20.131245Z",
-          "published_at": "2026-09-14T15:09:20.131245Z",
+          "data_as_of": "2026-09-14T17:10:03.733992Z",
+          "published_at": "2026-09-14T17:10:03.733992Z",
           "source": "model-cache-refresh",
           "trusted": true
         },
@@ -21377,13 +21381,6 @@
             "risk": [],
             "support": [
               "probability_calibration"
-            ]
-          },
-          "market_price": {
-            "missing": [],
-            "risk": [],
-            "support": [
-              "market_price"
             ]
           },
           "model_stack": {
@@ -21410,23 +21407,17 @@
         },
         "consensus_gate_version": "mlb_team_consensus_v1.2.0",
         "consensus_hard_blockers": [
-          "raw_model_abstained"
+          "raw_model_abstained",
+          "non_positive_calibrated_edge"
         ],
         "consensus_passed": false,
         "consensus_publication_mode": "research",
         "consensus_qualified": false,
-        "consensus_rejection_reason": "raw_model_abstained",
+        "consensus_rejection_reason": "raw_model_abstained; non_positive_calibrated_edge",
         "consensus_required": true,
-        "consensus_score": 15.835,
-        "consensus_signal_count": 5,
+        "consensus_score": 12.858,
+        "consensus_signal_count": 4,
         "consensus_signals": [
-          {
-            "category": "market_price",
-            "detail": "calibrated probability beats selected-side market price",
-            "impact": "support",
-            "name": "market_price",
-            "strength": 0.048
-          },
           {
             "category": "calibration",
             "detail": "active calibration group has enough samples",
@@ -21459,21 +21450,31 @@
         "decision": "PASS",
         "direction": "Under",
         "edge": 0.48,
-        "edge_basis": "vigged",
-        "full_kelly": 0.01,
+        "edge_basis": "no_vig",
+        "full_kelly": 0.0,
         "game_start_time": "2026-09-15T01:40:00Z",
         "home_team": "Arizona Diamondbacks",
         "kelly": 0.0,
         "line": 8.5,
         "market_line": 8.5,
-        "market_no_vig_probability": 0.5238095238095238,
+        "market_no_vig_probability": 0.5327102803738317,
+        "market_no_vig_selected_probability": 0.508664,
+        "market_odds_captured_at": "2026-09-14T17:10:05.297225Z",
+        "market_odds_provider": "espn_scoreboard:DraftKings",
+        "market_over_odds": -106,
+        "market_priced": true,
         "market_total_source": "model_output",
         "market_type": "totals",
+        "market_under_odds": -114,
+        "market_updated_at": "2026-09-14T17:10:05.297225Z",
         "ml_rank_epoch": "MLB:mlb_team_consensus_v1.2.0:mlb_new",
         "mlb_team_consensus_version": "mlb_team_consensus_v1.2.0",
+        "model_assumed_odds": -110,
         "model_epoch": "MLB:mlb_team_consensus_v1.2.0:mlb_new",
         "model_prediction": 8.4,
-        "odds": -110,
+        "odds": -114,
+        "odds_source": "posted_market",
+        "opposite_odds": -106,
         "pick": "Under 8.5 (Miami Marlins vs Arizona Diamondbacks)",
         "pregame_snapshot": {
           "assumed_odds": -110,
@@ -21506,17 +21507,20 @@
           "units": 0.0,
           "vegas": 8.5
         },
+        "price_source": "espn_scoreboard:DraftKings",
+        "pricing_type": "market",
         "primary_consensus_passed": false,
         "prob": 0.5055,
         "probability": 0.5286,
-        "quarter_kelly": 0.0025,
+        "quarter_kelly": 0.0,
         "ranking_epoch": "MLB:mlb_team_consensus_v1.2.0:mlb_new",
         "raw_edge": -1.83,
         "raw_model_probability": 0.5055,
         "raw_probability": 0.5055,
         "raw_units": 0.0,
         "recommended_units": 0.0,
-        "selected_side_implied_probability": 0.5238095238095238,
+        "selected_odds": -114,
+        "selected_side_implied_probability": 0.5327102803738317,
         "selection": "PASS",
         "source": "MLB Model",
         "sport": "MLB",
@@ -22116,8 +22120,8 @@
           "version": "cal-v2-6404-2026-08-25"
         },
         "certification_timing": {
-          "data_as_of": "2026-09-14T15:09:20.131245Z",
-          "published_at": "2026-09-14T15:09:20.131245Z",
+          "data_as_of": "2026-09-14T17:10:03.733992Z",
+          "published_at": "2026-09-14T17:10:03.733992Z",
           "source": "model-cache-refresh",
           "trusted": true
         },
@@ -22339,8 +22343,8 @@
           "version": "cal-v2-6404-2026-08-25"
         },
         "certification_timing": {
-          "data_as_of": "2026-09-14T15:09:20.131245Z",
-          "published_at": "2026-09-14T15:09:20.131245Z",
+          "data_as_of": "2026-09-14T17:10:03.733992Z",
+          "published_at": "2026-09-14T17:10:03.733992Z",
           "source": "model-cache-refresh",
           "trusted": true
         },
@@ -22562,8 +22566,8 @@
           "version": "cal-v2-6404-2026-08-25"
         },
         "certification_timing": {
-          "data_as_of": "2026-09-14T15:09:20.131245Z",
-          "published_at": "2026-09-14T15:09:20.131245Z",
+          "data_as_of": "2026-09-14T17:10:03.733992Z",
+          "published_at": "2026-09-14T17:10:03.733992Z",
           "source": "model-cache-refresh",
           "trusted": true
         },
@@ -22785,8 +22789,8 @@
           "version": "cal-v2-6404-2026-08-25"
         },
         "certification_timing": {
-          "data_as_of": "2026-09-14T15:09:20.131245Z",
-          "published_at": "2026-09-14T15:09:20.131245Z",
+          "data_as_of": "2026-09-14T17:10:03.733992Z",
+          "published_at": "2026-09-14T17:10:03.733992Z",
           "source": "model-cache-refresh",
           "trusted": true
         },
@@ -23019,8 +23023,8 @@
           "version": "cal-v2-6404-2026-08-25"
         },
         "certification_timing": {
-          "data_as_of": "2026-09-14T15:09:20.131245Z",
-          "published_at": "2026-09-14T15:09:20.131245Z",
+          "data_as_of": "2026-09-14T17:10:03.733992Z",
+          "published_at": "2026-09-14T17:10:03.733992Z",
           "source": "model-cache-refresh",
           "trusted": true
         },
@@ -23264,8 +23268,8 @@
           "version": "cal-v2-6404-2026-08-25"
         },
         "certification_timing": {
-          "data_as_of": "2026-09-14T15:09:20.131245Z",
-          "published_at": "2026-09-14T15:09:20.131245Z",
+          "data_as_of": "2026-09-14T17:10:03.733992Z",
+          "published_at": "2026-09-14T17:10:03.733992Z",
           "source": "model-cache-refresh",
           "trusted": true
         },
@@ -23487,8 +23491,8 @@
           "version": "cal-v2-6404-2026-08-25"
         },
         "certification_timing": {
-          "data_as_of": "2026-09-14T15:09:20.131245Z",
-          "published_at": "2026-09-14T15:09:20.131245Z",
+          "data_as_of": "2026-09-14T17:10:03.733992Z",
+          "published_at": "2026-09-14T17:10:03.733992Z",
           "source": "model-cache-refresh",
           "trusted": true
         },
@@ -23710,8 +23714,8 @@
           "version": "cal-v2-6404-2026-08-25"
         },
         "certification_timing": {
-          "data_as_of": "2026-09-14T15:09:20.131245Z",
-          "published_at": "2026-09-14T15:09:20.131245Z",
+          "data_as_of": "2026-09-14T17:10:03.733992Z",
+          "published_at": "2026-09-14T17:10:03.733992Z",
           "source": "model-cache-refresh",
           "trusted": true
         },
@@ -23921,7 +23925,7 @@
         "actionability": "research_signal",
         "assumed_odds_replaced": true,
         "away_team": "Atlanta Braves",
-        "calibrated_edge": -2.801555555555557,
+        "calibrated_edge": -1.7914545454545405,
         "calibrated_model_probability": 0.52754,
         "calibrated_probability": 0.52754,
         "calibration": {
@@ -23933,8 +23937,8 @@
           "version": "cal-v2-6404-2026-08-25"
         },
         "certification_timing": {
-          "data_as_of": "2026-09-14T15:09:20.131245Z",
-          "published_at": "2026-09-14T15:09:20.131245Z",
+          "data_as_of": "2026-09-14T17:10:03.733992Z",
+          "published_at": "2026-09-14T17:10:03.733992Z",
           "source": "model-cache-refresh",
           "trusted": true
         },
@@ -24070,7 +24074,7 @@
         "market": "team_total",
         "market_implied_probability": 0.52381,
         "market_line": 4.5,
-        "market_no_vig_probability": 0.5555555555555556,
+        "market_no_vig_probability": 0.5454545454545454,
         "market_no_vig_selected_probability": 0.510121,
         "market_odds_captured_at": "2026-09-14T11:49:44.055473Z",
         "market_odds_provider": "espn_scoreboard:DraftKings",
@@ -24151,7 +24155,7 @@
         "raw_probability": 0.555,
         "recommended_units": 0.0,
         "selected_odds": -120,
-        "selected_side_implied_probability": 0.5555555555555556,
+        "selected_side_implied_probability": 0.5454545454545454,
         "source": "MLB Team Total",
         "sport": "MLB",
         "start_time": "2026-09-14T23:40:00Z",
@@ -24177,8 +24181,8 @@
           "version": "cal-v2-6404-2026-08-25"
         },
         "certification_timing": {
-          "data_as_of": "2026-09-14T15:09:20.131245Z",
-          "published_at": "2026-09-14T15:09:20.131245Z",
+          "data_as_of": "2026-09-14T17:10:03.733992Z",
+          "published_at": "2026-09-14T17:10:03.733992Z",
           "source": "model-cache-refresh",
           "trusted": true
         },
@@ -24400,8 +24404,8 @@
           "version": "cal-v2-6404-2026-08-25"
         },
         "certification_timing": {
-          "data_as_of": "2026-09-14T15:09:20.131245Z",
-          "published_at": "2026-09-14T15:09:20.131245Z",
+          "data_as_of": "2026-09-14T17:10:03.733992Z",
+          "published_at": "2026-09-14T17:10:03.733992Z",
           "source": "model-cache-refresh",
           "trusted": true
         },
@@ -24634,8 +24638,8 @@
           "version": "cal-v2-6404-2026-08-25"
         },
         "certification_timing": {
-          "data_as_of": "2026-09-14T15:09:20.131245Z",
-          "published_at": "2026-09-14T15:09:20.131245Z",
+          "data_as_of": "2026-09-14T17:10:03.733992Z",
+          "published_at": "2026-09-14T17:10:03.733992Z",
           "source": "model-cache-refresh",
           "trusted": true
         },
@@ -24857,8 +24861,8 @@
           "version": "cal-v2-6404-2026-08-25"
         },
         "certification_timing": {
-          "data_as_of": "2026-09-14T15:09:20.131245Z",
-          "published_at": "2026-09-14T15:09:20.131245Z",
+          "data_as_of": "2026-09-14T17:10:03.733992Z",
+          "published_at": "2026-09-14T17:10:03.733992Z",
           "source": "model-cache-refresh",
           "trusted": true
         },
@@ -25080,8 +25084,8 @@
           "version": "cal-v2-6404-2026-08-25"
         },
         "certification_timing": {
-          "data_as_of": "2026-09-14T15:09:20.131245Z",
-          "published_at": "2026-09-14T15:09:20.131245Z",
+          "data_as_of": "2026-09-14T17:10:03.733992Z",
+          "published_at": "2026-09-14T17:10:03.733992Z",
           "source": "model-cache-refresh",
           "trusted": true
         },
@@ -25314,8 +25318,8 @@
           "version": "cal-v2-6404-2026-08-25"
         },
         "certification_timing": {
-          "data_as_of": "2026-09-14T15:09:20.131245Z",
-          "published_at": "2026-09-14T15:09:20.131245Z",
+          "data_as_of": "2026-09-14T17:10:03.733992Z",
+          "published_at": "2026-09-14T17:10:03.733992Z",
           "source": "model-cache-refresh",
           "trusted": true
         },
@@ -25525,7 +25529,7 @@
         "actionability": "research_signal",
         "assumed_odds_replaced": true,
         "away_team": "San Diego Padres",
-        "calibrated_edge": -4.624255555555557,
+        "calibrated_edge": -3.61415454545454,
         "calibrated_model_probability": 0.509313,
         "calibrated_probability": 0.509313,
         "calibration": {
@@ -25537,8 +25541,8 @@
           "version": "cal-v2-6404-2026-08-25"
         },
         "certification_timing": {
-          "data_as_of": "2026-09-14T15:09:20.131245Z",
-          "published_at": "2026-09-14T15:09:20.131245Z",
+          "data_as_of": "2026-09-14T17:10:03.733992Z",
+          "published_at": "2026-09-14T17:10:03.733992Z",
           "source": "model-cache-refresh",
           "trusted": true
         },
@@ -25675,7 +25679,7 @@
         "market": "team_total",
         "market_implied_probability": 0.52381,
         "market_line": 4.5,
-        "market_no_vig_probability": 0.5555555555555556,
+        "market_no_vig_probability": 0.5454545454545454,
         "market_no_vig_selected_probability": 0.5,
         "market_odds_captured_at": "2026-09-14T11:49:44.055473Z",
         "market_odds_provider": "espn_scoreboard:DraftKings",
@@ -25756,7 +25760,7 @@
         "raw_probability": 0.5299,
         "recommended_units": 0.0,
         "selected_odds": -115,
-        "selected_side_implied_probability": 0.5555555555555556,
+        "selected_side_implied_probability": 0.5454545454545454,
         "source": "MLB Team Total",
         "sport": "MLB",
         "start_time": "2026-09-15T00:40:00Z",
@@ -25782,8 +25786,8 @@
           "version": "cal-v2-6404-2026-08-25"
         },
         "certification_timing": {
-          "data_as_of": "2026-09-14T15:09:20.131245Z",
-          "published_at": "2026-09-14T15:09:20.131245Z",
+          "data_as_of": "2026-09-14T17:10:03.733992Z",
+          "published_at": "2026-09-14T17:10:03.733992Z",
           "source": "model-cache-refresh",
           "trusted": true
         },
@@ -26005,8 +26009,8 @@
           "version": "cal-v2-6404-2026-08-25"
         },
         "certification_timing": {
-          "data_as_of": "2026-09-14T15:09:20.131245Z",
-          "published_at": "2026-09-14T15:09:20.131245Z",
+          "data_as_of": "2026-09-14T17:10:03.733992Z",
+          "published_at": "2026-09-14T17:10:03.733992Z",
           "source": "model-cache-refresh",
           "trusted": true
         },
@@ -26250,8 +26254,8 @@
           "version": "cal-v2-6404-2026-08-25"
         },
         "certification_timing": {
-          "data_as_of": "2026-09-14T15:09:20.131245Z",
-          "published_at": "2026-09-14T15:09:20.131245Z",
+          "data_as_of": "2026-09-14T17:10:03.733992Z",
+          "published_at": "2026-09-14T17:10:03.733992Z",
           "source": "model-cache-refresh",
           "trusted": true
         },
@@ -26484,8 +26488,8 @@
           "version": "cal-v2-6404-2026-08-25"
         },
         "certification_timing": {
-          "data_as_of": "2026-09-14T15:09:20.131245Z",
-          "published_at": "2026-09-14T15:09:20.131245Z",
+          "data_as_of": "2026-09-14T17:10:03.733992Z",
+          "published_at": "2026-09-14T17:10:03.733992Z",
           "source": "model-cache-refresh",
           "trusted": true
         },
@@ -28654,6 +28658,7 @@
       },
       "consensus_required": true,
       "date": "2026-09-14",
+      "error": "MLB First Five runtime failed (    for game in _recent_team_games(team_id, game_date, lookback_days=14): |                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ |   File \"/home/runner/work/pickledger/pickledger/models/mlb_inning/mlb_inning_fetcher.py\", line 447, in _recent_team_games |     payload = api_get_json( |               ^^^^^^^^^^^^^ |   File \"/home/runner/work/pickledger/pickledger/models/mlb_inning/mlb_inning_fetcher.py\", line 116, in api_get_json |     cache_set(cache_key, payload) |   File \"/home/runner/work/pickledger/pickledger/models/mlb_inning/mlb_inning_fetcher.py\", line 100, in cache_set |     tmp_path.replace(path) |   File \"/opt/hostedtoolcache/Python/3.11.16/x64/lib/python3.11/pathlib.py\", line 1188, in replace |     os.replace(self, target) | FileNotFoundError: [Errno 2] No such file or directory: '/home/runner/work/pickledger/pickledger/models/mlb_inning/.cache/recent_games_141_2026-08-30_2026-09-13..json.1789405249287950756.tmp' -> '/home/runner/work/pickledger/pickledger/models/mlb_inning/.cache/recent_games_141_2026-08-30_2026-09-13.json')",
       "firebase_saved": false,
       "games": [
         {
@@ -31465,7 +31470,7 @@
       ],
       "model": "MLBFirstFive",
       "note": "MLB First Five processed 10 game(s), returned 20 side/total row(s).",
-      "ok": true,
+      "ok": false,
       "picks": [
         {
           "actionability": "research_signal",
@@ -39296,6 +39301,7 @@
           "walk_forward_samples": 81
         }
       ],
+      "preserved_after_refresh_error": true,
       "ranking_epoch": "MLB:mlb_team_consensus_v1.2.0:mlb_first_five",
       "raw_lines": 2,
       "requested_date": "2026-09-14"
@@ -40484,23 +40490,23 @@
           },
           "edge_table": {
             "1": 0.0758,
-            "2": -0.0286,
+            "2": -0.0271,
             "3": 0.0892,
             "4": 0.0291,
-            "5": -0.0932,
+            "5": -0.0917,
             "6": -0.0456,
             "7": -0.0601,
-            "8": -0.143
+            "8": -0.1413
           },
           "full_inning_table": {
             "1": 0.46,
-            "2": 0.49,
+            "2": 0.491,
             "3": 0.579,
             "4": 0.547,
-            "5": 0.411,
+            "5": 0.412,
             "6": 0.473,
             "7": 0.487,
-            "8": 0.42
+            "8": 0.421
           },
           "game_id": "823981",
           "game_order": 8,
@@ -40756,8 +40762,8 @@
             "version": "cal-v2-6404-2026-08-25"
           },
           "certification_timing": {
-            "data_as_of": "2026-09-14T15:09:20.131245Z",
-            "published_at": "2026-09-14T15:09:20.131245Z",
+            "data_as_of": "2026-09-14T17:10:03.733992Z",
+            "published_at": "2026-09-14T17:10:03.733992Z",
             "source": "model-cache-refresh",
             "trusted": true
           },
@@ -40854,8 +40860,8 @@
             "version": "cal-v2-6404-2026-08-25"
           },
           "certification_timing": {
-            "data_as_of": "2026-09-14T15:09:20.131245Z",
-            "published_at": "2026-09-14T15:09:20.131245Z",
+            "data_as_of": "2026-09-14T17:10:03.733992Z",
+            "published_at": "2026-09-14T17:10:03.733992Z",
             "source": "model-cache-refresh",
             "trusted": true
           },
@@ -40879,7 +40885,7 @@
           "model_epoch": "mlb_inning_v2_2026-08-25",
           "model_prediction": "57.9%",
           "model_version": "mlb_inning_v2_2026-08-25",
-          "notes": "Top no-run inning candidate (edge +8.9pp vs baseline). Full table: {\"1\": 0.46, \"2\": 0.49, \"3\": 0.579, \"4\": 0.547, \"5\": 0.411, \"6\": 0.473, \"7\": 0.487, \"8\": 0.42}",
+          "notes": "Top no-run inning candidate (edge +8.9pp vs baseline). Full table: {\"1\": 0.46, \"2\": 0.491, \"3\": 0.579, \"4\": 0.547, \"5\": 0.412, \"6\": 0.473, \"7\": 0.487, \"8\": 0.421}",
           "odds": -120,
           "odds_source": "user_assumed_no_run_inning_-120",
           "pick": "Inning 3 - No Run Scored",
@@ -40986,7 +40992,7 @@
           "actionability": "research_signal",
           "assumed_odds_replaced": true,
           "away_team": "Los Angeles Dodgers",
-          "calibrated_edge": -19.956999378881985,
+          "calibrated_edge": -19.7629,
           "calibrated_model_probability": 0.489871,
           "calibrated_probability": 0.489871,
           "calibration": {
@@ -40998,8 +41004,8 @@
             "version": "cal-v2-6404-2026-08-25"
           },
           "certification_timing": {
-            "data_as_of": "2026-09-14T15:09:20.131245Z",
-            "published_at": "2026-09-14T15:09:20.131245Z",
+            "data_as_of": "2026-09-14T17:10:03.733992Z",
+            "published_at": "2026-09-14T17:10:03.733992Z",
             "source": "model-cache-refresh",
             "trusted": true
           },
@@ -41083,7 +41089,7 @@
           "home_team": "Cincinnati Reds",
           "market_away_odds": -226,
           "market_home_odds": 183,
-          "market_no_vig_probability": 0.6894409937888198,
+          "market_no_vig_probability": 0.6875,
           "market_no_vig_selected_probability": 0.662379,
           "market_odds_captured_at": "2026-09-14T11:49:44.055473Z",
           "market_odds_provider": "espn_scoreboard:DraftKings",
@@ -41150,7 +41156,7 @@
           "raw_units": 0.0,
           "recommended_units": 0.0,
           "selected_odds": -226,
-          "selected_side_implied_probability": 0.6894409937888198,
+          "selected_side_implied_probability": 0.6875,
           "source": "MLB Model",
           "sport": "MLB",
           "start_time": "2026-09-14T22:40:00Z",
@@ -41176,8 +41182,8 @@
             "version": "cal-v2-6404-2026-08-25"
           },
           "certification_timing": {
-            "data_as_of": "2026-09-14T15:09:20.131245Z",
-            "published_at": "2026-09-14T15:09:20.131245Z",
+            "data_as_of": "2026-09-14T17:10:03.733992Z",
+            "published_at": "2026-09-14T17:10:03.733992Z",
             "source": "model-cache-refresh",
             "trusted": true
           },
@@ -41341,7 +41347,7 @@
           "actionability": "research_signal",
           "assumed_odds_replaced": true,
           "away_team": "Chicago White Sox",
-          "calibrated_edge": -7.608099999999995,
+          "calibrated_edge": -8.545599999999997,
           "calibrated_model_probability": 0.523919,
           "calibrated_probability": 0.523919,
           "calibration": {
@@ -41353,8 +41359,8 @@
             "version": "cal-v2-6404-2026-08-25"
           },
           "certification_timing": {
-            "data_as_of": "2026-09-14T15:09:20.131245Z",
-            "published_at": "2026-09-14T15:09:20.131245Z",
+            "data_as_of": "2026-09-14T17:10:03.733992Z",
+            "published_at": "2026-09-14T17:10:03.733992Z",
             "source": "model-cache-refresh",
             "trusted": true
           },
@@ -41437,7 +41443,7 @@
           "home_team": "Cleveland Guardians",
           "market_away_odds": 128,
           "market_home_odds": -155,
-          "market_no_vig_probability": 0.6,
+          "market_no_vig_probability": 0.609375,
           "market_no_vig_selected_probability": 0.580868,
           "market_odds_captured_at": "2026-09-14T11:49:44.055473Z",
           "market_odds_provider": "espn_scoreboard:DraftKings",
@@ -41504,7 +41510,7 @@
           "raw_units": 0.4,
           "recommended_units": 0.0,
           "selected_odds": -155,
-          "selected_side_implied_probability": 0.6,
+          "selected_side_implied_probability": 0.609375,
           "source": "MLB Model",
           "sport": "MLB",
           "start_time": "2026-09-14T22:40:00Z",
@@ -41530,8 +41536,8 @@
             "version": "cal-v2-6404-2026-08-25"
           },
           "certification_timing": {
-            "data_as_of": "2026-09-14T15:09:20.131245Z",
-            "published_at": "2026-09-14T15:09:20.131245Z",
+            "data_as_of": "2026-09-14T17:10:03.733992Z",
+            "published_at": "2026-09-14T17:10:03.733992Z",
             "source": "model-cache-refresh",
             "trusted": true
           },
@@ -41713,8 +41719,8 @@
             "version": "cal-v2-6404-2026-08-25"
           },
           "certification_timing": {
-            "data_as_of": "2026-09-14T15:09:20.131245Z",
-            "published_at": "2026-09-14T15:09:20.131245Z",
+            "data_as_of": "2026-09-14T17:10:03.733992Z",
+            "published_at": "2026-09-14T17:10:03.733992Z",
             "source": "model-cache-refresh",
             "trusted": true
           },
@@ -41891,8 +41897,8 @@
             "version": "cal-v2-6404-2026-08-25"
           },
           "certification_timing": {
-            "data_as_of": "2026-09-14T15:09:20.131245Z",
-            "published_at": "2026-09-14T15:09:20.131245Z",
+            "data_as_of": "2026-09-14T17:10:03.733992Z",
+            "published_at": "2026-09-14T17:10:03.733992Z",
             "source": "model-cache-refresh",
             "trusted": true
           },
@@ -42068,8 +42074,8 @@
             "version": "cal-v2-6404-2026-08-25"
           },
           "certification_timing": {
-            "data_as_of": "2026-09-14T15:09:20.131245Z",
-            "published_at": "2026-09-14T15:09:20.131245Z",
+            "data_as_of": "2026-09-14T17:10:03.733992Z",
+            "published_at": "2026-09-14T17:10:03.733992Z",
             "source": "model-cache-refresh",
             "trusted": true
           },
@@ -42245,8 +42251,8 @@
             "version": "cal-v2-6404-2026-08-25"
           },
           "certification_timing": {
-            "data_as_of": "2026-09-14T15:09:20.131245Z",
-            "published_at": "2026-09-14T15:09:20.131245Z",
+            "data_as_of": "2026-09-14T17:10:03.733992Z",
+            "published_at": "2026-09-14T17:10:03.733992Z",
             "source": "model-cache-refresh",
             "trusted": true
           },
@@ -42428,8 +42434,8 @@
             "version": "cal-v2-6404-2026-08-25"
           },
           "certification_timing": {
-            "data_as_of": "2026-09-14T15:09:20.131245Z",
-            "published_at": "2026-09-14T15:09:20.131245Z",
+            "data_as_of": "2026-09-14T17:10:03.733992Z",
+            "published_at": "2026-09-14T17:10:03.733992Z",
             "source": "model-cache-refresh",
             "trusted": true
           },
@@ -42605,8 +42611,8 @@
             "version": "cal-v2-6404-2026-08-25"
           },
           "certification_timing": {
-            "data_as_of": "2026-09-14T15:09:20.131245Z",
-            "published_at": "2026-09-14T15:09:20.131245Z",
+            "data_as_of": "2026-09-14T17:10:03.733992Z",
+            "published_at": "2026-09-14T17:10:03.733992Z",
             "source": "model-cache-refresh",
             "trusted": true
           },
@@ -42790,8 +42796,8 @@
             "version": "cal-v2-6404-2026-08-25"
           },
           "certification_timing": {
-            "data_as_of": "2026-09-14T15:09:20.131245Z",
-            "published_at": "2026-09-14T15:09:20.131245Z",
+            "data_as_of": "2026-09-14T17:10:03.733992Z",
+            "published_at": "2026-09-14T17:10:03.733992Z",
             "source": "model-cache-refresh",
             "trusted": true
           },
@@ -42969,8 +42975,8 @@
             "version": "cal-v2-6404-2026-08-25"
           },
           "certification_timing": {
-            "data_as_of": "2026-09-14T15:09:20.131245Z",
-            "published_at": "2026-09-14T15:09:20.131245Z",
+            "data_as_of": "2026-09-14T17:10:03.733992Z",
+            "published_at": "2026-09-14T17:10:03.733992Z",
             "source": "model-cache-refresh",
             "trusted": true
           },
@@ -43166,7 +43172,7 @@
           "actionability": "research_signal",
           "assumed_odds_replaced": true,
           "away_team": "San Francisco Giants",
-          "calibrated_edge": -6.455836625514399,
+          "calibrated_edge": -6.624493442622947,
           "calibrated_model_probability": 0.523919,
           "calibrated_probability": 0.523919,
           "calibration": {
@@ -43178,8 +43184,8 @@
             "version": "cal-v2-6404-2026-08-25"
           },
           "certification_timing": {
-            "data_as_of": "2026-09-14T15:09:20.131245Z",
-            "published_at": "2026-09-14T15:09:20.131245Z",
+            "data_as_of": "2026-09-14T17:10:03.733992Z",
+            "published_at": "2026-09-14T17:10:03.733992Z",
             "source": "model-cache-refresh",
             "trusted": true
           },
@@ -43262,7 +43268,7 @@
           "home_team": "St. Louis Cardinals",
           "market_away_odds": 119,
           "market_home_odds": -144,
-          "market_no_vig_probability": 0.588477366255144,
+          "market_no_vig_probability": 0.5901639344262295,
           "market_no_vig_selected_probability": 0.563787,
           "market_odds_captured_at": "2026-09-14T11:49:44.055473Z",
           "market_odds_provider": "espn_scoreboard:DraftKings",
@@ -43329,7 +43335,7 @@
           "raw_units": 0.4,
           "recommended_units": 0.0,
           "selected_odds": -144,
-          "selected_side_implied_probability": 0.588477366255144,
+          "selected_side_implied_probability": 0.5901639344262295,
           "source": "MLB Model",
           "sport": "MLB",
           "start_time": "2026-09-14T23:45:00Z",
@@ -43355,8 +43361,8 @@
             "version": "cal-v2-6404-2026-08-25"
           },
           "certification_timing": {
-            "data_as_of": "2026-09-14T15:09:20.131245Z",
-            "published_at": "2026-09-14T15:09:20.131245Z",
+            "data_as_of": "2026-09-14T17:10:03.733992Z",
+            "published_at": "2026-09-14T17:10:03.733992Z",
             "source": "model-cache-refresh",
             "trusted": true
           },
@@ -43540,8 +43546,8 @@
             "version": "cal-v2-6404-2026-08-25"
           },
           "certification_timing": {
-            "data_as_of": "2026-09-14T15:09:20.131245Z",
-            "published_at": "2026-09-14T15:09:20.131245Z",
+            "data_as_of": "2026-09-14T17:10:03.733992Z",
+            "published_at": "2026-09-14T17:10:03.733992Z",
             "source": "model-cache-refresh",
             "trusted": true
           },
@@ -43718,8 +43724,8 @@
             "version": "cal-v2-6404-2026-08-25"
           },
           "certification_timing": {
-            "data_as_of": "2026-09-14T15:09:20.131245Z",
-            "published_at": "2026-09-14T15:09:20.131245Z",
+            "data_as_of": "2026-09-14T17:10:03.733992Z",
+            "published_at": "2026-09-14T17:10:03.733992Z",
             "source": "model-cache-refresh",
             "trusted": true
           },
@@ -43895,8 +43901,8 @@
             "version": "cal-v2-6404-2026-08-25"
           },
           "certification_timing": {
-            "data_as_of": "2026-09-14T15:09:20.131245Z",
-            "published_at": "2026-09-14T15:09:20.131245Z",
+            "data_as_of": "2026-09-14T17:10:03.733992Z",
+            "published_at": "2026-09-14T17:10:03.733992Z",
             "source": "model-cache-refresh",
             "trusted": true
           },
@@ -44073,8 +44079,8 @@
             "version": "cal-v2-6404-2026-08-25"
           },
           "certification_timing": {
-            "data_as_of": "2026-09-14T15:09:20.131245Z",
-            "published_at": "2026-09-14T15:09:20.131245Z",
+            "data_as_of": "2026-09-14T17:10:03.733992Z",
+            "published_at": "2026-09-14T17:10:03.733992Z",
             "source": "model-cache-refresh",
             "trusted": true
           },
@@ -44256,8 +44262,8 @@
             "version": "cal-v2-6404-2026-08-25"
           },
           "certification_timing": {
-            "data_as_of": "2026-09-14T15:09:20.131245Z",
-            "published_at": "2026-09-14T15:09:20.131245Z",
+            "data_as_of": "2026-09-14T17:10:03.733992Z",
+            "published_at": "2026-09-14T17:10:03.733992Z",
             "source": "model-cache-refresh",
             "trusted": true
           },
@@ -44433,9 +44439,9 @@
         },
         {
           "actionability": "research_signal",
-          "assumed_odds": -110,
+          "assumed_odds_replaced": true,
           "away_team": "Miami Marlins",
-          "calibrated_edge": 0.47684761904761563,
+          "calibrated_edge": -0.41322803738317315,
           "calibrated_model_probability": 0.528578,
           "calibrated_probability": 0.528578,
           "calibration": {
@@ -44447,8 +44453,8 @@
             "version": "cal-v2-6404-2026-08-25"
           },
           "certification_timing": {
-            "data_as_of": "2026-09-14T15:09:20.131245Z",
-            "published_at": "2026-09-14T15:09:20.131245Z",
+            "data_as_of": "2026-09-14T17:10:03.733992Z",
+            "published_at": "2026-09-14T17:10:03.733992Z",
             "source": "model-cache-refresh",
             "trusted": true
           },
@@ -44458,13 +44464,6 @@
               "risk": [],
               "support": [
                 "probability_calibration"
-              ]
-            },
-            "market_price": {
-              "missing": [],
-              "risk": [],
-              "support": [
-                "market_price"
               ]
             },
             "model_stack": {
@@ -44491,23 +44490,17 @@
           },
           "consensus_gate_version": "mlb_team_consensus_v1.2.0",
           "consensus_hard_blockers": [
-            "raw_model_abstained"
+            "raw_model_abstained",
+            "non_positive_calibrated_edge"
           ],
           "consensus_passed": false,
           "consensus_publication_mode": "research",
           "consensus_qualified": false,
-          "consensus_rejection_reason": "raw_model_abstained",
+          "consensus_rejection_reason": "raw_model_abstained; non_positive_calibrated_edge",
           "consensus_required": true,
-          "consensus_score": 15.835,
-          "consensus_signal_count": 5,
+          "consensus_score": 12.858,
+          "consensus_signal_count": 4,
           "consensus_signals": [
-            {
-              "category": "market_price",
-              "detail": "calibrated probability beats selected-side market price",
-              "impact": "support",
-              "name": "market_price",
-              "strength": 0.048
-            },
             {
               "category": "calibration",
               "detail": "active calibration group has enough samples",
@@ -44540,21 +44533,31 @@
           "decision": "PASS",
           "direction": "Under",
           "edge": 0.48,
-          "edge_basis": "vigged",
-          "full_kelly": 0.01,
+          "edge_basis": "no_vig",
+          "full_kelly": 0.0,
           "game_start_time": "2026-09-15T01:40:00Z",
           "home_team": "Arizona Diamondbacks",
           "kelly": 0.0,
           "line": 8.5,
           "market_line": 8.5,
-          "market_no_vig_probability": 0.5238095238095238,
+          "market_no_vig_probability": 0.5327102803738317,
+          "market_no_vig_selected_probability": 0.508664,
+          "market_odds_captured_at": "2026-09-14T17:10:05.297225Z",
+          "market_odds_provider": "espn_scoreboard:DraftKings",
+          "market_over_odds": -106,
+          "market_priced": true,
           "market_total_source": "model_output",
           "market_type": "totals",
+          "market_under_odds": -114,
+          "market_updated_at": "2026-09-14T17:10:05.297225Z",
           "ml_rank_epoch": "MLB:mlb_team_consensus_v1.2.0:mlb_new",
           "mlb_team_consensus_version": "mlb_team_consensus_v1.2.0",
+          "model_assumed_odds": -110,
           "model_epoch": "MLB:mlb_team_consensus_v1.2.0:mlb_new",
           "model_prediction": 8.4,
-          "odds": -110,
+          "odds": -114,
+          "odds_source": "posted_market",
+          "opposite_odds": -106,
           "pick": "Under 8.5 (Miami Marlins vs Arizona Diamondbacks)",
           "pregame_snapshot": {
             "assumed_odds": -110,
@@ -44587,17 +44590,20 @@
             "units": 0.0,
             "vegas": 8.5
           },
+          "price_source": "espn_scoreboard:DraftKings",
+          "pricing_type": "market",
           "primary_consensus_passed": false,
           "prob": 0.5055,
           "probability": 0.5286,
-          "quarter_kelly": 0.0025,
+          "quarter_kelly": 0.0,
           "ranking_epoch": "MLB:mlb_team_consensus_v1.2.0:mlb_new",
           "raw_edge": -1.83,
           "raw_model_probability": 0.5055,
           "raw_probability": 0.5055,
           "raw_units": 0.0,
           "recommended_units": 0.0,
-          "selected_side_implied_probability": 0.5238095238095238,
+          "selected_odds": -114,
+          "selected_side_implied_probability": 0.5327102803738317,
           "selection": "PASS",
           "source": "MLB Model",
           "sport": "MLB",
@@ -45197,8 +45203,8 @@
             "version": "cal-v2-6404-2026-08-25"
           },
           "certification_timing": {
-            "data_as_of": "2026-09-14T15:09:20.131245Z",
-            "published_at": "2026-09-14T15:09:20.131245Z",
+            "data_as_of": "2026-09-14T17:10:03.733992Z",
+            "published_at": "2026-09-14T17:10:03.733992Z",
             "source": "model-cache-refresh",
             "trusted": true
           },
@@ -45420,8 +45426,8 @@
             "version": "cal-v2-6404-2026-08-25"
           },
           "certification_timing": {
-            "data_as_of": "2026-09-14T15:09:20.131245Z",
-            "published_at": "2026-09-14T15:09:20.131245Z",
+            "data_as_of": "2026-09-14T17:10:03.733992Z",
+            "published_at": "2026-09-14T17:10:03.733992Z",
             "source": "model-cache-refresh",
             "trusted": true
           },
@@ -45643,8 +45649,8 @@
             "version": "cal-v2-6404-2026-08-25"
           },
           "certification_timing": {
-            "data_as_of": "2026-09-14T15:09:20.131245Z",
-            "published_at": "2026-09-14T15:09:20.131245Z",
+            "data_as_of": "2026-09-14T17:10:03.733992Z",
+            "published_at": "2026-09-14T17:10:03.733992Z",
             "source": "model-cache-refresh",
             "trusted": true
           },
@@ -45866,8 +45872,8 @@
             "version": "cal-v2-6404-2026-08-25"
           },
           "certification_timing": {
-            "data_as_of": "2026-09-14T15:09:20.131245Z",
-            "published_at": "2026-09-14T15:09:20.131245Z",
+            "data_as_of": "2026-09-14T17:10:03.733992Z",
+            "published_at": "2026-09-14T17:10:03.733992Z",
             "source": "model-cache-refresh",
             "trusted": true
           },
@@ -46100,8 +46106,8 @@
             "version": "cal-v2-6404-2026-08-25"
           },
           "certification_timing": {
-            "data_as_of": "2026-09-14T15:09:20.131245Z",
-            "published_at": "2026-09-14T15:09:20.131245Z",
+            "data_as_of": "2026-09-14T17:10:03.733992Z",
+            "published_at": "2026-09-14T17:10:03.733992Z",
             "source": "model-cache-refresh",
             "trusted": true
           },
@@ -46345,8 +46351,8 @@
             "version": "cal-v2-6404-2026-08-25"
           },
           "certification_timing": {
-            "data_as_of": "2026-09-14T15:09:20.131245Z",
-            "published_at": "2026-09-14T15:09:20.131245Z",
+            "data_as_of": "2026-09-14T17:10:03.733992Z",
+            "published_at": "2026-09-14T17:10:03.733992Z",
             "source": "model-cache-refresh",
             "trusted": true
           },
@@ -46568,8 +46574,8 @@
             "version": "cal-v2-6404-2026-08-25"
           },
           "certification_timing": {
-            "data_as_of": "2026-09-14T15:09:20.131245Z",
-            "published_at": "2026-09-14T15:09:20.131245Z",
+            "data_as_of": "2026-09-14T17:10:03.733992Z",
+            "published_at": "2026-09-14T17:10:03.733992Z",
             "source": "model-cache-refresh",
             "trusted": true
           },
@@ -46791,8 +46797,8 @@
             "version": "cal-v2-6404-2026-08-25"
           },
           "certification_timing": {
-            "data_as_of": "2026-09-14T15:09:20.131245Z",
-            "published_at": "2026-09-14T15:09:20.131245Z",
+            "data_as_of": "2026-09-14T17:10:03.733992Z",
+            "published_at": "2026-09-14T17:10:03.733992Z",
             "source": "model-cache-refresh",
             "trusted": true
           },
@@ -47002,7 +47008,7 @@
           "actionability": "research_signal",
           "assumed_odds_replaced": true,
           "away_team": "Atlanta Braves",
-          "calibrated_edge": -2.801555555555557,
+          "calibrated_edge": -1.7914545454545405,
           "calibrated_model_probability": 0.52754,
           "calibrated_probability": 0.52754,
           "calibration": {
@@ -47014,8 +47020,8 @@
             "version": "cal-v2-6404-2026-08-25"
           },
           "certification_timing": {
-            "data_as_of": "2026-09-14T15:09:20.131245Z",
-            "published_at": "2026-09-14T15:09:20.131245Z",
+            "data_as_of": "2026-09-14T17:10:03.733992Z",
+            "published_at": "2026-09-14T17:10:03.733992Z",
             "source": "model-cache-refresh",
             "trusted": true
           },
@@ -47151,7 +47157,7 @@
           "market": "team_total",
           "market_implied_probability": 0.52381,
           "market_line": 4.5,
-          "market_no_vig_probability": 0.5555555555555556,
+          "market_no_vig_probability": 0.5454545454545454,
           "market_no_vig_selected_probability": 0.510121,
           "market_odds_captured_at": "2026-09-14T11:49:44.055473Z",
           "market_odds_provider": "espn_scoreboard:DraftKings",
@@ -47232,7 +47238,7 @@
           "raw_probability": 0.555,
           "recommended_units": 0.0,
           "selected_odds": -120,
-          "selected_side_implied_probability": 0.5555555555555556,
+          "selected_side_implied_probability": 0.5454545454545454,
           "source": "MLB Team Total",
           "sport": "MLB",
           "start_time": "2026-09-14T23:40:00Z",
@@ -47258,8 +47264,8 @@
             "version": "cal-v2-6404-2026-08-25"
           },
           "certification_timing": {
-            "data_as_of": "2026-09-14T15:09:20.131245Z",
-            "published_at": "2026-09-14T15:09:20.131245Z",
+            "data_as_of": "2026-09-14T17:10:03.733992Z",
+            "published_at": "2026-09-14T17:10:03.733992Z",
             "source": "model-cache-refresh",
             "trusted": true
           },
@@ -47481,8 +47487,8 @@
             "version": "cal-v2-6404-2026-08-25"
           },
           "certification_timing": {
-            "data_as_of": "2026-09-14T15:09:20.131245Z",
-            "published_at": "2026-09-14T15:09:20.131245Z",
+            "data_as_of": "2026-09-14T17:10:03.733992Z",
+            "published_at": "2026-09-14T17:10:03.733992Z",
             "source": "model-cache-refresh",
             "trusted": true
           },
@@ -47715,8 +47721,8 @@
             "version": "cal-v2-6404-2026-08-25"
           },
           "certification_timing": {
-            "data_as_of": "2026-09-14T15:09:20.131245Z",
-            "published_at": "2026-09-14T15:09:20.131245Z",
+            "data_as_of": "2026-09-14T17:10:03.733992Z",
+            "published_at": "2026-09-14T17:10:03.733992Z",
             "source": "model-cache-refresh",
             "trusted": true
           },
@@ -47938,8 +47944,8 @@
             "version": "cal-v2-6404-2026-08-25"
           },
           "certification_timing": {
-            "data_as_of": "2026-09-14T15:09:20.131245Z",
-            "published_at": "2026-09-14T15:09:20.131245Z",
+            "data_as_of": "2026-09-14T17:10:03.733992Z",
+            "published_at": "2026-09-14T17:10:03.733992Z",
             "source": "model-cache-refresh",
             "trusted": true
           },
@@ -48161,8 +48167,8 @@
             "version": "cal-v2-6404-2026-08-25"
           },
           "certification_timing": {
-            "data_as_of": "2026-09-14T15:09:20.131245Z",
-            "published_at": "2026-09-14T15:09:20.131245Z",
+            "data_as_of": "2026-09-14T17:10:03.733992Z",
+            "published_at": "2026-09-14T17:10:03.733992Z",
             "source": "model-cache-refresh",
             "trusted": true
           },
@@ -48395,8 +48401,8 @@
             "version": "cal-v2-6404-2026-08-25"
           },
           "certification_timing": {
-            "data_as_of": "2026-09-14T15:09:20.131245Z",
-            "published_at": "2026-09-14T15:09:20.131245Z",
+            "data_as_of": "2026-09-14T17:10:03.733992Z",
+            "published_at": "2026-09-14T17:10:03.733992Z",
             "source": "model-cache-refresh",
             "trusted": true
           },
@@ -48606,7 +48612,7 @@
           "actionability": "research_signal",
           "assumed_odds_replaced": true,
           "away_team": "San Diego Padres",
-          "calibrated_edge": -4.624255555555557,
+          "calibrated_edge": -3.61415454545454,
           "calibrated_model_probability": 0.509313,
           "calibrated_probability": 0.509313,
           "calibration": {
@@ -48618,8 +48624,8 @@
             "version": "cal-v2-6404-2026-08-25"
           },
           "certification_timing": {
-            "data_as_of": "2026-09-14T15:09:20.131245Z",
-            "published_at": "2026-09-14T15:09:20.131245Z",
+            "data_as_of": "2026-09-14T17:10:03.733992Z",
+            "published_at": "2026-09-14T17:10:03.733992Z",
             "source": "model-cache-refresh",
             "trusted": true
           },
@@ -48756,7 +48762,7 @@
           "market": "team_total",
           "market_implied_probability": 0.52381,
           "market_line": 4.5,
-          "market_no_vig_probability": 0.5555555555555556,
+          "market_no_vig_probability": 0.5454545454545454,
           "market_no_vig_selected_probability": 0.5,
           "market_odds_captured_at": "2026-09-14T11:49:44.055473Z",
           "market_odds_provider": "espn_scoreboard:DraftKings",
@@ -48837,7 +48843,7 @@
           "raw_probability": 0.5299,
           "recommended_units": 0.0,
           "selected_odds": -115,
-          "selected_side_implied_probability": 0.5555555555555556,
+          "selected_side_implied_probability": 0.5454545454545454,
           "source": "MLB Team Total",
           "sport": "MLB",
           "start_time": "2026-09-15T00:40:00Z",
@@ -48863,8 +48869,8 @@
             "version": "cal-v2-6404-2026-08-25"
           },
           "certification_timing": {
-            "data_as_of": "2026-09-14T15:09:20.131245Z",
-            "published_at": "2026-09-14T15:09:20.131245Z",
+            "data_as_of": "2026-09-14T17:10:03.733992Z",
+            "published_at": "2026-09-14T17:10:03.733992Z",
             "source": "model-cache-refresh",
             "trusted": true
           },
@@ -49086,8 +49092,8 @@
             "version": "cal-v2-6404-2026-08-25"
           },
           "certification_timing": {
-            "data_as_of": "2026-09-14T15:09:20.131245Z",
-            "published_at": "2026-09-14T15:09:20.131245Z",
+            "data_as_of": "2026-09-14T17:10:03.733992Z",
+            "published_at": "2026-09-14T17:10:03.733992Z",
             "source": "model-cache-refresh",
             "trusted": true
           },
@@ -49331,8 +49337,8 @@
             "version": "cal-v2-6404-2026-08-25"
           },
           "certification_timing": {
-            "data_as_of": "2026-09-14T15:09:20.131245Z",
-            "published_at": "2026-09-14T15:09:20.131245Z",
+            "data_as_of": "2026-09-14T17:10:03.733992Z",
+            "published_at": "2026-09-14T17:10:03.733992Z",
             "source": "model-cache-refresh",
             "trusted": true
           },
@@ -49565,8 +49571,8 @@
             "version": "cal-v2-6404-2026-08-25"
           },
           "certification_timing": {
-            "data_as_of": "2026-09-14T15:09:20.131245Z",
-            "published_at": "2026-09-14T15:09:20.131245Z",
+            "data_as_of": "2026-09-14T17:10:03.733992Z",
+            "published_at": "2026-09-14T17:10:03.733992Z",
             "source": "model-cache-refresh",
             "trusted": true
           },
@@ -49867,8 +49873,8 @@
             "version": "cal-v2-6404-2026-08-25"
           },
           "certification_timing": {
-            "data_as_of": "2026-09-14T15:09:20.131245Z",
-            "published_at": "2026-09-14T15:09:20.131245Z",
+            "data_as_of": "2026-09-14T17:10:03.733992Z",
+            "published_at": "2026-09-14T17:10:03.733992Z",
             "source": "model-cache-refresh",
             "trusted": true
           },
@@ -49964,8 +49970,8 @@
             "version": "cal-v2-6404-2026-08-25"
           },
           "certification_timing": {
-            "data_as_of": "2026-09-14T15:09:20.131245Z",
-            "published_at": "2026-09-14T15:09:20.131245Z",
+            "data_as_of": "2026-09-14T17:10:03.733992Z",
+            "published_at": "2026-09-14T17:10:03.733992Z",
             "source": "model-cache-refresh",
             "trusted": true
           },
@@ -50061,8 +50067,8 @@
             "version": "cal-v2-6404-2026-08-25"
           },
           "certification_timing": {
-            "data_as_of": "2026-09-14T15:09:20.131245Z",
-            "published_at": "2026-09-14T15:09:20.131245Z",
+            "data_as_of": "2026-09-14T17:10:03.733992Z",
+            "published_at": "2026-09-14T17:10:03.733992Z",
             "source": "model-cache-refresh",
             "trusted": true
           },
@@ -51492,7 +51498,7 @@
     },
     "tennis": {
       "date": "2026-09-14",
-      "generatedAt": "2026-09-14T15:01:43.077019Z",
+      "generatedAt": "2026-09-14T17:01:50.907123Z",
       "matches": [
         {
           "assumed_tournament_meta": false,
@@ -51661,6 +51667,21 @@
         },
         {
           "assumed_tournament_meta": false,
+          "elo_diff": -46.0,
+          "matchup": "Alina Charaeva vs You Xiaodi",
+          "p1": "Alina Charaeva",
+          "p1_probability": 0.7214,
+          "p2": "You Xiaodi",
+          "round": "Women's Singles",
+          "round_display": "Round 1",
+          "surface": "Hard",
+          "surface_elo_diff": -44.5,
+          "tour": "WTA",
+          "tournament": "SP Open",
+          "welo_diff": -30.4
+        },
+        {
+          "assumed_tournament_meta": false,
           "elo_diff": 100.1,
           "matchup": "Dominika Salkova vs Jessica Bouzas Maneiro",
           "p1": "Jessica Bouzas Maneiro",
@@ -51691,21 +51712,6 @@
         },
         {
           "assumed_tournament_meta": false,
-          "elo_diff": -46.0,
-          "matchup": "Alina Charaeva vs You Xiaodi",
-          "p1": "Alina Charaeva",
-          "p1_probability": 0.7214,
-          "p2": "You Xiaodi",
-          "round": "Women's Singles",
-          "round_display": "Round 1",
-          "surface": "Hard",
-          "surface_elo_diff": -44.5,
-          "tour": "WTA",
-          "tournament": "SP Open",
-          "welo_diff": -30.4
-        },
-        {
-          "assumed_tournament_meta": false,
           "elo_diff": 141.9,
           "matchup": "Chloe Paquet vs Jazmin Ortenzi",
           "p1": "Jazmin Ortenzi",
@@ -51721,18 +51727,18 @@
         },
         {
           "assumed_tournament_meta": false,
-          "elo_diff": 258.4,
-          "matchup": "Paula Badosa vs Darja Semenistaja",
+          "elo_diff": 220.8,
+          "matchup": "Paula Badosa vs Justina Mikulskyte",
           "p1": "Paula Badosa",
-          "p1_probability": 0.7214,
-          "p2": "Darja Semenistaja",
+          "p1_probability": 0.8701,
+          "p2": "Justina Mikulskyte",
           "round": "Women's Singles",
           "round_display": "Round 1",
           "surface": "Hard",
-          "surface_elo_diff": 294.4,
+          "surface_elo_diff": 234.8,
           "tour": "WTA",
           "tournament": "SP Open",
-          "welo_diff": 275.9
+          "welo_diff": 225.9
         },
         {
           "assumed_tournament_meta": false,
@@ -51871,18 +51877,18 @@
         },
         {
           "assumed_tournament_meta": false,
-          "elo_diff": 180.8,
-          "matchup": "Hayu Kinoshita vs Leylah Fernandez",
-          "p1": "Leylah Fernandez",
-          "p1_probability": 0.8701,
-          "p2": "Hayu Kinoshita",
+          "elo_diff": 37.6,
+          "matchup": "Hayu Kinoshita vs Darja Semenistaja",
+          "p1": "Hayu Kinoshita",
+          "p1_probability": 0.289,
+          "p2": "Darja Semenistaja",
           "round": "Women's Singles",
           "round_display": "Round 1",
           "surface": "Hard",
-          "surface_elo_diff": 184.4,
+          "surface_elo_diff": 59.6,
           "tour": "WTA",
           "tournament": "SP Open",
-          "welo_diff": 158.0
+          "welo_diff": 50.0
         },
         {
           "assumed_tournament_meta": false,
@@ -52018,171 +52024,6 @@
           "tour": "WTA",
           "tournament": "BBVA Open Internacional De Valencia",
           "welo_diff": 65.4
-        },
-        {
-          "assumed_tournament_meta": false,
-          "elo_diff": -70.1,
-          "matchup": "Nastasja Schunk vs Oksana Selekhmeteva",
-          "p1": "Nastasja Schunk",
-          "p1_probability": 0.372,
-          "p2": "Oksana Selekhmeteva",
-          "round": "Women's Singles",
-          "round_display": "Round 1",
-          "surface": "Hard",
-          "surface_elo_diff": -61.9,
-          "tour": "WTA",
-          "tournament": "BBVA Open Internacional De Valencia",
-          "welo_diff": -41.3
-        },
-        {
-          "assumed_tournament_meta": false,
-          "elo_diff": -158.6,
-          "matchup": "Rebeka Masarova vs Mina Hodzic",
-          "p1": "Mina Hodzic",
-          "p1_probability": 0.4917,
-          "p2": "Rebeka Masarova",
-          "round": "Women's Singles",
-          "round_display": "Round 1",
-          "surface": "Hard",
-          "surface_elo_diff": -85.7,
-          "tour": "WTA",
-          "tournament": "BBVA Open Internacional De Valencia",
-          "welo_diff": -90.9
-        },
-        {
-          "assumed_tournament_meta": false,
-          "elo_diff": 0.0,
-          "matchup": "Charo Esquiva Banuls vs Joelle Lilly Sophie Steur",
-          "p1": "Charo Esquiva Banuls",
-          "p1_probability": 0.4917,
-          "p2": "Joelle Lilly Sophie Steur",
-          "round": "Women's Singles",
-          "round_display": "Round 1",
-          "surface": "Hard",
-          "surface_elo_diff": 0.0,
-          "tour": "WTA",
-          "tournament": "BBVA Open Internacional De Valencia",
-          "welo_diff": 0.0
-        },
-        {
-          "assumed_tournament_meta": false,
-          "elo_diff": -32.0,
-          "matchup": "Yasmine Kabbaj vs Angela Fita Boluda",
-          "p1": "Angela Fita Boluda",
-          "p1_probability": 0.5775,
-          "p2": "Yasmine Kabbaj",
-          "round": "Women's Singles",
-          "round_display": "Round 1",
-          "surface": "Hard",
-          "surface_elo_diff": 0.0,
-          "tour": "WTA",
-          "tournament": "BBVA Open Internacional De Valencia",
-          "welo_diff": -22.5
-        },
-        {
-          "assumed_tournament_meta": false,
-          "elo_diff": 92.8,
-          "matchup": "Aran Teixido Garcia vs Clara Burel",
-          "p1": "Clara Burel",
-          "p1_probability": 0.6758,
-          "p2": "Aran Teixido Garcia",
-          "round": "Women's Singles",
-          "round_display": "Round 1",
-          "surface": "Hard",
-          "surface_elo_diff": 93.9,
-          "tour": "WTA",
-          "tournament": "BBVA Open Internacional De Valencia",
-          "welo_diff": 73.4
-        },
-        {
-          "assumed_tournament_meta": false,
-          "elo_diff": 17.5,
-          "matchup": "Martina Trevisan vs Leyre Romero Gormaz",
-          "p1": "Leyre Romero Gormaz",
-          "p1_probability": 0.6229,
-          "p2": "Martina Trevisan",
-          "round": "Women's Singles",
-          "round_display": "Round 1",
-          "surface": "Hard",
-          "surface_elo_diff": 1.8,
-          "tour": "WTA",
-          "tournament": "BBVA Open Internacional De Valencia",
-          "welo_diff": 20.0
-        },
-        {
-          "assumed_tournament_meta": false,
-          "elo_diff": 20.9,
-          "matchup": "Eva Vedder vs Jennifer Ruggeri",
-          "p1": "Jennifer Ruggeri",
-          "p1_probability": 0.5775,
-          "p2": "Eva Vedder",
-          "round": "Women's Singles",
-          "round_display": "Round 1",
-          "surface": "Hard",
-          "surface_elo_diff": 0.0,
-          "tour": "WTA",
-          "tournament": "BBVA Open Internacional De Valencia",
-          "welo_diff": 17.4
-        },
-        {
-          "assumed_tournament_meta": false,
-          "elo_diff": 28.9,
-          "matchup": "Lucia Cortez Llorca vs Alicia Herrero Linana",
-          "p1": "Lucia Cortez Llorca",
-          "p1_probability": 0.3123,
-          "p2": "Alicia Herrero Linana",
-          "round": "Women's Singles",
-          "round_display": "Round 1",
-          "surface": "Hard",
-          "surface_elo_diff": 0.0,
-          "tour": "WTA",
-          "tournament": "BBVA Open Internacional De Valencia",
-          "welo_diff": 21.6
-        },
-        {
-          "assumed_tournament_meta": false,
-          "elo_diff": 0.0,
-          "matchup": "Ariana Geerlings vs Ane Mintegi Del Olmo",
-          "p1": "Ariana Geerlings",
-          "p1_probability": 0.4917,
-          "p2": "Ane Mintegi Del Olmo",
-          "round": "Women's Singles",
-          "round_display": "Round 1",
-          "surface": "Hard",
-          "surface_elo_diff": 0.0,
-          "tour": "WTA",
-          "tournament": "BBVA Open Internacional De Valencia",
-          "welo_diff": 0.0
-        },
-        {
-          "assumed_tournament_meta": false,
-          "elo_diff": 0.0,
-          "matchup": "Irene Burillo vs Madison Sieg",
-          "p1": "Irene Burillo",
-          "p1_probability": 0.4917,
-          "p2": "Madison Sieg",
-          "round": "Women's Singles",
-          "round_display": "Round 1",
-          "surface": "Hard",
-          "surface_elo_diff": 0.0,
-          "tour": "WTA",
-          "tournament": "BBVA Open Internacional De Valencia",
-          "welo_diff": 0.0
-        },
-        {
-          "assumed_tournament_meta": false,
-          "elo_diff": -86.6,
-          "matchup": "Guiomar Maristany Zuleta De Reales vs Berfu Cengiz",
-          "p1": "Berfu Cengiz",
-          "p1_probability": 0.6229,
-          "p2": "Guiomar Maristany Zuleta De Reales",
-          "round": "Women's Singles",
-          "round_display": "Round 1",
-          "surface": "Hard",
-          "surface_elo_diff": 0.0,
-          "tour": "WTA",
-          "tournament": "BBVA Open Internacional De Valencia",
-          "welo_diff": -58.6
         },
         {
           "assumed_tournament_meta": true,
@@ -52468,96 +52309,6 @@
           "tour": "WTA",
           "tournament": "Zavarovalnica Triglav Ljubljana",
           "welo_diff": -33.9
-        },
-        {
-          "assumed_tournament_meta": true,
-          "elo_diff": -16.4,
-          "matchup": "Vivian Wolff vs Alice Tubello",
-          "p1": "Alice Tubello",
-          "p1_probability": 0.7613,
-          "p2": "Vivian Wolff",
-          "round": "Women's Singles",
-          "round_display": "Round 1",
-          "surface": "Hard",
-          "surface_elo_diff": 0.0,
-          "tour": "WTA",
-          "tournament": "Zavarovalnica Triglav Ljubljana",
-          "welo_diff": -13.2
-        },
-        {
-          "assumed_tournament_meta": true,
-          "elo_diff": -18.6,
-          "matchup": "Aurora Zantedeschi vs Lucie Havlickova",
-          "p1": "Lucie Havlickova",
-          "p1_probability": 0.6961,
-          "p2": "Aurora Zantedeschi",
-          "round": "Women's Singles",
-          "round_display": "Round 1",
-          "surface": "Hard",
-          "surface_elo_diff": -28.2,
-          "tour": "WTA",
-          "tournament": "Zavarovalnica Triglav Ljubljana",
-          "welo_diff": -11.6
-        },
-        {
-          "assumed_tournament_meta": true,
-          "elo_diff": 18.1,
-          "matchup": "Dalma Galfi vs Pia Lovric",
-          "p1": "Dalma Galfi",
-          "p1_probability": 0.6961,
-          "p2": "Pia Lovric",
-          "round": "Women's Singles",
-          "round_display": "Round 1",
-          "surface": "Hard",
-          "surface_elo_diff": -74.2,
-          "tour": "WTA",
-          "tournament": "Zavarovalnica Triglav Ljubljana",
-          "welo_diff": -3.0
-        },
-        {
-          "assumed_tournament_meta": true,
-          "elo_diff": -81.6,
-          "matchup": "Ekaterine Gorgodze vs Maria Lourdes Carle",
-          "p1": "Ekaterine Gorgodze",
-          "p1_probability": 0.6229,
-          "p2": "Maria Lourdes Carle",
-          "round": "Women's Singles",
-          "round_display": "Round 1",
-          "surface": "Hard",
-          "surface_elo_diff": -65.5,
-          "tour": "WTA",
-          "tournament": "Zavarovalnica Triglav Ljubljana",
-          "welo_diff": -74.5
-        },
-        {
-          "assumed_tournament_meta": true,
-          "elo_diff": 0.0,
-          "matchup": "Kristina Novak vs Weronika Falkowska",
-          "p1": "Weronika Falkowska",
-          "p1_probability": 0.4917,
-          "p2": "Kristina Novak",
-          "round": "Women's Singles",
-          "round_display": "Round 1",
-          "surface": "Hard",
-          "surface_elo_diff": 0.0,
-          "tour": "WTA",
-          "tournament": "Zavarovalnica Triglav Ljubljana",
-          "welo_diff": 0.0
-        },
-        {
-          "assumed_tournament_meta": true,
-          "elo_diff": -64.8,
-          "matchup": "Alja Senica vs Francesca Jones",
-          "p1": "Francesca Jones",
-          "p1_probability": 0.6758,
-          "p2": "Alja Senica",
-          "round": "Women's Singles",
-          "round_display": "Round 1",
-          "surface": "Hard",
-          "surface_elo_diff": -47.3,
-          "tour": "WTA",
-          "tournament": "Zavarovalnica Triglav Ljubljana",
-          "welo_diff": -67.2
         }
       ],
       "meta": {
@@ -52565,16 +52316,16 @@
         "catchUpMatches": 0,
         "decided": 0,
         "leanThreshold": 0.58,
-        "officialMatchups": 71,
-        "rated": 71,
+        "officialMatchups": 54,
+        "rated": 54,
         "ratingConfigMatchesModel": true,
         "ratingsSnapshotThrough": "2026-07-20",
         "ratingsThrough": "2026-07-20",
-        "unknownPlayers": 38
+        "unknownPlayers": 28
       },
       "model": "TennisElo",
       "model_version": "tennis_v1_welo_logistic",
-      "note": "Tennis model: 71 rated match(es), 0 actionable; ratings through 2026-07-20.",
+      "note": "Tennis model: 54 rated match(es), 0 actionable; ratings through 2026-07-20.",
       "ok": true,
       "picks": [
         {
@@ -52963,6 +52714,41 @@
           "units": 0
         },
         {
+          "away_team": "Alina Charaeva",
+          "best_of": 3,
+          "calibration_excluded": true,
+          "date": "2026-09-14",
+          "decision": "PASS",
+          "edge": null,
+          "espn_league": "wta",
+          "game": "Alina Charaeva vs You Xiaodi",
+          "grade_supported": true,
+          "home_team": "You Xiaodi",
+          "league": "WTA",
+          "market_priced": false,
+          "market_type": "tennis_moneyline",
+          "matchup": "Alina Charaeva vs You Xiaodi",
+          "model_probability": 0.7214,
+          "model_version": "tennis_v1_welo_logistic",
+          "odds": null,
+          "opponent": "You Xiaodi",
+          "pick": "Alina Charaeva ML (Alina Charaeva vs You Xiaodi)",
+          "pricing_type": "unpriced",
+          "probability": 0.7214,
+          "ratings_through": "2026-07-20",
+          "round": "Round 1",
+          "selected_player": "Alina Charaeva",
+          "source": "Tennis Model",
+          "source_decision": "BET",
+          "source_units": 1.0,
+          "sport": "Tennis",
+          "start_time": "2026-09-14T17:00Z",
+          "surface": "Hard",
+          "tip": "Alina Charaeva to win",
+          "tournament": "SP Open",
+          "units": 0
+        },
+        {
           "away_team": "Dominika Salkova",
           "best_of": 3,
           "calibration_excluded": true,
@@ -53033,41 +52819,6 @@
           "units": 0
         },
         {
-          "away_team": "Alina Charaeva",
-          "best_of": 3,
-          "calibration_excluded": true,
-          "date": "2026-09-14",
-          "decision": "PASS",
-          "edge": null,
-          "espn_league": "wta",
-          "game": "Alina Charaeva vs You Xiaodi",
-          "grade_supported": true,
-          "home_team": "You Xiaodi",
-          "league": "WTA",
-          "market_priced": false,
-          "market_type": "tennis_moneyline",
-          "matchup": "Alina Charaeva vs You Xiaodi",
-          "model_probability": 0.7214,
-          "model_version": "tennis_v1_welo_logistic",
-          "odds": null,
-          "opponent": "You Xiaodi",
-          "pick": "Alina Charaeva ML (Alina Charaeva vs You Xiaodi)",
-          "pricing_type": "unpriced",
-          "probability": 0.7214,
-          "ratings_through": "2026-07-20",
-          "round": "Round 1",
-          "selected_player": "Alina Charaeva",
-          "source": "Tennis Model",
-          "source_decision": "BET",
-          "source_units": 1.0,
-          "sport": "Tennis",
-          "start_time": "2026-09-14T17:00Z",
-          "surface": "Hard",
-          "tip": "Alina Charaeva to win",
-          "tournament": "SP Open",
-          "units": 0
-        },
-        {
           "away_team": "Chloe Paquet",
           "best_of": 3,
           "calibration_excluded": true,
@@ -53110,20 +52861,20 @@
           "decision": "PASS",
           "edge": null,
           "espn_league": "wta",
-          "game": "Paula Badosa vs Darja Semenistaja",
+          "game": "Paula Badosa vs Justina Mikulskyte",
           "grade_supported": true,
-          "home_team": "Darja Semenistaja",
+          "home_team": "Justina Mikulskyte",
           "league": "WTA",
           "market_priced": false,
           "market_type": "tennis_moneyline",
-          "matchup": "Paula Badosa vs Darja Semenistaja",
-          "model_probability": 0.7214,
+          "matchup": "Paula Badosa vs Justina Mikulskyte",
+          "model_probability": 0.8701,
           "model_version": "tennis_v1_welo_logistic",
           "odds": null,
-          "opponent": "Darja Semenistaja",
-          "pick": "Paula Badosa ML (Paula Badosa vs Darja Semenistaja)",
+          "opponent": "Justina Mikulskyte",
+          "pick": "Paula Badosa ML (Paula Badosa vs Justina Mikulskyte)",
           "pricing_type": "unpriced",
-          "probability": 0.7214,
+          "probability": 0.8701,
           "ratings_through": "2026-07-20",
           "round": "Round 1",
           "selected_player": "Paula Badosa",
@@ -53460,30 +53211,30 @@
           "decision": "PASS",
           "edge": null,
           "espn_league": "wta",
-          "game": "Hayu Kinoshita vs Leylah Fernandez",
+          "game": "Hayu Kinoshita vs Darja Semenistaja",
           "grade_supported": true,
-          "home_team": "Leylah Fernandez",
+          "home_team": "Darja Semenistaja",
           "league": "WTA",
           "market_priced": false,
           "market_type": "tennis_moneyline",
-          "matchup": "Hayu Kinoshita vs Leylah Fernandez",
-          "model_probability": 0.8701,
+          "matchup": "Hayu Kinoshita vs Darja Semenistaja",
+          "model_probability": 0.711,
           "model_version": "tennis_v1_welo_logistic",
           "odds": null,
           "opponent": "Hayu Kinoshita",
-          "pick": "Leylah Fernandez ML (Hayu Kinoshita vs Leylah Fernandez)",
+          "pick": "Darja Semenistaja ML (Hayu Kinoshita vs Darja Semenistaja)",
           "pricing_type": "unpriced",
-          "probability": 0.8701,
+          "probability": 0.711,
           "ratings_through": "2026-07-20",
           "round": "Round 1",
-          "selected_player": "Leylah Fernandez",
+          "selected_player": "Darja Semenistaja",
           "source": "Tennis Model",
           "source_decision": "BET",
           "source_units": 1.0,
           "sport": "Tennis",
           "start_time": "2026-09-15T04:00Z",
           "surface": "Hard",
-          "tip": "Leylah Fernandez to win",
+          "tip": "Darja Semenistaja to win",
           "tournament": "SP Open",
           "units": 0
         },
@@ -53804,391 +53555,6 @@
           "start_time": "2026-09-14T16:00Z",
           "surface": "Hard",
           "tip": "Veronika Erjavec to win",
-          "tournament": "BBVA Open Internacional De Valencia",
-          "units": 0
-        },
-        {
-          "away_team": "Nastasja Schunk",
-          "best_of": 3,
-          "calibration_excluded": true,
-          "date": "2026-09-14",
-          "decision": "PASS",
-          "edge": null,
-          "espn_league": "wta",
-          "game": "Nastasja Schunk vs Oksana Selekhmeteva",
-          "grade_supported": true,
-          "home_team": "Oksana Selekhmeteva",
-          "league": "WTA",
-          "market_priced": false,
-          "market_type": "tennis_moneyline",
-          "matchup": "Nastasja Schunk vs Oksana Selekhmeteva",
-          "model_probability": 0.628,
-          "model_version": "tennis_v1_welo_logistic",
-          "odds": null,
-          "opponent": "Nastasja Schunk",
-          "pick": "Oksana Selekhmeteva ML (Nastasja Schunk vs Oksana Selekhmeteva)",
-          "pricing_type": "unpriced",
-          "probability": 0.628,
-          "ratings_through": "2026-07-20",
-          "round": "Round 1",
-          "selected_player": "Oksana Selekhmeteva",
-          "source": "Tennis Model",
-          "source_decision": "LEAN",
-          "source_units": 0.5,
-          "sport": "Tennis",
-          "start_time": "2026-09-15T04:00Z",
-          "surface": "Hard",
-          "tip": "Oksana Selekhmeteva to win",
-          "tournament": "BBVA Open Internacional De Valencia",
-          "units": 0
-        },
-        {
-          "away_team": "Rebeka Masarova",
-          "best_of": 3,
-          "calibration_excluded": true,
-          "date": "2026-09-14",
-          "decision": "PASS",
-          "edge": null,
-          "espn_league": "wta",
-          "game": "Rebeka Masarova vs Mina Hodzic",
-          "grade_supported": true,
-          "home_team": "Mina Hodzic",
-          "league": "WTA",
-          "market_priced": false,
-          "market_type": "tennis_moneyline",
-          "matchup": "Rebeka Masarova vs Mina Hodzic",
-          "model_probability": 0.5083,
-          "model_version": "tennis_v1_welo_logistic",
-          "odds": null,
-          "opponent": "Mina Hodzic",
-          "pick": "Rebeka Masarova ML (Rebeka Masarova vs Mina Hodzic)",
-          "pricing_type": "unpriced",
-          "probability": 0.5083,
-          "ratings_through": "2026-07-20",
-          "round": "Round 1",
-          "selected_player": "Rebeka Masarova",
-          "source": "Tennis Model",
-          "source_decision": "PASS",
-          "source_units": 0.5,
-          "sport": "Tennis",
-          "start_time": "2026-09-15T04:00Z",
-          "surface": "Hard",
-          "tip": "Rebeka Masarova to win",
-          "tournament": "BBVA Open Internacional De Valencia",
-          "units": 0
-        },
-        {
-          "away_team": "Charo Esquiva Banuls",
-          "best_of": 3,
-          "calibration_excluded": true,
-          "date": "2026-09-14",
-          "decision": "PASS",
-          "edge": null,
-          "espn_league": "wta",
-          "game": "Charo Esquiva Banuls vs Joelle Lilly Sophie Steur",
-          "grade_supported": true,
-          "home_team": "Joelle Lilly Sophie Steur",
-          "league": "WTA",
-          "market_priced": false,
-          "market_type": "tennis_moneyline",
-          "matchup": "Charo Esquiva Banuls vs Joelle Lilly Sophie Steur",
-          "model_probability": 0.5083,
-          "model_version": "tennis_v1_welo_logistic",
-          "odds": null,
-          "opponent": "Charo Esquiva Banuls",
-          "pick": "Joelle Lilly Sophie Steur ML (Charo Esquiva Banuls vs Joelle Lilly Sophie Steur)",
-          "pricing_type": "unpriced",
-          "probability": 0.5083,
-          "ratings_through": "2026-07-20",
-          "round": "Round 1",
-          "selected_player": "Joelle Lilly Sophie Steur",
-          "source": "Tennis Model",
-          "source_decision": "PASS",
-          "source_units": 0.5,
-          "sport": "Tennis",
-          "start_time": "2026-09-15T04:00Z",
-          "surface": "Hard",
-          "tip": "Joelle Lilly Sophie Steur to win",
-          "tournament": "BBVA Open Internacional De Valencia",
-          "units": 0
-        },
-        {
-          "away_team": "Yasmine Kabbaj",
-          "best_of": 3,
-          "calibration_excluded": true,
-          "date": "2026-09-14",
-          "decision": "PASS",
-          "edge": null,
-          "espn_league": "wta",
-          "game": "Yasmine Kabbaj vs Angela Fita Boluda",
-          "grade_supported": true,
-          "home_team": "Angela Fita Boluda",
-          "league": "WTA",
-          "market_priced": false,
-          "market_type": "tennis_moneyline",
-          "matchup": "Yasmine Kabbaj vs Angela Fita Boluda",
-          "model_probability": 0.5775,
-          "model_version": "tennis_v1_welo_logistic",
-          "odds": null,
-          "opponent": "Yasmine Kabbaj",
-          "pick": "Angela Fita Boluda ML (Yasmine Kabbaj vs Angela Fita Boluda)",
-          "pricing_type": "unpriced",
-          "probability": 0.5775,
-          "ratings_through": "2026-07-20",
-          "round": "Round 1",
-          "selected_player": "Angela Fita Boluda",
-          "source": "Tennis Model",
-          "source_decision": "PASS",
-          "source_units": 0.5,
-          "sport": "Tennis",
-          "start_time": "2026-09-15T04:00Z",
-          "surface": "Hard",
-          "tip": "Angela Fita Boluda to win",
-          "tournament": "BBVA Open Internacional De Valencia",
-          "units": 0
-        },
-        {
-          "away_team": "Aran Teixido Garcia",
-          "best_of": 3,
-          "calibration_excluded": true,
-          "date": "2026-09-14",
-          "decision": "PASS",
-          "edge": null,
-          "espn_league": "wta",
-          "game": "Aran Teixido Garcia vs Clara Burel",
-          "grade_supported": true,
-          "home_team": "Clara Burel",
-          "league": "WTA",
-          "market_priced": false,
-          "market_type": "tennis_moneyline",
-          "matchup": "Aran Teixido Garcia vs Clara Burel",
-          "model_probability": 0.6758,
-          "model_version": "tennis_v1_welo_logistic",
-          "odds": null,
-          "opponent": "Aran Teixido Garcia",
-          "pick": "Clara Burel ML (Aran Teixido Garcia vs Clara Burel)",
-          "pricing_type": "unpriced",
-          "probability": 0.6758,
-          "ratings_through": "2026-07-20",
-          "round": "Round 1",
-          "selected_player": "Clara Burel",
-          "source": "Tennis Model",
-          "source_decision": "LEAN",
-          "source_units": 0.5,
-          "sport": "Tennis",
-          "start_time": "2026-09-15T04:00Z",
-          "surface": "Hard",
-          "tip": "Clara Burel to win",
-          "tournament": "BBVA Open Internacional De Valencia",
-          "units": 0
-        },
-        {
-          "away_team": "Martina Trevisan",
-          "best_of": 3,
-          "calibration_excluded": true,
-          "date": "2026-09-14",
-          "decision": "PASS",
-          "edge": null,
-          "espn_league": "wta",
-          "game": "Martina Trevisan vs Leyre Romero Gormaz",
-          "grade_supported": true,
-          "home_team": "Leyre Romero Gormaz",
-          "league": "WTA",
-          "market_priced": false,
-          "market_type": "tennis_moneyline",
-          "matchup": "Martina Trevisan vs Leyre Romero Gormaz",
-          "model_probability": 0.6229,
-          "model_version": "tennis_v1_welo_logistic",
-          "odds": null,
-          "opponent": "Martina Trevisan",
-          "pick": "Leyre Romero Gormaz ML (Martina Trevisan vs Leyre Romero Gormaz)",
-          "pricing_type": "unpriced",
-          "probability": 0.6229,
-          "ratings_through": "2026-07-20",
-          "round": "Round 1",
-          "selected_player": "Leyre Romero Gormaz",
-          "source": "Tennis Model",
-          "source_decision": "LEAN",
-          "source_units": 0.5,
-          "sport": "Tennis",
-          "start_time": "2026-09-15T04:00Z",
-          "surface": "Hard",
-          "tip": "Leyre Romero Gormaz to win",
-          "tournament": "BBVA Open Internacional De Valencia",
-          "units": 0
-        },
-        {
-          "away_team": "Eva Vedder",
-          "best_of": 3,
-          "calibration_excluded": true,
-          "date": "2026-09-14",
-          "decision": "PASS",
-          "edge": null,
-          "espn_league": "wta",
-          "game": "Eva Vedder vs Jennifer Ruggeri",
-          "grade_supported": true,
-          "home_team": "Jennifer Ruggeri",
-          "league": "WTA",
-          "market_priced": false,
-          "market_type": "tennis_moneyline",
-          "matchup": "Eva Vedder vs Jennifer Ruggeri",
-          "model_probability": 0.5775,
-          "model_version": "tennis_v1_welo_logistic",
-          "odds": null,
-          "opponent": "Eva Vedder",
-          "pick": "Jennifer Ruggeri ML (Eva Vedder vs Jennifer Ruggeri)",
-          "pricing_type": "unpriced",
-          "probability": 0.5775,
-          "ratings_through": "2026-07-20",
-          "round": "Round 1",
-          "selected_player": "Jennifer Ruggeri",
-          "source": "Tennis Model",
-          "source_decision": "PASS",
-          "source_units": 0.5,
-          "sport": "Tennis",
-          "start_time": "2026-09-15T04:00Z",
-          "surface": "Hard",
-          "tip": "Jennifer Ruggeri to win",
-          "tournament": "BBVA Open Internacional De Valencia",
-          "units": 0
-        },
-        {
-          "away_team": "Lucia Cortez Llorca",
-          "best_of": 3,
-          "calibration_excluded": true,
-          "date": "2026-09-14",
-          "decision": "PASS",
-          "edge": null,
-          "espn_league": "wta",
-          "game": "Lucia Cortez Llorca vs Alicia Herrero Linana",
-          "grade_supported": true,
-          "home_team": "Alicia Herrero Linana",
-          "league": "WTA",
-          "market_priced": false,
-          "market_type": "tennis_moneyline",
-          "matchup": "Lucia Cortez Llorca vs Alicia Herrero Linana",
-          "model_probability": 0.6877,
-          "model_version": "tennis_v1_welo_logistic",
-          "odds": null,
-          "opponent": "Lucia Cortez Llorca",
-          "pick": "Alicia Herrero Linana ML (Lucia Cortez Llorca vs Alicia Herrero Linana)",
-          "pricing_type": "unpriced",
-          "probability": 0.6877,
-          "ratings_through": "2026-07-20",
-          "round": "Round 1",
-          "selected_player": "Alicia Herrero Linana",
-          "source": "Tennis Model",
-          "source_decision": "LEAN",
-          "source_units": 0.5,
-          "sport": "Tennis",
-          "start_time": "2026-09-15T04:00Z",
-          "surface": "Hard",
-          "tip": "Alicia Herrero Linana to win",
-          "tournament": "BBVA Open Internacional De Valencia",
-          "units": 0
-        },
-        {
-          "away_team": "Ariana Geerlings",
-          "best_of": 3,
-          "calibration_excluded": true,
-          "date": "2026-09-14",
-          "decision": "PASS",
-          "edge": null,
-          "espn_league": "wta",
-          "game": "Ariana Geerlings vs Ane Mintegi Del Olmo",
-          "grade_supported": true,
-          "home_team": "Ane Mintegi Del Olmo",
-          "league": "WTA",
-          "market_priced": false,
-          "market_type": "tennis_moneyline",
-          "matchup": "Ariana Geerlings vs Ane Mintegi Del Olmo",
-          "model_probability": 0.5083,
-          "model_version": "tennis_v1_welo_logistic",
-          "odds": null,
-          "opponent": "Ariana Geerlings",
-          "pick": "Ane Mintegi Del Olmo ML (Ariana Geerlings vs Ane Mintegi Del Olmo)",
-          "pricing_type": "unpriced",
-          "probability": 0.5083,
-          "ratings_through": "2026-07-20",
-          "round": "Round 1",
-          "selected_player": "Ane Mintegi Del Olmo",
-          "source": "Tennis Model",
-          "source_decision": "PASS",
-          "source_units": 0.5,
-          "sport": "Tennis",
-          "start_time": "2026-09-15T04:00Z",
-          "surface": "Hard",
-          "tip": "Ane Mintegi Del Olmo to win",
-          "tournament": "BBVA Open Internacional De Valencia",
-          "units": 0
-        },
-        {
-          "away_team": "Irene Burillo",
-          "best_of": 3,
-          "calibration_excluded": true,
-          "date": "2026-09-14",
-          "decision": "PASS",
-          "edge": null,
-          "espn_league": "wta",
-          "game": "Irene Burillo vs Madison Sieg",
-          "grade_supported": true,
-          "home_team": "Madison Sieg",
-          "league": "WTA",
-          "market_priced": false,
-          "market_type": "tennis_moneyline",
-          "matchup": "Irene Burillo vs Madison Sieg",
-          "model_probability": 0.5083,
-          "model_version": "tennis_v1_welo_logistic",
-          "odds": null,
-          "opponent": "Irene Burillo",
-          "pick": "Madison Sieg ML (Irene Burillo vs Madison Sieg)",
-          "pricing_type": "unpriced",
-          "probability": 0.5083,
-          "ratings_through": "2026-07-20",
-          "round": "Round 1",
-          "selected_player": "Madison Sieg",
-          "source": "Tennis Model",
-          "source_decision": "PASS",
-          "source_units": 0.5,
-          "sport": "Tennis",
-          "start_time": "2026-09-15T04:00Z",
-          "surface": "Hard",
-          "tip": "Madison Sieg to win",
-          "tournament": "BBVA Open Internacional De Valencia",
-          "units": 0
-        },
-        {
-          "away_team": "Guiomar Maristany Zuleta De Reales",
-          "best_of": 3,
-          "calibration_excluded": true,
-          "date": "2026-09-14",
-          "decision": "PASS",
-          "edge": null,
-          "espn_league": "wta",
-          "game": "Guiomar Maristany Zuleta De Reales vs Berfu Cengiz",
-          "grade_supported": true,
-          "home_team": "Berfu Cengiz",
-          "league": "WTA",
-          "market_priced": false,
-          "market_type": "tennis_moneyline",
-          "matchup": "Guiomar Maristany Zuleta De Reales vs Berfu Cengiz",
-          "model_probability": 0.6229,
-          "model_version": "tennis_v1_welo_logistic",
-          "odds": null,
-          "opponent": "Guiomar Maristany Zuleta De Reales",
-          "pick": "Berfu Cengiz ML (Guiomar Maristany Zuleta De Reales vs Berfu Cengiz)",
-          "pricing_type": "unpriced",
-          "probability": 0.6229,
-          "ratings_through": "2026-07-20",
-          "round": "Round 1",
-          "selected_player": "Berfu Cengiz",
-          "source": "Tennis Model",
-          "source_decision": "LEAN",
-          "source_units": 0.5,
-          "sport": "Tennis",
-          "start_time": "2026-09-15T04:00Z",
-          "surface": "Hard",
-          "tip": "Berfu Cengiz to win",
           "tournament": "BBVA Open Internacional De Valencia",
           "units": 0
         },
@@ -54872,6 +54238,461 @@
           "surface": "Hard",
           "tip": "Giorgia Pedone to win",
           "tournament": "Zavarovalnica Triglav Ljubljana",
+          "units": 0
+        },
+        {
+          "away_team": "Paula Badosa",
+          "best_of": 3,
+          "calibration_excluded": true,
+          "date": "2026-09-14",
+          "decision": "PASS",
+          "edge": null,
+          "espn_league": "wta",
+          "game": "Paula Badosa vs Darja Semenistaja",
+          "grade_supported": true,
+          "home_team": "Darja Semenistaja",
+          "league": "WTA",
+          "market_priced": false,
+          "market_type": "tennis_moneyline",
+          "matchup": "Paula Badosa vs Darja Semenistaja",
+          "model_probability": 0.7214,
+          "model_version": "tennis_v1_welo_logistic",
+          "odds": null,
+          "opponent": "Darja Semenistaja",
+          "pick": "Paula Badosa ML (Paula Badosa vs Darja Semenistaja)",
+          "pricing_type": "unpriced",
+          "probability": 0.7214,
+          "ratings_through": "2026-07-20",
+          "round": "Round 1",
+          "selected_player": "Paula Badosa",
+          "source": "Tennis Model",
+          "source_decision": "BET",
+          "source_units": 1.0,
+          "sport": "Tennis",
+          "start_time": "2026-09-14T20:30Z",
+          "surface": "Hard",
+          "tip": "Paula Badosa to win",
+          "tournament": "SP Open",
+          "units": 0
+        },
+        {
+          "away_team": "Hayu Kinoshita",
+          "best_of": 3,
+          "calibration_excluded": true,
+          "date": "2026-09-14",
+          "decision": "PASS",
+          "edge": null,
+          "espn_league": "wta",
+          "game": "Hayu Kinoshita vs Leylah Fernandez",
+          "grade_supported": true,
+          "home_team": "Leylah Fernandez",
+          "league": "WTA",
+          "market_priced": false,
+          "market_type": "tennis_moneyline",
+          "matchup": "Hayu Kinoshita vs Leylah Fernandez",
+          "model_probability": 0.8701,
+          "model_version": "tennis_v1_welo_logistic",
+          "odds": null,
+          "opponent": "Hayu Kinoshita",
+          "pick": "Leylah Fernandez ML (Hayu Kinoshita vs Leylah Fernandez)",
+          "pricing_type": "unpriced",
+          "probability": 0.8701,
+          "ratings_through": "2026-07-20",
+          "round": "Round 1",
+          "selected_player": "Leylah Fernandez",
+          "source": "Tennis Model",
+          "source_decision": "BET",
+          "source_units": 1.0,
+          "sport": "Tennis",
+          "start_time": "2026-09-15T04:00Z",
+          "surface": "Hard",
+          "tip": "Leylah Fernandez to win",
+          "tournament": "SP Open",
+          "units": 0
+        },
+        {
+          "away_team": "Nastasja Schunk",
+          "best_of": 3,
+          "calibration_excluded": true,
+          "date": "2026-09-14",
+          "decision": "PASS",
+          "edge": null,
+          "espn_league": "wta",
+          "game": "Nastasja Schunk vs Oksana Selekhmeteva",
+          "grade_supported": true,
+          "home_team": "Oksana Selekhmeteva",
+          "league": "WTA",
+          "market_priced": false,
+          "market_type": "tennis_moneyline",
+          "matchup": "Nastasja Schunk vs Oksana Selekhmeteva",
+          "model_probability": 0.628,
+          "model_version": "tennis_v1_welo_logistic",
+          "odds": null,
+          "opponent": "Nastasja Schunk",
+          "pick": "Oksana Selekhmeteva ML (Nastasja Schunk vs Oksana Selekhmeteva)",
+          "pricing_type": "unpriced",
+          "probability": 0.628,
+          "ratings_through": "2026-07-20",
+          "round": "Round 1",
+          "selected_player": "Oksana Selekhmeteva",
+          "source": "Tennis Model",
+          "source_decision": "LEAN",
+          "source_units": 0.5,
+          "sport": "Tennis",
+          "start_time": "2026-09-15T04:00Z",
+          "surface": "Hard",
+          "tip": "Oksana Selekhmeteva to win",
+          "tournament": "BBVA Open Internacional De Valencia",
+          "units": 0
+        },
+        {
+          "away_team": "Rebeka Masarova",
+          "best_of": 3,
+          "calibration_excluded": true,
+          "date": "2026-09-14",
+          "decision": "PASS",
+          "edge": null,
+          "espn_league": "wta",
+          "game": "Rebeka Masarova vs Mina Hodzic",
+          "grade_supported": true,
+          "home_team": "Mina Hodzic",
+          "league": "WTA",
+          "market_priced": false,
+          "market_type": "tennis_moneyline",
+          "matchup": "Rebeka Masarova vs Mina Hodzic",
+          "model_probability": 0.5083,
+          "model_version": "tennis_v1_welo_logistic",
+          "odds": null,
+          "opponent": "Mina Hodzic",
+          "pick": "Rebeka Masarova ML (Rebeka Masarova vs Mina Hodzic)",
+          "pricing_type": "unpriced",
+          "probability": 0.5083,
+          "ratings_through": "2026-07-20",
+          "round": "Round 1",
+          "selected_player": "Rebeka Masarova",
+          "source": "Tennis Model",
+          "source_decision": "PASS",
+          "source_units": 0.5,
+          "sport": "Tennis",
+          "start_time": "2026-09-15T04:00Z",
+          "surface": "Hard",
+          "tip": "Rebeka Masarova to win",
+          "tournament": "BBVA Open Internacional De Valencia",
+          "units": 0
+        },
+        {
+          "away_team": "Charo Esquiva Banuls",
+          "best_of": 3,
+          "calibration_excluded": true,
+          "date": "2026-09-14",
+          "decision": "PASS",
+          "edge": null,
+          "espn_league": "wta",
+          "game": "Charo Esquiva Banuls vs Joelle Lilly Sophie Steur",
+          "grade_supported": true,
+          "home_team": "Joelle Lilly Sophie Steur",
+          "league": "WTA",
+          "market_priced": false,
+          "market_type": "tennis_moneyline",
+          "matchup": "Charo Esquiva Banuls vs Joelle Lilly Sophie Steur",
+          "model_probability": 0.5083,
+          "model_version": "tennis_v1_welo_logistic",
+          "odds": null,
+          "opponent": "Charo Esquiva Banuls",
+          "pick": "Joelle Lilly Sophie Steur ML (Charo Esquiva Banuls vs Joelle Lilly Sophie Steur)",
+          "pricing_type": "unpriced",
+          "probability": 0.5083,
+          "ratings_through": "2026-07-20",
+          "round": "Round 1",
+          "selected_player": "Joelle Lilly Sophie Steur",
+          "source": "Tennis Model",
+          "source_decision": "PASS",
+          "source_units": 0.5,
+          "sport": "Tennis",
+          "start_time": "2026-09-15T04:00Z",
+          "surface": "Hard",
+          "tip": "Joelle Lilly Sophie Steur to win",
+          "tournament": "BBVA Open Internacional De Valencia",
+          "units": 0
+        },
+        {
+          "away_team": "Yasmine Kabbaj",
+          "best_of": 3,
+          "calibration_excluded": true,
+          "date": "2026-09-14",
+          "decision": "PASS",
+          "edge": null,
+          "espn_league": "wta",
+          "game": "Yasmine Kabbaj vs Angela Fita Boluda",
+          "grade_supported": true,
+          "home_team": "Angela Fita Boluda",
+          "league": "WTA",
+          "market_priced": false,
+          "market_type": "tennis_moneyline",
+          "matchup": "Yasmine Kabbaj vs Angela Fita Boluda",
+          "model_probability": 0.5775,
+          "model_version": "tennis_v1_welo_logistic",
+          "odds": null,
+          "opponent": "Yasmine Kabbaj",
+          "pick": "Angela Fita Boluda ML (Yasmine Kabbaj vs Angela Fita Boluda)",
+          "pricing_type": "unpriced",
+          "probability": 0.5775,
+          "ratings_through": "2026-07-20",
+          "round": "Round 1",
+          "selected_player": "Angela Fita Boluda",
+          "source": "Tennis Model",
+          "source_decision": "PASS",
+          "source_units": 0.5,
+          "sport": "Tennis",
+          "start_time": "2026-09-15T04:00Z",
+          "surface": "Hard",
+          "tip": "Angela Fita Boluda to win",
+          "tournament": "BBVA Open Internacional De Valencia",
+          "units": 0
+        },
+        {
+          "away_team": "Aran Teixido Garcia",
+          "best_of": 3,
+          "calibration_excluded": true,
+          "date": "2026-09-14",
+          "decision": "PASS",
+          "edge": null,
+          "espn_league": "wta",
+          "game": "Aran Teixido Garcia vs Clara Burel",
+          "grade_supported": true,
+          "home_team": "Clara Burel",
+          "league": "WTA",
+          "market_priced": false,
+          "market_type": "tennis_moneyline",
+          "matchup": "Aran Teixido Garcia vs Clara Burel",
+          "model_probability": 0.6758,
+          "model_version": "tennis_v1_welo_logistic",
+          "odds": null,
+          "opponent": "Aran Teixido Garcia",
+          "pick": "Clara Burel ML (Aran Teixido Garcia vs Clara Burel)",
+          "pricing_type": "unpriced",
+          "probability": 0.6758,
+          "ratings_through": "2026-07-20",
+          "round": "Round 1",
+          "selected_player": "Clara Burel",
+          "source": "Tennis Model",
+          "source_decision": "LEAN",
+          "source_units": 0.5,
+          "sport": "Tennis",
+          "start_time": "2026-09-15T04:00Z",
+          "surface": "Hard",
+          "tip": "Clara Burel to win",
+          "tournament": "BBVA Open Internacional De Valencia",
+          "units": 0
+        },
+        {
+          "away_team": "Martina Trevisan",
+          "best_of": 3,
+          "calibration_excluded": true,
+          "date": "2026-09-14",
+          "decision": "PASS",
+          "edge": null,
+          "espn_league": "wta",
+          "game": "Martina Trevisan vs Leyre Romero Gormaz",
+          "grade_supported": true,
+          "home_team": "Leyre Romero Gormaz",
+          "league": "WTA",
+          "market_priced": false,
+          "market_type": "tennis_moneyline",
+          "matchup": "Martina Trevisan vs Leyre Romero Gormaz",
+          "model_probability": 0.6229,
+          "model_version": "tennis_v1_welo_logistic",
+          "odds": null,
+          "opponent": "Martina Trevisan",
+          "pick": "Leyre Romero Gormaz ML (Martina Trevisan vs Leyre Romero Gormaz)",
+          "pricing_type": "unpriced",
+          "probability": 0.6229,
+          "ratings_through": "2026-07-20",
+          "round": "Round 1",
+          "selected_player": "Leyre Romero Gormaz",
+          "source": "Tennis Model",
+          "source_decision": "LEAN",
+          "source_units": 0.5,
+          "sport": "Tennis",
+          "start_time": "2026-09-15T04:00Z",
+          "surface": "Hard",
+          "tip": "Leyre Romero Gormaz to win",
+          "tournament": "BBVA Open Internacional De Valencia",
+          "units": 0
+        },
+        {
+          "away_team": "Eva Vedder",
+          "best_of": 3,
+          "calibration_excluded": true,
+          "date": "2026-09-14",
+          "decision": "PASS",
+          "edge": null,
+          "espn_league": "wta",
+          "game": "Eva Vedder vs Jennifer Ruggeri",
+          "grade_supported": true,
+          "home_team": "Jennifer Ruggeri",
+          "league": "WTA",
+          "market_priced": false,
+          "market_type": "tennis_moneyline",
+          "matchup": "Eva Vedder vs Jennifer Ruggeri",
+          "model_probability": 0.5775,
+          "model_version": "tennis_v1_welo_logistic",
+          "odds": null,
+          "opponent": "Eva Vedder",
+          "pick": "Jennifer Ruggeri ML (Eva Vedder vs Jennifer Ruggeri)",
+          "pricing_type": "unpriced",
+          "probability": 0.5775,
+          "ratings_through": "2026-07-20",
+          "round": "Round 1",
+          "selected_player": "Jennifer Ruggeri",
+          "source": "Tennis Model",
+          "source_decision": "PASS",
+          "source_units": 0.5,
+          "sport": "Tennis",
+          "start_time": "2026-09-15T04:00Z",
+          "surface": "Hard",
+          "tip": "Jennifer Ruggeri to win",
+          "tournament": "BBVA Open Internacional De Valencia",
+          "units": 0
+        },
+        {
+          "away_team": "Lucia Cortez Llorca",
+          "best_of": 3,
+          "calibration_excluded": true,
+          "date": "2026-09-14",
+          "decision": "PASS",
+          "edge": null,
+          "espn_league": "wta",
+          "game": "Lucia Cortez Llorca vs Alicia Herrero Linana",
+          "grade_supported": true,
+          "home_team": "Alicia Herrero Linana",
+          "league": "WTA",
+          "market_priced": false,
+          "market_type": "tennis_moneyline",
+          "matchup": "Lucia Cortez Llorca vs Alicia Herrero Linana",
+          "model_probability": 0.6877,
+          "model_version": "tennis_v1_welo_logistic",
+          "odds": null,
+          "opponent": "Lucia Cortez Llorca",
+          "pick": "Alicia Herrero Linana ML (Lucia Cortez Llorca vs Alicia Herrero Linana)",
+          "pricing_type": "unpriced",
+          "probability": 0.6877,
+          "ratings_through": "2026-07-20",
+          "round": "Round 1",
+          "selected_player": "Alicia Herrero Linana",
+          "source": "Tennis Model",
+          "source_decision": "LEAN",
+          "source_units": 0.5,
+          "sport": "Tennis",
+          "start_time": "2026-09-15T04:00Z",
+          "surface": "Hard",
+          "tip": "Alicia Herrero Linana to win",
+          "tournament": "BBVA Open Internacional De Valencia",
+          "units": 0
+        },
+        {
+          "away_team": "Ariana Geerlings",
+          "best_of": 3,
+          "calibration_excluded": true,
+          "date": "2026-09-14",
+          "decision": "PASS",
+          "edge": null,
+          "espn_league": "wta",
+          "game": "Ariana Geerlings vs Ane Mintegi Del Olmo",
+          "grade_supported": true,
+          "home_team": "Ane Mintegi Del Olmo",
+          "league": "WTA",
+          "market_priced": false,
+          "market_type": "tennis_moneyline",
+          "matchup": "Ariana Geerlings vs Ane Mintegi Del Olmo",
+          "model_probability": 0.5083,
+          "model_version": "tennis_v1_welo_logistic",
+          "odds": null,
+          "opponent": "Ariana Geerlings",
+          "pick": "Ane Mintegi Del Olmo ML (Ariana Geerlings vs Ane Mintegi Del Olmo)",
+          "pricing_type": "unpriced",
+          "probability": 0.5083,
+          "ratings_through": "2026-07-20",
+          "round": "Round 1",
+          "selected_player": "Ane Mintegi Del Olmo",
+          "source": "Tennis Model",
+          "source_decision": "PASS",
+          "source_units": 0.5,
+          "sport": "Tennis",
+          "start_time": "2026-09-15T04:00Z",
+          "surface": "Hard",
+          "tip": "Ane Mintegi Del Olmo to win",
+          "tournament": "BBVA Open Internacional De Valencia",
+          "units": 0
+        },
+        {
+          "away_team": "Irene Burillo",
+          "best_of": 3,
+          "calibration_excluded": true,
+          "date": "2026-09-14",
+          "decision": "PASS",
+          "edge": null,
+          "espn_league": "wta",
+          "game": "Irene Burillo vs Madison Sieg",
+          "grade_supported": true,
+          "home_team": "Madison Sieg",
+          "league": "WTA",
+          "market_priced": false,
+          "market_type": "tennis_moneyline",
+          "matchup": "Irene Burillo vs Madison Sieg",
+          "model_probability": 0.5083,
+          "model_version": "tennis_v1_welo_logistic",
+          "odds": null,
+          "opponent": "Irene Burillo",
+          "pick": "Madison Sieg ML (Irene Burillo vs Madison Sieg)",
+          "pricing_type": "unpriced",
+          "probability": 0.5083,
+          "ratings_through": "2026-07-20",
+          "round": "Round 1",
+          "selected_player": "Madison Sieg",
+          "source": "Tennis Model",
+          "source_decision": "PASS",
+          "source_units": 0.5,
+          "sport": "Tennis",
+          "start_time": "2026-09-15T04:00Z",
+          "surface": "Hard",
+          "tip": "Madison Sieg to win",
+          "tournament": "BBVA Open Internacional De Valencia",
+          "units": 0
+        },
+        {
+          "away_team": "Guiomar Maristany Zuleta De Reales",
+          "best_of": 3,
+          "calibration_excluded": true,
+          "date": "2026-09-14",
+          "decision": "PASS",
+          "edge": null,
+          "espn_league": "wta",
+          "game": "Guiomar Maristany Zuleta De Reales vs Berfu Cengiz",
+          "grade_supported": true,
+          "home_team": "Berfu Cengiz",
+          "league": "WTA",
+          "market_priced": false,
+          "market_type": "tennis_moneyline",
+          "matchup": "Guiomar Maristany Zuleta De Reales vs Berfu Cengiz",
+          "model_probability": 0.6229,
+          "model_version": "tennis_v1_welo_logistic",
+          "odds": null,
+          "opponent": "Guiomar Maristany Zuleta De Reales",
+          "pick": "Berfu Cengiz ML (Guiomar Maristany Zuleta De Reales vs Berfu Cengiz)",
+          "pricing_type": "unpriced",
+          "probability": 0.6229,
+          "ratings_through": "2026-07-20",
+          "round": "Round 1",
+          "selected_player": "Berfu Cengiz",
+          "source": "Tennis Model",
+          "source_decision": "LEAN",
+          "source_units": 0.5,
+          "sport": "Tennis",
+          "start_time": "2026-09-15T04:00Z",
+          "surface": "Hard",
+          "tip": "Berfu Cengiz to win",
+          "tournament": "BBVA Open Internacional De Valencia",
           "units": 0
         },
         {
@@ -57060,8 +56881,8 @@
           "version": "cal-v2-6404-2026-08-25"
         },
         "certification_timing": {
-          "data_as_of": "2026-09-14T15:09:20.131245Z",
-          "published_at": "2026-09-14T15:09:20.131245Z",
+          "data_as_of": "2026-09-14T17:10:03.733992Z",
+          "published_at": "2026-09-14T17:10:03.733992Z",
           "source": "model-cache-refresh",
           "trusted": true
         },
@@ -57157,8 +56978,8 @@
           "version": "cal-v2-6404-2026-08-25"
         },
         "certification_timing": {
-          "data_as_of": "2026-09-14T15:09:20.131245Z",
-          "published_at": "2026-09-14T15:09:20.131245Z",
+          "data_as_of": "2026-09-14T17:10:03.733992Z",
+          "published_at": "2026-09-14T17:10:03.733992Z",
           "source": "model-cache-refresh",
           "trusted": true
         },
@@ -57254,8 +57075,8 @@
           "version": "cal-v2-6404-2026-08-25"
         },
         "certification_timing": {
-          "data_as_of": "2026-09-14T15:09:20.131245Z",
-          "published_at": "2026-09-14T15:09:20.131245Z",
+          "data_as_of": "2026-09-14T17:10:03.733992Z",
+          "published_at": "2026-09-14T17:10:03.733992Z",
           "source": "model-cache-refresh",
           "trusted": true
         },
@@ -59821,7 +59642,7 @@
     "scraped_tip_feed": true,
     "updatedAt": "2026-09-14T12:09:51.910290Z"
   },
-  "updatedAt": "2026-09-14T15:09:20.131245Z",
+  "updatedAt": "2026-09-14T17:10:03.733992Z",
   "wnba": {
     "date": "2026-09-14",
     "note": "No WNBA picks today \u2014 off-season or no edge found.",
