@@ -1,4 +1,5 @@
 import { fetchJsonWithTimeout } from './http';
+import { footballModelRecords } from './rankings';
 import { initMobileMode, initPickMode, initSettingsUI, initTheme, type PickMode } from './settings';
 import {
   getAllPicks,
@@ -1675,6 +1676,10 @@ function renderRankingFilters(comparablePicks: Pick[], scopedPicks: Pick[]): voi
   if (!container) return;
   const pool = rankingPoolPicks(comparablePicks).filter(matchesRankingDecision);
   const { sports, sources } = rankingFacetCounts(pool);
+  const available = rankingFacetCounts(rankingPoolPicks(comparablePicks));
+  // A zero count explains the decision filter; removing its button hides the model.
+  available.sports.forEach((_, sport) => { if (!sports.has(sport)) sports.set(sport, 0); });
+  available.sources.forEach((_, source) => { if (!sources.has(source)) sources.set(source, 0); });
   // Busiest tag first: the models carrying real sample size are the ones worth
   // ranking, and alphabetical order buried them behind the scraper feeds.
   const byCount = (counts: Map<string, number>, selected: Set<string>): string[] => (
@@ -1759,9 +1764,46 @@ function renderRankingFilters(comparablePicks: Pick[], scopedPicks: Pick[]): voi
     <span class="rank-scope-meta">${scopedPool.length} ranked pick${scopedPool.length === 1 ? '' : 's'} · ${scopedSources.size} ${rankingSourceNoun(scopedSources.size !== 1)}</span>`;
 }
 
+function renderFootballRecords(comparablePicks: Pick[]): void {
+  const container = document.getElementById('football-model-records');
+  if (!container) return;
+  container.hidden = activePickMode !== 'team';
+  if (container.hidden) return;
+  container.innerHTML = `<div class="section-title clean-title">Football Models</div>
+    <p class="section-subtitle">All-time team model records · BET + LEAN only. ML = moneyline. PASS forecasts are separate and carry no stake.${isPickHistoryLoading() ? ' Loading full history…' : ''}</p>
+    <div class="football-record-list">${footballModelRecords(comparablePicks).map(model => {
+      const stats = statsFor(model.staked.filter(isSettledPick));
+      const pending = model.staked.filter(isOpenPick).length;
+      const record = stats.total
+        ? `${stats.wins}–${stats.losses}${stats.pushes ? `–${stats.pushes}` : ''}`
+        : model.staked.length ? 'Awaiting results' : 'No BET / LEAN picks';
+      const accuracy = stats.winRate == null ? '' : ` · ${(stats.winRate * 100).toFixed(1)}% wins`;
+      return `<article class="football-record-row">
+        <div><button type="button" class="rank-filter-btn" data-football-source="${model.source}" data-football-decision="STAKED">${model.source}</button>
+          <div class="football-record-meta">${model.staked.length} BET + LEAN${pending ? ` · ${pending} awaiting grade` : ''}</div></div>
+        <div><strong>${record}</strong><div class="football-record-meta">${stats.total} settled${accuracy}</div></div>
+        <div><span class="${trackedUnitsClass(stats)}">${trackedUnits(stats)}</span><div class="football-record-meta">${stats.roi == null ? 'ROI untracked' : `${(stats.roi * 100).toFixed(1)}% ROI`}</div>
+          ${model.passes.length ? `<button type="button" class="football-pass-link" data-football-source="${model.source}" data-football-decision="PASS">View PASS (${model.passes.length})</button>` : ''}</div>
+      </article>`;
+    }).join('')}</div>`;
+  container.querySelectorAll<HTMLButtonElement>('[data-football-source]').forEach(button => {
+    button.addEventListener('click', () => {
+      const source = button.dataset.footballSource || '';
+      rankingSportFilters.clear();
+      rankingSportFilters.add(source.split(' ')[0]);
+      rankingSourceFilters.clear();
+      rankingSourceFilters.add(source);
+      rankingDecisionFilter = button.dataset.footballDecision === 'PASS' ? 'PASS' : 'STAKED';
+      renderRankings();
+      document.getElementById('rank-filter-groups')?.scrollIntoView({ block: 'start' });
+    });
+  });
+}
+
 function renderRankings(): void {
   const allPicks = getAllPicks();
   const comparablePicks = rankingComparablePicks(allPicks);
+  renderFootballRecords(comparablePicks);
   const scopedPicks = rankingScopedPicks(comparablePicks);
   const scoped = rankingSportFilters.size > 0 || rankingSourceFilters.size > 0 || rankingDecisionFilter !== 'STAKED';
   updateOverallStats();
@@ -1825,7 +1867,7 @@ function renderRankings(): void {
           <div class="source-record-list">${records.map(record => `<div class="source-record-item"><div class="source-record-label">${record.label}</div><div class="source-record-value">${record.text}</div></div>`).join('')}</div>
         </div>
       </article>`;
-    }).join('') : `<div class="empty-state">${scoped ? 'No ranked picks match this filter yet.' : 'Source records will appear here as games finish and scores come in.'}</div>`;
+    }).join('') : `<div class="empty-state">${scoped ? 'No ranked picks match this filter yet. Try PASS above to see forecasts that did not qualify for a stake.' : 'Source records will appear here as games finish and scores come in.'}</div>`;
     bindSourceCards(leaderboard);
   }
 

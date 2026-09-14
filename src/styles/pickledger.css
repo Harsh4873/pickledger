@@ -5765,6 +5765,17 @@ body.mobile-app-mode .profit-metric-grid { grid-template-columns: repeat(2, 1fr)
 body.mobile-app-mode .profit-evidence-row { grid-template-columns: 1fr; }
 
 /* Rankings scope filter (Rankings tab) */
+#football-model-records { margin-bottom: 30px; }
+.football-record-list { border: 1px solid var(--border); border-radius: 12px; overflow: hidden; margin-top: 14px; }
+.football-record-row { display: grid; grid-template-columns: 1fr 1fr 1fr; align-items: center; gap: 12px; padding: 14px; }
+.football-record-row + .football-record-row { border-top: 1px solid var(--border); }
+.football-record-row > div { min-width: 0; overflow-wrap: anywhere; }
+.football-record-meta { color: var(--muted); font-size: 11px; line-height: 1.5; margin-top: 5px; }
+.football-pass-link { background: transparent; border: 0; color: var(--accent3); padding: 6px 0; font: inherit; font-size: 12px; cursor: pointer; text-decoration: underline; }
+@media (max-width: 480px) {
+  .football-record-row { gap: 8px; padding: 10px; font-size: 12px; }
+  .football-record-row .rank-filter-btn { padding: 7px 9px; font-size: 11px; }
+}
 .rank-filter-shell { margin-bottom: 34px; }
 .rank-scope-summary {
   display: flex;

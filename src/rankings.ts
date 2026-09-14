@@ -86,6 +86,19 @@ export function defaultRankingBucketNames(pick: Pick): string[] {
   return [rankingSourceName(pick)];
 }
 
+/** Keep every football market discoverable, even when it has only PASS forecasts. */
+export function footballModelRecords(picks: Pick[]): { source: string; staked: Pick[]; passes: Pick[] }[] {
+  return ['NFL', 'CFB'].flatMap(sport => ['ML', 'Spread', 'Total'].map(market => {
+    const source = `${sport} ${market}`;
+    const rows = picks.filter(pick => pick.sport === sport && rankingSourceName(pick) === source && pick.scraped !== true);
+    return {
+      source,
+      staked: rows.filter(pick => rankingDecisionMatches(pick, 'STAKED')),
+      passes: rows.filter(pick => rankingDecisionMatches(pick, 'PASS')),
+    };
+  }));
+}
+
 export function isTeamRankingWindowPick(pick: Pick): boolean {
   const source = rankingSourceName(pick);
   const isConsensusSource = String(pick.sport || '').toUpperCase() === 'MLB'

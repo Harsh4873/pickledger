@@ -4,6 +4,7 @@ import { test } from 'node:test';
 import type { Pick } from '../src/data.ts';
 import {
   TEAM_RANKING_START_DATE,
+  footballModelRecords,
   isTeamRankingWindowPick,
   rankingComparableTeamPicks,
   rankingOverallPool,
@@ -44,6 +45,22 @@ function scope(partial: Partial<RankingScope> = {}): RankingScope {
     ...partial,
   };
 }
+
+test('football summary retains PASS-only and empty models without mixing their bet records', () => {
+  const win = pick({ id: 'cfb-win', result: 'win' });
+  const pass = pick({ id: 'cfb-pass', source: 'CFB Spread', decision: 'PASS', units: 0, result: 'win' });
+  const lean = pick({ id: 'nfl-lean', sport: 'NFL', source: 'NFL Total', decision: 'LEAN', result: 'loss' });
+  const rows = footballModelRecords([
+    win, pass, lean,
+    pick({ id: 'external', source: 'SportyTraderCFB', result: 'win' }),
+    pick({ id: 'scraped', scraped: true, result: 'win' }),
+  ]);
+  assert.deepEqual(rows.map(row => row.source), ['NFL ML', 'NFL Spread', 'NFL Total', 'CFB ML', 'CFB Spread', 'CFB Total']);
+  assert.deepEqual(rows.find(row => row.source === 'CFB ML')?.staked, [win]);
+  assert.deepEqual(rows.find(row => row.source === 'NFL Total')?.staked, [lean]);
+  assert.deepEqual(rows.find(row => row.source === 'CFB Spread'), { source: 'CFB Spread', staked: [], passes: [pass] });
+  assert.deepEqual(rows.find(row => row.source === 'CFB Total'), { source: 'CFB Total', staked: [], passes: [] });
+});
 
 const mlbWin = pick({
   id: 'mlb-win',
