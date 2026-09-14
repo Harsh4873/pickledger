@@ -17,9 +17,7 @@
     "shadow_mode": false
   },
   "date": "2026-09-14",
-  "errors": [
-    "mlb_first_five: MLB First Five runtime failed (    for game in _recent_team_games(team_id, game_date, lookback_days=14): |                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ |   File \"/home/runner/work/pickledger/pickledger/models/mlb_inning/mlb_inning_fetcher.py\", line 447, in _recent_team_games |     payload = api_get_json( |               ^^^^^^^^^^^^^ |   File \"/home/runner/work/pickledger/pickledger/models/mlb_inning/mlb_inning_fetcher.py\", line 116, in api_get_json |     cache_set(cache_key, payload) |   File \"/home/runner/work/pickledger/pickledger/models/mlb_inning/mlb_inning_fetcher.py\", line 100, in cache_set |     tmp_path.replace(path) |   File \"/opt/hostedtoolcache/Python/3.11.16/x64/lib/python3.11/pathlib.py\", line 1188, in replace |     os.replace(self, target) | FileNotFoundError: [Errno 2] No such file or directory: '/home/runner/work/pickledger/pickledger/models/mlb_inning/.cache/recent_games_141_2026-08-30_2026-09-13..json.1789405249287950756.tmp' -> '/home/runner/work/pickledger/pickledger/models/mlb_inning/.cache/recent_games_141_2026-08-30_2026-09-13.json')"
-  ],
+  "errors": [],
   "externalFeedsUpdatedAt": "2026-09-14T17:27:51.026985Z",
   "external_feed_errors": [
     "forebet_mlb: ForebetMLB: listing fetch blocked by Cloudflare",
@@ -4399,7 +4397,7 @@
     "refreshStatus": "ok",
     "updatedAt": "2026-09-14T17:27:51.026985Z"
   },
-  "generatedAt": "2026-09-14T17:10:03.733992Z",
+  "generatedAt": "2026-09-14T17:32:43.765202Z",
   "generatedBy": "github-actions:model-cache-refresh",
   "mlb_first_five": {
     "consensus_gate_version": "mlb_team_consensus_v1.2.0",
@@ -4410,7 +4408,6 @@
     },
     "consensus_required": true,
     "date": "2026-09-14",
-    "error": "MLB First Five runtime failed (    for game in _recent_team_games(team_id, game_date, lookback_days=14): |                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ |   File \"/home/runner/work/pickledger/pickledger/models/mlb_inning/mlb_inning_fetcher.py\", line 447, in _recent_team_games |     payload = api_get_json( |               ^^^^^^^^^^^^^ |   File \"/home/runner/work/pickledger/pickledger/models/mlb_inning/mlb_inning_fetcher.py\", line 116, in api_get_json |     cache_set(cache_key, payload) |   File \"/home/runner/work/pickledger/pickledger/models/mlb_inning/mlb_inning_fetcher.py\", line 100, in cache_set |     tmp_path.replace(path) |   File \"/opt/hostedtoolcache/Python/3.11.16/x64/lib/python3.11/pathlib.py\", line 1188, in replace |     os.replace(self, target) | FileNotFoundError: [Errno 2] No such file or directory: '/home/runner/work/pickledger/pickledger/models/mlb_inning/.cache/recent_games_141_2026-08-30_2026-09-13..json.1789405249287950756.tmp' -> '/home/runner/work/pickledger/pickledger/models/mlb_inning/.cache/recent_games_141_2026-08-30_2026-09-13.json')",
     "firebase_saved": false,
     "games": [
       {
@@ -7222,13 +7219,13 @@
     ],
     "model": "MLBFirstFive",
     "note": "MLB First Five processed 10 game(s), returned 20 side/total row(s).",
-    "ok": false,
+    "ok": true,
     "picks": [
       {
         "actionability": "research_signal",
         "assumed_odds_replaced": true,
         "away_team": "Los Angeles Dodgers",
-        "calibrated_edge": -16.897668253968256,
+        "calibrated_edge": -19.658192753623194,
         "calibrated_model_probability": 0.513563,
         "calibrated_probability": 0.513563,
         "calibration": {
@@ -7240,8 +7237,8 @@
           "version": "cal-v2-6404-2026-08-25"
         },
         "certification_timing": {
-          "data_as_of": "2026-09-14T15:09:20.131245Z",
-          "published_at": "2026-09-14T15:09:20.131245Z",
+          "data_as_of": "2026-09-14T17:32:43.765202Z",
+          "published_at": "2026-09-14T17:32:43.765202Z",
           "source": "model-cache-refresh",
           "trusted": true
         },
@@ -7480,7 +7477,7 @@
         "market_away_odds": -230,
         "market_home_odds": 175,
         "market_implied_probability": 0.52381,
-        "market_no_vig_probability": 0.6825396825396826,
+        "market_no_vig_probability": 0.7101449275362319,
         "market_no_vig_selected_probability": 0.657143,
         "market_odds_captured_at": "2026-09-14T11:49:44.055473Z",
         "market_odds_provider": "espn_scoreboard:DraftKings",
@@ -7556,7 +7553,7 @@
         "raw_probability": 0.6006,
         "recommended_units": 0.0,
         "selected_odds": -230,
-        "selected_side_implied_probability": 0.6825396825396826,
+        "selected_side_implied_probability": 0.7101449275362319,
         "source": "MLB First Five",
         "sport": "MLB",
         "start_time": "2026-09-14T22:40:00Z",
@@ -7570,7 +7567,7 @@
         "actionability": "research_signal",
         "assumed_odds_replaced": true,
         "away_team": "Los Angeles Dodgers",
-        "calibrated_edge": 12.66133333333333,
+        "calibrated_edge": 11.774808510638296,
         "calibrated_model_probability": 0.54328,
         "calibrated_probability": 0.54328,
         "calibration": {
@@ -7582,8 +7579,8 @@
           "version": "cal-v2-6404-2026-08-25"
         },
         "certification_timing": {
-          "data_as_of": "2026-09-14T15:09:20.131245Z",
-          "published_at": "2026-09-14T15:09:20.131245Z",
+          "data_as_of": "2026-09-14T17:32:43.765202Z",
+          "published_at": "2026-09-14T17:32:43.765202Z",
           "source": "model-cache-refresh",
           "trusted": true
         },
@@ -7674,7 +7671,7 @@
         "consensus_qualified": false,
         "consensus_rejection_reason": "failed_walk_forward_validation",
         "consensus_required": true,
-        "consensus_score": 64.489,
+        "consensus_score": 63.603,
         "consensus_signal_count": 19,
         "consensus_signals": [
           {
@@ -7682,7 +7679,7 @@
             "detail": "calibrated probability beats selected-side market price",
             "impact": "support",
             "name": "market_price",
-            "strength": 1.266
+            "strength": 1.177
           },
           {
             "category": "calibration",
@@ -7925,7 +7922,7 @@
         "market": "f5_total",
         "market_implied_probability": 0.565217,
         "market_line": 4.5,
-        "market_no_vig_probability": 0.4166666666666667,
+        "market_no_vig_probability": 0.425531914893617,
         "market_no_vig_selected_probability": 0.42044,
         "market_odds_captured_at": "2026-09-14T11:49:44.055473Z",
         "market_odds_provider": "espn_scoreboard:DraftKings",
@@ -8004,7 +8001,7 @@
         "raw_probability": 0.621,
         "recommended_units": 0.0,
         "selected_odds": 124,
-        "selected_side_implied_probability": 0.4166666666666667,
+        "selected_side_implied_probability": 0.425531914893617,
         "source": "MLB First Five",
         "sport": "MLB",
         "start_time": "2026-09-14T22:40:00Z",
@@ -8030,8 +8027,8 @@
           "version": "cal-v2-6404-2026-08-25"
         },
         "certification_timing": {
-          "data_as_of": "2026-09-14T15:09:20.131245Z",
-          "published_at": "2026-09-14T15:09:20.131245Z",
+          "data_as_of": "2026-09-14T17:32:43.765202Z",
+          "published_at": "2026-09-14T17:32:43.765202Z",
           "source": "model-cache-refresh",
           "trusted": true
         },
@@ -8373,7 +8370,7 @@
         "actionability": "research_signal",
         "assumed_odds_replaced": true,
         "away_team": "Chicago White Sox",
-        "calibrated_edge": 9.60972125984252,
+        "calibrated_edge": 8.9798,
         "calibrated_model_probability": 0.489798,
         "calibrated_probability": 0.489798,
         "calibration": {
@@ -8385,8 +8382,8 @@
           "version": "cal-v2-6404-2026-08-25"
         },
         "certification_timing": {
-          "data_as_of": "2026-09-14T15:09:20.131245Z",
-          "published_at": "2026-09-14T15:09:20.131245Z",
+          "data_as_of": "2026-09-14T17:32:43.765202Z",
+          "published_at": "2026-09-14T17:32:43.765202Z",
           "source": "model-cache-refresh",
           "trusted": true
         },
@@ -8479,7 +8476,7 @@
         "consensus_qualified": false,
         "consensus_rejection_reason": "raw_model_abstained; failed_walk_forward_validation",
         "consensus_required": true,
-        "consensus_score": 59.61,
+        "consensus_score": 58.98,
         "consensus_signal_count": 20,
         "consensus_signals": [
           {
@@ -8487,7 +8484,7 @@
             "detail": "calibrated probability beats selected-side market price",
             "impact": "support",
             "name": "market_price",
-            "strength": 0.961
+            "strength": 0.898
           },
           {
             "category": "calibration",
@@ -8711,7 +8708,7 @@
         "decision": "PASS",
         "edge": -7.54,
         "edge_basis": "no_vig",
-        "full_kelly": 0.1585,
+        "full_kelly": 0.1497,
         "game": "Chicago White Sox @ Cleveland Guardians",
         "game_id": "824386",
         "game_order": 1,
@@ -8723,7 +8720,7 @@
         "market": "f5_total",
         "market_implied_probability": 0.565217,
         "market_line": 4.5,
-        "market_no_vig_probability": 0.3937007874015748,
+        "market_no_vig_probability": 0.4,
         "market_no_vig_selected_probability": 0.36215,
         "market_odds_captured_at": "2026-09-14T11:49:44.055473Z",
         "market_odds_provider": "espn_scoreboard:DraftKings",
@@ -8795,14 +8792,14 @@
         "pricing_type": "market",
         "primary_consensus_passed": false,
         "probability": 0.4898,
-        "quarter_kelly": 0.0396,
+        "quarter_kelly": 0.0374,
         "ranking_epoch": "MLB:mlb_team_consensus_v1.2.0:mlb_first_five",
         "raw_edge": -2.22,
         "raw_model_probability": 0.543,
         "raw_probability": 0.543,
         "recommended_units": 0.0,
         "selected_odds": 160,
-        "selected_side_implied_probability": 0.3937007874015748,
+        "selected_side_implied_probability": 0.4,
         "source": "MLB First Five",
         "sport": "MLB",
         "start_time": "2026-09-14T22:40:00Z",
@@ -8816,7 +8813,7 @@
         "actionability": "research_signal",
         "assumed_odds_replaced": true,
         "away_team": "Detroit Tigers",
-        "calibrated_edge": -2.851433333333342,
+        "calibrated_edge": -5.148021259842528,
         "calibrated_model_probability": 0.554819,
         "calibrated_probability": 0.554819,
         "calibration": {
@@ -8828,8 +8825,8 @@
           "version": "cal-v2-6404-2026-08-25"
         },
         "certification_timing": {
-          "data_as_of": "2026-09-14T15:09:20.131245Z",
-          "published_at": "2026-09-14T15:09:20.131245Z",
+          "data_as_of": "2026-09-14T17:32:43.765202Z",
+          "published_at": "2026-09-14T17:32:43.765202Z",
           "source": "model-cache-refresh",
           "trusted": true
         },
@@ -9144,7 +9141,7 @@
         "market": "f5_total",
         "market_implied_probability": 0.565217,
         "market_line": 4.5,
-        "market_no_vig_probability": 0.5833333333333334,
+        "market_no_vig_probability": 0.6062992125984252,
         "market_no_vig_selected_probability": 0.550562,
         "market_odds_captured_at": "2026-09-14T11:49:44.055473Z",
         "market_odds_provider": "espn_scoreboard:DraftKings",
@@ -9223,7 +9220,7 @@
         "raw_probability": 0.6373,
         "recommended_units": 0.0,
         "selected_odds": -140,
-        "selected_side_implied_probability": 0.5833333333333334,
+        "selected_side_implied_probability": 0.6062992125984252,
         "source": "MLB First Five",
         "sport": "MLB",
         "start_time": "2026-09-14T23:07:00Z",
@@ -9237,7 +9234,7 @@
         "actionability": "research_signal",
         "assumed_odds_replaced": true,
         "away_team": "Detroit Tigers",
-        "calibrated_edge": -3.6598999999999995,
+        "calibrated_edge": -1.2789476190476157,
         "calibrated_model_probability": 0.463401,
         "calibrated_probability": 0.463401,
         "calibration": {
@@ -9249,8 +9246,8 @@
           "version": "cal-v2-6404-2026-08-25"
         },
         "certification_timing": {
-          "data_as_of": "2026-09-14T15:09:20.131245Z",
-          "published_at": "2026-09-14T15:09:20.131245Z",
+          "data_as_of": "2026-09-14T17:32:43.765202Z",
+          "published_at": "2026-09-14T17:32:43.765202Z",
           "source": "model-cache-refresh",
           "trusted": true
         },
@@ -9490,7 +9487,7 @@
         "market_away_odds": 100,
         "market_home_odds": -130,
         "market_implied_probability": 0.52381,
-        "market_no_vig_probability": 0.5,
+        "market_no_vig_probability": 0.47619047619047616,
         "market_no_vig_selected_probability": 0.469388,
         "market_odds_captured_at": "2026-09-14T11:49:44.055473Z",
         "market_odds_provider": "espn_scoreboard:DraftKings",
@@ -9566,7 +9563,7 @@
         "raw_probability": 0.5244,
         "recommended_units": 0.0,
         "selected_odds": 100,
-        "selected_side_implied_probability": 0.5,
+        "selected_side_implied_probability": 0.47619047619047616,
         "source": "MLB First Five",
         "sport": "MLB",
         "start_time": "2026-09-14T23:07:00Z",
@@ -9580,7 +9577,7 @@
         "actionability": "research_signal",
         "assumed_odds_replaced": true,
         "away_team": "Baltimore Orioles",
-        "calibrated_edge": 6.205099999999996,
+        "calibrated_edge": 4.985587804878044,
         "calibrated_model_probability": 0.562051,
         "calibrated_probability": 0.562051,
         "calibration": {
@@ -9592,8 +9589,8 @@
           "version": "cal-v2-6404-2026-08-25"
         },
         "certification_timing": {
-          "data_as_of": "2026-09-14T15:09:20.131245Z",
-          "published_at": "2026-09-14T15:09:20.131245Z",
+          "data_as_of": "2026-09-14T17:32:43.765202Z",
+          "published_at": "2026-09-14T17:32:43.765202Z",
           "source": "model-cache-refresh",
           "trusted": true
         },
@@ -9687,7 +9684,7 @@
         "consensus_qualified": false,
         "consensus_rejection_reason": "failed_walk_forward_validation",
         "consensus_required": true,
-        "consensus_score": 62.41,
+        "consensus_score": 61.191,
         "consensus_signal_count": 20,
         "consensus_signals": [
           {
@@ -9695,7 +9692,7 @@
             "detail": "calibrated probability beats selected-side market price",
             "impact": "support",
             "name": "market_price",
-            "strength": 0.621
+            "strength": 0.499
           },
           {
             "category": "calibration",
@@ -9905,7 +9902,7 @@
         "decision": "PASS",
         "edge": -0.32,
         "edge_basis": "no_vig",
-        "full_kelly": 0.1241,
+        "full_kelly": 0.1022,
         "game": "Baltimore Orioles @ New York Mets",
         "game_id": "823575",
         "game_order": 3,
@@ -9917,7 +9914,7 @@
         "market": "f5_total",
         "market_implied_probability": 0.565217,
         "market_line": 4.5,
-        "market_no_vig_probability": 0.5,
+        "market_no_vig_probability": 0.5121951219512195,
         "market_no_vig_selected_probability": 0.469388,
         "market_odds_captured_at": "2026-09-14T11:49:44.055473Z",
         "market_odds_provider": "espn_scoreboard:DraftKings",
@@ -9989,14 +9986,14 @@
         "pricing_type": "market",
         "primary_consensus_passed": false,
         "probability": 0.5621,
-        "quarter_kelly": 0.031,
+        "quarter_kelly": 0.0256,
         "ranking_epoch": "MLB:mlb_team_consensus_v1.2.0:mlb_first_five",
         "raw_edge": 8.22,
         "raw_model_probability": 0.6474,
         "raw_probability": 0.6474,
         "recommended_units": 0.0,
         "selected_odds": 100,
-        "selected_side_implied_probability": 0.5,
+        "selected_side_implied_probability": 0.5121951219512195,
         "source": "MLB First Five",
         "sport": "MLB",
         "start_time": "2026-09-14T23:10:00Z",
@@ -10010,7 +10007,7 @@
         "actionability": "research_signal",
         "assumed_odds_replaced": true,
         "away_team": "Baltimore Orioles",
-        "calibrated_edge": -5.292112195121951,
+        "calibrated_edge": -4.072599999999999,
         "calibrated_model_probability": 0.459274,
         "calibrated_probability": 0.459274,
         "calibration": {
@@ -10022,8 +10019,8 @@
           "version": "cal-v2-6404-2026-08-25"
         },
         "certification_timing": {
-          "data_as_of": "2026-09-14T15:09:20.131245Z",
-          "published_at": "2026-09-14T15:09:20.131245Z",
+          "data_as_of": "2026-09-14T17:32:43.765202Z",
+          "published_at": "2026-09-14T17:32:43.765202Z",
           "source": "model-cache-refresh",
           "trusted": true
         },
@@ -10239,7 +10236,7 @@
         "market_away_odds": -105,
         "market_home_odds": -125,
         "market_implied_probability": 0.52381,
-        "market_no_vig_probability": 0.5121951219512195,
+        "market_no_vig_probability": 0.5,
         "market_no_vig_selected_probability": 0.479695,
         "market_odds_captured_at": "2026-09-14T11:49:44.055473Z",
         "market_odds_provider": "espn_scoreboard:DraftKings",
@@ -10315,7 +10312,7 @@
         "raw_probability": 0.518,
         "recommended_units": 0.0,
         "selected_odds": -105,
-        "selected_side_implied_probability": 0.5121951219512195,
+        "selected_side_implied_probability": 0.5,
         "source": "MLB First Five",
         "sport": "MLB",
         "start_time": "2026-09-14T23:10:00Z",
@@ -10329,7 +10326,7 @@
         "actionability": "research_signal",
         "assumed_odds_replaced": true,
         "away_team": "Atlanta Braves",
-        "calibrated_edge": -12.675308510638306,
+        "calibrated_edge": -13.56183333333334,
         "calibrated_model_probability": 0.447715,
         "calibrated_probability": 0.447715,
         "calibration": {
@@ -10341,8 +10338,8 @@
           "version": "cal-v2-6404-2026-08-25"
         },
         "certification_timing": {
-          "data_as_of": "2026-09-14T15:09:20.131245Z",
-          "published_at": "2026-09-14T15:09:20.131245Z",
+          "data_as_of": "2026-09-14T17:32:43.765202Z",
+          "published_at": "2026-09-14T17:32:43.765202Z",
           "source": "model-cache-refresh",
           "trusted": true
         },
@@ -10574,7 +10571,7 @@
         "market_away_odds": -125,
         "market_home_odds": -105,
         "market_implied_probability": 0.52381,
-        "market_no_vig_probability": 0.574468085106383,
+        "market_no_vig_probability": 0.5833333333333334,
         "market_no_vig_selected_probability": 0.479695,
         "market_odds_captured_at": "2026-09-14T11:49:44.055473Z",
         "market_odds_provider": "espn_scoreboard:DraftKings",
@@ -10650,7 +10647,7 @@
         "raw_probability": 0.5,
         "recommended_units": 0.0,
         "selected_odds": -105,
-        "selected_side_implied_probability": 0.574468085106383,
+        "selected_side_implied_probability": 0.5833333333333334,
         "source": "MLB First Five",
         "sport": "MLB",
         "start_time": "2026-09-14T23:40:00Z",
@@ -10664,7 +10661,7 @@
         "actionability": "research_signal",
         "assumed_odds_replaced": true,
         "away_team": "Atlanta Braves",
-        "calibrated_edge": -3.0974121951219513,
+        "calibrated_edge": -4.258852380952383,
         "calibrated_model_probability": 0.481221,
         "calibrated_probability": 0.481221,
         "calibration": {
@@ -10676,8 +10673,8 @@
           "version": "cal-v2-6404-2026-08-25"
         },
         "certification_timing": {
-          "data_as_of": "2026-09-14T15:09:20.131245Z",
-          "published_at": "2026-09-14T15:09:20.131245Z",
+          "data_as_of": "2026-09-14T17:32:43.765202Z",
+          "published_at": "2026-09-14T17:32:43.765202Z",
           "source": "model-cache-refresh",
           "trusted": true
         },
@@ -11007,7 +11004,7 @@
         "market": "f5_total",
         "market_implied_probability": 0.62963,
         "market_line": 5.5,
-        "market_no_vig_probability": 0.5121951219512195,
+        "market_no_vig_probability": 0.5238095238095238,
         "market_no_vig_selected_probability": 0.410621,
         "market_odds_captured_at": "2026-09-14T11:49:44.055473Z",
         "market_odds_provider": "espn_scoreboard:DraftKings",
@@ -11086,7 +11083,7 @@
         "raw_probability": 0.5302,
         "recommended_units": 0.0,
         "selected_odds": 130,
-        "selected_side_implied_probability": 0.5121951219512195,
+        "selected_side_implied_probability": 0.5238095238095238,
         "source": "MLB First Five",
         "sport": "MLB",
         "start_time": "2026-09-14T23:40:00Z",
@@ -11100,7 +11097,7 @@
         "actionability": "research_signal",
         "assumed_odds_replaced": true,
         "away_team": "New York Yankees",
-        "calibrated_edge": 8.154587804878044,
+        "calibrated_edge": 6.993147619047613,
         "calibrated_model_probability": 0.593741,
         "calibrated_probability": 0.593741,
         "calibration": {
@@ -11112,8 +11109,8 @@
           "version": "cal-v2-6404-2026-08-25"
         },
         "certification_timing": {
-          "data_as_of": "2026-09-14T15:09:20.131245Z",
-          "published_at": "2026-09-14T15:09:20.131245Z",
+          "data_as_of": "2026-09-14T17:32:43.765202Z",
+          "published_at": "2026-09-14T17:32:43.765202Z",
           "source": "model-cache-refresh",
           "trusted": true
         },
@@ -11204,7 +11201,7 @@
         "consensus_qualified": false,
         "consensus_rejection_reason": "failed_walk_forward_validation",
         "consensus_required": true,
-        "consensus_score": 65.029,
+        "consensus_score": 63.867,
         "consensus_signal_count": 19,
         "consensus_signals": [
           {
@@ -11212,7 +11209,7 @@
             "detail": "calibrated probability beats selected-side market price",
             "impact": "support",
             "name": "market_price",
-            "strength": 0.815
+            "strength": 0.699
           },
           {
             "category": "calibration",
@@ -11443,7 +11440,7 @@
         "decision": "PASS",
         "edge": 2.85,
         "edge_basis": "no_vig",
-        "full_kelly": 0.1672,
+        "full_kelly": 0.1469,
         "game": "New York Yankees @ Minnesota Twins",
         "game_id": "823656",
         "game_order": 5,
@@ -11455,7 +11452,7 @@
         "market": "f5_total",
         "market_implied_probability": 0.565217,
         "market_line": 4.5,
-        "market_no_vig_probability": 0.5121951219512195,
+        "market_no_vig_probability": 0.5238095238095238,
         "market_no_vig_selected_probability": 0.5,
         "market_odds_captured_at": "2026-09-14T11:49:44.055473Z",
         "market_odds_provider": "espn_scoreboard:DraftKings",
@@ -11527,14 +11524,14 @@
         "pricing_type": "market",
         "primary_consensus_passed": false,
         "probability": 0.5937,
-        "quarter_kelly": 0.0418,
+        "quarter_kelly": 0.0367,
         "ranking_epoch": "MLB:mlb_team_consensus_v1.2.0:mlb_first_five",
         "raw_edge": 12.53,
         "raw_model_probability": 0.6905,
         "raw_probability": 0.6905,
         "recommended_units": 0.0,
         "selected_odds": -115,
-        "selected_side_implied_probability": 0.5121951219512195,
+        "selected_side_implied_probability": 0.5238095238095238,
         "source": "MLB First Five",
         "sport": "MLB",
         "start_time": "2026-09-14T23:40:00Z",
@@ -11560,8 +11557,8 @@
           "version": "cal-v2-6404-2026-08-25"
         },
         "certification_timing": {
-          "data_as_of": "2026-09-14T15:09:20.131245Z",
-          "published_at": "2026-09-14T15:09:20.131245Z",
+          "data_as_of": "2026-09-14T17:32:43.765202Z",
+          "published_at": "2026-09-14T17:32:43.765202Z",
           "source": "model-cache-refresh",
           "trusted": true
         },
@@ -11903,8 +11900,8 @@
           "version": "cal-v2-6404-2026-08-25"
         },
         "certification_timing": {
-          "data_as_of": "2026-09-14T15:09:20.131245Z",
-          "published_at": "2026-09-14T15:09:20.131245Z",
+          "data_as_of": "2026-09-14T17:32:43.765202Z",
+          "published_at": "2026-09-14T17:32:43.765202Z",
           "source": "model-cache-refresh",
           "trusted": true
         },
@@ -12259,7 +12256,7 @@
         "actionability": "research_signal",
         "assumed_odds_replaced": true,
         "away_team": "San Francisco Giants",
-        "calibrated_edge": -9.612008510638304,
+        "calibrated_edge": -8.686939130434778,
         "calibrated_model_probability": 0.478348,
         "calibrated_probability": 0.478348,
         "calibration": {
@@ -12271,8 +12268,8 @@
           "version": "cal-v2-6404-2026-08-25"
         },
         "certification_timing": {
-          "data_as_of": "2026-09-14T15:09:20.131245Z",
-          "published_at": "2026-09-14T15:09:20.131245Z",
+          "data_as_of": "2026-09-14T17:32:43.765202Z",
+          "published_at": "2026-09-14T17:32:43.765202Z",
           "source": "model-cache-refresh",
           "trusted": true
         },
@@ -12627,7 +12624,7 @@
         "market": "f5_total",
         "market_implied_probability": 0.565217,
         "market_line": 4.5,
-        "market_no_vig_probability": 0.574468085106383,
+        "market_no_vig_probability": 0.5652173913043478,
         "market_no_vig_selected_probability": 0.530612,
         "market_odds_captured_at": "2026-09-14T11:49:44.055473Z",
         "market_odds_provider": "espn_scoreboard:DraftKings",
@@ -12706,7 +12703,7 @@
         "raw_probability": 0.5259,
         "recommended_units": 0.0,
         "selected_odds": -130,
-        "selected_side_implied_probability": 0.574468085106383,
+        "selected_side_implied_probability": 0.5652173913043478,
         "source": "MLB First Five",
         "sport": "MLB",
         "start_time": "2026-09-14T23:45:00Z",
@@ -12732,8 +12729,8 @@
           "version": "cal-v2-6404-2026-08-25"
         },
         "certification_timing": {
-          "data_as_of": "2026-09-14T15:09:20.131245Z",
-          "published_at": "2026-09-14T15:09:20.131245Z",
+          "data_as_of": "2026-09-14T17:32:43.765202Z",
+          "published_at": "2026-09-14T17:32:43.765202Z",
           "source": "model-cache-refresh",
           "trusted": true
         },
@@ -13066,8 +13063,8 @@
           "version": "cal-v2-6404-2026-08-25"
         },
         "certification_timing": {
-          "data_as_of": "2026-09-14T15:09:20.131245Z",
-          "published_at": "2026-09-14T15:09:20.131245Z",
+          "data_as_of": "2026-09-14T17:32:43.765202Z",
+          "published_at": "2026-09-14T17:32:43.765202Z",
           "source": "model-cache-refresh",
           "trusted": true
         },
@@ -13490,7 +13487,7 @@
         "actionability": "research_signal",
         "assumed_odds_replaced": true,
         "away_team": "Seattle Mariners",
-        "calibrated_edge": -8.86265454545454,
+        "calibrated_edge": -10.838939130434778,
         "calibrated_model_probability": 0.456828,
         "calibrated_probability": 0.456828,
         "calibration": {
@@ -13502,8 +13499,8 @@
           "version": "cal-v2-6404-2026-08-25"
         },
         "certification_timing": {
-          "data_as_of": "2026-09-14T15:09:20.131245Z",
-          "published_at": "2026-09-14T15:09:20.131245Z",
+          "data_as_of": "2026-09-14T17:32:43.765202Z",
+          "published_at": "2026-09-14T17:32:43.765202Z",
           "source": "model-cache-refresh",
           "trusted": true
         },
@@ -13736,7 +13733,7 @@
         "market_away_odds": -120,
         "market_home_odds": -110,
         "market_implied_probability": 0.52381,
-        "market_no_vig_probability": 0.5454545454545454,
+        "market_no_vig_probability": 0.5652173913043478,
         "market_no_vig_selected_probability": 0.489879,
         "market_odds_captured_at": "2026-09-14T11:49:44.055473Z",
         "market_odds_provider": "espn_scoreboard:DraftKings",
@@ -13812,7 +13809,7 @@
         "raw_probability": 0.5142,
         "recommended_units": 0.0,
         "selected_odds": -110,
-        "selected_side_implied_probability": 0.5454545454545454,
+        "selected_side_implied_probability": 0.5652173913043478,
         "source": "MLB First Five",
         "sport": "MLB",
         "start_time": "2026-09-15T01:38:00Z",
@@ -13826,7 +13823,7 @@
         "actionability": "research_signal",
         "assumed_odds_replaced": true,
         "away_team": "Seattle Mariners",
-        "calibrated_edge": 1.9005428571428562,
+        "calibrated_edge": 3.065139130434785,
         "calibrated_model_probability": 0.465434,
         "calibrated_probability": 0.465434,
         "calibration": {
@@ -13838,8 +13835,8 @@
           "version": "cal-v2-6404-2026-08-25"
         },
         "certification_timing": {
-          "data_as_of": "2026-09-14T15:09:20.131245Z",
-          "published_at": "2026-09-14T15:09:20.131245Z",
+          "data_as_of": "2026-09-14T17:32:43.765202Z",
+          "published_at": "2026-09-14T17:32:43.765202Z",
           "source": "model-cache-refresh",
           "trusted": true
         },
@@ -13934,7 +13931,7 @@
         "consensus_qualified": false,
         "consensus_rejection_reason": "raw_model_abstained; failed_walk_forward_validation",
         "consensus_required": true,
-        "consensus_score": 51.901,
+        "consensus_score": 53.065,
         "consensus_signal_count": 20,
         "consensus_signals": [
           {
@@ -13942,7 +13939,7 @@
             "detail": "calibrated probability beats selected-side market price",
             "impact": "support",
             "name": "market_price",
-            "strength": 0.19
+            "strength": 0.307
           },
           {
             "category": "calibration",
@@ -14173,7 +14170,7 @@
         "decision": "PASS",
         "edge": -9.98,
         "edge_basis": "no_vig",
-        "full_kelly": 0.0343,
+        "full_kelly": 0.0542,
         "game": "Seattle Mariners @ Los Angeles Angels",
         "game_id": "823981",
         "game_order": 8,
@@ -14185,7 +14182,7 @@
         "market": "f5_total",
         "market_implied_probability": 0.565217,
         "market_line": 4.5,
-        "market_no_vig_probability": 0.44642857142857145,
+        "market_no_vig_probability": 0.43478260869565216,
         "market_no_vig_selected_probability": 0.42044,
         "market_odds_captured_at": "2026-09-14T15:09:20.969591Z",
         "market_odds_provider": "espn_scoreboard:DraftKings",
@@ -14246,14 +14243,14 @@
         "pricing_type": "market",
         "primary_consensus_passed": false,
         "probability": 0.4654,
-        "quarter_kelly": 0.0086,
+        "quarter_kelly": 0.0136,
         "ranking_epoch": "MLB:mlb_team_consensus_v1.2.0:mlb_first_five",
         "raw_edge": -5.87,
         "raw_model_probability": 0.5065,
         "raw_probability": 0.5065,
         "recommended_units": 0.0,
         "selected_odds": 124,
-        "selected_side_implied_probability": 0.44642857142857145,
+        "selected_side_implied_probability": 0.43478260869565216,
         "source": "MLB First Five",
         "sport": "MLB",
         "start_time": "2026-09-15T01:38:00Z",
@@ -14279,8 +14276,8 @@
           "version": "cal-v2-6404-2026-08-25"
         },
         "certification_timing": {
-          "data_as_of": "2026-09-14T15:09:20.131245Z",
-          "published_at": "2026-09-14T15:09:20.131245Z",
+          "data_as_of": "2026-09-14T17:32:43.765202Z",
+          "published_at": "2026-09-14T17:32:43.765202Z",
           "source": "model-cache-refresh",
           "trusted": true
         },
@@ -14609,7 +14606,7 @@
         "actionability": "research_signal",
         "assumed_odds_replaced": true,
         "away_team": "Miami Marlins",
-        "calibrated_edge": -8.748908510638303,
+        "calibrated_edge": -4.790472093023252,
         "calibrated_model_probability": 0.486979,
         "calibrated_probability": 0.486979,
         "calibration": {
@@ -14621,8 +14618,8 @@
           "version": "cal-v2-6404-2026-08-25"
         },
         "certification_timing": {
-          "data_as_of": "2026-09-14T15:09:20.131245Z",
-          "published_at": "2026-09-14T15:09:20.131245Z",
+          "data_as_of": "2026-09-14T17:32:43.765202Z",
+          "published_at": "2026-09-14T17:32:43.765202Z",
           "source": "model-cache-refresh",
           "trusted": true
         },
@@ -14963,7 +14960,7 @@
         "market": "f5_total",
         "market_implied_probability": 0.565217,
         "market_line": 4.5,
-        "market_no_vig_probability": 0.574468085106383,
+        "market_no_vig_probability": 0.5348837209302325,
         "market_no_vig_selected_probability": 0.540791,
         "market_odds_captured_at": "2026-09-14T11:49:44.055473Z",
         "market_odds_provider": "espn_scoreboard:DraftKings",
@@ -15042,7 +15039,7 @@
         "raw_probability": 0.5388,
         "recommended_units": 0.0,
         "selected_odds": -135,
-        "selected_side_implied_probability": 0.574468085106383,
+        "selected_side_implied_probability": 0.5348837209302325,
         "source": "MLB First Five",
         "sport": "MLB",
         "start_time": "2026-09-15T01:40:00Z",
@@ -15053,7 +15050,6 @@
         "walk_forward_samples": 81
       }
     ],
-    "preserved_after_refresh_error": true,
     "ranking_epoch": "MLB:mlb_team_consensus_v1.2.0:mlb_first_five",
     "raw_lines": 2,
     "requested_date": "2026-09-14"
@@ -27493,7 +27489,6 @@
       },
       "consensus_required": true,
       "date": "2026-09-14",
-      "error": "MLB First Five runtime failed (    for game in _recent_team_games(team_id, game_date, lookback_days=14): |                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ |   File \"/home/runner/work/pickledger/pickledger/models/mlb_inning/mlb_inning_fetcher.py\", line 447, in _recent_team_games |     payload = api_get_json( |               ^^^^^^^^^^^^^ |   File \"/home/runner/work/pickledger/pickledger/models/mlb_inning/mlb_inning_fetcher.py\", line 116, in api_get_json |     cache_set(cache_key, payload) |   File \"/home/runner/work/pickledger/pickledger/models/mlb_inning/mlb_inning_fetcher.py\", line 100, in cache_set |     tmp_path.replace(path) |   File \"/opt/hostedtoolcache/Python/3.11.16/x64/lib/python3.11/pathlib.py\", line 1188, in replace |     os.replace(self, target) | FileNotFoundError: [Errno 2] No such file or directory: '/home/runner/work/pickledger/pickledger/models/mlb_inning/.cache/recent_games_141_2026-08-30_2026-09-13..json.1789405249287950756.tmp' -> '/home/runner/work/pickledger/pickledger/models/mlb_inning/.cache/recent_games_141_2026-08-30_2026-09-13.json')",
       "firebase_saved": false,
       "games": [
         {
@@ -30305,13 +30300,13 @@
       ],
       "model": "MLBFirstFive",
       "note": "MLB First Five processed 10 game(s), returned 20 side/total row(s).",
-      "ok": false,
+      "ok": true,
       "picks": [
         {
           "actionability": "research_signal",
           "assumed_odds_replaced": true,
           "away_team": "Los Angeles Dodgers",
-          "calibrated_edge": -16.897668253968256,
+          "calibrated_edge": -19.658192753623194,
           "calibrated_model_probability": 0.513563,
           "calibrated_probability": 0.513563,
           "calibration": {
@@ -30323,8 +30318,8 @@
             "version": "cal-v2-6404-2026-08-25"
           },
           "certification_timing": {
-            "data_as_of": "2026-09-14T15:09:20.131245Z",
-            "published_at": "2026-09-14T15:09:20.131245Z",
+            "data_as_of": "2026-09-14T17:32:43.765202Z",
+            "published_at": "2026-09-14T17:32:43.765202Z",
             "source": "model-cache-refresh",
             "trusted": true
           },
@@ -30563,7 +30558,7 @@
           "market_away_odds": -230,
           "market_home_odds": 175,
           "market_implied_probability": 0.52381,
-          "market_no_vig_probability": 0.6825396825396826,
+          "market_no_vig_probability": 0.7101449275362319,
           "market_no_vig_selected_probability": 0.657143,
           "market_odds_captured_at": "2026-09-14T11:49:44.055473Z",
           "market_odds_provider": "espn_scoreboard:DraftKings",
@@ -30639,7 +30634,7 @@
           "raw_probability": 0.6006,
           "recommended_units": 0.0,
           "selected_odds": -230,
-          "selected_side_implied_probability": 0.6825396825396826,
+          "selected_side_implied_probability": 0.7101449275362319,
           "source": "MLB First Five",
           "sport": "MLB",
           "start_time": "2026-09-14T22:40:00Z",
@@ -30653,7 +30648,7 @@
           "actionability": "research_signal",
           "assumed_odds_replaced": true,
           "away_team": "Los Angeles Dodgers",
-          "calibrated_edge": 12.66133333333333,
+          "calibrated_edge": 11.774808510638296,
           "calibrated_model_probability": 0.54328,
           "calibrated_probability": 0.54328,
           "calibration": {
@@ -30665,8 +30660,8 @@
             "version": "cal-v2-6404-2026-08-25"
           },
           "certification_timing": {
-            "data_as_of": "2026-09-14T15:09:20.131245Z",
-            "published_at": "2026-09-14T15:09:20.131245Z",
+            "data_as_of": "2026-09-14T17:32:43.765202Z",
+            "published_at": "2026-09-14T17:32:43.765202Z",
             "source": "model-cache-refresh",
             "trusted": true
           },
@@ -30757,7 +30752,7 @@
           "consensus_qualified": false,
           "consensus_rejection_reason": "failed_walk_forward_validation",
           "consensus_required": true,
-          "consensus_score": 64.489,
+          "consensus_score": 63.603,
           "consensus_signal_count": 19,
           "consensus_signals": [
             {
@@ -30765,7 +30760,7 @@
               "detail": "calibrated probability beats selected-side market price",
               "impact": "support",
               "name": "market_price",
-              "strength": 1.266
+              "strength": 1.177
             },
             {
               "category": "calibration",
@@ -31008,7 +31003,7 @@
           "market": "f5_total",
           "market_implied_probability": 0.565217,
           "market_line": 4.5,
-          "market_no_vig_probability": 0.4166666666666667,
+          "market_no_vig_probability": 0.425531914893617,
           "market_no_vig_selected_probability": 0.42044,
           "market_odds_captured_at": "2026-09-14T11:49:44.055473Z",
           "market_odds_provider": "espn_scoreboard:DraftKings",
@@ -31087,7 +31082,7 @@
           "raw_probability": 0.621,
           "recommended_units": 0.0,
           "selected_odds": 124,
-          "selected_side_implied_probability": 0.4166666666666667,
+          "selected_side_implied_probability": 0.425531914893617,
           "source": "MLB First Five",
           "sport": "MLB",
           "start_time": "2026-09-14T22:40:00Z",
@@ -31113,8 +31108,8 @@
             "version": "cal-v2-6404-2026-08-25"
           },
           "certification_timing": {
-            "data_as_of": "2026-09-14T15:09:20.131245Z",
-            "published_at": "2026-09-14T15:09:20.131245Z",
+            "data_as_of": "2026-09-14T17:32:43.765202Z",
+            "published_at": "2026-09-14T17:32:43.765202Z",
             "source": "model-cache-refresh",
             "trusted": true
           },
@@ -31456,7 +31451,7 @@
           "actionability": "research_signal",
           "assumed_odds_replaced": true,
           "away_team": "Chicago White Sox",
-          "calibrated_edge": 9.60972125984252,
+          "calibrated_edge": 8.9798,
           "calibrated_model_probability": 0.489798,
           "calibrated_probability": 0.489798,
           "calibration": {
@@ -31468,8 +31463,8 @@
             "version": "cal-v2-6404-2026-08-25"
           },
           "certification_timing": {
-            "data_as_of": "2026-09-14T15:09:20.131245Z",
-            "published_at": "2026-09-14T15:09:20.131245Z",
+            "data_as_of": "2026-09-14T17:32:43.765202Z",
+            "published_at": "2026-09-14T17:32:43.765202Z",
             "source": "model-cache-refresh",
             "trusted": true
           },
@@ -31562,7 +31557,7 @@
           "consensus_qualified": false,
           "consensus_rejection_reason": "raw_model_abstained; failed_walk_forward_validation",
           "consensus_required": true,
-          "consensus_score": 59.61,
+          "consensus_score": 58.98,
           "consensus_signal_count": 20,
           "consensus_signals": [
             {
@@ -31570,7 +31565,7 @@
               "detail": "calibrated probability beats selected-side market price",
               "impact": "support",
               "name": "market_price",
-              "strength": 0.961
+              "strength": 0.898
             },
             {
               "category": "calibration",
@@ -31794,7 +31789,7 @@
           "decision": "PASS",
           "edge": -7.54,
           "edge_basis": "no_vig",
-          "full_kelly": 0.1585,
+          "full_kelly": 0.1497,
           "game": "Chicago White Sox @ Cleveland Guardians",
           "game_id": "824386",
           "game_order": 1,
@@ -31806,7 +31801,7 @@
           "market": "f5_total",
           "market_implied_probability": 0.565217,
           "market_line": 4.5,
-          "market_no_vig_probability": 0.3937007874015748,
+          "market_no_vig_probability": 0.4,
           "market_no_vig_selected_probability": 0.36215,
           "market_odds_captured_at": "2026-09-14T11:49:44.055473Z",
           "market_odds_provider": "espn_scoreboard:DraftKings",
@@ -31878,14 +31873,14 @@
           "pricing_type": "market",
           "primary_consensus_passed": false,
           "probability": 0.4898,
-          "quarter_kelly": 0.0396,
+          "quarter_kelly": 0.0374,
           "ranking_epoch": "MLB:mlb_team_consensus_v1.2.0:mlb_first_five",
           "raw_edge": -2.22,
           "raw_model_probability": 0.543,
           "raw_probability": 0.543,
           "recommended_units": 0.0,
           "selected_odds": 160,
-          "selected_side_implied_probability": 0.3937007874015748,
+          "selected_side_implied_probability": 0.4,
           "source": "MLB First Five",
           "sport": "MLB",
           "start_time": "2026-09-14T22:40:00Z",
@@ -31899,7 +31894,7 @@
           "actionability": "research_signal",
           "assumed_odds_replaced": true,
           "away_team": "Detroit Tigers",
-          "calibrated_edge": -2.851433333333342,
+          "calibrated_edge": -5.148021259842528,
           "calibrated_model_probability": 0.554819,
           "calibrated_probability": 0.554819,
           "calibration": {
@@ -31911,8 +31906,8 @@
             "version": "cal-v2-6404-2026-08-25"
           },
           "certification_timing": {
-            "data_as_of": "2026-09-14T15:09:20.131245Z",
-            "published_at": "2026-09-14T15:09:20.131245Z",
+            "data_as_of": "2026-09-14T17:32:43.765202Z",
+            "published_at": "2026-09-14T17:32:43.765202Z",
             "source": "model-cache-refresh",
             "trusted": true
           },
@@ -32227,7 +32222,7 @@
           "market": "f5_total",
           "market_implied_probability": 0.565217,
           "market_line": 4.5,
-          "market_no_vig_probability": 0.5833333333333334,
+          "market_no_vig_probability": 0.6062992125984252,
           "market_no_vig_selected_probability": 0.550562,
           "market_odds_captured_at": "2026-09-14T11:49:44.055473Z",
           "market_odds_provider": "espn_scoreboard:DraftKings",
@@ -32306,7 +32301,7 @@
           "raw_probability": 0.6373,
           "recommended_units": 0.0,
           "selected_odds": -140,
-          "selected_side_implied_probability": 0.5833333333333334,
+          "selected_side_implied_probability": 0.6062992125984252,
           "source": "MLB First Five",
           "sport": "MLB",
           "start_time": "2026-09-14T23:07:00Z",
@@ -32320,7 +32315,7 @@
           "actionability": "research_signal",
           "assumed_odds_replaced": true,
           "away_team": "Detroit Tigers",
-          "calibrated_edge": -3.6598999999999995,
+          "calibrated_edge": -1.2789476190476157,
           "calibrated_model_probability": 0.463401,
           "calibrated_probability": 0.463401,
           "calibration": {
@@ -32332,8 +32327,8 @@
             "version": "cal-v2-6404-2026-08-25"
           },
           "certification_timing": {
-            "data_as_of": "2026-09-14T15:09:20.131245Z",
-            "published_at": "2026-09-14T15:09:20.131245Z",
+            "data_as_of": "2026-09-14T17:32:43.765202Z",
+            "published_at": "2026-09-14T17:32:43.765202Z",
             "source": "model-cache-refresh",
             "trusted": true
           },
@@ -32573,7 +32568,7 @@
           "market_away_odds": 100,
           "market_home_odds": -130,
           "market_implied_probability": 0.52381,
-          "market_no_vig_probability": 0.5,
+          "market_no_vig_probability": 0.47619047619047616,
           "market_no_vig_selected_probability": 0.469388,
           "market_odds_captured_at": "2026-09-14T11:49:44.055473Z",
           "market_odds_provider": "espn_scoreboard:DraftKings",
@@ -32649,7 +32644,7 @@
           "raw_probability": 0.5244,
           "recommended_units": 0.0,
           "selected_odds": 100,
-          "selected_side_implied_probability": 0.5,
+          "selected_side_implied_probability": 0.47619047619047616,
           "source": "MLB First Five",
           "sport": "MLB",
           "start_time": "2026-09-14T23:07:00Z",
@@ -32663,7 +32658,7 @@
           "actionability": "research_signal",
           "assumed_odds_replaced": true,
           "away_team": "Baltimore Orioles",
-          "calibrated_edge": 6.205099999999996,
+          "calibrated_edge": 4.985587804878044,
           "calibrated_model_probability": 0.562051,
           "calibrated_probability": 0.562051,
           "calibration": {
@@ -32675,8 +32670,8 @@
             "version": "cal-v2-6404-2026-08-25"
           },
           "certification_timing": {
-            "data_as_of": "2026-09-14T15:09:20.131245Z",
-            "published_at": "2026-09-14T15:09:20.131245Z",
+            "data_as_of": "2026-09-14T17:32:43.765202Z",
+            "published_at": "2026-09-14T17:32:43.765202Z",
             "source": "model-cache-refresh",
             "trusted": true
           },
@@ -32770,7 +32765,7 @@
           "consensus_qualified": false,
           "consensus_rejection_reason": "failed_walk_forward_validation",
           "consensus_required": true,
-          "consensus_score": 62.41,
+          "consensus_score": 61.191,
           "consensus_signal_count": 20,
           "consensus_signals": [
             {
@@ -32778,7 +32773,7 @@
               "detail": "calibrated probability beats selected-side market price",
               "impact": "support",
               "name": "market_price",
-              "strength": 0.621
+              "strength": 0.499
             },
             {
               "category": "calibration",
@@ -32988,7 +32983,7 @@
           "decision": "PASS",
           "edge": -0.32,
           "edge_basis": "no_vig",
-          "full_kelly": 0.1241,
+          "full_kelly": 0.1022,
           "game": "Baltimore Orioles @ New York Mets",
           "game_id": "823575",
           "game_order": 3,
@@ -33000,7 +32995,7 @@
           "market": "f5_total",
           "market_implied_probability": 0.565217,
           "market_line": 4.5,
-          "market_no_vig_probability": 0.5,
+          "market_no_vig_probability": 0.5121951219512195,
           "market_no_vig_selected_probability": 0.469388,
           "market_odds_captured_at": "2026-09-14T11:49:44.055473Z",
           "market_odds_provider": "espn_scoreboard:DraftKings",
@@ -33072,14 +33067,14 @@
           "pricing_type": "market",
           "primary_consensus_passed": false,
           "probability": 0.5621,
-          "quarter_kelly": 0.031,
+          "quarter_kelly": 0.0256,
           "ranking_epoch": "MLB:mlb_team_consensus_v1.2.0:mlb_first_five",
           "raw_edge": 8.22,
           "raw_model_probability": 0.6474,
           "raw_probability": 0.6474,
           "recommended_units": 0.0,
           "selected_odds": 100,
-          "selected_side_implied_probability": 0.5,
+          "selected_side_implied_probability": 0.5121951219512195,
           "source": "MLB First Five",
           "sport": "MLB",
           "start_time": "2026-09-14T23:10:00Z",
@@ -33093,7 +33088,7 @@
           "actionability": "research_signal",
           "assumed_odds_replaced": true,
           "away_team": "Baltimore Orioles",
-          "calibrated_edge": -5.292112195121951,
+          "calibrated_edge": -4.072599999999999,
           "calibrated_model_probability": 0.459274,
           "calibrated_probability": 0.459274,
           "calibration": {
@@ -33105,8 +33100,8 @@
             "version": "cal-v2-6404-2026-08-25"
           },
           "certification_timing": {
-            "data_as_of": "2026-09-14T15:09:20.131245Z",
-            "published_at": "2026-09-14T15:09:20.131245Z",
+            "data_as_of": "2026-09-14T17:32:43.765202Z",
+            "published_at": "2026-09-14T17:32:43.765202Z",
             "source": "model-cache-refresh",
             "trusted": true
           },
@@ -33322,7 +33317,7 @@
           "market_away_odds": -105,
           "market_home_odds": -125,
           "market_implied_probability": 0.52381,
-          "market_no_vig_probability": 0.5121951219512195,
+          "market_no_vig_probability": 0.5,
           "market_no_vig_selected_probability": 0.479695,
           "market_odds_captured_at": "2026-09-14T11:49:44.055473Z",
           "market_odds_provider": "espn_scoreboard:DraftKings",
@@ -33398,7 +33393,7 @@
           "raw_probability": 0.518,
           "recommended_units": 0.0,
           "selected_odds": -105,
-          "selected_side_implied_probability": 0.5121951219512195,
+          "selected_side_implied_probability": 0.5,
           "source": "MLB First Five",
           "sport": "MLB",
           "start_time": "2026-09-14T23:10:00Z",
@@ -33412,7 +33407,7 @@
           "actionability": "research_signal",
           "assumed_odds_replaced": true,
           "away_team": "Atlanta Braves",
-          "calibrated_edge": -12.675308510638306,
+          "calibrated_edge": -13.56183333333334,
           "calibrated_model_probability": 0.447715,
           "calibrated_probability": 0.447715,
           "calibration": {
@@ -33424,8 +33419,8 @@
             "version": "cal-v2-6404-2026-08-25"
           },
           "certification_timing": {
-            "data_as_of": "2026-09-14T15:09:20.131245Z",
-            "published_at": "2026-09-14T15:09:20.131245Z",
+            "data_as_of": "2026-09-14T17:32:43.765202Z",
+            "published_at": "2026-09-14T17:32:43.765202Z",
             "source": "model-cache-refresh",
             "trusted": true
           },
@@ -33657,7 +33652,7 @@
           "market_away_odds": -125,
           "market_home_odds": -105,
           "market_implied_probability": 0.52381,
-          "market_no_vig_probability": 0.574468085106383,
+          "market_no_vig_probability": 0.5833333333333334,
           "market_no_vig_selected_probability": 0.479695,
           "market_odds_captured_at": "2026-09-14T11:49:44.055473Z",
           "market_odds_provider": "espn_scoreboard:DraftKings",
@@ -33733,7 +33728,7 @@
           "raw_probability": 0.5,
           "recommended_units": 0.0,
           "selected_odds": -105,
-          "selected_side_implied_probability": 0.574468085106383,
+          "selected_side_implied_probability": 0.5833333333333334,
           "source": "MLB First Five",
           "sport": "MLB",
           "start_time": "2026-09-14T23:40:00Z",
@@ -33747,7 +33742,7 @@
           "actionability": "research_signal",
           "assumed_odds_replaced": true,
           "away_team": "Atlanta Braves",
-          "calibrated_edge": -3.0974121951219513,
+          "calibrated_edge": -4.258852380952383,
           "calibrated_model_probability": 0.481221,
           "calibrated_probability": 0.481221,
           "calibration": {
@@ -33759,8 +33754,8 @@
             "version": "cal-v2-6404-2026-08-25"
           },
           "certification_timing": {
-            "data_as_of": "2026-09-14T15:09:20.131245Z",
-            "published_at": "2026-09-14T15:09:20.131245Z",
+            "data_as_of": "2026-09-14T17:32:43.765202Z",
+            "published_at": "2026-09-14T17:32:43.765202Z",
             "source": "model-cache-refresh",
             "trusted": true
           },
@@ -34090,7 +34085,7 @@
           "market": "f5_total",
           "market_implied_probability": 0.62963,
           "market_line": 5.5,
-          "market_no_vig_probability": 0.5121951219512195,
+          "market_no_vig_probability": 0.5238095238095238,
           "market_no_vig_selected_probability": 0.410621,
           "market_odds_captured_at": "2026-09-14T11:49:44.055473Z",
           "market_odds_provider": "espn_scoreboard:DraftKings",
@@ -34169,7 +34164,7 @@
           "raw_probability": 0.5302,
           "recommended_units": 0.0,
           "selected_odds": 130,
-          "selected_side_implied_probability": 0.5121951219512195,
+          "selected_side_implied_probability": 0.5238095238095238,
           "source": "MLB First Five",
           "sport": "MLB",
           "start_time": "2026-09-14T23:40:00Z",
@@ -34183,7 +34178,7 @@
           "actionability": "research_signal",
           "assumed_odds_replaced": true,
           "away_team": "New York Yankees",
-          "calibrated_edge": 8.154587804878044,
+          "calibrated_edge": 6.993147619047613,
           "calibrated_model_probability": 0.593741,
           "calibrated_probability": 0.593741,
           "calibration": {
@@ -34195,8 +34190,8 @@
             "version": "cal-v2-6404-2026-08-25"
           },
           "certification_timing": {
-            "data_as_of": "2026-09-14T15:09:20.131245Z",
-            "published_at": "2026-09-14T15:09:20.131245Z",
+            "data_as_of": "2026-09-14T17:32:43.765202Z",
+            "published_at": "2026-09-14T17:32:43.765202Z",
             "source": "model-cache-refresh",
             "trusted": true
           },
@@ -34287,7 +34282,7 @@
           "consensus_qualified": false,
           "consensus_rejection_reason": "failed_walk_forward_validation",
           "consensus_required": true,
-          "consensus_score": 65.029,
+          "consensus_score": 63.867,
           "consensus_signal_count": 19,
           "consensus_signals": [
             {
@@ -34295,7 +34290,7 @@
               "detail": "calibrated probability beats selected-side market price",
               "impact": "support",
               "name": "market_price",
-              "strength": 0.815
+              "strength": 0.699
             },
             {
               "category": "calibration",
@@ -34526,7 +34521,7 @@
           "decision": "PASS",
           "edge": 2.85,
           "edge_basis": "no_vig",
-          "full_kelly": 0.1672,
+          "full_kelly": 0.1469,
           "game": "New York Yankees @ Minnesota Twins",
           "game_id": "823656",
           "game_order": 5,
@@ -34538,7 +34533,7 @@
           "market": "f5_total",
           "market_implied_probability": 0.565217,
           "market_line": 4.5,
-          "market_no_vig_probability": 0.5121951219512195,
+          "market_no_vig_probability": 0.5238095238095238,
           "market_no_vig_selected_probability": 0.5,
           "market_odds_captured_at": "2026-09-14T11:49:44.055473Z",
           "market_odds_provider": "espn_scoreboard:DraftKings",
@@ -34610,14 +34605,14 @@
           "pricing_type": "market",
           "primary_consensus_passed": false,
           "probability": 0.5937,
-          "quarter_kelly": 0.0418,
+          "quarter_kelly": 0.0367,
           "ranking_epoch": "MLB:mlb_team_consensus_v1.2.0:mlb_first_five",
           "raw_edge": 12.53,
           "raw_model_probability": 0.6905,
           "raw_probability": 0.6905,
           "recommended_units": 0.0,
           "selected_odds": -115,
-          "selected_side_implied_probability": 0.5121951219512195,
+          "selected_side_implied_probability": 0.5238095238095238,
           "source": "MLB First Five",
           "sport": "MLB",
           "start_time": "2026-09-14T23:40:00Z",
@@ -34643,8 +34638,8 @@
             "version": "cal-v2-6404-2026-08-25"
           },
           "certification_timing": {
-            "data_as_of": "2026-09-14T15:09:20.131245Z",
-            "published_at": "2026-09-14T15:09:20.131245Z",
+            "data_as_of": "2026-09-14T17:32:43.765202Z",
+            "published_at": "2026-09-14T17:32:43.765202Z",
             "source": "model-cache-refresh",
             "trusted": true
           },
@@ -34986,8 +34981,8 @@
             "version": "cal-v2-6404-2026-08-25"
           },
           "certification_timing": {
-            "data_as_of": "2026-09-14T15:09:20.131245Z",
-            "published_at": "2026-09-14T15:09:20.131245Z",
+            "data_as_of": "2026-09-14T17:32:43.765202Z",
+            "published_at": "2026-09-14T17:32:43.765202Z",
             "source": "model-cache-refresh",
             "trusted": true
           },
@@ -35342,7 +35337,7 @@
           "actionability": "research_signal",
           "assumed_odds_replaced": true,
           "away_team": "San Francisco Giants",
-          "calibrated_edge": -9.612008510638304,
+          "calibrated_edge": -8.686939130434778,
           "calibrated_model_probability": 0.478348,
           "calibrated_probability": 0.478348,
           "calibration": {
@@ -35354,8 +35349,8 @@
             "version": "cal-v2-6404-2026-08-25"
           },
           "certification_timing": {
-            "data_as_of": "2026-09-14T15:09:20.131245Z",
-            "published_at": "2026-09-14T15:09:20.131245Z",
+            "data_as_of": "2026-09-14T17:32:43.765202Z",
+            "published_at": "2026-09-14T17:32:43.765202Z",
             "source": "model-cache-refresh",
             "trusted": true
           },
@@ -35710,7 +35705,7 @@
           "market": "f5_total",
           "market_implied_probability": 0.565217,
           "market_line": 4.5,
-          "market_no_vig_probability": 0.574468085106383,
+          "market_no_vig_probability": 0.5652173913043478,
           "market_no_vig_selected_probability": 0.530612,
           "market_odds_captured_at": "2026-09-14T11:49:44.055473Z",
           "market_odds_provider": "espn_scoreboard:DraftKings",
@@ -35789,7 +35784,7 @@
           "raw_probability": 0.5259,
           "recommended_units": 0.0,
           "selected_odds": -130,
-          "selected_side_implied_probability": 0.574468085106383,
+          "selected_side_implied_probability": 0.5652173913043478,
           "source": "MLB First Five",
           "sport": "MLB",
           "start_time": "2026-09-14T23:45:00Z",
@@ -35815,8 +35810,8 @@
             "version": "cal-v2-6404-2026-08-25"
           },
           "certification_timing": {
-            "data_as_of": "2026-09-14T15:09:20.131245Z",
-            "published_at": "2026-09-14T15:09:20.131245Z",
+            "data_as_of": "2026-09-14T17:32:43.765202Z",
+            "published_at": "2026-09-14T17:32:43.765202Z",
             "source": "model-cache-refresh",
             "trusted": true
           },
@@ -36149,8 +36144,8 @@
             "version": "cal-v2-6404-2026-08-25"
           },
           "certification_timing": {
-            "data_as_of": "2026-09-14T15:09:20.131245Z",
-            "published_at": "2026-09-14T15:09:20.131245Z",
+            "data_as_of": "2026-09-14T17:32:43.765202Z",
+            "published_at": "2026-09-14T17:32:43.765202Z",
             "source": "model-cache-refresh",
             "trusted": true
           },
@@ -36573,7 +36568,7 @@
           "actionability": "research_signal",
           "assumed_odds_replaced": true,
           "away_team": "Seattle Mariners",
-          "calibrated_edge": -8.86265454545454,
+          "calibrated_edge": -10.838939130434778,
           "calibrated_model_probability": 0.456828,
           "calibrated_probability": 0.456828,
           "calibration": {
@@ -36585,8 +36580,8 @@
             "version": "cal-v2-6404-2026-08-25"
           },
           "certification_timing": {
-            "data_as_of": "2026-09-14T15:09:20.131245Z",
-            "published_at": "2026-09-14T15:09:20.131245Z",
+            "data_as_of": "2026-09-14T17:32:43.765202Z",
+            "published_at": "2026-09-14T17:32:43.765202Z",
             "source": "model-cache-refresh",
             "trusted": true
           },
@@ -36819,7 +36814,7 @@
           "market_away_odds": -120,
           "market_home_odds": -110,
           "market_implied_probability": 0.52381,
-          "market_no_vig_probability": 0.5454545454545454,
+          "market_no_vig_probability": 0.5652173913043478,
           "market_no_vig_selected_probability": 0.489879,
           "market_odds_captured_at": "2026-09-14T11:49:44.055473Z",
           "market_odds_provider": "espn_scoreboard:DraftKings",
@@ -36895,7 +36890,7 @@
           "raw_probability": 0.5142,
           "recommended_units": 0.0,
           "selected_odds": -110,
-          "selected_side_implied_probability": 0.5454545454545454,
+          "selected_side_implied_probability": 0.5652173913043478,
           "source": "MLB First Five",
           "sport": "MLB",
           "start_time": "2026-09-15T01:38:00Z",
@@ -36909,7 +36904,7 @@
           "actionability": "research_signal",
           "assumed_odds_replaced": true,
           "away_team": "Seattle Mariners",
-          "calibrated_edge": 1.9005428571428562,
+          "calibrated_edge": 3.065139130434785,
           "calibrated_model_probability": 0.465434,
           "calibrated_probability": 0.465434,
           "calibration": {
@@ -36921,8 +36916,8 @@
             "version": "cal-v2-6404-2026-08-25"
           },
           "certification_timing": {
-            "data_as_of": "2026-09-14T15:09:20.131245Z",
-            "published_at": "2026-09-14T15:09:20.131245Z",
+            "data_as_of": "2026-09-14T17:32:43.765202Z",
+            "published_at": "2026-09-14T17:32:43.765202Z",
             "source": "model-cache-refresh",
             "trusted": true
           },
@@ -37017,7 +37012,7 @@
           "consensus_qualified": false,
           "consensus_rejection_reason": "raw_model_abstained; failed_walk_forward_validation",
           "consensus_required": true,
-          "consensus_score": 51.901,
+          "consensus_score": 53.065,
           "consensus_signal_count": 20,
           "consensus_signals": [
             {
@@ -37025,7 +37020,7 @@
               "detail": "calibrated probability beats selected-side market price",
               "impact": "support",
               "name": "market_price",
-              "strength": 0.19
+              "strength": 0.307
             },
             {
               "category": "calibration",
@@ -37256,7 +37251,7 @@
           "decision": "PASS",
           "edge": -9.98,
           "edge_basis": "no_vig",
-          "full_kelly": 0.0343,
+          "full_kelly": 0.0542,
           "game": "Seattle Mariners @ Los Angeles Angels",
           "game_id": "823981",
           "game_order": 8,
@@ -37268,7 +37263,7 @@
           "market": "f5_total",
           "market_implied_probability": 0.565217,
           "market_line": 4.5,
-          "market_no_vig_probability": 0.44642857142857145,
+          "market_no_vig_probability": 0.43478260869565216,
           "market_no_vig_selected_probability": 0.42044,
           "market_odds_captured_at": "2026-09-14T15:09:20.969591Z",
           "market_odds_provider": "espn_scoreboard:DraftKings",
@@ -37329,14 +37324,14 @@
           "pricing_type": "market",
           "primary_consensus_passed": false,
           "probability": 0.4654,
-          "quarter_kelly": 0.0086,
+          "quarter_kelly": 0.0136,
           "ranking_epoch": "MLB:mlb_team_consensus_v1.2.0:mlb_first_five",
           "raw_edge": -5.87,
           "raw_model_probability": 0.5065,
           "raw_probability": 0.5065,
           "recommended_units": 0.0,
           "selected_odds": 124,
-          "selected_side_implied_probability": 0.44642857142857145,
+          "selected_side_implied_probability": 0.43478260869565216,
           "source": "MLB First Five",
           "sport": "MLB",
           "start_time": "2026-09-15T01:38:00Z",
@@ -37362,8 +37357,8 @@
             "version": "cal-v2-6404-2026-08-25"
           },
           "certification_timing": {
-            "data_as_of": "2026-09-14T15:09:20.131245Z",
-            "published_at": "2026-09-14T15:09:20.131245Z",
+            "data_as_of": "2026-09-14T17:32:43.765202Z",
+            "published_at": "2026-09-14T17:32:43.765202Z",
             "source": "model-cache-refresh",
             "trusted": true
           },
@@ -37692,7 +37687,7 @@
           "actionability": "research_signal",
           "assumed_odds_replaced": true,
           "away_team": "Miami Marlins",
-          "calibrated_edge": -8.748908510638303,
+          "calibrated_edge": -4.790472093023252,
           "calibrated_model_probability": 0.486979,
           "calibrated_probability": 0.486979,
           "calibration": {
@@ -37704,8 +37699,8 @@
             "version": "cal-v2-6404-2026-08-25"
           },
           "certification_timing": {
-            "data_as_of": "2026-09-14T15:09:20.131245Z",
-            "published_at": "2026-09-14T15:09:20.131245Z",
+            "data_as_of": "2026-09-14T17:32:43.765202Z",
+            "published_at": "2026-09-14T17:32:43.765202Z",
             "source": "model-cache-refresh",
             "trusted": true
           },
@@ -38046,7 +38041,7 @@
           "market": "f5_total",
           "market_implied_probability": 0.565217,
           "market_line": 4.5,
-          "market_no_vig_probability": 0.574468085106383,
+          "market_no_vig_probability": 0.5348837209302325,
           "market_no_vig_selected_probability": 0.540791,
           "market_odds_captured_at": "2026-09-14T11:49:44.055473Z",
           "market_odds_provider": "espn_scoreboard:DraftKings",
@@ -38125,7 +38120,7 @@
           "raw_probability": 0.5388,
           "recommended_units": 0.0,
           "selected_odds": -135,
-          "selected_side_implied_probability": 0.574468085106383,
+          "selected_side_implied_probability": 0.5348837209302325,
           "source": "MLB First Five",
           "sport": "MLB",
           "start_time": "2026-09-15T01:40:00Z",
@@ -38136,7 +38131,6 @@
           "walk_forward_samples": 81
         }
       ],
-      "preserved_after_refresh_error": true,
       "ranking_epoch": "MLB:mlb_team_consensus_v1.2.0:mlb_first_five",
       "raw_lines": 2,
       "requested_date": "2026-09-14"
@@ -56753,7 +56747,7 @@
     "scraped_tip_feed": true,
     "updatedAt": "2026-09-14T17:27:51.026985Z"
   },
-  "updatedAt": "2026-09-14T17:27:51.026985Z",
+  "updatedAt": "2026-09-14T17:32:43.765202Z",
   "wnba": {
     "date": "2026-09-14",
     "note": "No WNBA picks today \u2014 off-season or no edge found.",
