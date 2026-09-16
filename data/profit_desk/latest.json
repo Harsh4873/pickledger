@@ -534,6 +534,7 @@
       "blockers": [
         "assumed_or_non_executable_price",
         "unverified_price_provenance",
+        "price_not_pregame",
         "edge_no_usable_price_baseline",
         "value_no_usable_price_baseline"
       ],
@@ -589,7 +590,8 @@
         ],
         "structural": [
           "assumed_or_non_executable_price",
-          "unverified_price_provenance"
+          "unverified_price_provenance",
+          "price_not_pregame"
         ],
         "value": [
           "value_no_usable_price_baseline"
@@ -607,12 +609,12 @@
       "player": null,
       "policyVersion": "profit_desk_policy_v2",
       "price": {
-        "ageHours": 1.325,
+        "ageHours": -1.453,
         "breakEvenProbability": 0.52381,
         "decimalOdds": 1.909091,
         "eligibleForAlphaEstimate": false,
-        "fresh": true,
-        "freshPregame": true,
+        "fresh": false,
+        "freshPregame": false,
         "maxAgeHours": 24.0,
         "noVigInputs": {
           "field": "market_no_vig_probability"
@@ -628,12 +630,127 @@
         "startTime": "2026-09-16T17:00Z",
         "tier": "D",
         "tierLabel": "assumed_proxy_or_synthetic",
-        "timestamp": "2026-09-16T15:40:30.846900Z",
+        "timestamp": "2026-09-16T18:27:12.432488Z",
         "timestampField": "pick.certification_timing.data_as_of",
         "twoSided": true,
-        "updatedAt": "2026-09-16T15:40:30.846900Z"
+        "updatedAt": "2026-09-16T18:27:12.432488Z"
       },
       "rawModelProbabilityIgnored": 0.5868,
+      "result": "pending",
+      "shadowQualified": false,
+      "source": "MLB Model",
+      "sourceKey": "mlb_new",
+      "sport": "MLB",
+      "stakeUnits": 0.0,
+      "tier": "avoid",
+      "valueQualified": false
+    },
+    {
+      "blockers": [
+        "assumed_or_non_executable_price",
+        "unverified_price_provenance",
+        "price_not_pregame",
+        "edge_no_usable_price_baseline",
+        "value_no_usable_price_baseline"
+      ],
+      "canonicalGame": "2026-09-16:mlb:san francisco giants|st louis cardinals",
+      "consensusSources": [],
+      "date": "2026-09-16",
+      "decimalOdds": 1.909091,
+      "decision": "LEAN",
+      "dedupeRule": "exact_market_identity_best_executable_price",
+      "direction": "over",
+      "duplicateCount": 1,
+      "duplicateSources": [
+        "MLB Model"
+      ],
+      "edgeQualified": false,
+      "estimate": null,
+      "evidence": {
+        "chronologicalHalvesNonnegative": false,
+        "cutoffExclusive": "2026-09-16",
+        "distinctDates": 0,
+        "firstHalfFlatNetUnits": 0.0,
+        "flatNetUnits": 0.0,
+        "flatRoi": null,
+        "losses": 0,
+        "modelVersion": "MLB:mlb_team_consensus_v1.2.0:mlb_new",
+        "policyVersion": "profit_desk_policy_v2",
+        "priorOnly": true,
+        "pushes": 0,
+        "secondHalfFlatNetUnits": 0.0,
+        "segmentDistinctDates": 0,
+        "segmentEvidenceKey": null,
+        "segmentSamples": 0,
+        "sourceChronologicalHalvesNonnegative": false,
+        "sourceDistinctDates": 37,
+        "sourceEvidenceKey": "team|mlb_new|mlb",
+        "sourceFirstHalfFlatNetUnits": 0.0,
+        "sourceFlatNetUnits": 0.0,
+        "sourceFlatRoi": null,
+        "sourceLosses": 0,
+        "sourceSamples": 86,
+        "sourceSecondHalfFlatNetUnits": 0.0,
+        "sourceWins": 0,
+        "wins": 0
+      },
+      "game": "San Francisco Giants @ St. Louis Cardinals",
+      "gradeSupportSource": "repository_grader_default",
+      "gradeSupported": true,
+      "id": "profit-707f220bc975b90519eff0dd",
+      "lane": null,
+      "laneBlockers": {
+        "edge": [
+          "edge_no_usable_price_baseline"
+        ],
+        "structural": [
+          "assumed_or_non_executable_price",
+          "unverified_price_provenance",
+          "price_not_pregame"
+        ],
+        "value": [
+          "value_no_usable_price_baseline"
+        ]
+      },
+      "line": 8.5,
+      "liveQualified": false,
+      "market": "totals",
+      "marketFamily": "totals",
+      "marketIdentity": "market:ec36f9830c0691a5d6c43b51",
+      "mode": "team",
+      "modelVersion": "MLB:mlb_team_consensus_v1.2.0:mlb_new",
+      "oddsAmerican": -110,
+      "pick": "Over 8.5 (San Francisco Giants vs St. Louis Cardinals)",
+      "player": null,
+      "policyVersion": "profit_desk_policy_v2",
+      "price": {
+        "ageHours": -1.203,
+        "breakEvenProbability": 0.52381,
+        "decimalOdds": 1.909091,
+        "eligibleForAlphaEstimate": false,
+        "fresh": false,
+        "freshPregame": false,
+        "maxAgeHours": 24.0,
+        "noVigInputs": {
+          "field": "market_no_vig_probability"
+        },
+        "noVigMethod": "explicit:pick.market_no_vig_probability",
+        "noVigProbability": 0.52381,
+        "noVigVerified": true,
+        "observedExecutable": false,
+        "oddsAmerican": -110,
+        "quality": "assumed",
+        "source": null,
+        "sourceField": "unverified",
+        "startTime": "2026-09-16T17:15:00Z",
+        "tier": "D",
+        "tierLabel": "assumed_proxy_or_synthetic",
+        "timestamp": "2026-09-16T18:27:12.432488Z",
+        "timestampField": "pick.certification_timing.data_as_of",
+        "twoSided": true,
+        "updatedAt": "2026-09-16T18:27:12.432488Z"
+      },
+      "rawModelProbabilityIgnored": 0.5823,
       "result": "pending",
       "shadowQualified": false,
       "source": "MLB Model",
@@ -718,7 +835,7 @@
       "player": null,
       "policyVersion": "profit_desk_policy_v2",
       "price": {
-        "ageHours": 6.991,
+        "ageHours": 4.213,
         "breakEvenProbability": 0.545455,
         "decimalOdds": 1.833333,
         "eligibleForAlphaEstimate": false,
@@ -737,10 +854,10 @@
         "startTime": "2026-09-16T22:40Z",
         "tier": "D",
         "tierLabel": "assumed_proxy_or_synthetic",
-        "timestamp": "2026-09-16T15:40:30.846900Z",
+        "timestamp": "2026-09-16T18:27:12.432488Z",
         "timestampField": "pick.certification_timing.data_as_of",
         "twoSided": false,
-        "updatedAt": "2026-09-16T15:40:30.846900Z"
+        "updatedAt": "2026-09-16T18:27:12.432488Z"
       },
       "rawModelProbabilityIgnored": 0.56,
       "result": "pending",
@@ -757,7 +874,7 @@
   "date": "2026-09-16",
   "engineVersion": "profit_desk_v2_live",
   "firstLiveDate": "2026-07-11",
-  "generatedAt": "2026-09-16T16:06:16.514155Z",
+  "generatedAt": "2026-09-16T18:27:12.432488Z",
   "notices": [
     "Qualified picks carry real flat stakes: EDGE 1.0u, VALUE 0.5u; everything else stays 0u.",
     "The market price is the baseline; historical residual alpha is shrunk and uncertainty-adjusted.",
@@ -2061,7 +2178,7 @@
     },
     {
       "alpha": 0.044571,
-      "candidatesToday": 2,
+      "candidatesToday": 3,
       "distinctDates": 37,
       "evidenceQualified": false,
       "flatNetUnits": 7.624,
@@ -3625,13 +3742,13 @@
     }
   ],
   "summary": {
-    "avoid": 2,
-    "candidateCount": 6,
-    "candidatesEvaluated": 6,
+    "avoid": 3,
+    "candidateCount": 7,
+    "candidatesEvaluated": 7,
     "deduplicatedPicks": 0,
     "edgeQualified": 0,
     "evidenceRows": 3480,
-    "inputPicks": 6,
+    "inputPicks": 7,
     "livePortfolioCandidates": 3,
     "liveQualified": 3,
     "liveRecord": {
@@ -3678,10 +3795,10 @@
         "watchlist": 0
       },
       "team": {
-        "avoid": 2,
-        "candidateCount": 3,
-        "candidates": 3,
-        "candidatesEvaluated": 3,
+        "avoid": 3,
+        "candidateCount": 4,
+        "candidates": 4,
+        "candidatesEvaluated": 4,
         "edgeQualified": 0,
         "evidenceRows": 2716,
         "liveQualified": 0,
