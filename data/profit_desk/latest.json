@@ -392,6 +392,146 @@
     },
     {
       "blockers": [
+        "edge_insufficient_source_samples",
+        "edge_insufficient_segment_samples",
+        "edge_insufficient_distinct_prior_dates",
+        "edge_probability_positive_ev_below_0.80",
+        "edge_conservative_probability_margin_below_0.02",
+        "edge_non_positive_conservative_ev",
+        "value_insufficient_source_samples"
+      ],
+      "canonicalGame": "2026-09-16:mlb:baltimore orioles|new york mets",
+      "consensusSources": [],
+      "date": "2026-09-16",
+      "decimalOdds": 1.694444,
+      "decision": "LEAN",
+      "dedupeRule": "exact_market_identity_best_executable_price",
+      "direction": "side",
+      "duplicateCount": 1,
+      "duplicateSources": [
+        "MLB Model"
+      ],
+      "edgeQualified": false,
+      "estimate": {
+        "alpha": 0.044571,
+        "alphaStdError": 0.1,
+        "breakEvenProbability": 0.590164,
+        "conservativeExpectedValue": -0.186323,
+        "expectedValue": 0.030829,
+        "lowerProbability": 0.480203,
+        "marketProbability": 0.563787,
+        "method": "market_baseline_plus_hierarchically_shrunk_prior_residual",
+        "probability": 0.608358,
+        "probabilityPositiveEv": 0.572185,
+        "sourceAlpha": 0.044571,
+        "value": {
+          "alpha": 0.044571,
+          "alphaStdError": 0.043559,
+          "conservativeExpectedValue": -0.019065,
+          "expectedValue": 0.075523,
+          "lowerProbability": 0.578912,
+          "method": "source_flat_roi_shrunk_residual_vs_break_even",
+          "probability": 0.634735,
+          "probabilityPositiveEv": 0.846903
+        }
+      },
+      "evidence": {
+        "chronologicalHalvesNonnegative": true,
+        "cutoffExclusive": "2026-09-16",
+        "distinctDates": 0,
+        "firstHalfFlatNetUnits": 0,
+        "flatNetUnits": 0,
+        "flatRoi": null,
+        "losses": 0,
+        "modelVersion": "MLB:mlb_team_consensus_v1.2.0:mlb_new",
+        "policyVersion": "profit_desk_policy_v2",
+        "priorOnly": true,
+        "pushes": 0,
+        "secondHalfFlatNetUnits": 0,
+        "segmentDistinctDates": 0,
+        "segmentEvidenceKey": "team|mlb_new|mlb|MLB:mlb_team_consensus_v1.2.0:mlb_new|h2h|side|0.55_0.60",
+        "segmentSamples": 0,
+        "sourceChronologicalHalvesNonnegative": true,
+        "sourceDistinctDates": 37,
+        "sourceEvidenceKey": "team|mlb_new|mlb",
+        "sourceFirstHalfFlatNetUnits": 5.5142,
+        "sourceFlatNetUnits": 7.624,
+        "sourceFlatRoi": 0.088651,
+        "sourceLosses": 36,
+        "sourceSamples": 86,
+        "sourceSecondHalfFlatNetUnits": 2.1098,
+        "sourceWins": 50,
+        "wins": 0
+      },
+      "game": "Baltimore Orioles @ New York Mets",
+      "gradeSupportSource": "repository_grader_default",
+      "gradeSupported": true,
+      "id": "profit-b12b38919afb05de710e43bf",
+      "lane": null,
+      "laneBlockers": {
+        "edge": [
+          "edge_insufficient_source_samples",
+          "edge_insufficient_segment_samples",
+          "edge_insufficient_distinct_prior_dates",
+          "edge_probability_positive_ev_below_0.80",
+          "edge_conservative_probability_margin_below_0.02",
+          "edge_non_positive_conservative_ev"
+        ],
+        "structural": [],
+        "value": [
+          "value_insufficient_source_samples"
+        ]
+      },
+      "line": null,
+      "liveQualified": false,
+      "market": "h2h",
+      "marketFamily": "h2h",
+      "marketIdentity": "market:c8e1889e1271b32e1072065e",
+      "mode": "team",
+      "modelVersion": "MLB:mlb_team_consensus_v1.2.0:mlb_new",
+      "oddsAmerican": -144,
+      "pick": "Mets ML (Orioles vs Mets)",
+      "player": null,
+      "policyVersion": "profit_desk_policy_v2",
+      "price": {
+        "ageHours": 11.366,
+        "breakEvenProbability": 0.590164,
+        "decimalOdds": 1.694444,
+        "eligibleForAlphaEstimate": true,
+        "fresh": true,
+        "freshPregame": true,
+        "maxAgeHours": 24.0,
+        "noVigInputs": {
+          "field": "market_no_vig_selected_probability"
+        },
+        "noVigMethod": "explicit:pick.market_no_vig_selected_probability",
+        "noVigProbability": 0.563787,
+        "noVigVerified": true,
+        "observedExecutable": true,
+        "oddsAmerican": -144,
+        "quality": "verified_no_vig",
+        "source": "espn_scoreboard:DraftKings",
+        "sourceField": "pick.price_source",
+        "startTime": "2026-09-16T23:10:00Z",
+        "tier": "A",
+        "tierLabel": "certified_executable",
+        "timestamp": "2026-09-16T11:48:00.608693Z",
+        "timestampField": "pick.market_updated_at",
+        "twoSided": true,
+        "updatedAt": "2026-09-16T11:48:00.608693Z"
+      },
+      "rawModelProbabilityIgnored": 0.72,
+      "result": "pending",
+      "shadowQualified": false,
+      "source": "MLB Model",
+      "sourceKey": "mlb_new",
+      "sport": "MLB",
+      "stakeUnits": 0.0,
+      "tier": "watch",
+      "valueQualified": false
+    },
+    {
+      "blockers": [
         "assumed_or_non_executable_price",
         "unverified_price_provenance",
         "edge_no_usable_price_baseline",
@@ -467,7 +607,7 @@
       "player": null,
       "policyVersion": "profit_desk_policy_v2",
       "price": {
-        "ageHours": 5.2,
+        "ageHours": 2.047,
         "breakEvenProbability": 0.52381,
         "decimalOdds": 1.909091,
         "eligibleForAlphaEstimate": false,
@@ -488,10 +628,10 @@
         "startTime": "2026-09-16T17:00Z",
         "tier": "D",
         "tierLabel": "assumed_proxy_or_synthetic",
-        "timestamp": "2026-09-16T11:47:59.548848Z",
+        "timestamp": "2026-09-16T14:57:10.510697Z",
         "timestampField": "pick.certification_timing.data_as_of",
         "twoSided": true,
-        "updatedAt": "2026-09-16T11:47:59.548848Z"
+        "updatedAt": "2026-09-16T14:57:10.510697Z"
       },
       "rawModelProbabilityIgnored": 0.5868,
       "result": "pending",
@@ -578,7 +718,7 @@
       "player": null,
       "policyVersion": "profit_desk_policy_v2",
       "price": {
-        "ageHours": 10.867,
+        "ageHours": 7.714,
         "breakEvenProbability": 0.545455,
         "decimalOdds": 1.833333,
         "eligibleForAlphaEstimate": false,
@@ -597,10 +737,10 @@
         "startTime": "2026-09-16T22:40Z",
         "tier": "D",
         "tierLabel": "assumed_proxy_or_synthetic",
-        "timestamp": "2026-09-16T11:47:59.548848Z",
+        "timestamp": "2026-09-16T14:57:10.510697Z",
         "timestampField": "pick.certification_timing.data_as_of",
         "twoSided": false,
-        "updatedAt": "2026-09-16T11:47:59.548848Z"
+        "updatedAt": "2026-09-16T14:57:10.510697Z"
       },
       "rawModelProbabilityIgnored": 0.56,
       "result": "pending",
@@ -617,7 +757,7 @@
   "date": "2026-09-16",
   "engineVersion": "profit_desk_v2_live",
   "firstLiveDate": "2026-07-11",
-  "generatedAt": "2026-09-16T12:11:19.453495Z",
+  "generatedAt": "2026-09-16T14:57:10.510697Z",
   "notices": [
     "Qualified picks carry real flat stakes: EDGE 1.0u, VALUE 0.5u; everything else stays 0u.",
     "The market price is the baseline; historical residual alpha is shrunk and uncertainty-adjusted.",
@@ -1921,7 +2061,7 @@
     },
     {
       "alpha": 0.044571,
-      "candidatesToday": 1,
+      "candidatesToday": 2,
       "distinctDates": 37,
       "evidenceQualified": false,
       "flatNetUnits": 7.624,
@@ -3486,12 +3626,12 @@
   ],
   "summary": {
     "avoid": 2,
-    "candidateCount": 5,
-    "candidatesEvaluated": 5,
+    "candidateCount": 6,
+    "candidatesEvaluated": 6,
     "deduplicatedPicks": 0,
     "edgeQualified": 0,
     "evidenceRows": 3480,
-    "inputPicks": 5,
+    "inputPicks": 6,
     "livePortfolioCandidates": 3,
     "liveQualified": 3,
     "liveRecord": {
@@ -3539,22 +3679,22 @@
       },
       "team": {
         "avoid": 2,
-        "candidateCount": 2,
-        "candidates": 2,
-        "candidatesEvaluated": 2,
+        "candidateCount": 3,
+        "candidates": 3,
+        "candidatesEvaluated": 3,
         "edgeQualified": 0,
         "evidenceRows": 2716,
         "liveQualified": 0,
-        "observedPriceCandidates": 0,
+        "observedPriceCandidates": 1,
         "portfolioCandidates": 0,
         "researchQualified": 0,
         "selected": 0,
         "shadowQualified": 0,
         "valueQualified": 0,
-        "watchlist": 0
+        "watchlist": 1
       }
     },
-    "observedPriceCandidates": 3,
+    "observedPriceCandidates": 4,
     "portfolioCandidates": 3,
     "researchQualified": 3,
     "researchRecord": {
@@ -3586,6 +3726,6 @@
     },
     "sourcesTracked": 35,
     "valueQualified": 3,
-    "watchlist": 0
+    "watchlist": 1
   }
 }
