@@ -23,6 +23,7 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
+from scripts.merge_external_feed_cache_payload import _demote_scraped_feed_picks  # noqa: E402
 from scripts.refresh_external_feeds import (  # noqa: E402
     _previous_feed_bucket,
     _record_feed_attempt,
@@ -125,6 +126,14 @@ def apply_optional_timeout_to_cache(
     models[feed_key] = bucket
     payload["models"] = models
     payload[feed_key] = bucket
+    # Soft-fail writes can bypass the later merge demotion when a publisher
+    # commits the cache file directly; demote here so BET tips never look tracked.
+    payload = _demote_scraped_feed_picks(payload)
+    demoted = payload.get("models", {}).get(feed_key) if isinstance(payload.get("models"), dict) else None
+    if isinstance(demoted, dict):
+        bucket = demoted
+        feeds = payload.get("external_feeds") if isinstance(payload.get("external_feeds"), dict) else feeds
+        models = payload.get("models") if isinstance(payload.get("models"), dict) else models
     _write_json_atomic(cache_path, payload)
     return bucket
 

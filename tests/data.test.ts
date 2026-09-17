@@ -119,9 +119,13 @@ test('first paint keeps prior-day models on their original date', { concurrency:
   await loadAllData({ includeHistory: false });
 
   const priorDay = getTeamPicks().filter(pick => pick.date === '2026-08-26');
-  const today = getTeamPicks().filter(pick => pick.date === '2026-08-27');
+  const todayTracked = getTeamPicks().filter(pick => pick.date === '2026-08-27');
+  const todayResearch = getResearchPicks('2026-08-27');
   assert.deepEqual(priorDay.map(pick => pick.pick), ['Yesterday model']);
-  assert.deepEqual(today.map(pick => pick.pick), ['Today Scores24']);
+  assert.deepEqual(todayTracked.map(pick => pick.pick), []);
+  assert.deepEqual(todayResearch.map(pick => pick.pick), ['Today Scores24']);
+  assert.equal(todayResearch[0]?.decision, 'BET');
+  assert.equal(todayResearch[0]?.research, true);
   assert.ok(requests.includes('./data/model_cache/2026-08-27.json'));
 });
 
@@ -153,7 +157,7 @@ test('same-day refresh replaces picks, grades, and summary caches', { concurrenc
   assert.deepEqual(getTeamPicks().filter(pick => pick.date === date), []);
 });
 
-test('publishes scraped passes and CFB shadow forecasts only as zero-stake research', { concurrency: false }, async () => {
+test('publishes scraped tips and CFB shadow forecasts as research with preserved decisions', { concurrency: false }, async () => {
   const date = '2026-09-07';
   const pass = { id: 'research-feed', date, sport: 'CFB', pick: 'Provider forecast', decision: 'PASS', units: 2 };
   installFetch(new Map([
@@ -176,17 +180,54 @@ test('publishes scraped passes and CFB shadow forecasts only as zero-stake resea
   ]));
   await loadAllData({ includeHistory: false });
   const research = getResearchPicks(date);
-  assert.deepEqual(research.map(pick => pick.id).sort(), ['research-cfb', 'research-feed', 'research-tennis']);
-  assert.ok(research.every(pick => pick.research === true && pick.decision === 'PASS' && pick.units === 0 && pick.pl === 0));
+  assert.deepEqual(research.map(pick => pick.id).sort(), ['failed-feed', 'research-cfb', 'research-feed', 'research-tennis']);
+  assert.ok(research.every(pick => pick.research === true));
+  const shadow = research.find(pick => pick.id === 'research-cfb');
+  assert.equal(shadow?.decision, 'BET');
+  assert.equal(shadow?.units, 3);
+  assert.ok((shadow?.pl || 0) > 0);
+  assert.ok(research.filter(pick => pick.id !== 'research-cfb').every(pick => pick.decision === 'PASS' && pick.units === 0 && pick.pl === 0));
   assert.deepEqual(getTeamPicks().filter(pick => pick.date === date).map(pick => pick.id), ['tracked-nfl']);
   assert.equal(getSourceStatuses(date).find(source => source.key === 'cfb')?.researchCount, 1);
   assert.equal(getSourceStatuses(date).find(source => source.key === 'scores24_cfb')?.researchCount, 1);
 
   setHideTennisPicks(true);
-  assert.equal(getResearchPicks(date).length, 2);
+  assert.equal(getResearchPicks(date).length, 3);
   setHideScrapedPicks(true);
   assert.deepEqual(getResearchPicks(date).map(pick => pick.id), ['research-cfb']);
   assert.equal(getSourceStatuses(date).find(source => source.key === 'scores24_cfb')?.researchCount, 1);
+});
+
+test('keeps scraped BET/LEAN out of tracked picks and restores source_decision for research', { concurrency: false }, async () => {
+  const date = '2026-09-17';
+  installFetch(new Map([
+    ['./data/model_cache/latest.json', { date, models: {
+      mlb_new: { ok: true, picks: [
+        { id: 'mlb-tracked', sport: 'MLB', market: 'h2h', pick: 'Yankees ML', decision: 'BET', units: 1, result: 'loss', odds: -110, price_verified: true },
+      ] },
+      scores24_mlb: { ok: false, picks: [
+        { id: 'scores-bet', sport: 'MLB', pick: 'Brewers ML', decision: 'BET', units: 1, result: 'win', odds: -143 },
+        { id: 'scores-lean', sport: 'MLB', pick: 'Cubs ML', decision: 'LEAN', units: 1, result: 'loss', odds: -120 },
+      ] },
+      forebet_mlb: { ok: true, picks: [
+        { id: 'forebet-demoted', sport: 'MLB', pick: 'Dodgers ML', decision: 'PASS', units: 0, source_decision: 'BET', source_units: 1, scraped_tip_demoted: true, result: 'loss', odds: -105 },
+      ] },
+    } }],
+  ]));
+  await loadAllData({ includeHistory: false });
+  assert.deepEqual(getTeamPicks().filter(pick => pick.date === date).map(pick => pick.id), ['mlb-tracked']);
+  const research = getResearchPicks(date);
+  assert.deepEqual(research.map(pick => pick.id).sort(), ['forebet-demoted', 'scores-bet', 'scores-lean']);
+  assert.equal(research.find(pick => pick.id === 'scores-bet')?.decision, 'BET');
+  assert.equal(research.find(pick => pick.id === 'scores-lean')?.decision, 'LEAN');
+  assert.equal(research.find(pick => pick.id === 'forebet-demoted')?.decision, 'BET');
+  assert.ok(research.every(pick => pick.research === true && pick.units === 0 && pick.pl === 0));
+  // Graded W–L must reflect real results — not invent an all-win research card.
+  const decided = research.filter(pick => pick.result === 'win' || pick.result === 'loss');
+  assert.equal(decided.filter(pick => pick.result === 'win').length, 1);
+  assert.equal(decided.filter(pick => pick.result === 'loss').length, 2);
+  assert.equal(getSourceStatuses(date).find(source => source.key === 'scores24_mlb')?.pickCount, 0);
+  assert.equal(getSourceStatuses(date).find(source => source.key === 'scores24_mlb')?.researchCount, 2);
 });
 
 test('posts in-house model PASS on the team board and keeps scraped PASS as research', { concurrency: false }, async () => {

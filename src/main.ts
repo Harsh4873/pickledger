@@ -152,8 +152,10 @@ type HomeDecisionFilter = 'ALL' | 'BET' | 'LEAN' | 'PASS';
 type RankingDecisionFilter = SharedRankingDecisionFilter;
 const HOME_DECISION_FILTERS: HomeDecisionFilter[] = ['ALL', 'BET', 'LEAN', 'PASS'];
 const RANKING_DECISION_FILTERS: RankingDecisionFilter[] = ['STAKED', 'BET', 'LEAN', 'PASS'];
+const RESEARCH_DECISION_FILTERS: RankingDecisionFilter[] = ['STAKED', 'BET', 'LEAN', 'PASS'];
 let homeDecisionFilter: HomeDecisionFilter = 'ALL';
 let rankingDecisionFilter: RankingDecisionFilter = 'STAKED';
+let researchDecisionFilter: RankingDecisionFilter = 'STAKED';
 let activePickMode: PickMode = 'team';
 let homeMode: ResultMode = 'pending';
 let dailyView: DailyView = 'featured';
@@ -798,7 +800,36 @@ function filteredPicks(): Pick[] {
 function filteredResearchPicks(): Pick[] {
   if (activePickMode !== 'team') return [];
   return getResearchPicks().filter(pick => (
-    activeFilters.size === 0 || activeFilters.has(pick.sport) || activeFilters.has(sourceName(pick))
+    (activeFilters.size === 0 || activeFilters.has(pick.sport) || activeFilters.has(sourceName(pick)))
+    && rankingDecisionMatches(pick, researchDecisionFilter)
+  ));
+}
+
+function researchDecisionCounts(picks: Pick[]): Record<RankingDecisionFilter, number> {
+  let bet = 0;
+  let lean = 0;
+  let pass = 0;
+  picks.forEach(pick => {
+    const decision = dailyDecision(pick);
+    if (decision === 'BET') bet += 1;
+    else if (decision === 'LEAN') lean += 1;
+    else if (decision === 'PASS') pass += 1;
+  });
+  return { STAKED: bet + lean, BET: bet, LEAN: lean, PASS: pass };
+}
+
+function setResearchDecisionFilter(value: string): void {
+  if (value === 'STAKED' || value === 'BET' || value === 'LEAN' || value === 'PASS') {
+    researchDecisionFilter = value;
+    renderHome();
+  }
+}
+
+function researchBoardPool(): Pick[] {
+  if (activePickMode !== 'team') return [];
+  return getResearchPicks().filter(pick => (
+    pickDateKey(pick) === selectedDate
+    && (activeFilters.size === 0 || activeFilters.has(pick.sport) || activeFilters.has(sourceName(pick)))
   ));
 }
 
@@ -1142,14 +1173,42 @@ function renderSourceStatus(): void {
 function renderResearchBoard(): void {
   const container = document.getElementById('research-board');
   if (!container) return;
+  const pool = researchBoardPool();
   const picks = filteredResearchPicks().filter(pick => pickDateKey(pick) === selectedDate).sort(compareHomePickRows);
   container.hidden = activePickMode !== 'team';
   if (activePickMode !== 'team') return;
+  const decisionCounts = researchDecisionCounts(pool);
+  const settled = picks.filter(isSettledPick);
+  const stats = statsFor(settled);
+  const record = stats.total
+    ? `${stats.wins}–${stats.losses}${stats.pushes ? `–${stats.pushes}` : ''}`
+    : picks.some(isOpenPick) ? 'Awaiting results' : 'No settled tips';
+  const decisionLabel = researchDecisionFilter === 'STAKED' ? 'Staked (BET+LEAN)' : researchDecisionFilter;
   const groups = new Map<string, Pick[]>();
   picks.forEach(pick => groups.set(gameKey(pick), [...(groups.get(gameKey(pick)) || []), pick]));
-  container.innerHTML = `<div class="research-board-head"><div><div class="home-eyebrow">PUBLISHED RESEARCH</div><h2>Scraped source picks</h2></div><span class="research-count">${picks.length} forecasts</span></div>
-    <p class="research-board-note">External feed PASS rows, published for comparison. No suggested stake; excluded from Best Bets, parlays and tracked profit. In-house CFB and NFL model rows, including PASS, appear on the board above.</p>
-    <div class="research-grid">${[...groups.values()].sort(compareGameStartAsc).map(gamePicks => `<article class="research-game"><div class="research-game-head"><span class="home-sport-pill">${escapeHtml(gamePicks[0].sport)}</span>${homeScoreChipHtml(homeScores.get(gameKey(gamePicks[0])), gamePicks[0].start_time, gameName(gamePicks[0]))}</div><h3>${escapeHtml(gameName(gamePicks[0]))}</h3>${gamePicks.map(pick => `<div class="research-forecast"><div class="research-forecast-source">${escapeHtml(sourceName(pick))}<span>Research only</span></div><div class="research-forecast-pick">${escapeHtml(pickSelectionText(pick))}</div>${pick.reason || pick.rationale ? `<details class="research-reason"><summary>Why this forecast</summary><p>${escapeHtml(pick.reason || pick.rationale)}</p></details>` : ''}</div>`).join('')}</article>`).join('') || `<div class="research-empty">${getHideScrapedPicks() ? 'Feeds are hidden. Use Show feeds above to include external forecasts.' : 'No research forecasts published for this selection. Source status above shows whether feeds are awaiting an update or have no picks.'}</div>`}</div>`;
+  container.innerHTML = `<div class="research-board-head"><div><div class="home-eyebrow">PUBLISHED RESEARCH</div><h2>Scraped source picks</h2></div><span class="research-count">${picks.length} forecasts · ${escapeHtml(record)}</span></div>
+    <p class="research-board-note">External feed BET / LEAN / PASS tips with a graded W–L record. Tip strength is preserved for filtering; stakes stay out of Best Bets, parlays, and in-house profit. Units count only when price_verified. In-house CFB and NFL model rows, including PASS, appear on the board above.</p>
+    <div class="research-filter-row" role="group" aria-label="Research decision filter">
+      ${RESEARCH_DECISION_FILTERS.map(filter => (
+        `<button type="button" class="rank-filter-btn ${researchDecisionFilter === filter ? 'active' : ''}" data-research-decision="${escapeHtml(filter)}" aria-pressed="${researchDecisionFilter === filter}"><span class="rank-filter-label">${escapeHtml(filter === 'STAKED' ? 'Staked' : filter)}</span><span class="rank-filter-count">${decisionCounts[filter]}</span></button>`
+      )).join('')}
+    </div>
+    <div class="research-stats" aria-label="Research overall stats">
+      <span><strong>${escapeHtml(decisionLabel)}</strong> · ${escapeHtml(dateLabel(selectedDate, true))}</span>
+      <span>${stats.wins}–${stats.losses}${stats.pushes ? `–${stats.pushes}` : ''} settled</span>
+      <span>${picks.filter(isOpenPick).length} open</span>
+      <span>${stats.priced ? trackedUnits(stats) : 'P/L untracked'}</span>
+    </div>
+    <div class="research-grid">${[...groups.values()].sort(compareGameStartAsc).map(gamePicks => `<article class="research-game"><div class="research-game-head"><span class="home-sport-pill">${escapeHtml(gamePicks[0].sport)}</span>${homeScoreChipHtml(homeScores.get(gameKey(gamePicks[0])), gamePicks[0].start_time, gameName(gamePicks[0]))}</div><h3>${escapeHtml(gameName(gamePicks[0]))}</h3>${gamePicks.map(pick => {
+      const decision = dailyDecision(pick);
+      const resultLabel = pick.result === 'pending' ? (decision === 'PASS' ? 'Pass' : 'Open') : pick.result;
+      return `<div class="research-forecast decision-${escapeHtml(decision.toLowerCase())} result-${escapeHtml(pick.result)}"><div class="research-forecast-source">${escapeHtml(sourceName(pick))}<span>${escapeHtml(decision)} · Research only</span></div><div class="research-forecast-pick">${escapeHtml(pickSelectionText(pick))}</div><div class="research-forecast-meta">${escapeHtml([formatOdds(pick), pick.price_verified === true && decision !== 'PASS' ? `${pick.units}u` : '', resultLabel].filter(Boolean).join(' | '))}</div>${pick.reason || pick.rationale ? `<details class="research-reason"><summary>Why this forecast</summary><p>${escapeHtml(pick.reason || pick.rationale)}</p></details>` : ''}</div>`;
+    }).join('')}</article>`).join('') || `<div class="research-empty">${getHideScrapedPicks() ? 'Feeds are hidden. Use Show feeds above to include external forecasts.' : researchDecisionFilter !== 'STAKED' || pool.length ? `No ${escapeHtml(decisionLabel)} research forecasts for this selection.` : 'No research forecasts published for this selection. Source status above shows whether feeds are awaiting an update or have no picks.'}</div>`}</div>`;
+  container.querySelectorAll<HTMLButtonElement>('[data-research-decision]').forEach(button => {
+    button.addEventListener('click', () => {
+      setResearchDecisionFilter(button.dataset.researchDecision || 'STAKED');
+    });
+  });
 }
 
 // --- Market lanes ---------------------------------------------------------
@@ -4216,7 +4275,10 @@ async function refreshAutoGrades(): Promise<void> {
     updateSyncStatus();
     render();
     if (!didLatestCacheLoad()) return;
-    const pending = getAllPicks().filter(isOpenPick);
+    const pending = [
+      ...getAllPicks().filter(isOpenPick),
+      ...(activePickMode === 'team' ? getResearchPicks().filter(isOpenPick) : []),
+    ];
     const byDate = new Map<string, Pick[]>();
     pending.forEach(pick => byDate.set(pickDateKey(pick), [...(byDate.get(pickDateKey(pick)) || []), pick]));
     let graded = 0;
@@ -4282,6 +4344,7 @@ function switchPickMode(mode: PickMode): void {
   rankingSportFilters.clear();
   rankingSourceFilters.clear();
   rankingDecisionFilter = 'STAKED';
+  researchDecisionFilter = 'STAKED';
   homeMode = 'pending';
   homeDecisionFilter = 'ALL';
   dailyView = 'featured';

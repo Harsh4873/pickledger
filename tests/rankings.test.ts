@@ -190,3 +190,22 @@ test('source filters intersect sports instead of unioning unrelated buckets', ()
   }));
   assert.deepEqual(mixed.map(item => item.id), ['cfb-bet-win']);
 });
+
+test('research decision filters mirror Rankings STAKED/BET/LEAN/PASS matching', () => {
+  const betWin = pick({ id: 'r-bet', source: 'Scores24MLB', scraped: true, research: true, decision: 'BET', result: 'win' });
+  const leanLoss = pick({ id: 'r-lean', source: 'Scores24MLB', scraped: true, research: true, decision: 'LEAN', result: 'loss' });
+  const passPending = pick({ id: 'r-pass', source: 'ForebetMLB', scraped: true, research: true, decision: 'PASS', units: 0, result: 'pending' });
+  const pool = [betWin, leanLoss, passPending];
+  assert.deepEqual(
+    rankingScopedPicks(pool, scope({ decision: 'STAKED' })).map(item => item.id).sort(),
+    ['r-bet', 'r-lean'],
+  );
+  assert.deepEqual(rankingScopedPicks(pool, scope({ decision: 'BET' })).map(item => item.id), ['r-bet']);
+  assert.deepEqual(rankingScopedPicks(pool, scope({ decision: 'LEAN' })).map(item => item.id), ['r-lean']);
+  assert.deepEqual(rankingScopedPicks(pool, scope({ decision: 'PASS' })).map(item => item.id), ['r-pass']);
+  // A filtered research pool with mixed results must not collapse to an all-win card.
+  const staked = rankingScopedPicks(pool, scope({ decision: 'STAKED' }));
+  assert.equal(record(staked).wins, 1);
+  assert.equal(record(staked).losses, 1);
+});
+

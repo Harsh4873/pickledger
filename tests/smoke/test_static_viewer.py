@@ -193,7 +193,8 @@ def test_frontend_player_mode_is_persisted_isolated_and_team_defaulted():
     assert "pick.result === 'pending' && !isUnsupportedPendingPick(pick) && isPostedDecision(pick)" in main
     assert "function isPostedDecision(" in main
     assert "dailyDecision(pick) === 'PASS'" in main
-    assert "const pending = getAllPicks().filter(isOpenPick)" in main
+    assert "getAllPicks().filter(isOpenPick)" in main
+    assert "getResearchPicks().filter(isOpenPick)" in main
     assert "UNTRACKED" in main
     assert "mlbLivePlayerStat(" in main
     assert "espnPlayerStat(" in main
@@ -302,7 +303,7 @@ def test_static_viewer_keeps_public_tabs_and_client_grading():
     assert "embeddedResult === 'pending' ? localResult : embeddedResult" in data
     assert "function isTrackedPick(" in data
     assert "decision === 'BET' || decision === 'LEAN'" in data
-    assert "decision !== 'PASS' || pick.scraped === true" in data
+    assert "if (pick.scraped === true) return false;" in data
     assert "sport === 'CFB' || sport === 'NFL'" in data
     assert "IN_HOUSE_PASS_BOARD_MIN_PROBABILITY" in data
     assert "market === 'spread'" in data
@@ -321,6 +322,10 @@ def test_static_viewer_keeps_public_tabs_and_client_grading():
     assert "rankingDecisionFilter" in main
     assert "function isPublishedDailyPick(" in main
     assert "Scraped source picks" in main
+    assert "researchDecisionFilter" in main
+    assert "function setResearchDecisionFilter(" in main
+    assert "RESEARCH_DECISION_FILTERS" in main
+    assert "graded W–L record" in main
 
 
 def test_rich_static_viewer_restores_consensus_table_and_scores():
@@ -853,12 +858,12 @@ def test_auto_grader_grades_in_house_cfb_and_nfl_pass(monkeypatch):
         return {"graded": {pick["id"]: "win" for pick in picks}, "startTimes": {}}
 
     monkeypatch.setattr(module.pickgrader_server, "auto_grade", fake_grade)
-    assert module.grade_payload(payload) == 3
-    assert captured == ["cfb-pass", "cfb-bet", "nfl-pass"]
+    assert module.grade_payload(payload) == 4
+    assert captured == ["cfb-pass", "cfb-bet", "nfl-pass", "scraped-pass"]
     assert payload["models"]["cfb"]["picks"][0]["result"] == "win"
     assert payload["models"]["cfb"]["picks"][1]["result"] == "win"
     assert payload["models"]["nfl"]["picks"][0]["result"] == "win"
-    assert payload["models"]["scores24_cfb"]["picks"][0]["result"] == "pending"
+    assert payload["models"]["scores24_cfb"]["picks"][0]["result"] == "win"
 
 
 def test_auto_grader_ignores_player_props_from_before_ml_retraining(monkeypatch):

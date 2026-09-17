@@ -17,10 +17,12 @@ PickLedger is a public, automated sports-pick viewer deployed on GitHub Pages. T
 ## Published Picks and Research
 
 NFL and CFB are primary sports on the Home board. Tracked picks remain separate
-from published research: external provider passes and the CFB model's evaluation
-forecasts appear in Research with no suggested stake. They do not enter Best
-Bets, parlays, or tracked profit. Missing market prices are never invented to
-produce a forecast.
+from published research: scraped external feeds (Scores24, Forebet, SportyTrader,
+SportsGambler, TennisTonic, and similar) and the CFB model's evaluation forecasts
+appear in Research. Research preserves each tip's original BET / LEAN / PASS
+strength for filtering and a graded W–L record (units only when `price_verified`).
+Those rows do not enter Best Bets, parlays, Rankings stake cards, or in-house
+tracked profit. Missing market prices are never invented to produce a forecast.
 
 Source status shows each feed's published date, coverage, and latest refresh
 failure. A successful workflow can still contain a partial source outage.

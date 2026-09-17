@@ -730,10 +730,12 @@ function normalizePick(
 
 function isTrackedPick(pick: Pick): boolean {
   const decision = String(pick.decision || '').trim().toUpperCase();
+  // Scraped tipster feeds never enter tracked Best Bets / Rankings / parlays,
+  // even when a soft-fail publish left decision=BET. Research owns those rows.
+  if (pick.scraped === true) return false;
   if (decision === 'BET' || decision === 'LEAN') return true;
-  // In-house PASS still belongs on the public board. Scraped PASS stays
-  // research-only so a demoted tip cannot look like a model post.
-  if (decision !== 'PASS' || pick.scraped === true) return false;
+  // In-house PASS still belongs on the public board.
+  if (decision !== 'PASS') return false;
   // CFB/NFL: hide low-win% PASS cards (same floor as LEAN). Dog-side junk at
   // ~25% was making the board look broken even though the gate correctly PASSed.
   // Spreads are exempt: the one published spread per game is the model's side
@@ -824,8 +826,12 @@ function cacheBuckets(payload: ModelCachePayload): Record<string, ModelBucket> {
 function normalizedBucketPicks(modelKey: string, bucket: ModelBucket, fallbackDate: string): Pick[] {
   if (isRetiredBucket(modelKey) || !bucket || typeof bucket !== 'object') return [];
   // The writer marks retained, previously successful same-day rows explicitly.
-  // An arbitrary failed bucket still cannot publish picks.
-  if (bucket.ok === false && bucket.preserved_after_refresh_error !== true) return [];
+  // An arbitrary failed in-house bucket still cannot publish picks. Scraped
+  // soft-fail / timed-out buckets may still carry matched tips for Research.
+  if (bucket.ok === false && bucket.preserved_after_refresh_error !== true) {
+    const hasTips = Array.isArray(bucket.picks) && bucket.picks.length > 0;
+    if (!(isScrapedBucket(modelKey) && hasTips)) return [];
+  }
   const date = bucketDate(bucket, fallbackDate);
   const gameByMatchup = new Map<string, Record<string, unknown>>();
   for (const item of Array.isArray(bucket.games) ? bucket.games : []) {
@@ -860,6 +866,23 @@ function picksFromCache(payload: ModelCachePayload): Pick[] {
   return picks;
 }
 
+function researchTipDecision(pick: Pick): string {
+  // Demotion stores the provider's original tip strength on source_decision.
+  // Soft-fail publishes may still carry decision=BET/LEAN directly.
+  const sourceDecision = String(pick.source_decision || '').trim().toUpperCase();
+  if (sourceDecision === 'BET' || sourceDecision === 'LEAN' || sourceDecision === 'PASS') {
+    return sourceDecision;
+  }
+  const decision = String(pick.decision || '').trim().toUpperCase();
+  return decision === 'BET' || decision === 'LEAN' || decision === 'PASS' ? decision : 'PASS';
+}
+
+function researchTipUnits(pick: Pick, decision: string): number {
+  if (pick.price_verified !== true) return 0;
+  if (decision !== 'BET' && decision !== 'LEAN') return 0;
+  return numberOrNull(pick.source_units ?? pick.units) ?? 0;
+}
+
 function researchFromCache(payload: ModelCachePayload): Pick[] {
   const picks: Pick[] = [];
   for (const [key, bucket] of Object.entries(cacheBuckets(payload))) {
@@ -868,8 +891,15 @@ function researchFromCache(payload: ModelCachePayload): Pick[] {
     for (const pick of normalizedBucketPicks(key, bucket, String(payload.date || ''))) {
       if (isPlayerScopedPick(pick)) continue;
       const shadow = bucket.shadow_mode === true || pick.shadow_mode === true;
-      if (!(scraped && String(pick.decision || '').trim().toUpperCase() === 'PASS') && !shadow) continue;
-      picks.push({ ...pick, research: true, decision: 'PASS', units: 0, pl: 0 });
+      if (!scraped && !shadow) continue;
+      const decision = researchTipDecision(pick);
+      if (decision !== 'BET' && decision !== 'LEAN' && decision !== 'PASS') continue;
+      // Preserve BET/LEAN/PASS for Research filters and graded W–L. Never stake
+      // research into Best Bets; units/pl only count when price_verified.
+      const units = researchTipUnits(pick, decision);
+      const researchPick: Pick = { ...pick, research: true, decision, units, pl: 0 };
+      researchPick.pl = calculateProfit(researchPick);
+      picks.push(researchPick);
     }
   }
   return picks;
