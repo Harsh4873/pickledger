@@ -241,20 +241,31 @@ test('Best Bets Research historically counts PASS, not only juice favorites', ()
     result: 'win',
     odds: -350,
   });
+  const passMid = pick({
+    id: 'f5-pass-mid',
+    sport: 'MLB',
+    source: 'MLB First Five',
+    decision: 'PASS',
+    units: 0,
+    probability: 0.55,
+    result: 'win',
+    odds: -110,
+  });
   const publishedOnly = [juiceWin];
-  const posted = [passWin, passLoss, juiceWin];
+  const posted = [passWin, passLoss, passMid, juiceWin];
   const probabilityOf = (item: Pick): number | null => (
     item.probability == null ? null : Number(item.probability)
   );
   assert.equal(isDailyResearchCandidate(passWin, 0.74), true);
+  assert.equal(isDailyResearchCandidate(passMid, 0.55), true);
   assert.equal(isDailyResearchCandidate(juiceWin, 0.72), true);
   assert.deepEqual(dailyResearchPool(publishedOnly, probabilityOf).map(item => item.id), ['juice-bet-win']);
   assert.deepEqual(
     dailyResearchPool(posted, probabilityOf).map(item => item.id).sort(),
-    ['f5-pass-win', 'juice-bet-win', 'tt-pass-loss'],
+    ['f5-pass-mid', 'f5-pass-win', 'juice-bet-win', 'tt-pass-loss'],
   );
   assert.deepEqual(record(dailyResearchPool(posted, probabilityOf)), {
-    wins: 2,
+    wins: 3,
     losses: 1,
     pending: 0,
     net: 0,

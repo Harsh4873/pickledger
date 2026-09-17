@@ -22,7 +22,14 @@ sys.path.insert(0, str(REPO_ROOT))
 
 import pickgrader_server  # noqa: E402
 from scripts.merge_external_feed_cache_payload import EXTERNAL_FEED_MODEL_KEYS  # noqa: E402
+from scripts.merge_model_cache_payload import DEPLOYED_MODEL_KEYS  # noqa: E402
 from scripts.scrapers.tennis_scraper import grade_tennis_picks, is_tennis_pick  # noqa: E402
+
+IN_HOUSE_GRADE_SCOPES = {
+    str(key).strip().lower()
+    for key in DEPLOYED_MODEL_KEYS
+    if key not in EXTERNAL_FEED_MODEL_KEYS
+}
 
 
 FORECAST_AUDIT_MODEL_KEYS = {"cfb"}
@@ -153,19 +160,18 @@ def grade_payload(payload: dict[str, Any], *, ml_player_props_only: bool = False
             tennis = is_tennis_pick(pick)
             # Unpriced tennis publishes as PASS, but those rows still grade
             # against the ESPN winner flag so the research record settles.
-            # In-house CFB/NFL PASS rows are public board picks; Rankings
-            # must settle them when the PASS decision filter is on.
-            # Scraped tipster feeds (demoted PASS or soft-fail BET) need the
-            # same settlement path so Research can show a real W–L record.
-            in_house_football_pass = (
-                decision == "PASS" and str(scope).strip().lower() in {"cfb", "nfl"}
+            # In-house PASS (MLB F5 / team total / sit-outs, CFB, NFL, …)
+            # is the Best Bets Research board; Rankings PASS needs the same
+            # settlement. Scraped tipster feeds need it for Home Research W–L.
+            in_house_pass = (
+                decision == "PASS" and str(scope).strip().lower() in IN_HOUSE_GRADE_SCOPES
             )
             scraped_research = (
                 str(scope).strip().lower() in EXTERNAL_FEED_MODEL_KEYS
                 or pick.get("scraped_tip_demoted") is True
                 or pick.get("scraped") is True
             )
-            if decision not in {"BET", "LEAN"} and not tennis and not in_house_football_pass:
+            if decision not in {"BET", "LEAN"} and not tennis and not in_house_pass:
                 if not (scraped_research and decision == "PASS"):
                     continue
             if pick.get("grade_supported") is False:

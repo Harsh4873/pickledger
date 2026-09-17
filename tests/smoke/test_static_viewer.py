@@ -59,12 +59,14 @@ def test_best_bets_filter_records_replay_settled_slates_at_the_footer():
     main = (ROOT / "src" / "main.ts").read_text(encoding="utf-8")
     css = (ROOT / "src" / "styles" / "pickledger.css").read_text(encoding="utf-8")
 
-    assert "const DAILY_FILTER_LEDGER_KEY = 'pickledger_bestbets_filter_ledger_v2'" in main
+    assert "const DAILY_FILTER_LEDGER_KEY = 'pickledger_bestbets_filter_ledger_v3'" in main
     assert "function invertFadePick(" in main
     assert "function computeDailyFilterLedger(" in main
     assert "function dailyFilterRecordsHtml(" in main
     assert "localStorage.setItem(DAILY_FILTER_LEDGER_KEY" in main
     assert "function isTeamRankingWindowPick(" in (ROOT / "src" / "rankings.ts").read_text(encoding="utf-8")
+    rankings = (ROOT / "src" / "rankings.ts").read_text(encoding="utf-8")
+    assert "if (decision === 'PASS') return true;" in rankings
     assert "function isBestBetsWindowPick(" in main
     assert ".filter(isBestBetsWindowPick)" in main
     assert "buildDailyShortlist(date, false)" in main
@@ -770,7 +772,7 @@ def test_auto_grader_rechecks_previously_decided_tracked_picks(monkeypatch):
     assert payload["models"]["wnba_player_props"]["picks"][0]["result"] == "loss"
 
 
-def test_auto_grader_only_tracks_bet_and_lean_decisions(monkeypatch):
+def test_auto_grader_grades_in_house_pass_and_skips_watch(monkeypatch):
     module = _load_module("auto_grade_pass_test", ROOT / "scripts" / "auto_grade_picks.py")
     payload = {
         "date": "2026-06-08",
@@ -778,6 +780,7 @@ def test_auto_grader_only_tracks_bet_and_lean_decisions(monkeypatch):
             "mlb_new": {
                 "picks": [
                     {
+                        "id": "mlb-pass",
                         "source": "MLB Model",
                         "sport": "MLB",
                         "pick": "Cubs ML (Cubs vs Cardinals)",
@@ -785,6 +788,7 @@ def test_auto_grader_only_tracks_bet_and_lean_decisions(monkeypatch):
                         "result": "pending",
                     },
                     {
+                        "id": "mlb-watch",
                         "source": "MLB Model",
                         "sport": "MLB",
                         "pick": "Cardinals ML (Cubs vs Cardinals)",
@@ -792,22 +796,54 @@ def test_auto_grader_only_tracks_bet_and_lean_decisions(monkeypatch):
                         "result": "pending",
                     },
                     {
+                        "id": "mlb-blank",
                         "source": "MLB Model",
                         "sport": "MLB",
                         "pick": "Over 8.5 (Cubs vs Cardinals)",
                         "result": "pending",
                     },
                 ]
-            }
+            },
+            "mlb_first_five": {
+                "picks": [
+                    {
+                        "id": "f5-pass",
+                        "source": "MLB First Five",
+                        "sport": "MLB",
+                        "pick": "Over 4.5 F5",
+                        "decision": "PASS",
+                        "result": "pending",
+                    }
+                ]
+            },
+            "mlb_team_total": {
+                "picks": [
+                    {
+                        "id": "tt-pass",
+                        "source": "MLB Team Total",
+                        "sport": "MLB",
+                        "pick": "Cubs Team Total Under 4.5",
+                        "decision": "PASS",
+                        "result": "pending",
+                    }
+                ]
+            },
         },
     }
+    captured: list[str] = []
 
-    def fail_if_called(*_args):
-        raise AssertionError("PASS decisions must not be sent to the grader")
+    def fake_grade(picks, _existing, _year):
+        captured.extend(pick["id"] for pick in picks)
+        return {"graded": {pick["id"]: "win" for pick in picks}, "startTimes": {}}
 
-    monkeypatch.setattr(module.pickgrader_server, "auto_grade", fail_if_called)
-    assert module.grade_payload(payload) == 0
-    assert all(pick["result"] == "pending" for pick in payload["models"]["mlb_new"]["picks"])
+    monkeypatch.setattr(module.pickgrader_server, "auto_grade", fake_grade)
+    assert module.grade_payload(payload) == 3
+    assert captured == ["mlb-pass", "f5-pass", "tt-pass"]
+    assert payload["models"]["mlb_new"]["picks"][0]["result"] == "win"
+    assert payload["models"]["mlb_new"]["picks"][1]["result"] == "pending"
+    assert payload["models"]["mlb_new"]["picks"][2]["result"] == "pending"
+    assert payload["models"]["mlb_first_five"]["picks"][0]["result"] == "win"
+    assert payload["models"]["mlb_team_total"]["picks"][0]["result"] == "win"
 
 
 def test_auto_grader_grades_in_house_cfb_and_nfl_pass(monkeypatch):

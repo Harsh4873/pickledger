@@ -128,7 +128,7 @@ type DailyFilterLedgerRow = {
   dates: number;
 };
 
-const DAILY_FILTER_LEDGER_KEY = 'pickledger_bestbets_filter_ledger_v2';
+const DAILY_FILTER_LEDGER_KEY = 'pickledger_bestbets_filter_ledger_v3';
 
 const ESPN_ENDPOINTS: Record<string, [string, string]> = {
   MLB: ['baseball', 'mlb'],
@@ -3150,7 +3150,11 @@ function buildDailyShortlist(date: string, openOnly: boolean) {
     .sort((a, b) => (pickProbability(b) || 0) - (pickProbability(a) || 0))).slice(0, 8);
   const valueZone = uniqueDailyPicks(ranked(slate.filter(pick => isPublishedDailyPick(pick) && ((pick.odds || 0) > 0 || (pickEdgePercent(pick) || 0) >= 10)))).slice(0, 6);
   const researchQueue = uniqueDailyPicks(dailyResearchPool(posted, pickProbability)
-    .sort((a, b) => (pickProbability(b) || 0) - (pickProbability(a) || 0))).slice(0, 6);
+    .sort((a, b) => {
+      const scoreA = Number(a.consensus_score) || (pickProbability(a) || 0) * 100;
+      const scoreB = Number(b.consensus_score) || (pickProbability(b) || 0) * 100;
+      return scoreB - scoreA || (pickProbability(b) || 0) - (pickProbability(a) || 0);
+    }));
   const priceyCount = uniqueDailyPicks(posted.filter(pick => pick.odds != null && pick.odds <= -300)).length;
   const tagsById = new Map<string, Set<string>>();
   const addTag = (tagPicks: Pick[], tag: string): void => tagPicks.forEach(pick => {
@@ -3330,7 +3334,7 @@ function dailyFilterRecordsHtml(): string {
   const rows = computeDailyFilterLedger();
   const historyNote = isPickHistoryLoading()
     ? 'History is still loading, so these records will fill in.'
-    : 'Replayed from settled slates with the same view rules and ranking cutovers. Research includes high-probability PASS, not only juice favorites. Fade counts the other side.';
+    : 'Replayed from settled slates with the same view rules and ranking cutovers. Research is the in-house PASS board (F5, team totals, sit-outs), not juice favorites only. Fade counts the other side.';
   return `<section class="daily-filter-records" aria-label="Best Bets filter records">
     <div class="daily-filter-records-copy">
       <div class="daily-filter-records-kicker">FILTER RECORDS</div>
@@ -3426,7 +3430,7 @@ function renderDaily(): void {
     { key: 'sources', label: 'Active Sources', count: hotForms.length, description: 'Sources issuing BET/LEAN calls today' },
     { key: 'dayform', label: 'Day Form', count: dayFormCount, description: `How sources do on ${dayName}s` },
     { key: 'fade', label: 'Fade', count: fadeBoard.candidates.length, description: `Cold-source picks to bet against` },
-    { key: 'research', label: 'Research', count: researchGroups.length, description: activePickMode === 'player' ? 'Next-best prop candidates' : 'High probability and pricey spots' },
+    { key: 'research', label: 'Research', count: researchGroups.length, description: activePickMode === 'player' ? 'Next-best prop candidates' : 'In-house PASS, F5, team totals' },
   ];
   const viewOptions = viewOptionsBase.filter(option => activePickMode !== 'player' || option.key !== 'consensus');
   const activeView = viewOptions.find(option => option.key === dailyView) || viewOptions[0];
@@ -3437,7 +3441,7 @@ function renderDaily(): void {
   const activeSort = sortOptions.find(option => option.key === dailySort) || sortOptions[0];
   const researchSubtitle = activePickMode === 'player'
     ? 'Next-best player prop candidates and pass research, excluding anything already in Top Picks.'
-    : 'High-probability PASS calls and expensive favorites, excluding anything already in Top Picks.';
+    : 'In-house PASS — F5, team totals, and other sit-outs — plus expensive favorites, excluding anything already in Top Picks.';
   const featuredVisible = filterDailyGroups(featuredGroups);
   const topVisible = filterDailyGroups(topGroups);
   const researchVisible = filterDailyGroups(researchGroups);
