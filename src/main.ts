@@ -40,6 +40,7 @@ import {
   PLAYER_PROP_RANKING_START_DATE,
   TEAM_RANKING_START_DATE,
   WNBA_RESET_SOURCES,
+  dailyResearchPool,
   isTeamRankingWindowPick,
   rankingDecisionMatches,
   rankingScopedPicks as applyRankingScope,
@@ -128,7 +129,7 @@ type DailyFilterLedgerRow = {
   dates: number;
 };
 
-const DAILY_FILTER_LEDGER_KEY = 'pickledger_bestbets_filter_ledger_v1';
+const DAILY_FILTER_LEDGER_KEY = 'pickledger_bestbets_filter_ledger_v2';
 
 const ESPN_ENDPOINTS: Record<string, [string, string]> = {
   MLB: ['baseball', 'mlb'],
@@ -156,6 +157,7 @@ const RESEARCH_DECISION_FILTERS: RankingDecisionFilter[] = ['STAKED', 'BET', 'LE
 let homeDecisionFilter: HomeDecisionFilter = 'ALL';
 let rankingDecisionFilter: RankingDecisionFilter = 'STAKED';
 let researchDecisionFilter: RankingDecisionFilter = 'STAKED';
+let dailyResearchDecisionFilter: RankingDecisionFilter = 'STAKED';
 let activePickMode: PickMode = 'team';
 let homeMode: ResultMode = 'pending';
 let dailyView: DailyView = 'featured';
@@ -833,6 +835,14 @@ function researchBoardPool(): Pick[] {
   ));
 }
 
+function researchHistoryPicks(): Pick[] {
+  if (activePickMode !== 'team') return [];
+  return getResearchPicks().filter(pick => (
+    (activeFilters.size === 0 || activeFilters.has(pick.sport) || activeFilters.has(sourceName(pick)))
+    && rankingDecisionMatches(pick, researchDecisionFilter)
+  ));
+}
+
 function datedModePicks(): Pick[] {
   return filteredPicks().filter(pick => {
     if (pickDateKey(pick) !== selectedDate) return false;
@@ -1174,31 +1184,37 @@ function renderResearchBoard(): void {
   const container = document.getElementById('research-board');
   if (!container) return;
   const pool = researchBoardPool();
+  const history = researchHistoryPicks();
   const picks = filteredResearchPicks().filter(pick => pickDateKey(pick) === selectedDate).sort(compareHomePickRows);
   container.hidden = activePickMode !== 'team';
   if (activePickMode !== 'team') return;
-  const decisionCounts = researchDecisionCounts(pool);
-  const settled = picks.filter(isSettledPick);
+  const facetPool = getResearchPicks().filter(pick => (
+    activeFilters.size === 0 || activeFilters.has(pick.sport) || activeFilters.has(sourceName(pick))
+  ));
+  const decisionCounts = researchDecisionCounts(facetPool);
+  const settled = history.filter(isSettledPick);
   const stats = statsFor(settled);
   const record = stats.total
     ? `${stats.wins}–${stats.losses}${stats.pushes ? `–${stats.pushes}` : ''}`
-    : picks.some(isOpenPick) ? 'Awaiting results' : 'No settled tips';
+    : history.some(isOpenPick) ? 'Awaiting results' : 'No settled tips';
   const decisionLabel = researchDecisionFilter === 'STAKED' ? 'Staked (BET+LEAN)' : researchDecisionFilter;
+  const records = sourceRecordLines(history, selectedDate || centralDateKey());
   const groups = new Map<string, Pick[]>();
   picks.forEach(pick => groups.set(gameKey(pick), [...(groups.get(gameKey(pick)) || []), pick]));
-  container.innerHTML = `<div class="research-board-head"><div><div class="home-eyebrow">PUBLISHED RESEARCH</div><h2>Scraped source picks</h2></div><span class="research-count">${picks.length} forecasts · ${escapeHtml(record)}</span></div>
-    <p class="research-board-note">External feed BET / LEAN / PASS tips with a graded W–L record. Tip strength is preserved for filtering; stakes stay out of Best Bets, parlays, and in-house profit. Units count only when price_verified. In-house CFB and NFL model rows, including PASS, appear on the board above.</p>
+  container.innerHTML = `<div class="research-board-head"><div><div class="home-eyebrow">PUBLISHED RESEARCH</div><h2>Scraped source picks</h2></div><span class="research-count">${picks.length} today · ${escapeHtml(record)} all-time</span></div>
+    <p class="research-board-note">External feed BET / LEAN / PASS tips. Filters and W–L follow Rankings: STAKED is BET+LEAN, PASS is separate, and the record is the full graded history — not just this slate. Stakes stay out of Best Bets, parlays, and in-house profit. Units count only when price_verified. In-house CFB and NFL model rows, including PASS, appear on the board above.</p>
     <div class="research-filter-row" role="group" aria-label="Research decision filter">
       ${RESEARCH_DECISION_FILTERS.map(filter => (
         `<button type="button" class="rank-filter-btn ${researchDecisionFilter === filter ? 'active' : ''}" data-research-decision="${escapeHtml(filter)}" aria-pressed="${researchDecisionFilter === filter}"><span class="rank-filter-label">${escapeHtml(filter === 'STAKED' ? 'Staked' : filter)}</span><span class="rank-filter-count">${decisionCounts[filter]}</span></button>`
       )).join('')}
     </div>
     <div class="research-stats" aria-label="Research overall stats">
-      <span><strong>${escapeHtml(decisionLabel)}</strong> · ${escapeHtml(dateLabel(selectedDate, true))}</span>
+      <span><strong>${escapeHtml(decisionLabel)}</strong></span>
       <span>${stats.wins}–${stats.losses}${stats.pushes ? `–${stats.pushes}` : ''} settled</span>
-      <span>${picks.filter(isOpenPick).length} open</span>
+      <span>${picks.filter(isOpenPick).length} open today</span>
       <span>${stats.priced ? trackedUnits(stats) : 'P/L untracked'}</span>
     </div>
+    <div class="source-record-list research-period-records">${records.map(item => `<div class="source-record-item"><div class="source-record-label">${item.label}</div><div class="source-record-value">${escapeHtml(item.text)}</div></div>`).join('')}</div>
     <div class="research-grid">${[...groups.values()].sort(compareGameStartAsc).map(gamePicks => `<article class="research-game"><div class="research-game-head"><span class="home-sport-pill">${escapeHtml(gamePicks[0].sport)}</span>${homeScoreChipHtml(homeScores.get(gameKey(gamePicks[0])), gamePicks[0].start_time, gameName(gamePicks[0]))}</div><h3>${escapeHtml(gameName(gamePicks[0]))}</h3>${gamePicks.map(pick => {
       const decision = dailyDecision(pick);
       const resultLabel = pick.result === 'pending' ? (decision === 'PASS' ? 'Pass' : 'Open') : pick.result;
@@ -3127,19 +3143,19 @@ function buildDailyShortlist(date: string, openOnly: boolean) {
   const picks = getAllPicks()
     .filter(pick => pickDateKey(pick) === date)
     .filter(isBestBetsWindowPick);
-  const slate = openOnly ? picks.filter(isOpenPick) : picks.filter(isPublishedDailyPick);
+  const posted = openOnly ? picks.filter(isOpenPick) : picks.filter(isPostedDecision);
+  const slate = posted.filter(isPublishedDailyPick);
   const stats = statsFor(picks);
   const forms = dailySourceForms(date, picks, slate);
   const formsBySource = new Map(forms.map(form => [form.source, form]));
   const ranked = (candidates: Pick[]) => [...candidates].sort((a, b) => dailyPickScore(b, formsBySource) - dailyPickScore(a, formsBySource));
   const modelCalls = uniqueDailyPicks(ranked(slate.filter(isPublishedDailyPick))).slice(0, 8);
-  const probabilityLeaders = uniqueDailyPicks([...slate].filter(pick => pickProbability(pick) != null)
+  const probabilityLeaders = uniqueDailyPicks([...posted].filter(pick => pickProbability(pick) != null)
     .sort((a, b) => (pickProbability(b) || 0) - (pickProbability(a) || 0))).slice(0, 8);
   const valueZone = uniqueDailyPicks(ranked(slate.filter(pick => isPublishedDailyPick(pick) && ((pick.odds || 0) > 0 || (pickEdgePercent(pick) || 0) >= 10)))).slice(0, 6);
-  const researchQueue = uniqueDailyPicks([...slate].filter(pick => (
-    (pickProbability(pick) || 0) >= 0.6 && !isPublishedDailyPick(pick)
-  ) || (pick.odds != null && pick.odds <= -300)).sort((a, b) => (pickProbability(b) || 0) - (pickProbability(a) || 0))).slice(0, 6);
-  const priceyCount = uniqueDailyPicks(slate.filter(pick => pick.odds != null && pick.odds <= -300)).length;
+  const researchQueue = uniqueDailyPicks(dailyResearchPool(posted, pickProbability)
+    .sort((a, b) => (pickProbability(b) || 0) - (pickProbability(a) || 0))).slice(0, 6);
+  const priceyCount = uniqueDailyPicks(posted.filter(pick => pick.odds != null && pick.odds <= -300)).length;
   const tagsById = new Map<string, Set<string>>();
   const addTag = (tagPicks: Pick[], tag: string): void => tagPicks.forEach(pick => {
     const tags = tagsById.get(pick.id) || new Set<string>();
@@ -3318,7 +3334,7 @@ function dailyFilterRecordsHtml(): string {
   const rows = computeDailyFilterLedger();
   const historyNote = isPickHistoryLoading()
     ? 'History is still loading, so these records will fill in.'
-    : 'Replayed from settled slates with the same view rules and ranking cutovers. Fade counts the other side.';
+    : 'Replayed from settled slates with the same view rules and ranking cutovers. Research includes high-probability PASS, not only juice favorites. Fade counts the other side.';
   return `<section class="daily-filter-records" aria-label="Best Bets filter records">
     <div class="daily-filter-records-copy">
       <div class="daily-filter-records-kicker">FILTER RECORDS</div>
@@ -3336,6 +3352,13 @@ function dailyFilterRecordsHtml(): string {
       </article>`;
     }).join('')}</div>
   </section>`;
+}
+
+function setDailyResearchDecisionFilter(value: string): void {
+  if (value === 'STAKED' || value === 'BET' || value === 'LEAN' || value === 'PASS') {
+    dailyResearchDecisionFilter = value;
+    renderDaily();
+  }
 }
 
 function setDailyView(view: string): void {
@@ -3418,7 +3441,14 @@ function renderDaily(): void {
   const activeSort = sortOptions.find(option => option.key === dailySort) || sortOptions[0];
   const researchSubtitle = activePickMode === 'player'
     ? 'Next-best player prop candidates and pass research, excluding anything already in Top Picks.'
-    : 'High-probability non-published calls and expensive favorites, excluding anything already in Top Picks.';
+    : 'High-probability PASS calls and expensive favorites, excluding anything already in Top Picks. Same BET / LEAN / PASS filters as Rankings.';
+  const researchDecisionCounts = rankingDecisionCounts(researchGroups.map(group => group.primary));
+  const visibleResearchGroups = researchGroups.filter(group => rankingDecisionMatches(group.primary, dailyResearchDecisionFilter));
+  const dailyResearchFilterHtml = `<div class="research-filter-row" role="group" aria-label="Research decision filter">
+      ${RESEARCH_DECISION_FILTERS.map(filter => (
+        `<button type="button" class="rank-filter-btn ${dailyResearchDecisionFilter === filter ? 'active' : ''}" data-daily-research-decision="${escapeHtml(filter)}" aria-pressed="${dailyResearchDecisionFilter === filter}"><span class="rank-filter-label">${escapeHtml(filter === 'STAKED' ? 'Staked' : filter)}</span><span class="rank-filter-count">${researchDecisionCounts[filter]}</span></button>`
+      )).join('')}
+    </div>`;
   const featuredEmptyTitle = live
     ? 'Sit this one out'
     : 'No featured picks on this date';
@@ -3443,7 +3473,7 @@ function renderDaily(): void {
           ? dailySection(`For ${dayName}s`, `Every source publishing today, ranked by its record on past ${dayName}s only. Some days of the week are simply weaker — this shows who has actually delivered on this one.`, dailyDayFormBody(key, dayForms, board.formsBySource), `${dayFormCount} ranked source${dayFormCount === 1 ? '' : 's'} with calls today`)
           : dailyView === 'fade'
             ? dailySection(`Fade Board for ${dayName}s`, `The inverse of Day Form: picks published today by sources that are cold on ${dayName}s AND cold over the last ${FADE_RECENT_DAYS} days, with any in-form agreement cancelling the fade.`, dailyFadeBody(key, fadeBoard), `${fadeBoard.candidates.length} clean fade${fadeBoard.candidates.length === 1 ? '' : 's'}`)
-            : dailySection('Research Queue', researchSubtitle, dailyPickGrid(researchGroups), `${researchGroups.length} unique markets`);
+            : dailySection('Research Queue', researchSubtitle, `${dailyResearchFilterHtml}${dailyPickGrid(visibleResearchGroups)}`, `${visibleResearchGroups.length} unique markets`);
 
   container.innerHTML = `<div class="daily-hero"><div class="daily-hero-row"><div><div class="daily-eyebrow">TODAY'S QUICK READ</div><div class="daily-title">The Shortlist</div><div class="daily-sub">${escapeHtml(dateLabel(key, true))} | Featured Picks is the betting card. The other views are research.</div></div><div class="daily-clock-wrap"><div class="daily-clock-label">PICKS FOR</div><div class="daily-clock">${escapeHtml(key)}</div></div></div></div>
     <div class="daily-view-shell">
@@ -3460,6 +3490,11 @@ function renderDaily(): void {
     ${dailyFilterRecordsHtml()}`;
   bindInlineDatePicker('daily');
   bindPickCards(container);
+  container.querySelectorAll<HTMLButtonElement>('[data-daily-research-decision]').forEach(button => {
+    button.addEventListener('click', () => {
+      setDailyResearchDecisionFilter(button.dataset.dailyResearchDecision || 'STAKED');
+    });
+  });
 }
 
 function renderProfit(): void {
@@ -4345,6 +4380,7 @@ function switchPickMode(mode: PickMode): void {
   rankingSourceFilters.clear();
   rankingDecisionFilter = 'STAKED';
   researchDecisionFilter = 'STAKED';
+  dailyResearchDecisionFilter = 'STAKED';
   homeMode = 'pending';
   homeDecisionFilter = 'ALL';
   dailyView = 'featured';
@@ -4445,6 +4481,7 @@ Object.assign(window, {
   setHomeDecisionFilter,
   setRankingDecisionFilter,
   setDailyView,
+  setDailyResearchDecisionFilter,
   setProfitView,
   setProfitDeskSport,
   setParlayView,

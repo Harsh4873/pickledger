@@ -4,7 +4,9 @@ import { test } from 'node:test';
 import type { Pick } from '../src/data.ts';
 import {
   TEAM_RANKING_START_DATE,
+  dailyResearchPool,
   footballModelRecords,
+  isDailyResearchCandidate,
   isTeamRankingWindowPick,
   rankingComparableTeamPicks,
   rankingOverallPool,
@@ -207,5 +209,55 @@ test('research decision filters mirror Rankings STAKED/BET/LEAN/PASS matching', 
   const staked = rankingScopedPicks(pool, scope({ decision: 'STAKED' }));
   assert.equal(record(staked).wins, 1);
   assert.equal(record(staked).losses, 1);
+});
+
+test('Best Bets Research historically counts PASS, not only juice favorites', () => {
+  const passWin = pick({
+    id: 'f5-pass-win',
+    sport: 'MLB',
+    source: 'MLB First Five',
+    decision: 'PASS',
+    units: 0,
+    probability: 0.74,
+    result: 'win',
+    odds: -110,
+  });
+  const passLoss = pick({
+    id: 'tt-pass-loss',
+    sport: 'MLB',
+    source: 'MLB Team Total',
+    decision: 'PASS',
+    units: 0,
+    probability: 0.61,
+    result: 'loss',
+    odds: -105,
+  });
+  const juiceWin = pick({
+    id: 'juice-bet-win',
+    sport: 'MLB',
+    source: 'MLB ML',
+    decision: 'BET',
+    probability: 0.72,
+    result: 'win',
+    odds: -350,
+  });
+  const publishedOnly = [juiceWin];
+  const posted = [passWin, passLoss, juiceWin];
+  const probabilityOf = (item: Pick): number | null => (
+    item.probability == null ? null : Number(item.probability)
+  );
+  assert.equal(isDailyResearchCandidate(passWin, 0.74), true);
+  assert.equal(isDailyResearchCandidate(juiceWin, 0.72), true);
+  assert.deepEqual(dailyResearchPool(publishedOnly, probabilityOf).map(item => item.id), ['juice-bet-win']);
+  assert.deepEqual(
+    dailyResearchPool(posted, probabilityOf).map(item => item.id).sort(),
+    ['f5-pass-win', 'juice-bet-win', 'tt-pass-loss'],
+  );
+  assert.deepEqual(record(dailyResearchPool(posted, probabilityOf)), {
+    wins: 2,
+    losses: 1,
+    pending: 0,
+    net: 0,
+  });
 });
 

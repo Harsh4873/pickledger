@@ -82,6 +82,27 @@ export function rankingDecisionMatches(pick: Pick, filter: RankingDecisionFilter
   return decision === filter;
 }
 
+/** Best Bets Research: unpublished high-probability calls plus juice favorites. */
+export function isDailyResearchCandidate(pick: Pick, probability: number | null): boolean {
+  const decision = rankingDecisionOf(pick);
+  const unpublished = decision !== 'BET' && decision !== 'LEAN';
+  const highProbPass = unpublished && probability != null && probability >= 0.6;
+  const priceyFavorite = pick.odds != null && pick.odds <= -300;
+  return highProbPass || priceyFavorite;
+}
+
+/** Replay Research from the same posted BET/LEAN/PASS universe the live board uses. */
+export function dailyResearchPool(
+  picks: Pick[],
+  probabilityOf: (pick: Pick) => number | null,
+): Pick[] {
+  return picks.filter(pick => {
+    const decision = rankingDecisionOf(pick);
+    if (decision !== 'BET' && decision !== 'LEAN' && decision !== 'PASS') return false;
+    return isDailyResearchCandidate(pick, probabilityOf(pick));
+  });
+}
+
 export function defaultRankingBucketNames(pick: Pick): string[] {
   return [rankingSourceName(pick)];
 }

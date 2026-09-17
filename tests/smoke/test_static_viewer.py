@@ -59,7 +59,7 @@ def test_best_bets_filter_records_replay_settled_slates_at_the_footer():
     main = (ROOT / "src" / "main.ts").read_text(encoding="utf-8")
     css = (ROOT / "src" / "styles" / "pickledger.css").read_text(encoding="utf-8")
 
-    assert "const DAILY_FILTER_LEDGER_KEY = 'pickledger_bestbets_filter_ledger_v1'" in main
+    assert "const DAILY_FILTER_LEDGER_KEY = 'pickledger_bestbets_filter_ledger_v2'" in main
     assert "function invertFadePick(" in main
     assert "function computeDailyFilterLedger(" in main
     assert "function dailyFilterRecordsHtml(" in main
@@ -68,6 +68,7 @@ def test_best_bets_filter_records_replay_settled_slates_at_the_footer():
     assert "function isBestBetsWindowPick(" in main
     assert ".filter(isBestBetsWindowPick)" in main
     assert "buildDailyShortlist(date, false)" in main
+    assert "dailyResearchPool(posted, pickProbability)" in main
     assert '${dailyFilterRecordsHtml()}' in main
     assert "class=\"daily-filter-records\"" in main or 'class="daily-filter-records"' in main
     daily_render = main[main.index("function renderDaily()") : main.index("function renderProfit()")]
@@ -324,8 +325,11 @@ def test_static_viewer_keeps_public_tabs_and_client_grading():
     assert "Scraped source picks" in main
     assert "researchDecisionFilter" in main
     assert "function setResearchDecisionFilter(" in main
+    assert "function setDailyResearchDecisionFilter(" in main
     assert "RESEARCH_DECISION_FILTERS" in main
-    assert "graded W–L record" in main
+    assert "researchHistoryPicks" in main
+    assert "dailyResearchPool(posted, pickProbability)" in main
+    assert "the record is the full graded history" in main
 
 
 def test_rich_static_viewer_restores_consensus_table_and_scores():
