@@ -325,8 +325,14 @@ def test_static_viewer_keeps_public_tabs_and_client_grading():
     assert "Scraped source picks" in main
     assert "researchDecisionFilter" in main
     assert "function setResearchDecisionFilter(" in main
-    assert "function setDailyResearchDecisionFilter(" in main
-    assert "RESEARCH_DECISION_FILTERS" in main
+    assert "function setDailyDecisionFilter(" in main
+    assert "DAILY_DECISION_FILTERS" in main
+    assert "data-daily-decision" in main
+    assert "Best Bets decision filter" in main
+    assert "football-model-records" not in html
+    assert "function renderFootballRecords(" not in main
+    assert "#football-model-records" not in css
+    assert "function setDailyResearchDecisionFilter(" not in main
     assert "researchHistoryPicks" in main
     assert "dailyResearchPool(posted, pickProbability)" in main
     assert "the record is the full graded history" in main
