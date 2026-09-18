@@ -65,6 +65,18 @@ def test_best_bets_filter_records_replay_settled_slates_at_the_footer():
     assert "[...researchQueue, ...passLeaders, ...playerResearchPool" in main
     assert "function invertFadePick(" in main
     assert "function computeDailyFilterLedger(" in main
+    # Live cards must be a subset of the tracked cards: select from the whole
+    # slate, hide finished games afterwards, and let the record follow the
+    # BET / LEAN / PASS filter.
+    shortlist = main[main.index("function buildDailyShortlist(") : main.index("function dailyFilterLedgerSignature(")]
+    assert "const posted = picks.filter(isPostedDecision);" in shortlist
+    assert "openOnly ? picks.filter(isOpenPick)" not in shortlist
+    assert "featuredGroups: visibleGroups(featuredGroups)" in shortlist
+    assert "researchGroups: visibleGroups(researchGroups)" in shortlist
+    assert "function computeDailyFilterBuckets(" in main
+    assert "buckets[key].filter(matchesDailyDecisionFilter)" in main
+    assert "function pickResultChip(" in main
+    assert ".daily-bet-result.result-loss" in css
     assert "function dailyFilterRecordsHtml(" in main
     assert "localStorage.setItem(DAILY_FILTER_LEDGER_KEY" in main
     assert "function isTeamRankingWindowPick(" in (ROOT / "src" / "rankings.ts").read_text(encoding="utf-8")

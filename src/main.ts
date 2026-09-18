@@ -164,7 +164,7 @@ let dailyDecisionFilter: DailyDecisionFilter = 'ALL';
 let activePickMode: PickMode = 'team';
 let homeMode: ResultMode = 'pending';
 let dailyView: DailyView = 'featured';
-let filterLedgerCache: { signature: string; rows: DailyFilterLedgerRow[] } | null = null;
+let filterLedgerCache: { signature: string; buckets: Record<DailyFilterKey, Pick[]> } | null = null;
 let profitView: ProfitView = 'card';
 let profitDeskSport = 'ALL';
 let parlayView: ParlayView = 'all';
@@ -2172,6 +2172,23 @@ function isPostedDecision(pick: Pick): boolean {
   return decision === 'BET' || decision === 'LEAN' || decision === 'PASS';
 }
 
+// Every Best Bets card carries its graded result so the record can be
+// checked card by card.
+function pickResultLabel(pick: Pick): string {
+  if (pick.result === 'win') return 'WIN';
+  if (pick.result === 'loss') return 'LOSS';
+  if (pick.result === 'push') return 'PUSH';
+  return isUnsupportedPendingPick(pick) ? 'UNGRADED' : 'OPEN';
+}
+
+function pickResultChip(pick: Pick): string {
+  return `<span class="daily-bet-result result-${escapeHtml(pick.result)}">${pickResultLabel(pick)}</span>`;
+}
+
+function settledResultText(pick: Pick): string {
+  return pick.result === 'pending' ? '' : pickResultLabel(pick);
+}
+
 function isPublishedDailyPick(pick: Pick): boolean {
   const decision = dailyDecision(pick);
   return decision === 'BET' || decision === 'LEAN';
@@ -2386,7 +2403,7 @@ function dailyPickGroupCard(group: DailyPickGroup): string {
   const hasResearch = Boolean(details.reason || details.factors.length);
   const expanded = hasResearch && expandedResearchPickKeys.has(pick.id);
   return `<article class="daily-bet-card decision-${decision.toLowerCase()} ${pricey ? 'is-pricey' : ''} ${hasResearch ? 'is-expandable' : ''} ${expanded ? 'expanded' : ''}" ${hasResearch ? `data-research-pick-card="${escapeHtml(pick.id)}" role="button" tabindex="0" aria-expanded="${expanded}"` : ''}>
-    <div class="daily-bet-top"><div><div class="daily-bet-source">${sources.length} ${sources.length === 1 ? 'SOURCE' : 'SOURCES'} | ${escapeHtml(pick.sport)}</div><div class="daily-bet-pick">${escapeHtml(pick.pick)}</div></div><div class="daily-bet-score"><strong>${escapeHtml(metric)}</strong><span>${metricLabel}</span></div></div>
+    <div class="daily-bet-top"><div><div class="daily-bet-source">${sources.length} ${sources.length === 1 ? 'SOURCE' : 'SOURCES'} | ${escapeHtml(pick.sport)} ${pickResultChip(pick)}</div><div class="daily-bet-pick">${escapeHtml(pick.pick)}</div></div><div class="daily-bet-score"><strong>${escapeHtml(metric)}</strong><span>${metricLabel}</span></div></div>
     <div class="daily-bet-game">${escapeHtml(gameName(pick))} | ${escapeHtml(formatStart(pick.start_time))}</div>
     <div class="daily-bet-tags">${group.tags.map(tag => `<span class="${tag === 'PRICEY FAVORITE' ? 'pricey' : 'daily-qualifier-tag'}">${escapeHtml(tag)}</span>`).join('')}${pricey && !group.tags.includes('PRICEY FAVORITE') ? '<span class="pricey">PRICEY FAVORITE</span>' : ''}</div>
     <div class="daily-pick-source-list">${group.picks.map(sourcePick => {
@@ -2397,6 +2414,7 @@ function dailyPickGroupCard(group: DailyPickGroup): string {
         formatOdds(sourcePick),
         sourceProbability == null ? '' : `${(sourceProbability * 100).toFixed(1)}%`,
         sourceEdge == null ? '' : `${sourceEdge >= 0 ? '+' : ''}${sourceEdge.toFixed(1)}% edge`,
+        settledResultText(sourcePick),
       ].filter(Boolean).join(' | ');
       return `<div class="daily-pick-source-row"><strong>${escapeHtml(sourceName(sourcePick))}</strong><span>${escapeHtml(sourceMeta)}</span></div>`;
     }).join('')}</div>
@@ -2426,7 +2444,7 @@ function dailyHotModelCard(form: DailySourceForm): string {
   return `<article class="daily-model-card">
     <div class="daily-model-head"><div><div class="daily-model-kicker">HOT SOURCE</div><div class="daily-model-name">${escapeHtml(form.source)}</div></div><div class="daily-model-rate">${form.recentStats.winRate == null ? '—' : `${(form.recentStats.winRate * 100).toFixed(0)}%`}</div></div>
     <div class="daily-model-records"><span>Last ${form.recentDates.length} slates: ${form.recentStats.wins}-${form.recentStats.losses}${form.recentStats.pushes ? `-${form.recentStats.pushes}` : ''}</span><span>Last slate: ${lastDecided ? `${form.lastStats.wins}-${form.lastStats.losses}${form.lastStats.pushes ? `-${form.lastStats.pushes}` : ''}` : 'No decisions'}</span></div>
-    <div class="daily-model-picks">${todays.length ? todays.map(pick => `<div><strong>${escapeHtml(pick.pick)}</strong><span>${escapeHtml([dailyDecision(pick), formatOdds(pick), pickProbability(pick) == null ? '' : `${(pickProbability(pick)! * 100).toFixed(1)}%`].filter(Boolean).join(' | '))}</span></div>`).join('') : '<div><strong>No published call today</strong><span>Recent form is hot, but the model is sitting out.</span></div>'}</div>
+    <div class="daily-model-picks">${todays.length ? todays.map(pick => `<div><strong>${escapeHtml(pick.pick)}</strong><span>${escapeHtml([dailyDecision(pick), formatOdds(pick), pickProbability(pick) == null ? '' : `${(pickProbability(pick)! * 100).toFixed(1)}%`, settledResultText(pick)].filter(Boolean).join(' | '))}</span></div>`).join('') : '<div><strong>No open call right now</strong><span>Recent form is hot, but every call for this slate is finished or the model is sitting out.</span></div>'}</div>
     <div class="daily-model-foot">${recentDecided} recent decisions${form.recentStats.priced ? ` | ${signedUnits(form.recentStats.net)}` : ''}</div>
   </article>`;
 }
@@ -2449,7 +2467,7 @@ function dailyDayFormCard(form: WeekdaySourceForm, dayName: string): string {
   return `<article class="daily-model-card daily-dayform-card is-${tone}">
     <div class="daily-model-head"><div><div class="daily-model-kicker">${escapeHtml(kicker)}</div><div class="daily-model-name">${escapeHtml(form.source)}</div></div><div class="daily-model-rate">${rate == null ? '—' : `${rate.toFixed(0)}%`}</div></div>
     <div class="daily-model-records"><span>${escapeHtml(dayName)}s: ${escapeHtml(weekdayRecordText(form))}</span><span>${form.stats.priced ? `${escapeHtml(dayName)} net: ${escapeHtml(signedUnits(form.stats.net))}` : 'No priced results'}</span></div>
-    <div class="daily-model-picks">${todays.length ? todays.map(pick => `<div><strong>${escapeHtml(pick.pick)}</strong><span>${escapeHtml([dailyDecision(pick), formatOdds(pick), pickProbability(pick) == null ? '' : `${(pickProbability(pick)! * 100).toFixed(1)}%`].filter(Boolean).join(' | '))}</span></div>`).join('') : `<div><strong>No published call today</strong><span>${tone === 'cold' ? 'Sitting out may be for the best on this day.' : 'This source is sitting out this slate.'}</span></div>`}</div>
+    <div class="daily-model-picks">${todays.length ? todays.map(pick => `<div><strong>${escapeHtml(pick.pick)}</strong><span>${escapeHtml([dailyDecision(pick), formatOdds(pick), pickProbability(pick) == null ? '' : `${(pickProbability(pick)! * 100).toFixed(1)}%`, settledResultText(pick)].filter(Boolean).join(' | '))}</span></div>`).join('') : `<div><strong>No open call right now</strong><span>${tone === 'cold' ? 'Sitting out may be for the best on this day.' : 'Every call for this slate is finished, or the source is sitting out.'}</span></div>`}</div>
     <div class="daily-model-foot">${escapeHtml(foot)}</div>
   </article>`;
 }
@@ -2468,7 +2486,7 @@ function dailyDayFormBody(date: string, dayForms: WeekdaySourceForm[], formsBySo
   if (spotlightForm) {
     const pick = [...spotlightForm.todayCalls].sort((a, b) => dailyPickScore(b, formsBySource) - dailyPickScore(a, formsBySource))[0];
     const rate = (spotlightForm.stats.winRate || 0) * 100;
-    const meta = [dailyDecision(pick), formatOdds(pick), pickProbability(pick) == null ? '' : `${(pickProbability(pick)! * 100).toFixed(1)}%`].filter(Boolean).join(' | ');
+    const meta = [dailyDecision(pick), formatOdds(pick), pickProbability(pick) == null ? '' : `${(pickProbability(pick)! * 100).toFixed(1)}%`, settledResultText(pick)].filter(Boolean).join(' | ');
     spotlightHtml = `<article class="daily-dayform-spotlight">
       <div class="daily-dayform-spotlight-kicker">BEST BET FOR ${escapeHtml(dayName.toUpperCase())}</div>
       <div class="daily-dayform-spotlight-pick">${escapeHtml(pick.pick)}</div>
@@ -2593,7 +2611,8 @@ function fadeRetroText(form: WeekdaySourceForm, dayName: string): string {
 
 function dailyFadeCard(candidate: FadeCandidate, dayName: string): string {
   const pick = candidate.pick;
-  const meta = [dailyDecision(pick), formatOdds(pick), pickProbability(pick) == null ? '' : `${(pickProbability(pick)! * 100).toFixed(1)}%`].filter(Boolean).join(' | ');
+  const fadeResult = pick.result === 'pending' ? '' : `Fade ${pickResultLabel(invertFadePick(pick))}`;
+  const meta = [dailyDecision(pick), formatOdds(pick), pickProbability(pick) == null ? '' : `${(pickProbability(pick)! * 100).toFixed(1)}%`, fadeResult].filter(Boolean).join(' | ');
   const sourcesHtml = candidate.coldForms.map(form => `<div><strong>${escapeHtml(form.source)}</strong><span>${escapeHtml(`${dayName}s: ${weekdayRecordText(form)} | ${fadeRetroText(form, dayName)}`)}</span></div>`).join('');
   return `<article class="daily-model-card daily-fade-card">
     <div class="daily-model-head"><div><div class="daily-model-kicker">FADE SIGNAL${candidate.coldForms.length > 1 ? ` × ${candidate.coldForms.length} COLD SOURCES` : ''}</div><div class="daily-model-name">${escapeHtml(pick.pick)}</div></div><div class="daily-model-rate daily-fade-rate">FADE</div></div>
@@ -2630,7 +2649,7 @@ function dailyConsensusCards(picks: Pick[], emptySub = 'Two independent sources 
     const details = pickExpandableDetails(game);
     const hasResearch = Boolean(details.reason || details.factors.length);
     const expanded = hasResearch && expandedResearchPickKeys.has(game.id);
-    return `<article class="daily-consensus-card ${hasResearch ? 'is-expandable' : ''} ${expanded ? 'expanded' : ''}" ${hasResearch ? `data-research-pick-card="${escapeHtml(game.id)}" role="button" tabindex="0" aria-expanded="${expanded}"` : ''}><div class="daily-consensus-count">${new Set(signal.picks.map(sourceName)).size} SOURCES</div><div class="daily-consensus-pick">${escapeHtml(signal.label)}</div><div class="daily-consensus-game">${escapeHtml(gameName(game))}</div><div class="trend-source-row">${[...new Set(signal.picks.map(sourceName))].map(source => `<span class="trend-source-pill">${escapeHtml(source)}</span>`).join('')}</div>${researchDetailsHtml(game, expanded)}</article>`;
+    return `<article class="daily-consensus-card ${hasResearch ? 'is-expandable' : ''} ${expanded ? 'expanded' : ''}" ${hasResearch ? `data-research-pick-card="${escapeHtml(game.id)}" role="button" tabindex="0" aria-expanded="${expanded}"` : ''}><div class="daily-consensus-count">${new Set(signal.picks.map(sourceName)).size} SOURCES ${pickResultChip(signal.picks[0])}</div><div class="daily-consensus-pick">${escapeHtml(signal.label)}</div><div class="daily-consensus-game">${escapeHtml(gameName(game))}</div><div class="trend-source-row">${[...new Set(signal.picks.map(sourceName))].map(source => `<span class="trend-source-pill">${escapeHtml(source)}</span>`).join('')}</div>${researchDetailsHtml(game, expanded)}</article>`;
   }).join('')}</div>`;
 }
 
@@ -3141,8 +3160,18 @@ function buildDailyShortlist(date: string, openOnly: boolean) {
   const picks = getAllPicks()
     .filter(pick => pickDateKey(pick) === date)
     .filter(isBestBetsWindowPick);
-  const posted = openOnly ? picks.filter(isOpenPick) : picks.filter(isPostedDecision);
+  // Every view selects from the whole slate's posted BET/LEAN/PASS calls and
+  // the live board only hides finished games afterwards. Selecting from open
+  // picks let the live board refill with weaker cards as games settled, and
+  // the replayed record never counted those. Live cards are now always a
+  // subset of the tracked cards.
+  const posted = picks.filter(isPostedDecision);
   const slate = posted.filter(isPublishedDailyPick);
+  const visible = (pick: Pick): boolean => !openOnly || isOpenPick(pick);
+  const visibleGroups = (groups: DailyPickGroup[]): DailyPickGroup[] => groups.filter(group => visible(group.primary));
+  const visibleCalls = <T extends { todayCalls: Pick[] }>(form: T): T => (
+    openOnly ? { ...form, todayCalls: form.todayCalls.filter(isOpenPick) } : form
+  );
   const stats = statsFor(picks);
   const forms = dailySourceForms(date, picks, slate);
   const formsBySource = new Map(forms.map(form => [form.source, form]));
@@ -3168,7 +3197,7 @@ function buildDailyShortlist(date: string, openOnly: boolean) {
     tags.add(tag);
     tagsById.set(pick.id, tags);
   });
-  const featuredCandidates = featuredPicksForDate(date, openOnly);
+  const featuredCandidates = featuredPicksForDate(date, false);
   addTag(featuredCandidates, 'FEATURED');
   addTag(modelCalls, 'MODEL GREENLIGHT');
   addTag(valueZone, 'VALUE');
@@ -3204,6 +3233,7 @@ function buildDailyShortlist(date: string, openOnly: boolean) {
   const dayForms = weekdaySourceForms(date, picks, slate);
   const fadeBoard = dailyFadeBoard(date, dayForms);
   const consensusPicks = matchingConsensusPicks(slate);
+  // Tracked pools: the full slate, regardless of what is still open.
   const dayFormPicks = uniqueDailyPicks(dayForms
     .filter(form => form.decided >= 3 && (form.stats.winRate || 0) >= 0.5 && form.todayCalls.length)
     .flatMap(form => form.todayCalls));
@@ -3214,15 +3244,17 @@ function buildDailyShortlist(date: string, openOnly: boolean) {
     stats,
     formsBySource,
     featuredCandidates,
-    featuredGroups,
+    featuredGroups: visibleGroups(featuredGroups),
     topCandidates,
-    topGroups,
+    topGroups: visibleGroups(topGroups),
     researchCandidates,
-    researchGroups,
-    hotForms,
-    dayForms,
-    fadeBoard,
-    consensusPicks,
+    researchGroups: visibleGroups(researchGroups),
+    hotForms: openOnly ? hotForms.map(visibleCalls).filter(form => form.todayCalls.length) : hotForms,
+    dayForms: dayForms.map(visibleCalls),
+    fadeBoard: openOnly
+      ? { ...fadeBoard, candidates: fadeBoard.candidates.filter(candidate => isOpenPick(candidate.pick)) }
+      : fadeBoard,
+    consensusPicks: consensusPicks.filter(visible),
     dayFormPicks,
     sourcePicks,
     priceyCount,
@@ -3250,6 +3282,7 @@ function persistDailyFilterLedger(rows: DailyFilterLedgerRow[]): void {
     localStorage.setItem(DAILY_FILTER_LEDGER_KEY, JSON.stringify({
       updatedAt: new Date().toISOString(),
       pickMode: activePickMode,
+      decision: dailyDecisionFilter,
       hideScraped: getHideScrapedPicks(),
       hideTennis: getHideTennisPicks(),
       rows,
@@ -3259,18 +3292,21 @@ function persistDailyFilterLedger(rows: DailyFilterLedgerRow[]): void {
   }
 }
 
-function computeDailyFilterLedger(): DailyFilterLedgerRow[] {
+const DAILY_FILTER_LABELS: Record<DailyFilterKey, string> = {
+  featured: 'Featured Picks',
+  picks: 'Top Picks',
+  consensus: 'Consensus',
+  sources: 'Active Sources',
+  dayform: 'Day Form',
+  fade: 'Fade',
+  research: 'Research',
+};
+
+// Every card each view ever showed, replayed from the full slate. Cached by
+// data signature; the BET / LEAN / PASS filter is applied on top at render.
+function computeDailyFilterBuckets(): Record<DailyFilterKey, Pick[]> {
   const signature = dailyFilterLedgerSignature();
-  if (filterLedgerCache?.signature === signature) return filterLedgerCache.rows;
-  const labels: Record<DailyFilterKey, string> = {
-    featured: 'Featured Picks',
-    picks: 'Top Picks',
-    consensus: 'Consensus',
-    sources: 'Active Sources',
-    dayform: 'Day Form',
-    fade: 'Fade',
-    research: 'Research',
-  };
+  if (filterLedgerCache?.signature === signature) return filterLedgerCache.buckets;
   const buckets: Record<DailyFilterKey, Pick[]> = {
     featured: [],
     picks: [],
@@ -3279,15 +3315,6 @@ function computeDailyFilterLedger(): DailyFilterLedgerRow[] {
     dayform: [],
     fade: [],
     research: [],
-  };
-  const dateHits: Record<DailyFilterKey, Set<string>> = {
-    featured: new Set(),
-    picks: new Set(),
-    consensus: new Set(),
-    sources: new Set(),
-    dayform: new Set(),
-    fade: new Set(),
-    research: new Set(),
   };
   const dates = [...new Set([
     ...getAllPicks().map(pickDateKey),
@@ -3306,29 +3333,34 @@ function computeDailyFilterLedger(): DailyFilterLedgerRow[] {
     };
     (Object.keys(byView) as DailyFilterKey[]).forEach(key => {
       if (activePickMode === 'player' && key === 'consensus') return;
-      const picks = byView[key];
-      if (!picks.length) return;
-      buckets[key].push(...picks);
-      dateHits[key].add(date);
+      buckets[key].push(...byView[key]);
     });
   });
-  const rows = (Object.keys(labels) as DailyFilterKey[])
+  filterLedgerCache = { signature, buckets };
+  return buckets;
+}
+
+// FILTER RECORDS follows the same BET / LEAN / PASS filter as the cards, the
+// way Rankings' Overall Stats follow its decision filter.
+function computeDailyFilterLedger(): DailyFilterLedgerRow[] {
+  const buckets = computeDailyFilterBuckets();
+  const rows = (Object.keys(DAILY_FILTER_LABELS) as DailyFilterKey[])
     .filter(key => activePickMode !== 'player' || key !== 'consensus')
     .map(key => {
-      const stats = statsFor(buckets[key]);
+      const picks = buckets[key].filter(matchesDailyDecisionFilter);
+      const stats = statsFor(picks);
       return {
         key,
-        label: labels[key],
+        label: DAILY_FILTER_LABELS[key],
         wins: stats.wins,
         losses: stats.losses,
         pushes: stats.pushes,
         pending: stats.pending,
         decided: stats.wins + stats.losses,
         winRate: stats.winRate,
-        dates: dateHits[key].size,
+        dates: new Set(picks.map(pickDateKey)).size,
       };
     });
-  filterLedgerCache = { signature, rows };
   persistDailyFilterLedger(rows);
   return rows;
 }
@@ -3341,12 +3373,15 @@ function dailyFilterRecordsHtml(): string {
   const rows = computeDailyFilterLedger();
   const historyNote = isPickHistoryLoading()
     ? 'History is still loading, so these records will fill in.'
-    : 'Replayed from settled slates with the same view rules and ranking cutovers. Research replays the same strongest sit-outs and pricey favorites shown each day, not every PASS. Fade counts the other side.';
+    : 'Every card each view showed, replayed from the full slate with the same rules and ranking cutovers. Research replays its strongest sit-outs and pricey favorites, not every PASS. Fade counts the other side.';
+  const filterNote = dailyDecisionFilter === 'ALL'
+    ? 'Records follow the BET / LEAN / PASS filter above.'
+    : `Showing ${dailyDecisionFilterLabel(dailyDecisionFilter)} cards only.`;
   return `<section class="daily-filter-records" aria-label="Best Bets filter records">
     <div class="daily-filter-records-copy">
-      <div class="daily-filter-records-kicker">FILTER RECORDS</div>
+      <div class="daily-filter-records-kicker">FILTER RECORDS${dailyDecisionFilter === 'ALL' ? '' : ` · ${escapeHtml(dailyDecisionFilterLabel(dailyDecisionFilter).toUpperCase())}`}</div>
       <div class="daily-filter-records-title">How each view has done</div>
-      <p>${escapeHtml(historyNote)} Unique markets only. Open picks stay out of the win-loss until they grade.</p>
+      <p>${escapeHtml(historyNote)} ${escapeHtml(filterNote)} Unique markets only. Open picks stay out of the win-loss until they grade.</p>
     </div>
     <div class="daily-filter-records-grid">${rows.map(row => {
       const tone = row.decided === 0 ? 'is-empty' : (row.winRate != null && row.winRate >= 0.5 ? 'is-up' : 'is-down');
