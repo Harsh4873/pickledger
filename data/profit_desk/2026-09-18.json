@@ -278,6 +278,148 @@
     },
     {
       "blockers": [
+        "edge_insufficient_source_samples",
+        "edge_insufficient_segment_samples",
+        "edge_insufficient_distinct_prior_dates",
+        "edge_negative_chronological_evidence_half",
+        "edge_probability_positive_ev_below_0.80",
+        "edge_conservative_probability_margin_below_0.02",
+        "edge_non_positive_conservative_ev",
+        "value_insufficient_source_samples"
+      ],
+      "canonicalGame": "2026-09-18:mlb:kansas city royals|pittsburgh pirates",
+      "consensusSources": [],
+      "date": "2026-09-18",
+      "decimalOdds": 1.892857,
+      "decision": "LEAN",
+      "dedupeRule": "exact_market_identity_best_executable_price",
+      "direction": "under",
+      "duplicateCount": 1,
+      "duplicateSources": [
+        "MLB Model"
+      ],
+      "edgeQualified": false,
+      "estimate": {
+        "alpha": -0.025204,
+        "alphaStdError": 0.077527,
+        "breakEvenProbability": 0.528302,
+        "conservativeExpectedValue": -0.279027,
+        "expectedValue": -0.090964,
+        "lowerProbability": 0.380891,
+        "marketProbability": 0.50545,
+        "method": "market_baseline_plus_hierarchically_shrunk_prior_residual",
+        "probability": 0.480246,
+        "probabilityPositiveEv": 0.267672,
+        "sourceAlpha": 0.044571,
+        "value": {
+          "alpha": 0.044571,
+          "alphaStdError": 0.043559,
+          "conservativeExpectedValue": -0.021298,
+          "expectedValue": 0.084366,
+          "lowerProbability": 0.51705,
+          "method": "source_flat_roi_shrunk_residual_vs_break_even",
+          "probability": 0.572873,
+          "probabilityPositiveEv": 0.846903
+        }
+      },
+      "evidence": {
+        "chronologicalHalvesNonnegative": false,
+        "cutoffExclusive": "2026-09-18",
+        "distinctDates": 13,
+        "firstHalfFlatNetUnits": -0.4882,
+        "flatNetUnits": -4.7338,
+        "flatRoi": -0.29586,
+        "losses": 10,
+        "modelVersion": "MLB:mlb_team_consensus_v1.2.0:mlb_new",
+        "policyVersion": "profit_desk_policy_v2",
+        "priorOnly": true,
+        "pushes": 0,
+        "secondHalfFlatNetUnits": -4.2456,
+        "segmentDistinctDates": 13,
+        "segmentEvidenceKey": "team|mlb_new|mlb|MLB:mlb_team_consensus_v1.2.0:mlb_new|totals|under|0.50_0.55",
+        "segmentSamples": 16,
+        "sourceChronologicalHalvesNonnegative": true,
+        "sourceDistinctDates": 37,
+        "sourceEvidenceKey": "team|mlb_new|mlb",
+        "sourceFirstHalfFlatNetUnits": 5.5142,
+        "sourceFlatNetUnits": 7.624,
+        "sourceFlatRoi": 0.088651,
+        "sourceLosses": 36,
+        "sourceSamples": 86,
+        "sourceSecondHalfFlatNetUnits": 2.1098,
+        "sourceWins": 50,
+        "wins": 6
+      },
+      "game": "Kansas City Royals @ Pittsburgh Pirates",
+      "gradeSupportSource": "repository_grader_default",
+      "gradeSupported": true,
+      "id": "profit-a6f756c2aa1c6ccb46b2173a",
+      "lane": null,
+      "laneBlockers": {
+        "edge": [
+          "edge_insufficient_source_samples",
+          "edge_insufficient_segment_samples",
+          "edge_insufficient_distinct_prior_dates",
+          "edge_negative_chronological_evidence_half",
+          "edge_probability_positive_ev_below_0.80",
+          "edge_conservative_probability_margin_below_0.02",
+          "edge_non_positive_conservative_ev"
+        ],
+        "structural": [],
+        "value": [
+          "value_insufficient_source_samples"
+        ]
+      },
+      "line": 8.5,
+      "liveQualified": false,
+      "market": "totals",
+      "marketFamily": "totals",
+      "marketIdentity": "market:a47e8f91e8a8d7696438b85d",
+      "mode": "team",
+      "modelVersion": "MLB:mlb_team_consensus_v1.2.0:mlb_new",
+      "oddsAmerican": -112,
+      "pick": "Under 8.5 (Kansas City Royals vs Pittsburgh Pirates)",
+      "player": null,
+      "policyVersion": "profit_desk_policy_v2",
+      "price": {
+        "ageHours": 4.459,
+        "breakEvenProbability": 0.528302,
+        "decimalOdds": 1.892857,
+        "eligibleForAlphaEstimate": true,
+        "fresh": true,
+        "freshPregame": true,
+        "maxAgeHours": 24.0,
+        "noVigInputs": {
+          "field": "market_no_vig_selected_probability"
+        },
+        "noVigMethod": "explicit:pick.market_no_vig_selected_probability",
+        "noVigProbability": 0.50545,
+        "noVigVerified": true,
+        "observedExecutable": true,
+        "oddsAmerican": -112,
+        "quality": "verified_no_vig",
+        "source": "espn_scoreboard:DraftKings",
+        "sourceField": "pick.price_source",
+        "startTime": "2026-09-18T22:40Z",
+        "tier": "A",
+        "tierLabel": "certified_executable",
+        "timestamp": "2026-09-18T18:12:27.537011Z",
+        "timestampField": "pick.market_updated_at",
+        "twoSided": true,
+        "updatedAt": "2026-09-18T18:12:27.537011Z"
+      },
+      "rawModelProbabilityIgnored": 0.6145,
+      "result": "pending",
+      "shadowQualified": false,
+      "source": "MLB Model",
+      "sourceKey": "mlb_new",
+      "sport": "MLB",
+      "stakeUnits": 0.0,
+      "tier": "watch",
+      "valueQualified": false
+    },
+    {
+      "blockers": [
         "assumed_or_non_executable_price",
         "edge_no_usable_price_baseline",
         "value_no_usable_price_baseline"
@@ -351,7 +493,7 @@
       "player": null,
       "policyVersion": "profit_desk_policy_v2",
       "price": {
-        "ageHours": 8.924,
+        "ageHours": 6.043,
         "breakEvenProbability": 0.545455,
         "decimalOdds": 1.833333,
         "eligibleForAlphaEstimate": false,
@@ -370,129 +512,16 @@
         "startTime": "2026-09-19T00:15Z",
         "tier": "D",
         "tierLabel": "assumed_proxy_or_synthetic",
-        "timestamp": "2026-09-18T15:19:34.325421Z",
+        "timestamp": "2026-09-18T18:12:25.780270Z",
         "timestampField": "pick.certification_timing.data_as_of",
         "twoSided": false,
-        "updatedAt": "2026-09-18T15:19:34.325421Z"
+        "updatedAt": "2026-09-18T18:12:25.780270Z"
       },
       "rawModelProbabilityIgnored": 0.611,
       "result": "pending",
       "shadowQualified": false,
       "source": "MLB Inning",
       "sourceKey": "mlb_inning",
-      "sport": "MLB",
-      "stakeUnits": 0.0,
-      "tier": "avoid",
-      "valueQualified": false
-    },
-    {
-      "blockers": [
-        "assumed_or_non_executable_price",
-        "unverified_price_provenance",
-        "edge_no_usable_price_baseline",
-        "value_no_usable_price_baseline"
-      ],
-      "canonicalGame": "2026-09-18:mlb:kansas city royals|pittsburgh pirates",
-      "consensusSources": [],
-      "date": "2026-09-18",
-      "decimalOdds": 1.909091,
-      "decision": "LEAN",
-      "dedupeRule": "exact_market_identity_best_executable_price",
-      "direction": "under",
-      "duplicateCount": 1,
-      "duplicateSources": [
-        "MLB Model"
-      ],
-      "edgeQualified": false,
-      "estimate": null,
-      "evidence": {
-        "chronologicalHalvesNonnegative": false,
-        "cutoffExclusive": "2026-09-18",
-        "distinctDates": 0,
-        "firstHalfFlatNetUnits": 0.0,
-        "flatNetUnits": 0.0,
-        "flatRoi": null,
-        "losses": 0,
-        "modelVersion": "MLB:mlb_team_consensus_v1.2.0:mlb_new",
-        "policyVersion": "profit_desk_policy_v2",
-        "priorOnly": true,
-        "pushes": 0,
-        "secondHalfFlatNetUnits": 0.0,
-        "segmentDistinctDates": 0,
-        "segmentEvidenceKey": null,
-        "segmentSamples": 0,
-        "sourceChronologicalHalvesNonnegative": false,
-        "sourceDistinctDates": 37,
-        "sourceEvidenceKey": "team|mlb_new|mlb",
-        "sourceFirstHalfFlatNetUnits": 0.0,
-        "sourceFlatNetUnits": 0.0,
-        "sourceFlatRoi": null,
-        "sourceLosses": 0,
-        "sourceSamples": 86,
-        "sourceSecondHalfFlatNetUnits": 0.0,
-        "sourceWins": 0,
-        "wins": 0
-      },
-      "game": "Kansas City Royals @ Pittsburgh Pirates",
-      "gradeSupportSource": "repository_grader_default",
-      "gradeSupported": true,
-      "id": "profit-3039f60d9f1e05931615f95b",
-      "lane": null,
-      "laneBlockers": {
-        "edge": [
-          "edge_no_usable_price_baseline"
-        ],
-        "structural": [
-          "assumed_or_non_executable_price",
-          "unverified_price_provenance"
-        ],
-        "value": [
-          "value_no_usable_price_baseline"
-        ]
-      },
-      "line": 8.5,
-      "liveQualified": false,
-      "market": "totals",
-      "marketFamily": "totals",
-      "marketIdentity": "market:a47e8f91e8a8d7696438b85d",
-      "mode": "team",
-      "modelVersion": "MLB:mlb_team_consensus_v1.2.0:mlb_new",
-      "oddsAmerican": -110,
-      "pick": "Under 8.5 (Kansas City Royals vs Pittsburgh Pirates)",
-      "player": null,
-      "policyVersion": "profit_desk_policy_v2",
-      "price": {
-        "ageHours": 7.34,
-        "breakEvenProbability": 0.52381,
-        "decimalOdds": 1.909091,
-        "eligibleForAlphaEstimate": false,
-        "fresh": true,
-        "freshPregame": true,
-        "maxAgeHours": 24.0,
-        "noVigInputs": {
-          "field": "market_no_vig_probability"
-        },
-        "noVigMethod": "explicit:pick.market_no_vig_probability",
-        "noVigProbability": 0.52381,
-        "noVigVerified": true,
-        "observedExecutable": false,
-        "oddsAmerican": -110,
-        "quality": "assumed",
-        "source": null,
-        "sourceField": "unverified",
-        "startTime": "2026-09-18T22:40Z",
-        "tier": "D",
-        "tierLabel": "assumed_proxy_or_synthetic",
-        "timestamp": "2026-09-18T15:19:34.325421Z",
-        "timestampField": "pick.certification_timing.data_as_of",
-        "twoSided": true,
-        "updatedAt": "2026-09-18T15:19:34.325421Z"
-      },
-      "rawModelProbabilityIgnored": 0.6145,
-      "result": "pending",
-      "shadowQualified": false,
-      "source": "MLB Model",
-      "sourceKey": "mlb_new",
       "sport": "MLB",
       "stakeUnits": 0.0,
       "tier": "avoid",
@@ -575,7 +604,7 @@
       "player": null,
       "policyVersion": "profit_desk_policy_v2",
       "price": {
-        "ageHours": 8.757,
+        "ageHours": 5.876,
         "breakEvenProbability": 0.52381,
         "decimalOdds": 1.909091,
         "eligibleForAlphaEstimate": false,
@@ -596,10 +625,10 @@
         "startTime": "2026-09-19T00:05Z",
         "tier": "D",
         "tierLabel": "assumed_proxy_or_synthetic",
-        "timestamp": "2026-09-18T15:19:34.325421Z",
+        "timestamp": "2026-09-18T18:12:25.780270Z",
         "timestampField": "pick.certification_timing.data_as_of",
         "twoSided": true,
-        "updatedAt": "2026-09-18T15:19:34.325421Z"
+        "updatedAt": "2026-09-18T18:12:25.780270Z"
       },
       "rawModelProbabilityIgnored": 0.6259,
       "result": "pending",
@@ -686,7 +715,7 @@
       "player": null,
       "policyVersion": "profit_desk_policy_v2",
       "price": {
-        "ageHours": 7.34,
+        "ageHours": 4.46,
         "breakEvenProbability": 0.545455,
         "decimalOdds": 1.833333,
         "eligibleForAlphaEstimate": false,
@@ -705,10 +734,10 @@
         "startTime": "2026-09-18T22:40Z",
         "tier": "D",
         "tierLabel": "assumed_proxy_or_synthetic",
-        "timestamp": "2026-09-18T15:19:34.325421Z",
+        "timestamp": "2026-09-18T18:12:25.780270Z",
         "timestampField": "pick.certification_timing.data_as_of",
         "twoSided": false,
-        "updatedAt": "2026-09-18T15:19:34.325421Z"
+        "updatedAt": "2026-09-18T18:12:25.780270Z"
       },
       "rawModelProbabilityIgnored": 0.594,
       "result": "pending",
@@ -795,7 +824,7 @@
       "player": null,
       "policyVersion": "profit_desk_policy_v2",
       "price": {
-        "ageHours": 10.34,
+        "ageHours": 7.46,
         "breakEvenProbability": 0.545455,
         "decimalOdds": 1.833333,
         "eligibleForAlphaEstimate": false,
@@ -814,10 +843,10 @@
         "startTime": "2026-09-19T01:40Z",
         "tier": "D",
         "tierLabel": "assumed_proxy_or_synthetic",
-        "timestamp": "2026-09-18T15:19:34.325421Z",
+        "timestamp": "2026-09-18T18:12:25.780270Z",
         "timestampField": "pick.certification_timing.data_as_of",
         "twoSided": false,
-        "updatedAt": "2026-09-18T15:19:34.325421Z"
+        "updatedAt": "2026-09-18T18:12:25.780270Z"
       },
       "rawModelProbabilityIgnored": 0.567,
       "result": "pending",
@@ -906,7 +935,7 @@
       "player": null,
       "policyVersion": "profit_desk_policy_v2",
       "price": {
-        "ageHours": 8.84,
+        "ageHours": 5.96,
         "breakEvenProbability": 0.52381,
         "decimalOdds": 1.909091,
         "eligibleForAlphaEstimate": false,
@@ -927,10 +956,10 @@
         "startTime": "2026-09-19T00:10Z",
         "tier": "D",
         "tierLabel": "assumed_proxy_or_synthetic",
-        "timestamp": "2026-09-18T15:19:34.325421Z",
+        "timestamp": "2026-09-18T18:12:25.780270Z",
         "timestampField": "pick.certification_timing.data_as_of",
         "twoSided": true,
-        "updatedAt": "2026-09-18T15:19:34.325421Z"
+        "updatedAt": "2026-09-18T18:12:25.780270Z"
       },
       "rawModelProbabilityIgnored": 0.6329,
       "result": "pending",
@@ -947,7 +976,7 @@
   "date": "2026-09-18",
   "engineVersion": "profit_desk_v2_live",
   "firstLiveDate": "2026-07-11",
-  "generatedAt": "2026-09-18T15:40:25.233288Z",
+  "generatedAt": "2026-09-18T18:12:25.780270Z",
   "notices": [
     "Qualified picks carry real flat stakes: EDGE 1.0u, VALUE 0.5u; everything else stays 0u.",
     "The market price is the baseline; historical residual alpha is shrunk and uncertainty-adjusted.",
@@ -3023,7 +3052,7 @@
     }
   ],
   "summary": {
-    "avoid": 6,
+    "avoid": 5,
     "candidateCount": 8,
     "candidatesEvaluated": 8,
     "deduplicatedPicks": 1,
@@ -3076,23 +3105,23 @@
         "watchlist": 0
       },
       "team": {
-        "avoid": 6,
+        "avoid": 5,
         "candidateCount": 7,
         "candidates": 7,
         "candidatesEvaluated": 7,
         "edgeQualified": 0,
         "evidenceRows": 2716,
         "liveQualified": 0,
-        "observedPriceCandidates": 1,
+        "observedPriceCandidates": 2,
         "portfolioCandidates": 0,
         "researchQualified": 0,
         "selected": 0,
         "shadowQualified": 0,
         "valueQualified": 0,
-        "watchlist": 1
+        "watchlist": 2
       }
     },
-    "observedPriceCandidates": 2,
+    "observedPriceCandidates": 3,
     "portfolioCandidates": 1,
     "researchQualified": 1,
     "researchRecord": {
@@ -3124,6 +3153,6 @@
     },
     "sourcesTracked": 35,
     "valueQualified": 1,
-    "watchlist": 1
+    "watchlist": 2
   }
 }
