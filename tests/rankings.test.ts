@@ -257,15 +257,17 @@ test('Best Bets Research historically counts PASS, not only juice favorites', ()
     item.probability == null ? null : Number(item.probability)
   );
   assert.equal(isDailyResearchCandidate(passWin, 0.74), true);
-  assert.equal(isDailyResearchCandidate(passMid, 0.55), true);
+  // Mid-probability PASS reaches Research only as a slate probability leader,
+  // never through the queue, so the queue cannot swell to every sit-out.
+  assert.equal(isDailyResearchCandidate(passMid, 0.55), false);
   assert.equal(isDailyResearchCandidate(juiceWin, 0.72), true);
   assert.deepEqual(dailyResearchPool(publishedOnly, probabilityOf).map(item => item.id), ['juice-bet-win']);
   assert.deepEqual(
     dailyResearchPool(posted, probabilityOf).map(item => item.id).sort(),
-    ['f5-pass-mid', 'f5-pass-win', 'juice-bet-win', 'tt-pass-loss'],
+    ['f5-pass-win', 'juice-bet-win', 'tt-pass-loss'],
   );
   assert.deepEqual(record(dailyResearchPool(posted, probabilityOf)), {
-    wins: 3,
+    wins: 2,
     losses: 1,
     pending: 0,
     net: 0,

@@ -59,14 +59,18 @@ def test_best_bets_filter_records_replay_settled_slates_at_the_footer():
     main = (ROOT / "src" / "main.ts").read_text(encoding="utf-8")
     css = (ROOT / "src" / "styles" / "pickledger.css").read_text(encoding="utf-8")
 
-    assert "const DAILY_FILTER_LEDGER_KEY = 'pickledger_bestbets_filter_ledger_v3'" in main
+    assert "const DAILY_FILTER_LEDGER_KEY = 'pickledger_bestbets_filter_ledger_v4'" in main
+    assert "const RESEARCH_PASS_LEADERS = 8;" in main
+    assert "const passLeaders = activePickMode === 'team'" in main
+    assert "[...researchQueue, ...passLeaders, ...playerResearchPool" in main
     assert "function invertFadePick(" in main
     assert "function computeDailyFilterLedger(" in main
     assert "function dailyFilterRecordsHtml(" in main
     assert "localStorage.setItem(DAILY_FILTER_LEDGER_KEY" in main
     assert "function isTeamRankingWindowPick(" in (ROOT / "src" / "rankings.ts").read_text(encoding="utf-8")
     rankings = (ROOT / "src" / "rankings.ts").read_text(encoding="utf-8")
-    assert "if (decision === 'PASS') return true;" in rankings
+    assert "if (decision === 'PASS') return true;" not in rankings
+    assert "probability >= 0.6" in rankings
     assert "function isBestBetsWindowPick(" in main
     assert ".filter(isBestBetsWindowPick)" in main
     assert "buildDailyShortlist(date, false)" in main

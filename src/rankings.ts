@@ -82,10 +82,9 @@ export function rankingDecisionMatches(pick: Pick, filter: RankingDecisionFilter
   return decision === filter;
 }
 
-/** Best Bets Research: in-house PASS (F5, team totals, sit-outs) plus juice favorites. */
+/** Best Bets Research: high-probability sit-outs plus juice favorites. */
 export function isDailyResearchCandidate(pick: Pick, probability: number | null): boolean {
   const decision = rankingDecisionOf(pick);
-  if (decision === 'PASS') return true;
   const unpublished = decision !== 'BET' && decision !== 'LEAN';
   const highProbPass = unpublished && probability != null && probability >= 0.6;
   const priceyFavorite = pick.odds != null && pick.odds <= -300;
