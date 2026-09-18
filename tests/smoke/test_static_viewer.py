@@ -73,6 +73,11 @@ def test_best_bets_filter_records_replay_settled_slates_at_the_footer():
     assert "openOnly ? picks.filter(isOpenPick)" not in shortlist
     assert "featuredGroups: visibleGroups(featuredGroups)" in shortlist
     assert "researchGroups: visibleGroups(researchGroups)" in shortlist
+    # PASS research cards have no BET/LEAN twin, so they must be grouped
+    # against every posted call or they vanish from the board and the record.
+    assert "dailyPickGroups(researchCandidates, tagsById, formsBySource, posted)" in shortlist
+    assert "dailyPickGroups(researchCandidates, tagsById, formsBySource, slate)" not in shortlist
+    assert "[...allPicks, ...picks].forEach(pick => pool.set(pick.id, pick));" in main
     assert "function computeDailyFilterBuckets(" in main
     assert "buckets[key].filter(matchesDailyDecisionFilter)" in main
     assert "function pickResultChip(" in main

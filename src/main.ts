@@ -2373,8 +2373,12 @@ function dailyPickGroups(
   allPicks: Pick[] = picks,
 ): DailyPickGroup[] {
   const includedKeys = new Set(picks.map(dailyPickKey));
+  // Every candidate always forms a group; the wider pool only adds the other
+  // sources on the same market.
+  const pool = new Map<string, Pick>();
+  [...allPicks, ...picks].forEach(pick => pool.set(pick.id, pick));
   const groups = new Map<string, Pick[]>();
-  allPicks.filter(pick => includedKeys.has(dailyPickKey(pick)))
+  [...pool.values()].filter(pick => includedKeys.has(dailyPickKey(pick)))
     .forEach(pick => groups.set(dailyPickKey(pick), [...(groups.get(dailyPickKey(pick)) || []), pick]));
   return [...groups.entries()].map(([key, groupedPicks]) => {
     const bySource = new Map<string, Pick>();
@@ -3226,7 +3230,10 @@ function buildDailyShortlist(date: string, openOnly: boolean) {
       .filter(pick => !topKeys.has(dailyPickKey(pick)))
       .map(pick => [pick.id, pick]),
   ).values()];
-  const researchGroups = sortDailyGroups(dailyPickGroups(researchCandidates, tagsById, formsBySource, slate));
+  // Group Research against every posted call, not the BET/LEAN slate: a PASS
+  // sit-out has no BET/LEAN twin on its market, so grouping against the slate
+  // silently dropped every research card from the board and the record.
+  const researchGroups = sortDailyGroups(dailyPickGroups(researchCandidates, tagsById, formsBySource, posted));
   const hotForms = forms.filter(form => form.todayCalls.length)
     .sort(compareDailySourceForms)
     .slice(0, 8);
