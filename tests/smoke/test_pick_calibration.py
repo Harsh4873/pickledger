@@ -506,3 +506,97 @@ def test_downgrade_exempt_model_keeps_model_decision_and_units():
     assert adjusted["probability"] == 0.7
     assert adjusted["calibration"]["key"] == "identity_bootstrap"
     assert adjusted["calibration"]["applied"] is True
+
+
+def test_recalibration_reads_the_current_publication_not_the_stale_snapshot():
+    """An intraday PASS->LEAN upgrade must be judged on the row being published.
+
+    Regression for 2026-08 WNBA rows (and NFL 2026-09-13) that published as
+    LEAN at 0u with negative edge: the snapshot said PASS/0u, so the downgrade
+    never fired while the stale snapshot units drove the stake to zero.
+    """
+    active = {
+        "version": "test-v5",
+        "minimum_group_samples": 30,
+        "global": {"intercept": -0.9, "slope": 1.0, "samples": 100},
+        "groups": {},
+    }
+    stale_snapshot = _pick(decision="PASS", units=0.0, probability=0.5, edge=-2.4)
+    upgraded = _pick(decision="LEAN", units=0.25, probability=0.57, edge=4.6)
+    upgraded["pregame_snapshot"] = stale_snapshot
+    payload = {"models": {"wnba_player_props": {"picks": [upgraded]}}}
+
+    apply_calibration_to_payload(payload, active)
+    adjusted = payload["models"]["wnba_player_props"]["picks"][0]
+
+    # The shift is computed from the fresh 0.57, not the snapshot's 0.50 …
+    assert adjusted["raw_probability"] == 0.57
+    assert adjusted["raw_decision"] == "LEAN"
+    assert adjusted["pregame_snapshot"]["decision"] == "PASS"
+    # … and a shrunk edge below the floor downgrades the live LEAN to PASS/0u
+    # instead of leaving a 0u LEAN on the board.
+    assert adjusted["edge"] < 3
+    assert adjusted["decision"] == "PASS"
+    assert adjusted["units"] == 0
+
+
+def test_recalibration_is_idempotent_on_an_already_calibrated_row():
+    active = {
+        "version": "test-v6",
+        "minimum_group_samples": 30,
+        "global": {"intercept": -0.55, "slope": 1.0, "samples": 100},
+        "groups": {},
+    }
+    payload = {"models": {"mlb_player_props": {"picks": [_pick()]}}}
+    apply_calibration_to_payload(payload, active)
+    first = dict(payload["models"]["mlb_player_props"]["picks"][0])
+    apply_calibration_to_payload(payload, active)
+    second = payload["models"]["mlb_player_props"]["picks"][0]
+    assert second["probability"] == first["probability"]
+    assert second["decision"] == first["decision"] == "LEAN"
+    assert second["units"] == first["units"]
+    assert second["raw_decision"] == "BET"
+
+
+def test_in_house_team_models_bootstrap_as_identity_not_global():
+    active = {
+        "version": "test-v7",
+        "minimum_group_samples": 30,
+        "global": {"intercept": -1.0, "slope": 1.0, "samples": 100},
+        "groups": {},
+    }
+    payload = {"models": {
+        "nba": {"picks": [_pick(sport="NBA", market="spread", odds=-110, units=0.5)]},
+        "mls": {"picks": [_pick(sport="MLS", market="total", odds=-115, units=0.5, calibration_excluded=True)]},
+        "mlb_player_props": {"picks": [_pick()]},
+    }}
+    apply_calibration_to_payload(payload, active)
+    nba = payload["models"]["nba"]["picks"][0]
+    assert nba["calibration"]["key"] == "identity_bootstrap"
+    assert nba["probability"] == 0.7
+    assert nba["decision"] == "BET"
+    props = payload["models"]["mlb_player_props"]["picks"][0]
+    assert props["calibration"]["key"] == "global"
+    assert props["probability"] < 0.7
+
+
+def test_excluded_team_models_still_get_an_immutable_first_publication_snapshot():
+    active = {
+        "version": "test-v8",
+        "minimum_group_samples": 30,
+        "global": {"intercept": -1.0, "slope": 1.0, "samples": 100},
+        "groups": {},
+    }
+    mls = _pick(sport="MLS", market="total", decision="LEAN", units=0.25)
+    nfl = _pick(sport="NFL", market="totals", decision="LEAN", units=0.25, calibration_excluded=True)
+    payload = {"models": {"mls": {"picks": [mls]}, "nfl": {"picks": [nfl]}}}
+    apply_calibration_to_payload(payload, active)
+    for pick in (mls, nfl):
+        assert pick["probability"] == 0.7  # no Platt shift
+        assert "calibration" not in pick
+        assert pick["pregame_snapshot"]["decision"] == "LEAN"
+        assert pick["pregame_snapshot"]["probability"] == 0.7
+    # A later refresh keeps the first snapshot rather than overwriting it.
+    mls["decision"] = "PASS"
+    apply_calibration_to_payload(payload, active)
+    assert mls["pregame_snapshot"]["decision"] == "LEAN"

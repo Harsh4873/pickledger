@@ -117,19 +117,32 @@ def _game_lookup(bucket: dict[str, Any]) -> dict[str, dict[str, Any]]:
 
 
 def _line_is_assumed(pick: dict[str, Any]) -> bool:
+    """A model-invented line/price, unless the attach step replaced it.
+
+    ``user_assumed`` ladder prices stay evaluable here (the post-attach
+    unpriced-stake demotion in the refresh pipeline turns any that were never
+    replaced by a posted price into research); a total whose *line* came from
+    the model's own output (``market_total_source: model_output``) never was a
+    market and is blocked outright.
+    """
+
+    if pick.get("assumed_odds_replaced") is True:
+        return False
     pricing = str(pick.get("pricing_type") or "").strip().lower()
     odds_source = str(pick.get("odds_source") or "").strip().lower()
     line_source = str(pick.get("line_source") or "").strip().lower()
+    total_source = str(pick.get("market_total_source") or "").strip().lower()
     return (
         pricing == "assumed"
         or odds_source == "default_assumed"
+        or total_source == "model_output"
         or line_source in {"in_house_projection", "in_house_probability_baseline", "model_generated"}
         or pick.get("market_priced") is False
     )
 
 
 def _reliable_market_price(pick: dict[str, Any], model_key: str) -> bool:
-    if model_key in {"mlb_first_five", "mlb_inning"} and _line_is_assumed(pick):
+    if _line_is_assumed(pick):
         return False
     if normalize_probability(pick.get("market_pick_prob")) is not None:
         return True
@@ -137,12 +150,7 @@ def _reliable_market_price(pick: dict[str, Any], model_key: str) -> bool:
         return True
     if normalize_probability(pick.get("market_implied_probability")) is not None:
         return True
-    odds = _number(pick.get("odds"))
-    if odds is None:
-        return False
-    if model_key == "mlb_new":
-        return True
-    return not _line_is_assumed(pick)
+    return _number(pick.get("odds")) is not None
 
 
 def _selected_side_implied_probability(pick: dict[str, Any], model_key: str) -> float | None:

@@ -215,6 +215,19 @@ def _blend(model: float, market: float | None, weight: float) -> float:
     return (1.0 - weight) * model + weight * market
 
 
+# Live audit 2026-09-19 (priced, settled, staked rows since launch):
+# moneyline 8-16-1 / -44.5% flat (certified ledger 37 rows / -42.0%), a 33%
+# realised win rate against a 57.6% break-even at the average -87 posted; the
+# training backtest's own price-capped table never cleared the break-even
+# implied by the -250 cap at any threshold. Moneyline publishes as research.
+MONEYLINE_RESEARCH_ONLY = True
+# Grid markets (total/handicap): rows the model itself priced worse than the
+# market went 24-27-1 / -24.6% while rows with non-negative model-vs-market
+# edge went 53-32-1 / +7.5% on totals, stable in both chronological halves.
+# The confidence gate stays; a negative edge is never staked.
+GRID_MIN_EDGE_PP = 0.0
+
+
 def _decision(
     blended: float,
     bet_threshold: float,
@@ -222,8 +235,12 @@ def _decision(
     priced: bool,
     implied: float | None = None,
     max_implied: float | None = None,
+    edge_pp: float | None = None,
+    min_edge_pp: float | None = None,
 ) -> str:
     if implied is not None and max_implied is not None and implied > max_implied:
+        return "PASS"
+    if min_edge_pp is not None and edge_pp is not None and edge_pp < min_edge_pp:
         return "PASS"
     if blended >= bet_threshold and priced:
         return "BET"
@@ -377,11 +394,12 @@ def generate_mls_picks(
         side_team = game["home_name"] if side == "home" else game["away_name"]
         ml_odds = _american_odds(_closed_market_value(odds, "moneyline", side))
         ml_priced = ml_odds is not None and market_by_side[side] is not None
-        ml_decision = _decision(
+        ml_model_decision = _decision(
             blended_1x2[side], ml_bet, ml_lean, ml_priced,
             implied=american_to_probability(ml_odds), max_implied=max_implied)
         if not ratings_ready:
-            ml_decision = "PASS"
+            ml_model_decision = "PASS"
+        ml_decision = "PASS" if MONEYLINE_RESEARCH_ONLY else ml_model_decision
         side_form = home_form if side == "home" else away_form
         picks.append({
             **common,
@@ -396,6 +414,8 @@ def generate_mls_picks(
             "draw_probability": round(blended_1x2["draw"], 4),
             "edge": _edge_pp(model_1x2[side], market_by_side[side]),
             "decision": ml_decision,
+            "model_decision": ml_model_decision,
+            "decision_reason": "research_only:moneyline_unprofitable_at_posted_prices" if MONEYLINE_RESEARCH_ONLY else "confidence_gate",
             "units": _units(blended_1x2[side], ml_lean, ml_decision),
             "reason": (
                 f"Dixon-Coles rates this {lam:.2f}-{mu:.2f}; blended with the posted 3-way "
@@ -429,9 +449,11 @@ def generate_mls_picks(
             blended = _blend(model_prob, market_prob, blend_weight)
             total_odds = _american_odds(_closed_market_value(odds, "total", model_side))
             priced = total_odds is not None and market_prob is not None
+            total_edge = _edge_pp(model_prob, market_prob)
             total_decision = _decision(
                 blended, grid_bet, grid_lean, priced,
-                implied=american_to_probability(total_odds), max_implied=max_implied)
+                implied=american_to_probability(total_odds), max_implied=max_implied,
+                edge_pp=total_edge, min_edge_pp=GRID_MIN_EDGE_PP)
             if not ratings_ready:
                 total_decision = "PASS"
             picks.append({
@@ -446,8 +468,12 @@ def generate_mls_picks(
                 "model_probability": round(model_prob, 4),
                 "market_probability": round(market_prob, 4) if market_prob is not None else None,
                 "push_probability": round(split["push"], 4),
-                "edge": _edge_pp(model_prob, market_prob),
+                "edge": total_edge,
                 "decision": total_decision,
+                "decision_reason": (
+                    "negative_model_edge" if total_edge is not None and total_edge < GRID_MIN_EDGE_PP
+                    else "confidence_gate"
+                ),
                 "units": _units(blended, grid_lean, total_decision),
                 "reason": (
                     f"Score grid projects {lam:.2f}-{mu:.2f} ({lam + mu:.2f} total); "
@@ -489,9 +515,11 @@ def generate_mls_picks(
             spread = max(spread_candidates, key=lambda item: item["blended"])
             spread_team = game["home_name"] if spread["side"] == "home" else game["away_name"]
             priced = spread["odds"] is not None and spread["market_prob"] is not None
+            spread_edge = _edge_pp(spread["model_prob"], spread["market_prob"])
             spread_decision = _decision(
                 spread["blended"], grid_bet, grid_lean, priced,
-                implied=american_to_probability(spread["odds"]), max_implied=max_implied)
+                implied=american_to_probability(spread["odds"]), max_implied=max_implied,
+                edge_pp=spread_edge, min_edge_pp=GRID_MIN_EDGE_PP)
             if not ratings_ready:
                 spread_decision = "PASS"
             line_label = f"{spread['line']:+g}"
@@ -507,8 +535,12 @@ def generate_mls_picks(
                 "model_probability": round(spread["model_prob"], 4),
                 "market_probability": round(spread["market_prob"], 4) if spread["market_prob"] is not None else None,
                 "push_probability": round(spread["push"], 4),
-                "edge": _edge_pp(spread["model_prob"], spread["market_prob"]),
+                "edge": spread_edge,
                 "decision": spread_decision,
+                "decision_reason": (
+                    "negative_model_edge" if spread_edge is not None and spread_edge < GRID_MIN_EDGE_PP
+                    else "confidence_gate"
+                ),
                 "units": _units(spread["blended"], grid_lean, spread_decision),
                 "reason": (
                     f"{spread_team} {line_label} covers {spread['blended']:.1%} blended "

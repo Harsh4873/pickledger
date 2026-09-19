@@ -32,6 +32,7 @@ SUPPORTED_MODEL_KEYS = (
     "fifa_world_cup",
     "nba_summer",
     "cfb",
+    "nfl",
 )
 UNVERSIONED = "unversioned"
 
@@ -42,13 +43,25 @@ UNVERSIONED = "unversioned"
 # any model formula or synthesize missing values.
 FEATURE_CONTRACTS: dict[str, dict[str, Any]] = {
     "cfb": {
-        "contract_version": "cfb_v1_market_free_serving_groups",
+        "contract_version": "cfb_v2_market_anchored_serving_groups",
         "groups": (
             ("scoring_state", ("home_offense_ewma", "home_defense_ewma", "away_offense_ewma", "away_defense_ewma")),
             ("opponent_adjustment", ("schedule_strength_diff", "elo_diff")),
             ("sample_size", ("home_games_log", "away_games_log")),
             ("rest", ("home_rest_days", "away_rest_days", "rest_diff")),
             ("game_context", ("neutral_site", "conference_game", "week")),
+            ("market_anchor", ("market_home_line", "market_total_line")),
+        ),
+    },
+    "nfl": {
+        "contract_version": "nfl_v1_epa_elo_market_anchored_serving_groups",
+        "groups": (
+            ("rating_state", ("elo_diff", "net_rating_diff")),
+            ("epa_state", ("epa_net_diff", "epa_off_diff", "epa_def_diff", "epa_total_env")),
+            ("matchups", ("pass_matchup_home", "pass_matchup_away", "rush_matchup_home", "rush_matchup_away", "cpoe_diff")),
+            ("availability", ("home_qb_change", "away_qb_change", "games_min")),
+            ("schedule_context", ("rest_diff", "div_game", "week", "roof_dome")),
+            ("market_anchor", ("spread_line", "total_line", "elo_minus_spread")),
         ),
     },
     "mlb_new": {

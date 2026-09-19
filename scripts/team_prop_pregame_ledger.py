@@ -39,6 +39,11 @@ TEAM_PROP_MODEL_KEYS = {
     "mlb_first_five",
     "mlb_team_total",
     "wnba",
+    # nba / nba_playoffs added 2026-09-19: without trusted per-pick timing
+    # 0 of 5,135 ledger records were NBA, so the October book would have
+    # started uncertified. Their rows carry aware game_start_time values.
+    "nba",
+    "nba_playoffs",
     "nba_summer",
     "fifa_world_cup",
     "mls",
@@ -362,6 +367,8 @@ def _price_fields(pick: Mapping[str, Any]) -> dict[str, Any]:
     fields = (
         "odds",
         "assumed_odds",
+        "model_assumed_odds",
+        "assumed_odds_replaced",
         "line",
         "market_line",
         "market_total_line",
@@ -376,6 +383,25 @@ def _price_fields(pick: Mapping[str, Any]) -> dict[str, Any]:
         "market_priced",
     )
     return {field: copy.deepcopy(pick.get(field)) for field in fields if field in pick}
+
+
+def _odds_still_assumed(price: Mapping[str, Any]) -> bool:
+    """The published odds equal the model's own placeholder and were never replaced.
+
+    Mirrors ``market_odds._looks_assumed`` so the ledger and the attach step
+    agree about the same row; 17 records were certified at exactly +100 with
+    ``model_assumed_odds: 100`` sitting in the record.
+    """
+
+    if price.get("assumed_odds_replaced") is True:
+        return False
+    odds = _number(price.get("odds"))
+    if odds is None:
+        return False
+    return any(
+        _number(price.get(field)) is not None and _number(price.get(field)) == odds
+        for field in ("assumed_odds", "model_assumed_odds")
+    )
 
 
 def _price_marker_text(price: Mapping[str, Any]) -> str:
@@ -403,11 +429,14 @@ def _price_eligibility(pick: Mapping[str, Any], price: Mapping[str, Any]) -> tup
     elif _number(price.get("odds")) is None:
         financial = False
         financial_reason = "missing_observed_odds"
+    elif _odds_still_assumed(price):
+        financial = False
+        financial_reason = "assumed_or_proxy_price"
     else:
-        has_market_probability = any(
-            _number(price.get(field)) is not None
-            for field in ("market_pick_prob", "market_probability", "market_implied_probability")
-        )
+        # Only explicit odds provenance proves the price was executable. A
+        # model-published market probability is benchmark context, never proof
+        # that the odds were posted: 259 MLS handicap records with no odds
+        # provenance were being certified as observed_executable_price.
         explicit_market = price.get("market_priced") is True or _norm(price.get("pricing_type")) in {
             "market",
             "sportsbook",
@@ -415,7 +444,7 @@ def _price_eligibility(pick: Mapping[str, Any], price: Mapping[str, Any]) -> tup
             "observed",
             "executable",
         }
-        financial = bool(explicit_market or has_market_probability)
+        financial = bool(explicit_market)
         financial_reason = "observed_executable_price" if financial else "unverified_price_provenance"
 
     has_observed_probability = any(

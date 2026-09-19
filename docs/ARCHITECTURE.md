@@ -53,16 +53,30 @@ Model and feed refreshes:
 
 1. Generate JSON without Firestore writes.
 2. Reset to the latest `main`.
-3. Merge the generated payload.
-4. Attach real pregame market prices (`scripts/market_odds.py`): both
+3. Freeze started games: in-house team rows whose kickoff has already passed
+   at refresh time are dropped from the generated payload so the merge keeps
+   the rows published before kickoff. A late refresh can never publish or
+   re-decide a live game.
+4. Merge the generated payload.
+5. Attach real pregame market prices (`scripts/market_odds.py`): both
    moneylines, total over/under prices, spreads, and MLB first-5-innings
    markets from the ESPN scoreboard/prop feeds. Scraped picks keep their own
    executable odds and gain a verifiable two-sided baseline; in-house model
    picks with assumed prices have them replaced by the real observed price
    for their exact market and line. Captured pregame prices are preserved by
-   the merge layer once a game goes live.
-4. Preserve existing `result`, `start_time`, and `game_start_time` fields for matching picks.
-5. Commit and push as the triggering GitHub actor.
+   the merge layer once a game goes live. Capture is gated on the wall clock,
+   not only on the provider's status flag.
+6. Preserve existing `result`, `start_time`, and `game_start_time` fields for matching picks.
+7. Demote unpriced stakes: after the attach, an in-house BET/LEAN whose price
+   is still missing or still equal to the model's own placeholder becomes
+   PASS at 0u (`unpriced_demoted`, `source_decision` preserved). A stake nobody
+   can place is research.
+8. Commit and push as the triggering GitHub actor.
+
+NFL and CFB mint stakes only through `decision_policy` segments that their
+training scripts validated out of fold at recorded prices (see
+`docs/model-audit-2026-09.md`); moneyline and spread rows for both sports
+publish as PASS research.
 
 For the audited in-house team-model buckets (`mlb_new`, `mlb_first_five`,
 `mlb_inning`, `fifa_world_cup`, and `nba_summer`), the model refresh also

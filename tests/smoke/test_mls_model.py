@@ -314,26 +314,38 @@ def test_serving_bucket_contract(serving_fixture):
     assert priced["total"]["push_probability"] == pytest.approx(0.0)
     assert priced["spread"]["line"] in (-0.5, 0.5)
 
-    # STRONG crushes WEAK every meeting: the blended probability must clear
-    # the BET gate at a -130 price (implied 0.565 < cap).
-    assert moneyline["decision"] == "BET"
+    # STRONG crushes WEAK every meeting: the blended probability clears the
+    # BET gate at a -130 price (implied 0.565 < cap) — but the moneyline is
+    # research-only at posted prices (8-16-1 / -44.5% live), so the model's
+    # gate result is kept as model_decision while the published row is PASS.
+    assert moneyline["model_decision"] == "BET"
+    assert moneyline["decision"] == "PASS" and moneyline["units"] == 0.0
+    assert moneyline["decision_reason"].startswith("research_only")
 
-    # Unpriced game: moneyline only (no fabricated total/spread lines), and
-    # the decision is capped at LEAN even at overwhelming model confidence.
+    # Unpriced game: moneyline only (no fabricated total/spread lines).
     unpriced = by_game["g2"]
     assert set(unpriced) == {"moneyline"}
     assert unpriced["moneyline"]["odds"] is None
     assert unpriced["moneyline"]["market_probability"] is None
     assert unpriced["moneyline"]["edge"] is None
-    assert unpriced["moneyline"]["decision"] in {"LEAN", "PASS"}
+    assert unpriced["moneyline"]["model_decision"] in {"LEAN", "PASS"}
+    assert unpriced["moneyline"]["decision"] == "PASS"
 
     # Heavy juice: -400 implied 0.80 breaches the fixed cap, so the moneyline
     # can never publish decided, regardless of confidence.
     juiced = by_game["g3"]
     assert juiced["moneyline"]["odds"] == -400
-    assert juiced["moneyline"]["decision"] == "PASS"
+    assert juiced["moneyline"]["model_decision"] == "PASS"
     # The same game's fairly-priced total is still allowed to decide.
     assert juiced["total"]["odds"] in (-110,)
+    # Grid markets never stake a row the model itself prices worse than the market.
+    for game in by_game.values():
+        for market in ("total", "spread"):
+            row = game.get(market)
+            if row is None or row["edge"] is None:
+                continue
+            if row["edge"] < 0:
+                assert row["decision"] == "PASS" and row["decision_reason"] == "negative_model_edge"
 
     summaries = {summary["game_id"] for summary in bucket["games"]}
     assert summaries == {"g1", "g2", "g3"}
@@ -359,3 +371,17 @@ def test_serving_empty_slate(serving_fixture):
     assert bucket["ok"] is True
     assert bucket["picks"] == []
     assert "No MLS games" in bucket["note"]
+
+
+def test_grid_decision_requires_non_negative_model_edge():
+    from MLSPredictionModel.mls_model import GRID_MIN_EDGE_PP, MONEYLINE_RESEARCH_ONLY, _decision
+
+    assert MONEYLINE_RESEARCH_ONLY is True
+    # Confidence clears both gates, but the model prices the side worse than
+    # the market: live, such rows went 24-27-1 / -24.6%.
+    assert _decision(0.62, 0.58, 0.545, True, implied=0.57, max_implied=0.75, edge_pp=-1.2, min_edge_pp=GRID_MIN_EDGE_PP) == "PASS"
+    assert _decision(0.62, 0.58, 0.545, True, implied=0.57, max_implied=0.75, edge_pp=0.0, min_edge_pp=GRID_MIN_EDGE_PP) == "BET"
+    assert _decision(0.55, 0.58, 0.545, True, implied=0.57, max_implied=0.75, edge_pp=3.1, min_edge_pp=GRID_MIN_EDGE_PP) == "LEAN"
+    # Without a market probability there is no edge to test; the juice cap still applies.
+    assert _decision(0.62, 0.58, 0.545, False, edge_pp=None, min_edge_pp=GRID_MIN_EDGE_PP) == "LEAN"
+    assert _decision(0.62, 0.58, 0.545, True, implied=0.80, max_implied=0.75, edge_pp=5.0, min_edge_pp=GRID_MIN_EDGE_PP) == "PASS"

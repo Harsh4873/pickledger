@@ -225,3 +225,83 @@ def test_nba_schedule_falls_back_when_scoreboard_row_is_incomplete(monkeypatch):
     assert games[0]["away_team"] == "Knicks"
     assert games[0]["home_team"] == "Spurs"
     assert games[0]["schedule_source"] == "ESPN scoreboard fallback"
+
+
+def _nba_new_output(model_total: float = 214.0) -> str:
+    return "\n".join([
+        "GAME: Grizzlies @ Pistons (7:30 pm ET)",
+        "**Winner:** Pistons (Model Prob: 66.0%)",
+        "**Spread:** Pistons by 5.0 points",
+        "**Model Confidence:** 66.0%",
+        "**Decision: BET**",
+        f"- **Total:** {model_total:.1f} O/U",
+        "**O/U Decision: BET UNDER**",
+    ])
+
+
+def test_nba_new_no_market_row_is_provisional_and_labelled_unpriced(monkeypatch):
+    """Confidence alone must never mint a placeable stake: the row is labelled
+    unpriced so the refresh pipeline demotes it unless a posted price attaches
+    (the lone live 2026 row published BET, odds null, 1.13u, graded a loss)."""
+    import pickgrader_server as ps
+    from scripts.merge_model_cache_payload import demote_unpriced_team_model_picks
+
+    monkeypatch.setattr(ps, "_sl_get_spread", lambda h, a, league: (None, None, None))
+    monkeypatch.setattr(ps, "_sl_get_ml", lambda h, a, league: (None, None))
+    monkeypatch.setattr(ps, "_sl_get_total", lambda h, a, league: (None, None))
+    monkeypatch.setattr(ps, "_nba_fatigue_multiplier", lambda *args: None)
+
+    picks = ps._parse_nba_output(_nba_new_output(), source_label="NBA New")
+    side = [p for p in picks if p.get("market_type") != "totals"][0]
+    assert side["decision"] in ("LEAN", "BET")
+    assert side["odds"] is None
+    assert side["pricing_type"] == "unpriced" and side["market_priced"] is False
+    assert side["decision_basis"] == "model_conviction_pending_price"
+    # No total row is invented when there is no market total.
+    assert not [p for p in picks if p.get("market_type") == "totals"]
+
+    payload = {"models": {"nba": {"picks": picks}}}
+    assert demote_unpriced_team_model_picks(payload) == 1
+    assert payload["models"]["nba"]["picks"][0]["decision"] == "PASS"
+    assert payload["models"]["nba"]["picks"][0]["units"] == 0
+
+
+def test_nba_new_total_and_spread_without_a_price_are_labelled_assumed(monkeypatch):
+    import pickgrader_server as ps
+    from scripts.market_odds import _looks_assumed
+
+    monkeypatch.setattr(ps, "_sl_get_spread", lambda h, a, league: (-4.5, 4.5, None))
+    monkeypatch.setattr(ps, "_sl_get_ml", lambda h, a, league: (None, None))
+    monkeypatch.setattr(ps, "_sl_get_total", lambda h, a, league: (220.5, None))
+    monkeypatch.setattr(ps, "_nba_fatigue_multiplier", lambda *args: None)
+
+    picks = ps._parse_nba_output(_nba_new_output(model_total=214.0), source_label="NBA New")
+    spread = [p for p in picks if p.get("market_line") == -4.5][0]
+    assert spread["odds"] == -110 and spread["assumed_odds"] == -110
+    assert spread["pricing_type"] == "assumed" and spread["market_priced"] is False
+    assert _looks_assumed(spread) is True
+
+    total = [p for p in picks if p.get("market_type") == "totals"][0]
+    assert total["odds"] == -110 and total["assumed_odds"] == -110
+    assert total["pricing_type"] == "assumed" and total["market_priced"] is False
+    assert total["direction"] == "Under"
+    # PASS totals are 0u research; staked totals scale with Kelly.
+    assert (total["units"] > 0) == (total["decision"] != "PASS")
+
+    priced = ps._parse_nba_output(_nba_new_output(model_total=205.0), source_label="NBA New")
+    monkeypatch.setattr(ps, "_sl_get_total", lambda h, a, league: (220.5, -108))
+    priced = ps._parse_nba_output(_nba_new_output(model_total=205.0), source_label="NBA New")
+    priced_total = [p for p in priced if p.get("market_type") == "totals"][0]
+    assert priced_total["odds"] == -108 and "assumed_odds" not in priced_total
+    assert priced_total["decision"] == "BET" and priced_total["units"] > 0
+
+
+def test_nba_buckets_are_certified_and_frozen_like_other_team_models():
+    from scripts.pick_calibration import GLOBAL_FALLBACK_EXEMPT_MODEL_KEYS
+    from scripts.refresh_model_cache import KICKOFF_FROZEN_MODEL_KEYS
+    from scripts.team_prop_pregame_ledger import TEAM_PROP_MODEL_KEYS
+
+    for key in ("nba", "nba_playoffs"):
+        assert key in TEAM_PROP_MODEL_KEYS
+        assert key in KICKOFF_FROZEN_MODEL_KEYS
+        assert key in GLOBAL_FALLBACK_EXEMPT_MODEL_KEYS

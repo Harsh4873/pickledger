@@ -153,3 +153,46 @@ def test_assumed_line_source_with_observed_market_odds_stays_financial(tmp_path)
     record = load_team_prop_pregame_ledger(tmp_path)["records"][0]
     assert record["financial_eligible"] is True
     assert record["calibration_eligible"] is True
+
+
+def test_market_probability_alone_never_proves_an_executable_price(tmp_path):
+    # 259 MLS handicap records carried a model-published market_probability
+    # and no odds provenance, yet were certified observed_executable_price.
+    payload = _payload()
+    pick = payload["models"]["mlb_new"]["picks"][0]
+    pick.pop("market_priced")
+    pick.pop("pricing_type")
+    pick.pop("odds_source")
+    pick["market_probability"] = 0.55
+    stamp_team_prop_pregame_timing(payload)
+    capture_team_prop_pregame_snapshots(payload, repo_root=tmp_path)
+
+    record = load_team_prop_pregame_ledger(tmp_path)["records"][0]
+    assert record["certification"]["status"] == "certified"
+    assert record["financial_eligible"] is False
+    assert record["financial_eligibility_reason"] == "unverified_price_provenance"
+    assert record["observed_american_odds"] is None
+    assert record["calibration_eligible"] is False
+
+
+def test_unreplaced_placeholder_odds_are_not_financial_but_replaced_ones_are(tmp_path):
+    placeholder = _payload()
+    pick = placeholder["models"]["mlb_new"]["picks"][0]
+    pick["odds"] = 100
+    pick["model_assumed_odds"] = 100
+    stamp_team_prop_pregame_timing(placeholder)
+    capture_team_prop_pregame_snapshots(placeholder, repo_root=tmp_path)
+
+    replaced = _payload(probability=0.6)
+    pick = replaced["models"]["mlb_new"]["picks"][0]
+    pick["odds"] = -110
+    pick["model_assumed_odds"] = -110  # the posted price happened to equal the placeholder
+    pick["assumed_odds_replaced"] = True
+    stamp_team_prop_pregame_timing(replaced)
+    capture_team_prop_pregame_snapshots(replaced, repo_root=tmp_path)
+
+    records = load_team_prop_pregame_ledger(tmp_path)["records"]
+    assert records[0]["financial_eligible"] is False
+    assert records[0]["financial_eligibility_reason"] == "assumed_or_proxy_price"
+    assert records[1]["financial_eligible"] is True
+    assert records[1]["observed_american_odds"] == -110.0

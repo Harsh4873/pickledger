@@ -27,7 +27,12 @@ MIN_GROUP_SAMPLES = 30
 # over 22,912 held-out matches), so re-shrinking it here would calibrate a
 # calibrated number twice. Its rows also carry calibration_excluded; the model
 # key is listed for belt-and-braces.
-CALIBRATION_EXCLUDED_MODEL_KEYS = {"fifa_world_cup", "mls", "forebet_mls", "tennis", "cfb"}
+# nfl added 2026-09-19: its heads are market-anchored and validated out of fold
+# (walk-forward Brier at market parity). The pooled cross-sport global fit was
+# shifting NFL probabilities ~3-4 points and re-deciding rows (LEAN at 0u with
+# negative edge on 2026-09-13); the model owns its decisions via
+# metadata.decision_policy and stamps calibration_excluded on every row.
+CALIBRATION_EXCLUDED_MODEL_KEYS = {"fifa_world_cup", "mls", "forebet_mls", "tennis", "cfb", "nfl"}
 # Research models with no real market (settlement at an assumed price only)
 # keep their calibrated probabilities for display, but the model's own
 # decision and stake publish untouched — there is no executable price for
@@ -52,7 +57,12 @@ DECISION_DOWNGRADE_EXEMPT_MODEL_KEYS = {"mlb_inning"}
 # global moneyline/totals fit (slope 0.85, intercept -0.16) was shrinking
 # honest ~59% no-run probabilities to ~54% and displaying negative edge on
 # BET rows. Identity until it earns its own no_run_inning group.
-GLOBAL_FALLBACK_EXEMPT_MODEL_KEYS = {"mlb_team_total", "mlb_new", "wnba", "mlb_inning"}
+# 2026-09-19 audit: every in-house team model now bootstraps as identity. The
+# pooled fit is dominated by player props and other sports; measured on settled
+# rows it worsened Brier for mlb_new (+0.0013) and mlb_team_total (+0.0012) and
+# shifted the lone live nba row 0.691 -> 0.651 without being able to touch its
+# unpriced decision. A model earns a shift only from its own calibration group.
+GLOBAL_FALLBACK_EXEMPT_MODEL_KEYS = {"mlb_team_total", "mlb_new", "wnba", "mlb_inning", "nba", "nba_playoffs"}
 ML_OWNED_PROBABILITY_SOURCE = "player_props_ml_v1"
 
 SNAPSHOT_EXCLUDED_FIELDS = {
@@ -61,6 +71,7 @@ SNAPSHOT_EXCLUDED_FIELDS = {
     "raw_probability",
     "raw_edge",
     "raw_units",
+    "raw_decision",
     "calibrated_probability",
     "calibration",
 }
@@ -217,10 +228,11 @@ def _calibration_parameters(
     group = groups.get(group_key)
     if isinstance(group, dict) and int(group.get("samples") or 0) >= int(active.get("minimum_group_samples") or MIN_GROUP_SAMPLES):
         return group_key, group
-    if str(model_key or "").strip().lower() in GLOBAL_FALLBACK_EXEMPT_MODEL_KEYS:
+    normalized_key = str(model_key or "").strip().lower()
+    if normalized_key in GLOBAL_FALLBACK_EXEMPT_MODEL_KEYS or normalized_key in TEAM_PROP_MODEL_KEYS:
         # Identity parameters (intercept 0 / slope 1) leave the raw probability
-        # untouched, so an exempt model publishes on its own signal instead of
-        # a borrowed cross-market shift until it earns its own group.
+        # untouched, so an in-house team model publishes on its own signal
+        # instead of a borrowed cross-market shift until it earns its own group.
         return "identity_bootstrap", {}
     return "global", active.get("global") or {}
 
@@ -235,7 +247,15 @@ def apply_calibration_to_pick(
         return pick
 
     snapshot = pick["pregame_snapshot"]
-    raw_probability = pick_probability(snapshot, raw=True)
+    # The snapshot is the immutable FIRST publication and may be stale by the
+    # time a later refresh re-runs the model. Calibration must describe the
+    # row actually being published now, so raw values come from the current
+    # pick and only fall back to the snapshot when the pick lacks them. Reading
+    # the stale snapshot here let intraday PASS->BET upgrades bypass the
+    # downgrade and publish as staked rows at 0u (16 WNBA rows, NFL 2026-09-13).
+    raw_probability = pick_probability(pick, raw=True)
+    if raw_probability is None:
+        raw_probability = pick_probability(snapshot, raw=True)
     if raw_probability is None:
         return pick
 
@@ -246,9 +266,19 @@ def apply_calibration_to_pick(
     adjusted = calibrated_probability(raw_probability, parameters)
     probability_delta = adjusted - raw_probability
 
-    raw_edge = _number(snapshot.get("edge"))
-    raw_units = _number(snapshot.get("units"))
-    implied = market_probability(snapshot)
+    raw_edge = _number(pick.get("raw_edge"))
+    if raw_edge is None:
+        raw_edge = _number(pick.get("edge")) if pick.get("calibration") is None else _number(snapshot.get("edge"))
+    if raw_edge is None:
+        raw_edge = _number(snapshot.get("edge"))
+    raw_units = _number(pick.get("raw_units"))
+    if raw_units is None:
+        raw_units = _number(pick.get("units")) if pick.get("calibration") is None else _number(snapshot.get("units"))
+    if raw_units is None:
+        raw_units = _number(snapshot.get("units"))
+    implied = market_probability(pick)
+    if implied is None:
+        implied = market_probability(snapshot)
     if implied is not None:
         adjusted_edge = (adjusted - implied) * 100
     elif raw_edge is not None:
@@ -275,13 +305,24 @@ def apply_calibration_to_pick(
             ratio = max(0.5, min(1.25, max(0.0, adjusted_edge or 0.0) / baseline_edge))
             pick["units"] = round(raw_units * ratio, 2)
 
-    raw_decision = str(snapshot.get("decision") or pick.get("decision") or "").strip().upper()
+    # The model's own decision for the row being published: the current pick
+    # on a fresh publication, the recorded raw decision on a recalibration
+    # pass, and the snapshot only for legacy rows that predate raw_decision.
+    if pick.get("raw_decision"):
+        raw_decision = str(pick.get("raw_decision") or "").strip().upper()
+    elif pick.get("calibration") is None:
+        raw_decision = str(pick.get("decision") or snapshot.get("decision") or "").strip().upper()
+    else:
+        raw_decision = str(snapshot.get("decision") or pick.get("decision") or "").strip().upper()
+    pick["raw_decision"] = raw_decision
     if not downgrade_exempt and raw_decision in {"BET", "LEAN"} and adjusted_edge is not None:
         if adjusted_edge < 3:
             pick["decision"] = "PASS"
             pick["units"] = 0
         elif raw_decision == "BET" and adjusted_edge < 7:
             pick["decision"] = "LEAN"
+        else:
+            pick["decision"] = raw_decision
 
     pick["calibration"] = {
         "applied": True,
@@ -302,18 +343,28 @@ def apply_calibration_to_payload(
     models = payload.get("models")
     if isinstance(models, dict):
         for model_key, bucket in models.items():
-            if str(model_key) in CALIBRATION_EXCLUDED_MODEL_KEYS:
-                continue
             if not isinstance(bucket, dict) or not isinstance(bucket.get("picks"), list):
                 continue
+            if str(model_key) in CALIBRATION_EXCLUDED_MODEL_KEYS:
+                # Excluded in-house team models still get the immutable
+                # first-publication snapshot; without it MLS/CFB/NFL rows had no
+                # in-cache audit trail while decisions changed through the day.
+                if str(model_key) in TEAM_PROP_MODEL_KEYS:
+                    for pick in bucket["picks"]:
+                        if isinstance(pick, dict):
+                            pick["pregame_snapshot"] = make_pregame_snapshot(pick)
+                continue
             for pick in bucket["picks"]:
+                if not isinstance(pick, dict):
+                    continue
                 if (
-                    isinstance(pick, dict)
-                    and not pick.get("calibration_excluded")
+                    not pick.get("calibration_excluded")
                     and str(pick.get("probability_source") or "") != ML_OWNED_PROBABILITY_SOURCE
                     and not pick.get("ml_calibration_excluded")
                 ):
                     apply_calibration_to_pick(pick, str(model_key), active)
+                elif str(model_key) in TEAM_PROP_MODEL_KEYS:
+                    pick["pregame_snapshot"] = make_pregame_snapshot(pick)
     elif isinstance(payload.get("picks"), list):
         if str(payload.get("model_key") or "") in CALIBRATION_EXCLUDED_MODEL_KEYS:
             return payload

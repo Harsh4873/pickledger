@@ -82,6 +82,79 @@ def _demote_unpriced_tennis_picks(payload: dict[str, Any]) -> tuple[dict[str, An
     return demoted, changed
 
 
+# In-house team-model buckets whose staked rows must carry an executable price.
+UNPRICED_STAKE_DEMOTION_KEYS = {
+    "mlb_new",
+    "mlb_inning",
+    "mlb_first_five",
+    "mlb_team_total",
+    "wnba",
+    "nba",
+    "nba_playoffs",
+    "nba_summer",
+    "fifa_world_cup",
+    "mls",
+    "nfl",
+    "cfb",
+}
+
+
+def _still_assumed_price(pick: dict[str, Any]) -> bool:
+    """True when, after the market attach, the row's price is still not executable."""
+
+    if _missing_executable_odds(pick):
+        return True
+    if pick.get("assumed_odds_replaced") is True:
+        return False
+    try:  # local import: keeps this module light for the CLI entrypoint
+        from scripts.market_odds import _looks_assumed
+    except ImportError:  # pragma: no cover - script-style invocation
+        from market_odds import _looks_assumed  # type: ignore[no-redef]
+
+    return _looks_assumed(pick)
+
+
+def demote_unpriced_team_model_picks(payload: dict[str, Any]) -> int:
+    """Demote in-house BET/LEAN rows that still have no executable price.
+
+    Runs after the market attach so a row that just received a real posted
+    price keeps its stake. The tennis rule above already did this for one
+    sport; the identical condition produced 106 MLS, 125 WNBA and 359 MLB
+    staked rows with no price at all, NBA New's confidence-only fallback
+    (``odds: null``, 1.13u, graded as a loss), and 745 MLB rows staked at a
+    house-chosen "user_assumed" price that no book ever posted (mlb_inning
+    alone: 156.5u on 0 posted prices). A stake nobody can place is research:
+    PASS at 0u with the model's decision preserved.
+
+    Mutates the payload in place (the alias keys share the bucket objects)
+    and returns the number of demoted rows.
+    """
+
+    models = payload.get("models")
+    if not isinstance(models, dict):
+        return 0
+    changed = 0
+    for key, bucket in models.items():
+        if str(key) not in UNPRICED_STAKE_DEMOTION_KEYS or not isinstance(bucket, dict):
+            continue
+        for pick in bucket.get("picks") or []:
+            if not isinstance(pick, dict):
+                continue
+            decision = str(pick.get("decision") or "").strip().upper()
+            if decision not in {"BET", "LEAN"} or not _still_assumed_price(pick):
+                continue
+            pick.setdefault("source_decision", decision)
+            pick.setdefault("source_units", pick.get("units"))
+            pick["decision"] = "PASS"
+            pick["units"] = 0
+            pick["unpriced_demoted"] = True
+            pick["decision_reason"] = (
+                "unpriced:no_executable_price" if _missing_executable_odds(pick) else "unpriced:assumed_price_not_replaced"
+            )
+            changed += 1
+    return changed
+
+
 MODEL_CACHE_DIR = Path("data/model_cache")
 EXTERNAL_FEED_MODEL_KEYS = {
     "sportytrader",

@@ -25,6 +25,12 @@ data/tennis/processed/
 # Cached API data
 data/wnba_*.json
 
+# Rebuildable nflverse weekly team stats (EPA/play inputs for the NFL model)
+# and download stamps. games.csv stays versioned as the schedule/market spine;
+# training and serving re-download these per season on demand.
+data/nfl/stats_team_week_*.csv
+data/nfl/*.stamp
+
 # Rebuildable CFB source datasets. Daily serving downloads only the seasons it
 # needs; the trained model bundle and validation metadata are versioned under
 # CFBPredictionModel/artifacts/.

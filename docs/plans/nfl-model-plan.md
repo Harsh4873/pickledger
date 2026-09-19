@@ -30,6 +30,26 @@ Goal: a trained NFL model that publishes priced moneyline, spread, and total pic
 - The model emits BET/LEAN decisions only at real posted prices. These rows feed the pregame ledger, grading, records, and site views like the other active team models.
 - An empty NFL bucket is valid on a date without a scheduled regular/postseason game. The first game in the committed 2026 schedule is 2026-09-09, so no August rows are expected.
 
+## v1 (2026-09-19): Phase 2 features, validated gates
+
+The Phase-1 heads failed the plan's own promotion bar at recorded closing prices
+(spread 49.5% ATS, total 51.1%, moneyline Brier 0.2208 vs 0.2125 market) and went
+0-6 on the first live slate. `nfl_v1_epa_elo_market_anchored` replaces them:
+
+- EPA/play team strength from nflverse weekly team stats (`stats_team_week_*.csv`,
+  downloaded on demand into `data/nfl/`, gitignored) plus margin-of-victory Elo;
+- a market-anchored logistic moneyline at Brier parity with the market; ridge
+  residual heads for spread and total;
+- `nfl_train.py` validates candidate segments at recorded prices and writes
+  `decision_policy` into the artifact metadata. Only Under with residual ≤ −1.0
+  qualifies (306 picks, 60.3%, +17.1%, 12/14 seasons) and it is capped at LEAN;
+  moneyline and spread publish as research PASS;
+- serving skips games that have kicked off, prices from the nflverse odds
+  columns, converts Eastern kickoff to UTC, and never enters the shared
+  calibrator. Retrain with the manual `NFL Model Training` workflow.
+
+Full before/after and the cross-model audit: `docs/model-audit-2026-09.md`.
+
 ## Registration sweep
 
 `run_nfl_model` in pickgrader_server (+ `SPORT_TO_ESPNSLUG["NFL"]`), refresh jobs + cron default, merge DEPLOYED/ALIAS keys, `market_odds` SPORT_LEAGUES + bucket keys, team_prop_pregame_ledger key, evaluator contract, parlay SOURCE_LABELS, data.ts labels + market split, ESPN live scores, tests, freshness guard, and upcheck required sets.

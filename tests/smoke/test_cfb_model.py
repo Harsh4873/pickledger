@@ -108,8 +108,24 @@ def test_artifact_records_walk_forward_calibration_and_feature_contract():
     assert metadata["residual_distribution"]["kind"] == "bivariate_gaussian_oof"
     assert metadata["residual_distribution"]["samples"] > 3000
     assert set(metadata["calibration"]) == {"moneyline", "spread", "total"}
+    # The originator contract stays market-free; only the anchored residual
+    # heads see the posted line, and they say so.
     assert metadata["market_features"] == []
-    assert metadata["promotion_status"] == "not_qualified"
+    assert metadata["anchored"]["market_features"] == ["market_home_line", "market_total_line"]
+    assert metadata["anchored"]["oof_samples"] > 3000
+    assert metadata["anchored"]["ml_brier"]["anchored_logistic"] < metadata["anchored"]["ml_brier"]["originator_raw"]
+    assert metadata["promotion_status"] == "segment_gate_lean_only"
+    policy = metadata["decision_policy"]
+    assert policy["h2h"]["mode"] == "research_only"
+    assert policy["spread"]["mode"] == "research_only"
+    assert policy["totals"]["mode"] == "segment_gate"
+    assert policy["qualification_bar"]["max_tier"] == "LEAN"
+    for segment in policy["totals"]["segments"]:
+        evidence = segment["walk_forward"]
+        assert segment["decision"] == "LEAN"
+        assert evidence["graded"] >= policy["qualification_bar"]["min_graded_picks"]
+        assert evidence["hit_rate"] >= policy["qualification_bar"]["min_hit_rate"]
+        assert evidence["seasons_above_break_even"] / evidence["seasons"] >= policy["qualification_bar"]["min_season_share_above_break_even"]
     assert (ROOT / "CFBPredictionModel" / "artifacts" / "cfb_model.joblib").stat().st_size > 1000
 
 
@@ -688,5 +704,6 @@ def test_viewer_pass_board_floor_matches_lean_probability():
     data = (ROOT / "src" / "data.ts").read_text(encoding="utf-8")
     assert f"IN_HOUSE_PASS_BOARD_MIN_PROBABILITY = {LEAN_PROBABILITY}" in data
     assert "if (market === 'spread') return true;" in data
-    nfl = (ROOT / "NFLPredictionModel" / "nfl_model.py").read_text(encoding="utf-8")
-    assert "probability >= 0.52" in nfl
+    from NFLPredictionModel.nfl_model import LEAN_PROBABILITY as NFL_LEAN_PROBABILITY
+
+    assert NFL_LEAN_PROBABILITY == LEAN_PROBABILITY

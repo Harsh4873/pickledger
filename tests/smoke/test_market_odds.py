@@ -80,8 +80,12 @@ def make_fetch(events: list[dict], prop_items: list[dict] | None = None):
 
 
 def build_book(events: list[dict], prop_items: list[dict] | None = None, sport: str = "MLB"):
+    from datetime import datetime, timezone
+
+    # Fixtures are dated 2026-07-11; the capture clock must sit before kickoff
+    # because the wall clock, not ESPN's state flag, decides what is pregame.
     return market_odds.fetch_market_odds_for_date(
-        DATE, [sport], make_fetch(events, prop_items)
+        DATE, [sport], make_fetch(events, prop_items), now=datetime(2026, 7, 11, 12, 0, tzinfo=timezone.utc)
     )
 
 
@@ -140,7 +144,11 @@ def test_cfb_prefers_stable_event_id_over_ambiguous_team_names_and_uses_large_li
         captured.append(dict(params))
         return {"events": events}
 
-    book = market_odds.fetch_market_odds_for_date(DATE, ["CFB"], fetch)
+    from datetime import datetime, timezone
+
+    book = market_odds.fetch_market_odds_for_date(
+        DATE, ["CFB"], fetch, now=datetime(2026, 7, 11, 12, 0, tzinfo=timezone.utc)
+    )
     payload = payload_with(
         "cfb",
         [{
@@ -455,3 +463,52 @@ def test_postgame_slates_and_foreign_dates_are_never_touched():
     )
     summary = market_odds.apply_market_odds_to_payload(payload, {"MLB": []})
     assert summary == {"attached": 0, "replacedAssumed": 0, "picksSeen": 0}
+
+
+def test_soccer_handicap_line_is_read_from_the_per_side_nodes():
+    """ESPN soccer scoreboards carry no top-level ``spread``; the handicap lives
+    on ``pointSpread.<side>.close.line``. Without the fallback every MLS/FIFA
+    handicap row lost its price provenance (0 of 165 MLS rows stamped)."""
+    event = scoreboard_event(event_id="mls1", home="Columbus Crew", away="New York City FC", draw_ml="+270")
+    odds = event["competitions"][0]["odds"][0]
+    del odds["spread"]
+    odds["pointSpread"] = {
+        "home": {"close": {"odds": "-125", "line": "-0.5"}},
+        "away": {"close": {"odds": "-105", "line": "+0.5"}},
+    }
+    book = build_book([event], sport="MLS")
+    assert book["MLS"][0]["markets"]["spread"] == {"homeLine": -0.5, "home": -125, "away": -105}
+
+    payload = payload_with("mls", [{
+        "date": DATE, "sport": "MLS", "market": "spread",
+        "pick": "Columbus Crew -0.5 (New York City FC @ Columbus Crew)",
+        "home_team": "Columbus Crew", "away_team": "New York City FC", "team": "Columbus Crew",
+        "line": -0.5, "odds": -125, "decision": "LEAN", "units": 0.25,
+    }])
+    summary = market_odds.apply_market_odds_to_payload(payload, book)
+    pick = payload["models"]["mls"]["picks"][0]
+    assert summary["attached"] == 1
+    assert pick["selected_odds"] == -125 and pick["opposite_odds"] == -105
+    assert pick["market_priced"] is True and pick["pricing_type"] == "market"
+    assert pick["odds_source"] == "posted_market"
+
+    # Only the away side node carries a line: derive the home line from it.
+    event2 = scoreboard_event(event_id="mls2")
+    odds2 = event2["competitions"][0]["odds"][0]
+    del odds2["spread"]
+    odds2["pointSpread"] = {"home": {"close": {"odds": "-140"}}, "away": {"close": {"odds": "+110", "line": "+1.5"}}}
+    assert build_book([event2], sport="MLS")["MLS"][0]["markets"]["spread"]["homeLine"] == -1.5
+
+
+def test_prices_are_not_captured_once_the_wall_clock_passes_kickoff():
+    """ESPN's status flag lags kickoff; in-play prices were leaking into 26% of
+    priced MLS rows. The wall clock decides, not the provider's state field."""
+    from datetime import datetime, timezone
+
+    events = [scoreboard_event(event_id="early"), scoreboard_event(event_id="late")]
+    events[1]["date"] = f"{DATE}T23:10Z"
+    at_2030z = datetime(2026, 7, 11, 20, 30, tzinfo=timezone.utc)
+    book = market_odds.fetch_market_odds_for_date(DATE, ["MLB"], make_fetch(events), now=at_2030z)
+    assert [game["eventId"] for game in book["MLB"]] == ["late"]
+    before = datetime(2026, 7, 11, 19, 0, tzinfo=timezone.utc)
+    assert [g["eventId"] for g in market_odds.fetch_market_odds_for_date(DATE, ["MLB"], make_fetch(events), now=before)["MLB"]] == ["early", "late"]

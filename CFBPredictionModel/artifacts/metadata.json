@@ -1,6 +1,6 @@
 {
-  "model_version": "cfb_v1_market_free_bivariate",
-  "trained_at": "2026-08-21T15:58:56.689506Z",
+  "model_version": "cfb_v2_market_anchored_totals",
+  "trained_at": "2026-09-19T16:49:19.610152Z",
   "data_source": "SportsDataverse ESPN-derived schedules and resolved betting releases",
   "train_window": [
     2017,
@@ -101,7 +101,8 @@
       "margin_mae": 13.62335,
       "total_mae": 12.87895,
       "spread_direction_rate": 0.47026,
-      "total_direction_rate": 0.49241
+      "total_direction_rate": 0.49241,
+      "anchored_ml_brier": 0.17682
     },
     {
       "season": 2022,
@@ -109,15 +110,17 @@
       "margin_mae": 12.94956,
       "total_mae": 12.6741,
       "spread_direction_rate": 0.49723,
-      "total_direction_rate": 0.47856
+      "total_direction_rate": 0.47856,
+      "anchored_ml_brier": 0.1882
     },
     {
       "season": 2023,
       "games": 792,
       "margin_mae": 13.03858,
       "total_mae": 13.19692,
-      "spread_direction_rate": 0.49369,
-      "total_direction_rate": 0.5101
+      "spread_direction_rate": 0.49116,
+      "total_direction_rate": 0.51136,
+      "anchored_ml_brier": 0.17224
     },
     {
       "season": 2024,
@@ -125,7 +128,8 @@
       "margin_mae": 13.28178,
       "total_mae": 12.80033,
       "spread_direction_rate": 0.46992,
-      "total_direction_rate": 0.53634
+      "total_direction_rate": 0.53634,
+      "anchored_ml_brier": 0.18294
     },
     {
       "season": 2025,
@@ -133,7 +137,8 @@
       "margin_mae": 12.46647,
       "total_mae": 12.84642,
       "spread_direction_rate": 0.5297,
-      "total_direction_rate": 0.50619
+      "total_direction_rate": 0.50619,
+      "anchored_ml_brier": 0.17581
     }
   ],
   "residual_distribution": {
@@ -163,22 +168,692 @@
     "spread": {
       "method": "isotonic_on_season_walk_forward_predictions",
       "samples": 7686,
-      "raw_brier": 0.269025,
-      "calibrated_brier": 0.249502
+      "raw_brier": 0.269203,
+      "calibrated_brier": 0.249506
     },
     "total": {
       "method": "isotonic_on_season_walk_forward_predictions",
       "samples": 7692,
-      "raw_brier": 0.258174,
-      "calibrated_brier": 0.249698
+      "raw_brier": 0.258095,
+      "calibrated_brier": 0.249694
     }
   },
-  "shadow_mode": true,
-  "promotion_status": "not_qualified",
+  "anchored": {
+    "feature_names": [
+      "home_offense_ewma",
+      "home_defense_ewma",
+      "away_offense_ewma",
+      "away_defense_ewma",
+      "net_efficiency_diff",
+      "elo_diff",
+      "schedule_strength_diff",
+      "home_games_log",
+      "away_games_log",
+      "home_rest_days",
+      "away_rest_days",
+      "rest_diff",
+      "neutral_site",
+      "conference_game",
+      "week",
+      "early_season",
+      "posted_line"
+    ],
+    "market_features": [
+      "market_home_line",
+      "market_total_line"
+    ],
+    "families": {
+      "moneyline": "logistic",
+      "spread": "hist_gradient_boosting_residual",
+      "total": "hist_gradient_boosting_residual"
+    },
+    "spread_residual_sigma": 15.393504,
+    "total_residual_sigma": 15.739811,
+    "oof_samples": 3864,
+    "ml_brier": {
+      "originator_raw": 0.190189,
+      "anchored_logistic": 0.179095,
+      "market_spread_logit": 0.177828
+    },
+    "segment_search": {
+      "spread:home:2": {
+        "picks": 360,
+        "graded": 357,
+        "hit_rate": 0.5294,
+        "flat_roi_at_minus_110": 0.0107,
+        "seasons": 5,
+        "seasons_above_break_even": 2,
+        "season_hit_rate": {
+          "2021": 0.6015,
+          "2022": 0.4886,
+          "2023": 0.54,
+          "2024": 0.4,
+          "2025": 0.5122
+        },
+        "market": "spread",
+        "direction": "home",
+        "min_residual": 2.0,
+        "qualifies": false
+      },
+      "spread:home:3": {
+        "picks": 133,
+        "graded": 131,
+        "hit_rate": 0.5115,
+        "flat_roi_at_minus_110": -0.0236,
+        "seasons": 5,
+        "seasons_above_break_even": 2,
+        "season_hit_rate": {
+          "2021": 0.5645,
+          "2022": 0.4286,
+          "2023": 0.5,
+          "2024": 0.4545,
+          "2025": 0.5385
+        },
+        "market": "spread",
+        "direction": "home",
+        "min_residual": 3.0,
+        "qualifies": false
+      },
+      "spread:home:4": {
+        "picks": 47,
+        "graded": 45,
+        "hit_rate": 0.4,
+        "flat_roi_at_minus_110": -0.2364,
+        "seasons": 5,
+        "seasons_above_break_even": 1,
+        "season_hit_rate": {
+          "2021": 0.4783,
+          "2022": 0.2,
+          "2023": 0.5,
+          "2024": 0.5,
+          "2025": 0.6667
+        },
+        "market": "spread",
+        "direction": "home",
+        "min_residual": 4.0,
+        "qualifies": false
+      },
+      "spread:home:5": {
+        "picks": 15,
+        "graded": 15,
+        "hit_rate": 0.2667,
+        "flat_roi_at_minus_110": -0.4909,
+        "seasons": 3,
+        "seasons_above_break_even": 1,
+        "season_hit_rate": {
+          "2021": 0.3333,
+          "2022": 0.125,
+          "2025": 1.0
+        },
+        "market": "spread",
+        "direction": "home",
+        "min_residual": 5.0,
+        "qualifies": false
+      },
+      "spread:home:6": {
+        "picks": 4,
+        "graded": 4,
+        "hit_rate": 0.0,
+        "flat_roi_at_minus_110": -1.0,
+        "seasons": 2,
+        "seasons_above_break_even": 0,
+        "season_hit_rate": {
+          "2021": 0.0,
+          "2022": 0.0
+        },
+        "market": "spread",
+        "direction": "home",
+        "min_residual": 6.0,
+        "qualifies": false
+      },
+      "spread:away:2": {
+        "picks": 545,
+        "graded": 542,
+        "hit_rate": 0.5,
+        "flat_roi_at_minus_110": -0.0455,
+        "seasons": 5,
+        "seasons_above_break_even": 1,
+        "season_hit_rate": {
+          "2021": 0.4737,
+          "2022": 0.4855,
+          "2023": 0.5489,
+          "2024": 0.4787,
+          "2025": 0.5227
+        },
+        "market": "spread",
+        "direction": "away",
+        "min_residual": 2.0,
+        "qualifies": false
+      },
+      "spread:away:3": {
+        "picks": 215,
+        "graded": 212,
+        "hit_rate": 0.5094,
+        "flat_roi_at_minus_110": -0.0274,
+        "seasons": 5,
+        "seasons_above_break_even": 3,
+        "season_hit_rate": {
+          "2021": 0.5312,
+          "2022": 0.459,
+          "2023": 0.4894,
+          "2024": 0.5517,
+          "2025": 0.6364
+        },
+        "market": "spread",
+        "direction": "away",
+        "min_residual": 3.0,
+        "qualifies": false
+      },
+      "spread:away:4": {
+        "picks": 80,
+        "graded": 79,
+        "hit_rate": 0.5316,
+        "flat_roi_at_minus_110": 0.015,
+        "seasons": 5,
+        "seasons_above_break_even": 4,
+        "season_hit_rate": {
+          "2021": 0.4688,
+          "2022": 0.5652,
+          "2023": 0.5833,
+          "2024": 0.5556,
+          "2025": 0.6667
+        },
+        "market": "spread",
+        "direction": "away",
+        "min_residual": 4.0,
+        "qualifies": false
+      },
+      "spread:away:5": {
+        "picks": 33,
+        "graded": 33,
+        "hit_rate": 0.6061,
+        "flat_roi_at_minus_110": 0.157,
+        "seasons": 5,
+        "seasons_above_break_even": 4,
+        "season_hit_rate": {
+          "2021": 0.5833,
+          "2022": 0.7143,
+          "2023": 0.5,
+          "2024": 0.5714,
+          "2025": 1.0
+        },
+        "market": "spread",
+        "direction": "away",
+        "min_residual": 5.0,
+        "qualifies": false
+      },
+      "spread:away:6": {
+        "picks": 9,
+        "graded": 9,
+        "hit_rate": 0.6667,
+        "flat_roi_at_minus_110": 0.2727,
+        "seasons": 3,
+        "seasons_above_break_even": 1,
+        "season_hit_rate": {
+          "2021": 0.8,
+          "2022": 0.5,
+          "2023": 0.5
+        },
+        "market": "spread",
+        "direction": "away",
+        "min_residual": 6.0,
+        "qualifies": false
+      },
+      "spread:both:2": {
+        "picks": 905,
+        "graded": 899,
+        "hit_rate": 0.5117,
+        "flat_roi_at_minus_110": -0.0232,
+        "seasons": 5,
+        "seasons_above_break_even": 2,
+        "season_hit_rate": {
+          "2021": 0.5376,
+          "2022": 0.4867,
+          "2023": 0.5464,
+          "2024": 0.4532,
+          "2025": 0.5176
+        },
+        "market": "spread",
+        "direction": "both",
+        "min_residual": 2.0,
+        "qualifies": false
+      },
+      "spread:both:3": {
+        "picks": 348,
+        "graded": 343,
+        "hit_rate": 0.5102,
+        "flat_roi_at_minus_110": -0.026,
+        "seasons": 5,
+        "seasons_above_break_even": 3,
+        "season_hit_rate": {
+          "2021": 0.5476,
+          "2022": 0.4479,
+          "2023": 0.4912,
+          "2024": 0.525,
+          "2025": 0.5833
+        },
+        "market": "spread",
+        "direction": "both",
+        "min_residual": 3.0,
+        "qualifies": false
+      },
+      "spread:both:4": {
+        "picks": 127,
+        "graded": 124,
+        "hit_rate": 0.4839,
+        "flat_roi_at_minus_110": -0.0762,
+        "seasons": 5,
+        "seasons_above_break_even": 3,
+        "season_hit_rate": {
+          "2021": 0.4727,
+          "2022": 0.4211,
+          "2023": 0.5714,
+          "2024": 0.5455,
+          "2025": 0.6667
+        },
+        "market": "spread",
+        "direction": "both",
+        "min_residual": 4.0,
+        "qualifies": false
+      },
+      "spread:both:5": {
+        "picks": 48,
+        "graded": 48,
+        "hit_rate": 0.5,
+        "flat_roi_at_minus_110": -0.0455,
+        "seasons": 5,
+        "seasons_above_break_even": 2,
+        "season_hit_rate": {
+          "2021": 0.5,
+          "2022": 0.4,
+          "2023": 0.5,
+          "2024": 0.5714,
+          "2025": 1.0
+        },
+        "market": "spread",
+        "direction": "both",
+        "min_residual": 5.0,
+        "qualifies": false
+      },
+      "spread:both:6": {
+        "picks": 13,
+        "graded": 13,
+        "hit_rate": 0.4615,
+        "flat_roi_at_minus_110": -0.1189,
+        "seasons": 3,
+        "seasons_above_break_even": 1,
+        "season_hit_rate": {
+          "2021": 0.6667,
+          "2022": 0.2,
+          "2023": 0.5
+        },
+        "market": "spread",
+        "direction": "both",
+        "min_residual": 6.0,
+        "qualifies": false
+      },
+      "total:over:2": {
+        "picks": 925,
+        "graded": 919,
+        "hit_rate": 0.5245,
+        "flat_roi_at_minus_110": 0.0013,
+        "seasons": 5,
+        "seasons_above_break_even": 2,
+        "season_hit_rate": {
+          "2021": 0.5105,
+          "2022": 0.483,
+          "2023": 0.5738,
+          "2024": 0.547,
+          "2025": 0.5216
+        },
+        "market": "total",
+        "direction": "over",
+        "min_residual": 2.0,
+        "qualifies": false
+      },
+      "total:over:3": {
+        "picks": 473,
+        "graded": 469,
+        "hit_rate": 0.548,
+        "flat_roi_at_minus_110": 0.0461,
+        "seasons": 5,
+        "seasons_above_break_even": 3,
+        "season_hit_rate": {
+          "2021": 0.5194,
+          "2022": 0.4625,
+          "2023": 0.6875,
+          "2024": 0.5673,
+          "2025": 0.5806
+        },
+        "market": "total",
+        "direction": "over",
+        "min_residual": 3.0,
+        "qualifies": false
+      },
+      "total:over:4": {
+        "picks": 217,
+        "graded": 213,
+        "hit_rate": 0.5681,
+        "flat_roi_at_minus_110": 0.0845,
+        "seasons": 5,
+        "seasons_above_break_even": 4,
+        "season_hit_rate": {
+          "2021": 0.5775,
+          "2022": 0.4571,
+          "2023": 0.6667,
+          "2024": 0.5745,
+          "2025": 0.614
+        },
+        "market": "total",
+        "direction": "over",
+        "min_residual": 4.0,
+        "qualifies": true
+      },
+      "total:over:5": {
+        "picks": 88,
+        "graded": 85,
+        "hit_rate": 0.5529,
+        "flat_roi_at_minus_110": 0.0556,
+        "seasons": 5,
+        "seasons_above_break_even": 4,
+        "season_hit_rate": {
+          "2021": 0.5862,
+          "2022": 0.4118,
+          "2023": 1.0,
+          "2024": 0.6111,
+          "2025": 0.55
+        },
+        "market": "total",
+        "direction": "over",
+        "min_residual": 5.0,
+        "qualifies": false
+      },
+      "total:over:6": {
+        "picks": 29,
+        "graded": 27,
+        "hit_rate": 0.5185,
+        "flat_roi_at_minus_110": -0.0101,
+        "seasons": 5,
+        "seasons_above_break_even": 4,
+        "season_hit_rate": {
+          "2021": 0.5833,
+          "2022": 0.0,
+          "2023": 1.0,
+          "2024": 0.6667,
+          "2025": 0.5714
+        },
+        "market": "total",
+        "direction": "over",
+        "min_residual": 6.0,
+        "qualifies": false
+      },
+      "total:under:2": {
+        "picks": 423,
+        "graded": 420,
+        "hit_rate": 0.5357,
+        "flat_roi_at_minus_110": 0.0227,
+        "seasons": 5,
+        "seasons_above_break_even": 2,
+        "season_hit_rate": {
+          "2021": 0.5984,
+          "2022": 0.5702,
+          "2023": 0.5055,
+          "2024": 0.4355,
+          "2025": 0.4167
+        },
+        "market": "total",
+        "direction": "under",
+        "min_residual": 2.0,
+        "qualifies": false
+      },
+      "total:under:3": {
+        "picks": 222,
+        "graded": 220,
+        "hit_rate": 0.5818,
+        "flat_roi_at_minus_110": 0.1107,
+        "seasons": 5,
+        "seasons_above_break_even": 3,
+        "season_hit_rate": {
+          "2021": 0.6618,
+          "2022": 0.5694,
+          "2023": 0.5957,
+          "2024": 0.5,
+          "2025": 0.2222
+        },
+        "market": "total",
+        "direction": "under",
+        "min_residual": 3.0,
+        "qualifies": false
+      },
+      "total:under:4": {
+        "picks": 102,
+        "graded": 101,
+        "hit_rate": 0.6535,
+        "flat_roi_at_minus_110": 0.2475,
+        "seasons": 5,
+        "seasons_above_break_even": 4,
+        "season_hit_rate": {
+          "2021": 0.6875,
+          "2022": 0.5882,
+          "2023": 0.72,
+          "2024": 0.625,
+          "2025": 0.5
+        },
+        "market": "total",
+        "direction": "under",
+        "min_residual": 4.0,
+        "qualifies": true
+      },
+      "total:under:5": {
+        "picks": 48,
+        "graded": 48,
+        "hit_rate": 0.6667,
+        "flat_roi_at_minus_110": 0.2727,
+        "seasons": 4,
+        "seasons_above_break_even": 3,
+        "season_hit_rate": {
+          "2021": 0.6667,
+          "2022": 0.6667,
+          "2023": 0.7143,
+          "2024": 0.0
+        },
+        "market": "total",
+        "direction": "under",
+        "min_residual": 5.0,
+        "qualifies": false
+      },
+      "total:under:6": {
+        "picks": 23,
+        "graded": 23,
+        "hit_rate": 0.7391,
+        "flat_roi_at_minus_110": 0.4111,
+        "seasons": 3,
+        "seasons_above_break_even": 3,
+        "season_hit_rate": {
+          "2021": 0.8,
+          "2022": 0.5833,
+          "2023": 1.0
+        },
+        "market": "total",
+        "direction": "under",
+        "min_residual": 6.0,
+        "qualifies": false
+      },
+      "total:both:2": {
+        "picks": 1348,
+        "graded": 1339,
+        "hit_rate": 0.528,
+        "flat_roi_at_minus_110": 0.008,
+        "seasons": 5,
+        "seasons_above_break_even": 2,
+        "season_hit_rate": {
+          "2021": 0.5404,
+          "2022": 0.5224,
+          "2023": 0.5446,
+          "2024": 0.5185,
+          "2025": 0.5117
+        },
+        "market": "total",
+        "direction": "both",
+        "min_residual": 2.0,
+        "qualifies": false
+      },
+      "total:both:3": {
+        "picks": 695,
+        "graded": 689,
+        "hit_rate": 0.5588,
+        "flat_roi_at_minus_110": 0.0668,
+        "seasons": 5,
+        "seasons_above_break_even": 4,
+        "season_hit_rate": {
+          "2021": 0.5685,
+          "2022": 0.5132,
+          "2023": 0.6329,
+          "2024": 0.5547,
+          "2025": 0.5564
+        },
+        "market": "total",
+        "direction": "both",
+        "min_residual": 3.0,
+        "qualifies": true
+      },
+      "total:both:4": {
+        "picks": 319,
+        "graded": 314,
+        "hit_rate": 0.5955,
+        "flat_roi_at_minus_110": 0.1369,
+        "seasons": 5,
+        "seasons_above_break_even": 4,
+        "season_hit_rate": {
+          "2021": 0.6117,
+          "2022": 0.5217,
+          "2023": 0.7143,
+          "2024": 0.5818,
+          "2025": 0.6102
+        },
+        "market": "total",
+        "direction": "both",
+        "min_residual": 4.0,
+        "qualifies": true
+      },
+      "total:both:5": {
+        "picks": 136,
+        "graded": 133,
+        "hit_rate": 0.594,
+        "flat_roi_at_minus_110": 0.134,
+        "seasons": 5,
+        "seasons_above_break_even": 5,
+        "season_hit_rate": {
+          "2021": 0.6136,
+          "2022": 0.5429,
+          "2023": 0.7333,
+          "2024": 0.5789,
+          "2025": 0.55
+        },
+        "market": "total",
+        "direction": "both",
+        "min_residual": 5.0,
+        "qualifies": true
+      },
+      "total:both:6": {
+        "picks": 52,
+        "graded": 50,
+        "hit_rate": 0.62,
+        "flat_roi_at_minus_110": 0.1836,
+        "seasons": 5,
+        "seasons_above_break_even": 4,
+        "season_hit_rate": {
+          "2021": 0.6471,
+          "2022": 0.4375,
+          "2023": 1.0,
+          "2024": 0.6667,
+          "2025": 0.5714
+        },
+        "market": "total",
+        "direction": "both",
+        "min_residual": 6.0,
+        "qualifies": false
+      }
+    }
+  },
+  "decision_policy": {
+    "h2h": {
+      "mode": "research_only",
+      "reason": "The originator's disagreement with the spread-implied win probability is anti-predictive out of fold and the anchored logistic only matches the market; no priced edge to stake."
+    },
+    "spread": {
+      "mode": "research_only",
+      "segments": [],
+      "reason": "No spread residual segment clears the qualification bar."
+    },
+    "totals": {
+      "mode": "segment_gate",
+      "segments": [
+        {
+          "direction": "over",
+          "min_residual": 3.0,
+          "decision": "LEAN",
+          "units": 0.25,
+          "max_juice": -125,
+          "walk_forward": {
+            "picks": 695,
+            "graded": 689,
+            "hit_rate": 0.5588,
+            "flat_roi_at_minus_110": 0.0668,
+            "seasons": 5,
+            "seasons_above_break_even": 4,
+            "season_hit_rate": {
+              "2021": 0.5685,
+              "2022": 0.5132,
+              "2023": 0.6329,
+              "2024": 0.5547,
+              "2025": 0.5564
+            }
+          },
+          "evidence_segment": "total:both:3"
+        },
+        {
+          "direction": "under",
+          "min_residual": 3.0,
+          "decision": "LEAN",
+          "units": 0.25,
+          "max_juice": -125,
+          "walk_forward": {
+            "picks": 695,
+            "graded": 689,
+            "hit_rate": 0.5588,
+            "flat_roi_at_minus_110": 0.0668,
+            "seasons": 5,
+            "seasons_above_break_even": 4,
+            "season_hit_rate": {
+              "2021": 0.5685,
+              "2022": 0.5132,
+              "2023": 0.6329,
+              "2024": 0.5547,
+              "2025": 0.5564
+            }
+          },
+          "evidence_segment": "total:both:3"
+        }
+      ],
+      "reason": ""
+    },
+    "qualification_bar": {
+      "min_graded_picks": 100,
+      "min_hit_rate": 0.545,
+      "break_even_hit_rate": 0.5238,
+      "min_season_share_above_break_even": 0.7,
+      "max_tier": "LEAN",
+      "max_juice": -125,
+      "evidence": "direction_only_no_historical_two_sided_prices"
+    }
+  },
+  "shadow_mode": false,
+  "promotion_status": "segment_gate_lean_only",
   "financial_backtest": {
     "moneyline": "unavailable_no_complete_historical_two_sided_prices",
     "spread": "forecast_direction_only",
     "total": "forecast_direction_only"
   },
-  "notes": "Sportsbook lines are evaluation/pricing only and are absent from FEATURE_NAMES; live shadow evidence is required before promotion."
+  "notes": "Originator FEATURE_NAMES stay market-free. Anchored residual heads append the posted line and are the only heads allowed to stake, through decision_policy segments validated out of fold; discovered segments are capped at LEAN until certified live evidence exists. Moneyline and spread publish as research (PASS)."
 }

@@ -3282,6 +3282,11 @@ def _model_cache_response(payload: dict[str, Any], date_iso: str, model_key: str
 
 MLB_INNING_USER_ASSUMED_ODDS = -120
 MLB_INNING_MODEL_VERSION = "mlb_inning_v2_2026-08-25"
+# MLB Model totals gates on model-vs-price edge (probability points). Settled
+# real-priced totals: raw edge >= 5pp n=117 59.0% +13.2% (positive Jul/Aug/Sep);
+# the 3-5pp band n=165 48.5% -6.9%. BET needs a wide margin over LEAN.
+MLB_TOTALS_LEAN_EDGE = 0.05
+MLB_TOTALS_BET_EDGE = 0.08
 # Placeholder until the real DraftKings "Team Total Runs" price attaches;
 # market_odds replaces it for exact team+line matches, which is what makes
 # these rows financially measurable.
@@ -3607,8 +3612,15 @@ def _parse_nba_output(output: str, source_label: str = "NBA Model") -> list[dict
                     vegas_spread = sl_spread_home if winner_is_home else sl_spread_away
 
                 if vegas_spread is not None:
-                    # Real spread market — same edge math as before.
+                    # Real spread market — same edge math as before. A line
+                    # without a price is priced at an assumed -110 for the
+                    # edge math only and labelled so market_odds replaces it
+                    # (and the refresh pipeline demotes it otherwise).
                     _sp_odds = sl_spread_odds if sl_spread_odds else -110
+                    if not sl_spread_odds:
+                        pick["assumed_odds"] = _sp_odds
+                        pick["pricing_type"] = "assumed"
+                        pick["market_priced"] = False
                     _implied = (abs(_sp_odds) / (abs(_sp_odds) + 100)) if _sp_odds < 0 \
                                else (100 / (_sp_odds + 100))
                     _model_team_margin = float(spread_val)
@@ -3693,9 +3705,12 @@ def _parse_nba_output(output: str, source_label: str = "NBA Model") -> list[dict
                             pick["decision"] = "PASS"
                             pick["units"] = 0
                     else:
-                        # No market data at all — replace flat 1u with a
-                        # conviction-based fallback so big-edge picks aren't
-                        # the same stake as toss-ups.
+                        # No market data at all. Conviction sets a PROVISIONAL
+                        # decision for the downstream price attach to confirm;
+                        # the row is labelled unpriced and the refresh pipeline
+                        # demotes it to PASS/0u if no posted price attaches
+                        # (the lone live 2026 row published BET, odds null,
+                        # 1.13u and graded as a loss nobody could have placed).
                         _conv_prob = float(prob) if prob is not None else 0.5
                         _winner_prob = (
                             _conv_prob if winner_is_home else (1.0 - _conv_prob)
@@ -3712,6 +3727,9 @@ def _parse_nba_output(output: str, source_label: str = "NBA Model") -> list[dict
                             pick["decision"] = "LEAN" if _winner_prob < 0.62 else "BET"
                         pick["edge"] = None
                         pick["odds"] = None
+                        pick["pricing_type"] = "unpriced"
+                        pick["market_priced"] = False
+                        pick["decision_basis"] = "model_conviction_pending_price"
 
                 # B2B / fatigue stake reduction — applied last so it scales
                 # whatever stake size the market or fallback produced.
@@ -3752,6 +3770,7 @@ def _parse_nba_output(output: str, source_label: str = "NBA Model") -> list[dict
             else:
                 direction = 'Under' if model_total < vegas_total else 'Over'
                 pick_label = f"{direction} {vegas_total} ({away_team} vs {home_team})"
+                _price_assumed = not total_odds
                 _odds_price = total_odds if total_odds else -110
                 _prob = _ou_probability(float(model_total), float(vegas_total), _NBA_TOTALS_RMSE)
                 _b = abs(_odds_price) / 100 if _odds_price > 0 else 100 / abs(_odds_price or 110)
@@ -3760,12 +3779,18 @@ def _parse_nba_output(output: str, source_label: str = "NBA Model") -> list[dict
                 _q = 1 - _prob
                 _k = max((_b * _prob - _q) / _b, 0.0)
                 _kf = round(_k * 0.25 * 100, 2)
+                _ou_decision = 'BET' if _edge_prob >= 0.05 else ('LEAN' if _edge_prob >= 0.03 else 'PASS')
+                # Quarter-Kelly stake in units, capped like the spread path;
+                # PASS is 0u research (rows used to carry a flat 1u even on PASS).
+                _ou_units = 0.0 if _ou_decision == 'PASS' else round(min(1.5, _k * 0.25), 2)
+                if _ou_decision == 'LEAN':
+                    _ou_units = round(_ou_units * 0.6, 2)
                 ou_pick = {
                     "source": source_label,
                     "pick": pick_label,
                     "sport": league,
                     "odds": _odds_price,
-                    "units": 1,
+                    "units": _ou_units,
                     "probability": _prob,
                     "prob": _prob,
                     "edge": round(_edge_prob * 100, 2),
@@ -3773,7 +3798,7 @@ def _parse_nba_output(output: str, source_label: str = "NBA Model") -> list[dict
                     "model_prediction": round(float(model_total), 1),
                     "direction": direction,
                     "kelly": _kf,
-                    "decision": 'BET' if _edge_prob >= 0.05 else ('LEAN' if _edge_prob >= 0.03 else 'PASS'),
+                    "decision": _ou_decision,
                     "market_type": "totals",
                     "selection": direction,
                     "line": vegas_total,
@@ -3781,6 +3806,13 @@ def _parse_nba_output(output: str, source_label: str = "NBA Model") -> list[dict
                     "away_team": away_team,
                     "home_team": home_team,
                 }
+                if _price_assumed:
+                    # Label the invented -110 so market_odds replaces it with the
+                    # posted price for this exact line and the pipeline demotes
+                    # any stake whose placeholder was never replaced. Priced rows
+                    # keep their provenance-free shape so the SportsLine price is
+                    # still upgraded to the posted DraftKings price.
+                    ou_pick.update({"assumed_odds": _odds_price, "pricing_type": "assumed", "market_priced": False})
                 _append_unique(ou_pick)
 
     return picks
@@ -4286,14 +4318,20 @@ def _parse_mlb_output(output: str, source_label: str = "MLB Model") -> list[dict
         for line in pipe_lines:
             parts = [p.strip() for p in line.split("|")]
 
-            # O/U line: OU|OVER/UNDER/PASS|line|predicted_total
+            # O/U line: OU|OVER/UNDER/PASS|line|predicted_total[|line_source]
+            # line_source is "market" when the runner had a posted total and
+            # "none" (with line NONE) when it did not.
             if len(parts) >= 4 and parts[0] == "OU":
                 try:
                     model_selection = str(parts[1] or "").strip().upper()
-                    output_total_line = float(parts[2])
                     predicted_total = float(parts[3])
                 except (ValueError, IndexError):
                     continue
+                try:
+                    output_total_line: float | None = float(parts[2])
+                except (ValueError, IndexError):
+                    output_total_line = None
+                runner_line_source = str(parts[4] or "").strip().lower() if len(parts) >= 5 else ("market" if output_total_line is not None else "none")
 
                 if not current_team_a or not current_team_b:
                     continue
@@ -4305,15 +4343,24 @@ def _parse_mlb_output(output: str, source_label: str = "MLB Model") -> list[dict
                 vegas_total, total_odds = _sl_get_total(home_team, away_team, league)
                 market_total_source = "sportsline"
                 if vegas_total is None:
+                    if output_total_line is None or runner_line_source != "market":
+                        # A missing market total must produce no pick, not a
+                        # default one; the frontend and grader need a real line.
+                        continue
                     vegas_total = output_total_line
-                    total_odds = -110
-                    market_total_source = "model_output"
+                    total_odds = None
+                    market_total_source = "model_market_feed"
                 direction = (
                     model_selection.title()
                     if model_selection in {"OVER", "UNDER"}
                     else ('Under' if predicted_total < vegas_total else 'Over')
                 )
                 pick_label = f"{direction} {vegas_total} ({away_team} vs {home_team})"
+                # Without a posted price the row is priced at an assumed -110
+                # for the edge math only; market_odds replaces it with the real
+                # posted price for this exact line, and the refresh pipeline
+                # demotes any stake whose placeholder was never replaced.
+                price_assumed = not total_odds
                 _odds_price = total_odds if total_odds else -110
                 _prob = _ou_probability(float(predicted_total), float(vegas_total), _MLB_TOTALS_RMSE)
                 _b = abs(_odds_price) / 100 if _odds_price > 0 else 100 / abs(_odds_price or 110)
@@ -4325,9 +4372,12 @@ def _parse_mlb_output(output: str, source_label: str = "MLB Model") -> list[dict
                 # `kelly` percentage but `units` was flat 1u — fixed so
                 # stake actually scales with edge).
                 _kelly_units = round(min(1.5, _k * 0.25), 2)
+                # Real-priced totals settled +13.2% at raw edge >= 5pp (n=117,
+                # positive every month) and -6.9% in the 3-5pp band (n=165),
+                # so LEAN starts at 5pp and BET at 8pp.
                 _decision = (
-                    'BET' if _edge_prob >= 0.05
-                    else ('LEAN' if _edge_prob >= 0.03 else 'PASS')
+                    'BET' if _edge_prob >= MLB_TOTALS_BET_EDGE
+                    else ('LEAN' if _edge_prob >= MLB_TOTALS_LEAN_EDGE else 'PASS')
                 )
                 if model_selection == "PASS":
                     _decision = "PASS"
@@ -4342,7 +4392,9 @@ def _parse_mlb_output(output: str, source_label: str = "MLB Model") -> list[dict
                     "pick": pick_label,
                     "sport": league,
                     "odds": _odds_price,
-                    "assumed_odds": _odds_price if market_total_source == "model_output" else None,
+                    "assumed_odds": _odds_price if price_assumed else None,
+                    "pricing_type": "assumed" if price_assumed else "market",
+                    "market_priced": not price_assumed,
                     "units": _stake_units,
                     "probability": _prob,
                     "prob": _prob,
@@ -4438,7 +4490,14 @@ def _parse_mlb_output(output: str, source_label: str = "MLB Model") -> list[dict
                         if decision == "LEAN":
                             units_value = round(units_value * 0.6, 2)
             else:
-                # No market price — sliding stake on model conviction alone.
+                # No price at parse time (the SportsLine store is not present
+                # in CI). The model's conviction sets a PROVISIONAL decision so
+                # the consensus gate can re-decide it against the DraftKings
+                # price that scripts/market_odds.py attaches downstream; the
+                # refresh pipeline demotes any row that is still unpriced after
+                # the attach, so conviction alone can no longer mint a stake
+                # (407 June rows were staked at no price). No edge is claimed
+                # against a 50% baseline anymore.
                 if bet_prob < 0.55:
                     decision = "PASS"
                     units_value = 0.0
@@ -4446,9 +4505,9 @@ def _parse_mlb_output(output: str, source_label: str = "MLB Model") -> list[dict
                     scaled = 0.25 + (bet_prob - 0.55) * 6.25  # 55%->0.25, 75%->1.5
                     units_value = round(min(1.5, max(0.25, scaled)), 2)
                     decision = "LEAN" if bet_prob < 0.62 else "BET"
-                edge_val = round((bet_prob - 0.50) * 100, 2)  # vs 50% baseline
+                edge_val = None
 
-            picks.append({
+            ml_pick: dict[str, Any] = {
                 "source": source_label,
                 "pick": f"{bet_team} ML ({matchup})",
                 "sport": "MLB",
@@ -4463,7 +4522,18 @@ def _parse_mlb_output(output: str, source_label: str = "MLB Model") -> list[dict
                 "away_team": team_a,
                 "home_team": team_b,
                 "model_odds": bet_odds if bet_odds != 0 else None,
-            })
+            }
+            if market_pick_odds is None:
+                # Priced rows keep their provenance-free shape so market_odds
+                # still replaces the SportsLine price with the posted DraftKings
+                # price; only the unpriced case is labelled explicitly (the
+                # attach step rewrites these labels when it prices the row).
+                ml_pick.update({
+                    "pricing_type": "unpriced",
+                    "market_priced": False,
+                    "decision_basis": "model_conviction_pending_price",
+                })
+            picks.append(ml_pick)
         return picks
 
     # Fallback: parse structured markdown output (from test_live.py/main.py format)
@@ -5397,9 +5467,15 @@ def _mlb_inning_pick_rows(payload: dict[str, Any]) -> list[dict[str, Any]]:
             baseline_value = pick.get("baseline")
             inning_odds = MLB_INNING_USER_ASSUMED_ODDS
             inning_implied = _american_implied_probability_value(inning_odds)
-            # Ungated research model (no real market): the model's own
-            # decision publishes directly, at tracking-scale stakes.
-            inning_units = 0.5 if decision == "BET" else 0.25 if decision == "LEAN" else 0.0
+            # No book on the shared odds attachment posts a no-run-inning
+            # market, so no row here ever carried an executable price: 1,362
+            # rows, 156.5u staked, 0 posted prices, and the model's own 53.8%
+            # hit rate is below the 54.5% the stamped -120 needs. The model's
+            # decision stays visible as model_decision; the published row is
+            # research (PASS, 0u) priced against the reference -120 only.
+            model_decision = decision
+            decision = "PASS"
+            inning_units = 0.0
             rows.append({
                 "source": "MLB Inning",
                 "pick": f"Inning {inning} - No Run Scored" if inning else str(pick.get("label") or "No Run Scored"),
@@ -5417,20 +5493,23 @@ def _mlb_inning_pick_rows(payload: dict[str, Any]) -> list[dict[str, Any]]:
                 "team": "",
                 "market": "no_run_inning",
                 "inning": inning,
-                "odds": inning_odds,
+                "odds": None,
                 "assumed_odds": inning_odds,
-                "pricing_type": "user_assumed",
+                "pricing_type": "assumed",
                 "line_source": "user_assumed_no_run_inning_price",
                 "odds_source": "user_assumed_no_run_inning_-120",
-                "market_priced": True,
+                "market_priced": False,
                 "market_implied_probability": round(inning_implied, 6) if inning_implied is not None else None,
-                "actionability": "bettable" if decision == "BET" else "lean" if decision == "LEAN" else "research_signal",
+                "actionability": "research_signal",
                 "units": inning_units,
                 "probability": probability_f,
                 "edge": edge_value,
                 "edge_pp": edge_value,
                 "baseline_probability": baseline_value,
                 "decision": decision,
+                "model_decision": model_decision,
+                "source_decision": model_decision,
+                "decision_reason": "unpriced:no_run_inning_market_not_posted",
                 "confidence": confidence,
                 "model_version": MLB_INNING_MODEL_VERSION,
                 "model_epoch": MLB_INNING_MODEL_VERSION,
