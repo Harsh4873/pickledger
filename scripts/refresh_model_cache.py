@@ -36,7 +36,7 @@ from scripts.team_prop_pregame_ledger import (  # noqa: E402
 
 # Buckets whose generated rows are frozen at kickoff: a refresh that runs after
 # a game started must not publish or re-decide that game.
-KICKOFF_FROZEN_MODEL_KEYS = TEAM_PROP_MODEL_KEYS | {"nba", "nba_playoffs"}
+KICKOFF_FROZEN_MODEL_KEYS = set(TEAM_PROP_MODEL_KEYS)
 _START_FIELDS = ("game_start_time", "start_time", "startTime", "scheduled_start_time", "event_start_time")
 
 

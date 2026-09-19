@@ -39,6 +39,11 @@ TEAM_PROP_MODEL_KEYS = {
     "mlb_first_five",
     "mlb_team_total",
     "wnba",
+    # nba / nba_playoffs added 2026-09-19: without trusted per-pick timing
+    # 0 of 5,135 ledger records were NBA, so the October book would have
+    # started uncertified. Their rows carry aware game_start_time values.
+    "nba",
+    "nba_playoffs",
     "nba_summer",
     "fifa_world_cup",
     "mls",

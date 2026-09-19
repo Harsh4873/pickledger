@@ -3612,8 +3612,15 @@ def _parse_nba_output(output: str, source_label: str = "NBA Model") -> list[dict
                     vegas_spread = sl_spread_home if winner_is_home else sl_spread_away
 
                 if vegas_spread is not None:
-                    # Real spread market — same edge math as before.
+                    # Real spread market — same edge math as before. A line
+                    # without a price is priced at an assumed -110 for the
+                    # edge math only and labelled so market_odds replaces it
+                    # (and the refresh pipeline demotes it otherwise).
                     _sp_odds = sl_spread_odds if sl_spread_odds else -110
+                    if not sl_spread_odds:
+                        pick["assumed_odds"] = _sp_odds
+                        pick["pricing_type"] = "assumed"
+                        pick["market_priced"] = False
                     _implied = (abs(_sp_odds) / (abs(_sp_odds) + 100)) if _sp_odds < 0 \
                                else (100 / (_sp_odds + 100))
                     _model_team_margin = float(spread_val)
@@ -3698,9 +3705,12 @@ def _parse_nba_output(output: str, source_label: str = "NBA Model") -> list[dict
                             pick["decision"] = "PASS"
                             pick["units"] = 0
                     else:
-                        # No market data at all — replace flat 1u with a
-                        # conviction-based fallback so big-edge picks aren't
-                        # the same stake as toss-ups.
+                        # No market data at all. Conviction sets a PROVISIONAL
+                        # decision for the downstream price attach to confirm;
+                        # the row is labelled unpriced and the refresh pipeline
+                        # demotes it to PASS/0u if no posted price attaches
+                        # (the lone live 2026 row published BET, odds null,
+                        # 1.13u and graded as a loss nobody could have placed).
                         _conv_prob = float(prob) if prob is not None else 0.5
                         _winner_prob = (
                             _conv_prob if winner_is_home else (1.0 - _conv_prob)
@@ -3717,6 +3727,9 @@ def _parse_nba_output(output: str, source_label: str = "NBA Model") -> list[dict
                             pick["decision"] = "LEAN" if _winner_prob < 0.62 else "BET"
                         pick["edge"] = None
                         pick["odds"] = None
+                        pick["pricing_type"] = "unpriced"
+                        pick["market_priced"] = False
+                        pick["decision_basis"] = "model_conviction_pending_price"
 
                 # B2B / fatigue stake reduction — applied last so it scales
                 # whatever stake size the market or fallback produced.
@@ -3757,6 +3770,7 @@ def _parse_nba_output(output: str, source_label: str = "NBA Model") -> list[dict
             else:
                 direction = 'Under' if model_total < vegas_total else 'Over'
                 pick_label = f"{direction} {vegas_total} ({away_team} vs {home_team})"
+                _price_assumed = not total_odds
                 _odds_price = total_odds if total_odds else -110
                 _prob = _ou_probability(float(model_total), float(vegas_total), _NBA_TOTALS_RMSE)
                 _b = abs(_odds_price) / 100 if _odds_price > 0 else 100 / abs(_odds_price or 110)
@@ -3765,12 +3779,18 @@ def _parse_nba_output(output: str, source_label: str = "NBA Model") -> list[dict
                 _q = 1 - _prob
                 _k = max((_b * _prob - _q) / _b, 0.0)
                 _kf = round(_k * 0.25 * 100, 2)
+                _ou_decision = 'BET' if _edge_prob >= 0.05 else ('LEAN' if _edge_prob >= 0.03 else 'PASS')
+                # Quarter-Kelly stake in units, capped like the spread path;
+                # PASS is 0u research (rows used to carry a flat 1u even on PASS).
+                _ou_units = 0.0 if _ou_decision == 'PASS' else round(min(1.5, _k * 0.25), 2)
+                if _ou_decision == 'LEAN':
+                    _ou_units = round(_ou_units * 0.6, 2)
                 ou_pick = {
                     "source": source_label,
                     "pick": pick_label,
                     "sport": league,
                     "odds": _odds_price,
-                    "units": 1,
+                    "units": _ou_units,
                     "probability": _prob,
                     "prob": _prob,
                     "edge": round(_edge_prob * 100, 2),
@@ -3778,7 +3798,7 @@ def _parse_nba_output(output: str, source_label: str = "NBA Model") -> list[dict
                     "model_prediction": round(float(model_total), 1),
                     "direction": direction,
                     "kelly": _kf,
-                    "decision": 'BET' if _edge_prob >= 0.05 else ('LEAN' if _edge_prob >= 0.03 else 'PASS'),
+                    "decision": _ou_decision,
                     "market_type": "totals",
                     "selection": direction,
                     "line": vegas_total,
@@ -3786,6 +3806,13 @@ def _parse_nba_output(output: str, source_label: str = "NBA Model") -> list[dict
                     "away_team": away_team,
                     "home_team": home_team,
                 }
+                if _price_assumed:
+                    # Label the invented -110 so market_odds replaces it with the
+                    # posted price for this exact line and the pipeline demotes
+                    # any stake whose placeholder was never replaced. Priced rows
+                    # keep their provenance-free shape so the SportsLine price is
+                    # still upgraded to the posted DraftKings price.
+                    ou_pick.update({"assumed_odds": _odds_price, "pricing_type": "assumed", "market_priced": False})
                 _append_unique(ou_pick)
 
     return picks
