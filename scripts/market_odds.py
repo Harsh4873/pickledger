@@ -153,6 +153,24 @@ def _price_from_odds_node(node: Any) -> int | None:
     return _american(node.get("odds") or node.get("american") or node.get("moneyLine"))
 
 
+def _line_from_odds_node(node: Any) -> float | None:
+    """Read a close-then-open handicap line from an ESPN odds side node.
+
+    Soccer scoreboards publish the handicap per side (``pointSpread.home.close.line``)
+    and carry no top-level ``spread`` scalar, unlike the football/basketball feeds.
+    """
+
+    if not isinstance(node, Mapping):
+        return None
+    for phase in ("close", "current", "open"):
+        phase_node = node.get(phase)
+        if isinstance(phase_node, Mapping):
+            line = _number(phase_node.get("line") or phase_node.get("spread"))
+            if line is not None:
+                return line
+    return _number(node.get("line") or node.get("spread"))
+
+
 def _team_names(competitor: Mapping[str, Any]) -> set[str]:
     team = competitor.get("team") if isinstance(competitor.get("team"), Mapping) else {}
     names = {
@@ -214,6 +232,14 @@ def _parse_scoreboard_event(event: Mapping[str, Any]) -> dict[str, Any] | None:
 
     point_spread = odds.get("pointSpread") if isinstance(odds.get("pointSpread"), Mapping) else {}
     home_spread = _number(odds.get("spread"))
+    if home_spread is None:
+        # Soccer payloads keep the handicap on each side node. Without this
+        # fallback every MLS/FIFA handicap row lost its price provenance and
+        # 106 staked MLS rows were invisible to the financial ledger.
+        home_spread = _line_from_odds_node(point_spread.get("home"))
+        if home_spread is None:
+            away_line = _line_from_odds_node(point_spread.get("away"))
+            home_spread = -away_line if away_line is not None else None
     spread_home_price = _price_from_odds_node(point_spread.get("home"))
     spread_away_price = _price_from_odds_node(point_spread.get("away"))
     if home_spread is not None and spread_home_price is not None and spread_away_price is not None:
@@ -290,14 +316,45 @@ def _parse_f5_prop_items(game: dict[str, Any], items: Iterable[Mapping[str, Any]
         markets["team_totals"] = team_totals
 
 
+def _parse_start(value: Any) -> datetime | None:
+    text = _text(value)
+    if not text:
+        return None
+    try:
+        parsed = datetime.fromisoformat(text.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    if parsed.tzinfo is None:
+        return None
+    return parsed.astimezone(timezone.utc)
+
+
+def _is_pregame(game: Mapping[str, Any], now: datetime | None) -> bool:
+    """ESPN's status flag lags kickoff; the wall clock is the authority.
+
+    In-play prices were leaking into 26% of MLS and 12% of WNBA priced rows
+    (median 15-28 minutes after the start), flattering every headline ROI.
+    """
+
+    if _text(game.get("state")) != "pre":
+        return False
+    start = _parse_start(game.get("startTime"))
+    if start is None or now is None:
+        return True
+    return start > now.astimezone(timezone.utc)
+
+
 def fetch_market_odds_for_date(
     date_iso: str,
     sports: Iterable[str] | None = None,
     fetch_json: FetchJson | None = None,
+    *,
+    now: datetime | None = None,
 ) -> dict[str, list[dict[str, Any]]]:
     """Return pregame market odds per sport for the given slate date."""
 
     fetch = fetch_json or _default_fetch
+    clock = now or datetime.now(timezone.utc)
     compact = date_iso.replace("-", "")
     book: dict[str, list[dict[str, Any]]] = {}
     for sport in sports if sports is not None else SPORT_LEAGUES:
@@ -317,7 +374,7 @@ def fetch_market_odds_for_date(
             if not isinstance(event, Mapping):
                 continue
             game = _parse_scoreboard_event(event)
-            if game is None or game["state"] != "pre":
+            if game is None or not _is_pregame(game, clock):
                 continue
             if sport == "MLB" and game["eventId"]:
                 props = fetch(
@@ -675,7 +732,7 @@ def apply_market_odds_to_payload(
             if isinstance(pick, Mapping)
         }
         wanted = [sport for sport in SPORT_LEAGUES if sport in sports_present]
-        book = fetch_market_odds_for_date(date_iso, wanted, fetch_json) if wanted else {}
+        book = fetch_market_odds_for_date(date_iso, wanted, fetch_json, now=now) if wanted else {}
 
     captured_at = _now_iso(now)
     attached = replaced = seen = 0
