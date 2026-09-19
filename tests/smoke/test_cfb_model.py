@@ -114,18 +114,12 @@ def test_artifact_records_walk_forward_calibration_and_feature_contract():
     assert metadata["anchored"]["market_features"] == ["market_home_line", "market_total_line"]
     assert metadata["anchored"]["oof_samples"] > 3000
     assert metadata["anchored"]["ml_brier"]["anchored_logistic"] < metadata["anchored"]["ml_brier"]["originator_raw"]
-    assert metadata["promotion_status"] == "segment_gate_lean_only"
+    assert metadata["promotion_status"] == "segment_gate_graduated_tiers"
     policy = metadata["decision_policy"]
     assert policy["h2h"]["mode"] == "research_only"
     assert policy["spread"]["mode"] == "research_only"
     assert policy["totals"]["mode"] == "segment_gate"
-    assert policy["qualification_bar"]["max_tier"] == "LEAN"
-    for segment in policy["totals"]["segments"]:
-        evidence = segment["walk_forward"]
-        assert segment["decision"] == "LEAN"
-        assert evidence["graded"] >= policy["qualification_bar"]["min_graded_picks"]
-        assert evidence["hit_rate"] >= policy["qualification_bar"]["min_hit_rate"]
-        assert evidence["seasons_above_break_even"] / evidence["seasons"] >= policy["qualification_bar"]["min_season_share_above_break_even"]
+    assert policy["tier_bars"][0]["decision"] == "BET"
     assert (ROOT / "CFBPredictionModel" / "artifacts" / "cfb_model.joblib").stat().st_size > 1000
 
 
@@ -681,8 +675,11 @@ def test_low_prob_pass_is_hidden_from_board_but_kept_in_payload(monkeypatch):
     assert cfb_model._board_eligible({"decision": "LEAN", "probability": 0.53}) is True
     assert cfb_model._board_eligible({"decision": "PASS", "probability": 0.74}) is True
     assert cfb_model._board_eligible({"decision": "PASS", "probability": 0.52}) is True
+    # A coin-flip PASS on the model's favoured side is visible research …
+    assert cfb_model._board_eligible({"decision": "PASS", "probability": 0.5}) is True
+    # … while a card whose selection the model does not favour stays off the board.
     assert cfb_model._board_eligible({"decision": "PASS", "probability": 0.247}) is False
-    assert cfb_model._board_eligible({"decision": "PASS", "probability": 0.5}) is False
+    assert cfb_model._board_eligible({"decision": "PASS", "probability": 0.49}) is False
     assert cfb_model._board_eligible({
         "decision": "PASS", "probability": 0.401, "market": "spread",
     }) is True
@@ -694,16 +691,62 @@ def test_low_prob_pass_is_hidden_from_board_but_kept_in_payload(monkeypatch):
     assert ml["selection"] == "Texas A&M Aggies"
     assert ml["probability"] == pytest.approx(0.51)
     assert ml["decision"] == "PASS"
-    assert cfb_model._board_eligible(ml) is False
+    assert ml["confidence_label"] == "Low"
+    assert cfb_model._board_eligible(ml) is True
     assert payload["picks"] == [ml]
 
 
-def test_viewer_pass_board_floor_matches_lean_probability():
-    from CFBPredictionModel.cfb_model import LEAN_PROBABILITY
+def test_viewer_pass_board_floor_matches_model_rule():
+    from CFBPredictionModel.cfb_model import PASS_BOARD_PROBABILITY
 
     data = (ROOT / "src" / "data.ts").read_text(encoding="utf-8")
-    assert f"IN_HOUSE_PASS_BOARD_MIN_PROBABILITY = {LEAN_PROBABILITY}" in data
+    assert f"IN_HOUSE_PASS_BOARD_MIN_PROBABILITY = {PASS_BOARD_PROBABILITY}" in data
     assert "if (market === 'spread') return true;" in data
     from NFLPredictionModel.nfl_model import LEAN_PROBABILITY as NFL_LEAN_PROBABILITY
+    from CFBPredictionModel.cfb_model import LEAN_PROBABILITY
 
     assert NFL_LEAN_PROBABILITY == LEAN_PROBABILITY
+
+
+def test_graduated_total_bands_decide_by_residual_magnitude():
+    """BET is the strongest validated band, LEAN the next band that clears its
+    own bar, PASS below the ladder floor — each side keeps its own ladder."""
+    from CFBPredictionModel import cfb_model
+
+    policy = {"mode": "segment_gate", "segments": [
+        {"direction": "under", "min_residual": 3.5, "max_residual": None, "decision": "BET", "tier": "bet", "units": 0.5, "max_juice": -125},
+        {"direction": "over", "min_residual": 2.5, "max_residual": None, "decision": "LEAN", "tier": "lean", "units": 0.25, "max_juice": -125},
+    ]}
+    assert cfb_model._segment_decision(policy, direction="under", residual=-4.2, odds=-110) == ("BET", 0.5, "segment:bet:under:3.5")
+    assert cfb_model._segment_decision(policy, direction="under", residual=-3.0, odds=-110) == ("PASS", 0.0, "below_segment_threshold:under:3.5")
+    assert cfb_model._segment_decision(policy, direction="over", residual=2.6, odds=-108) == ("LEAN", 0.25, "segment:lean:over:2.5")
+    assert cfb_model._segment_decision(policy, direction="over", residual=6.0, odds=-108) == ("LEAN", 0.25, "segment:lean:over:2.5")
+    assert cfb_model._segment_decision(policy, direction="over", residual=2.6, odds=None) == ("PASS", 0.0, "unpriced")
+    assert cfb_model._segment_decision(policy, direction="over", residual=2.6, odds=-135) == ("PASS", 0.0, "juice_above_cap:-135")
+    banded = {"mode": "segment_gate", "segments": [
+        {"direction": "under", "min_residual": 1.5, "max_residual": None, "decision": "BET", "tier": "bet", "units": 0.5},
+        {"direction": "under", "min_residual": 1.0, "max_residual": 1.5, "decision": "LEAN", "tier": "lean", "units": 0.25},
+    ]}
+    assert cfb_model._segment_decision(banded, direction="under", residual=-1.2, odds=-110)[0] == "LEAN"
+    assert cfb_model._segment_decision(banded, direction="under", residual=-1.5, odds=-110)[0] == "BET"
+    assert cfb_model._segment_decision(banded, direction="under", residual=-0.9, odds=-110) == ("PASS", 0.0, "below_segment_threshold:under:1")
+    assert cfb_model._confidence_label(0.7) == "High" and cfb_model._confidence_label(0.6) == "Medium" and cfb_model._confidence_label(0.53) == "Low"
+
+
+def test_artifact_ladder_tiers_each_clear_their_own_bar():
+    metadata = json.loads((ROOT / "CFBPredictionModel" / "artifacts" / "metadata.json").read_text(encoding="utf-8"))
+    policy = metadata["decision_policy"]
+    bars = {bar["tier"]: bar for bar in policy["tier_bars"]}
+    assert set(bars) == {"bet", "lean", "lean_light"}
+    assert bars["bet"]["units"] > bars["lean"]["units"] > bars["lean_light"]["units"]
+    for market in ("spread", "totals"):
+        for segment in policy[market]["segments"]:
+            bar = bars[segment["tier"]]
+            band = segment["walk_forward"]["band"]
+            assert segment["decision"] == bar["decision"] and segment["units"] == bar["units"]
+            assert band["hit_rate"] >= bar["min_hit_rate"]
+            assert band["seasons_above_break_even"] / band["seasons"] >= bar["min_season_share"]
+            assert band["graded"] >= (bar["min_picks"] if segment["max_residual"] is None else policy["qualification_bar"]["min_band_picks"])
+    # Today's data: a BET tier exists and every published tier beats -110 break-even.
+    decisions = {segment["decision"] for segment in policy["totals"]["segments"]}
+    assert "BET" in decisions and "LEAN" in decisions

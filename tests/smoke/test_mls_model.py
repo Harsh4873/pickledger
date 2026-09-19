@@ -385,3 +385,22 @@ def test_grid_decision_requires_non_negative_model_edge():
     # Without a market probability there is no edge to test; the juice cap still applies.
     assert _decision(0.62, 0.58, 0.545, False, edge_pp=None, min_edge_pp=GRID_MIN_EDGE_PP) == "LEAN"
     assert _decision(0.62, 0.58, 0.545, True, implied=0.80, max_implied=0.75, edge_pp=5.0, min_edge_pp=GRID_MIN_EDGE_PP) == "PASS"
+
+
+def test_mls_rows_stamp_the_espn_price_provenance(serving_fixture):
+    """The model reads DraftKings prices from the ESPN scoreboard itself, so the
+    rows must say so: without the stamps the pipeline's unpriced-stake demotion
+    treated real handicap prices as assumed and turned staked rows into PASS."""
+    from scripts.market_odds import _looks_assumed
+
+    events = [_event("g1", STRONG, WEAK, FULL_ODDS), _event("g2", MID_A, WEAK, None)]
+    bucket = mls_model.generate_mls_picks("2026-07-25", client=FakeEspnClient(events))
+    priced = [pick for pick in bucket["picks"] if pick["game_id"] == "g1"]
+    assert len(priced) == 3
+    for pick in priced:
+        assert pick["pricing_type"] == "market" and pick["market_priced"] is True
+        assert pick["odds_source"].startswith("espn_scoreboard:")
+        assert _looks_assumed(pick) is False
+    unpriced = next(pick for pick in bucket["picks"] if pick["game_id"] == "g2")
+    assert unpriced["odds"] is None
+    assert unpriced["pricing_type"] == "unpriced" and unpriced["market_priced"] is False

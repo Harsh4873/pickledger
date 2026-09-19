@@ -106,7 +106,8 @@ UNDER_GATE = {
     "h2h": {"mode": "research_only", "reason": "test"},
     "spread": {"mode": "research_only", "reason": "test", "segments": []},
     "totals": {"mode": "segment_gate", "segments": [
-        {"direction": "under", "min_residual": 1.0, "decision": "LEAN", "units": 0.25, "max_juice": -125},
+        {"direction": "under", "min_residual": 1.5, "max_residual": None, "decision": "BET", "tier": "bet", "units": 0.5, "max_juice": -125},
+        {"direction": "under", "min_residual": 1.0, "max_residual": 1.5, "decision": "LEAN", "tier": "lean", "units": 0.25, "max_juice": -125},
     ]},
 }
 
@@ -150,10 +151,23 @@ def test_slate_publishes_research_rows_and_stakes_only_validated_segments(monkey
     total = by_market["totals"]
     assert total["pick"].startswith("Under 48") and total["direction"] == "under"
     assert total["odds"] == -115 and total["opposite_odds"] == -105
-    assert total["decision"] == "LEAN" and total["units"] == 0.25
-    assert total["decision_reason"] == "segment:under:1"
+    # residual -2.0 sits in the BET band [1.5, inf)
+    assert total["decision"] == "BET" and total["units"] == 0.5
+    assert total["decision_reason"] == "segment:bet:under:1.5"
     assert total["probability"] > 0.52
+    assert total["confidence_label"] in {"Low", "Medium", "High"}
     assert "1 staked row(s)" in payload["note"]
+
+    lean_payload = _serve(monkeypatch, rows, "2026-09-13", datetime(2026, 9, 13, 12, 0, tzinfo=timezone.utc),
+                          _artifacts(total_residual=-1.2, policy=UNDER_GATE))
+    lean_total = next(pick for pick in lean_payload["picks"] if pick["market"] == "totals")
+    assert lean_total["decision"] == "LEAN" and lean_total["units"] == 0.25
+    assert lean_total["decision_reason"] == "segment:lean:under:1"
+    pass_payload = _serve(monkeypatch, rows, "2026-09-13", datetime(2026, 9, 13, 12, 0, tzinfo=timezone.utc),
+                          _artifacts(total_residual=-0.6, policy=UNDER_GATE))
+    pass_total = next(pick for pick in pass_payload["picks"] if pick["market"] == "totals")
+    assert pass_total["decision"] == "PASS" and pass_total["units"] == 0
+    assert pass_total["decision_reason"] == "below_segment_threshold:under:1"
 
 
 def test_over_side_and_heavy_juice_never_stake(monkeypatch):
@@ -166,7 +180,7 @@ def test_over_side_and_heavy_juice_never_stake(monkeypatch):
     totals = {pick["matchup"]: pick for pick in payload["picks"] if pick["market"] == "totals"}
     juiced = totals["CIN @ KC"]
     assert juiced["decision"] == "PASS" and juiced["decision_reason"] == "juice_above_cap:-130"
-    assert totals["LV @ DEN"]["decision"] == "LEAN"
+    assert totals["LV @ DEN"]["decision"] == "BET"
 
     over_payload = _serve(monkeypatch, rows, "2026-09-13", datetime(2026, 9, 13, 12, 0, tzinfo=timezone.utc),
                           _artifacts(total_residual=4.0, policy=UNDER_GATE))
@@ -297,14 +311,20 @@ def test_artifacts_metadata_contract():
     assert meta["oof_ml_brier"] <= meta["market_reference_brier"] + 0.002
     policy = meta["decision_policy"]
     assert policy["h2h"]["mode"] == "research_only"
-    assert policy["qualification_bar"]["max_tier"] == "LEAN"
+    bars = {bar["tier"]: bar for bar in policy["tier_bars"]}
+    assert set(bars) == {"bet", "lean", "lean_light"}
+    assert bars["bet"]["units"] > bars["lean"]["units"] > bars["lean_light"]["units"]
     for market in ("spread", "totals"):
         for segment in policy[market]["segments"]:
-            evidence = segment["walk_forward"]
-            assert segment["decision"] == "LEAN"
-            assert evidence["picks"] >= policy["qualification_bar"]["min_picks"]
-            assert evidence["flat_roi"] >= policy["qualification_bar"]["min_flat_roi"]
-            assert evidence["seasons_positive"] / evidence["seasons"] >= policy["qualification_bar"]["min_season_share_positive"]
+            bar = bars[segment["tier"]]
+            band = segment["walk_forward"]["band"]
+            assert segment["decision"] == bar["decision"] and segment["units"] == bar["units"]
+            assert band["flat_roi"] >= bar["min_roi"]
+            assert band["seasons_positive"] / band["seasons"] >= bar["min_season_share"]
+            assert band["picks"] >= (bar["min_picks"] if segment["max_residual"] is None else policy["qualification_bar"]["min_band_picks"])
+    # Today's data: the totals ladder carries both a BET and a LEAN tier.
+    decisions = {segment["decision"] for segment in policy["totals"]["segments"]}
+    assert decisions == {"BET", "LEAN"}
     for name in ("nfl_ml.joblib", "nfl_ml_free.joblib", "nfl_spread.joblib", "nfl_total.joblib"):
         assert (ROOT / "NFLPredictionModel" / "artifacts" / name).exists()
     assert not (ROOT / "NFLPredictionModel" / "artifacts" / "nfl_ml_isotonic.joblib").exists()
@@ -318,3 +338,37 @@ def test_segment_qualification_bar(season_share, expected):
     assert _qualifies(stats) is expected
     assert _qualifies({**stats, "picks": 40}) is False
     assert _qualifies({**stats, "flat_roi": 0.01}) is False
+
+
+def test_ladder_prefers_a_validated_lean_band_under_bet_and_never_pools_directions():
+    """Synthetic walk-forward rows: unders beat the price above 1.0 (strongly
+    above 1.5), overs are break-even everywhere. The ladder must place BET on
+    the strong band, LEAN on the medium band, and nothing on the over side."""
+    import random
+
+    from NFLPredictionModel.nfl_train import build_ladder
+
+    rng = random.Random(7)
+    oof = []
+    for season in range(2012, 2026):
+        for _ in range(400):
+            pred = rng.uniform(-3.0, 3.0)
+            magnitude = abs(pred)
+            if pred < 0:
+                p_hit = 0.66 if magnitude >= 1.5 else 0.58 if magnitude >= 1.0 else 0.50
+            else:
+                p_hit = 0.50
+            hit = rng.random() < p_hit
+            sign = 1.0 if pred > 0 else -1.0
+            oof.append({"season": season, "total_pred": pred, "total_residual": sign * (3.0 if hit else -3.0),
+                        "over_odds": -110, "under_odds": -110})
+    ladder = build_ladder(oof, market_key="total", direction="under", pred_key="total_pred", actual_key="total_residual", odds_keys=("over_odds", "under_odds"))
+    by_tier = {row["tier"]: row for row in ladder}
+    assert set(by_tier) == {"bet", "lean"}
+    # BET sits on the strong band (the loosest threshold that still leaves a
+    # validated LEAN band below it); LEAN fills [1.0, BET) and nothing is staked
+    # below 1.0 where the synthetic unders are a coin flip.
+    assert by_tier["bet"]["min_residual"] in (1.25, 1.5) and by_tier["bet"]["max_residual"] is None
+    assert by_tier["lean"]["min_residual"] == 1.0 and by_tier["lean"]["max_residual"] == by_tier["bet"]["min_residual"]
+    assert by_tier["bet"]["units"] > by_tier["lean"]["units"]
+    assert build_ladder(oof, market_key="total", direction="over", pred_key="total_pred", actual_key="total_residual", odds_keys=("over_odds", "under_odds")) == []

@@ -353,6 +353,17 @@ def generate_mls_picks(
         )
 
         odds = game["odds"]
+        provider = odds.get("provider") if isinstance(odds.get("provider"), dict) else {}
+        provider_name = str(provider.get("displayName") or provider.get("name") or "unknown").strip() or "unknown"
+
+        def _price_provenance(price: int | None) -> dict[str, Any]:
+            # The prices below are read straight from the ESPN scoreboard's
+            # DraftKings odds node. Without these stamps the downstream
+            # unpriced-stake demotion treated real handicap prices as assumed.
+            if price is None:
+                return {"pricing_type": "unpriced", "odds_source": None, "market_priced": False}
+            return {"pricing_type": "market", "odds_source": f"espn_scoreboard:{provider_name}", "market_priced": True}
+
         market_1x2_raw = [
             american_to_probability(_number(_closed_market_value(odds, "moneyline", side)))
             for side in ("home", "draw", "away")
@@ -408,6 +419,7 @@ def generate_mls_picks(
             "market": "moneyline",
             "market_type": "soccer_moneyline",
             "odds": ml_odds,
+            **_price_provenance(ml_odds),
             "probability": round(blended_1x2[side], 4),
             "model_probability": round(model_1x2[side], 4),
             "market_probability": round(market_by_side[side], 4) if market_by_side[side] is not None else None,
@@ -464,6 +476,7 @@ def generate_mls_picks(
                 "market_type": "soccer_total",
                 "line": total_line,
                 "odds": total_odds,
+                **_price_provenance(total_odds),
                 "probability": round(blended, 4),
                 "model_probability": round(model_prob, 4),
                 "market_probability": round(market_prob, 4) if market_prob is not None else None,
@@ -531,6 +544,7 @@ def generate_mls_picks(
                 "market_type": "soccer_handicap",
                 "line": spread["line"],
                 "odds": spread["odds"],
+                **_price_provenance(spread["odds"]),
                 "probability": round(spread["blended"], 4),
                 "model_probability": round(spread["model_prob"], 4),
                 "market_probability": round(spread["market_prob"], 4) if spread["market_prob"] is not None else None,

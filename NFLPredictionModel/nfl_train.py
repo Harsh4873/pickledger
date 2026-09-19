@@ -60,19 +60,25 @@ HEAD_FEATURES: dict[str, list[str]] = {
     ],
 }
 
-# Candidate decision segments.  The search space is deliberately tiny so a
+# Candidate decision segments.  The search space is deliberately small so a
 # qualifying segment is a structural finding, not a lucky bucket.
-SEGMENT_THRESHOLDS = (1.0, 1.5, 2.0, 2.5)
+SEGMENT_THRESHOLDS = (0.5, 0.75, 1.0, 1.25, 1.5, 2.0, 2.5)
 SEGMENT_DIRECTIONS = {"spread": ("home", "away", "both"), "total": ("over", "under", "both")}
-# Qualification bar for a live LEAN gate: enough picks, positive flat ROI at
-# the recorded price, and profitable in a clear majority of seasons.
-QUALIFY_MIN_PICKS = 100
-QUALIFY_MIN_ROI = 0.03
-QUALIFY_MIN_SEASON_SHARE = 0.70
-# Segments discovered by walk-forward search are capped at LEAN until live
-# certified evidence exists; BET is never minted from a backtest alone.
-MAX_SEGMENT_TIER = "LEAN"
-LEAN_UNITS = 0.25
+# Graduated confidence ladder, strongest tier first.  Every tier is a band of
+# residual magnitude whose OWN picks (not the cumulative tail) must clear the
+# tier's bar at recorded prices: enough picks, flat ROI, and a share of
+# seasons finishing positive.  BET is the strongest validated band, LEAN the
+# next band that still beats break-even comfortably, and a lighter LEAN (fewer
+# units) is allowed for a market whose only evidence is weaker but still above
+# break-even.  Everything else publishes as PASS research.
+TIER_BARS = (
+    {"tier": "bet", "decision": "BET", "units": 0.5, "min_picks": 100, "min_roi": 0.08, "min_season_share": 0.75},
+    {"tier": "lean", "decision": "LEAN", "units": 0.25, "min_picks": 100, "min_roi": 0.03, "min_season_share": 0.70},
+    {"tier": "lean_light", "decision": "LEAN", "units": 0.15, "min_picks": 150, "min_roi": 0.02, "min_season_share": 0.50},
+)
+# A LEAN band below a BET band must itself clear this many picks so a thin
+# slice cannot ride on the tail above it.
+MIN_BAND_PICKS = 60
 MAX_JUICE = -125  # never stake a validated segment at heavier juice than this
 
 
@@ -120,13 +126,133 @@ def _segment_stats(picks: list[tuple[int, float, bool | None]]) -> dict[str, Any
     }
 
 
-def _qualifies(stats: dict[str, Any]) -> bool:
+def _clears(stats: dict[str, Any], bar: dict[str, Any], *, min_picks: int | None = None) -> bool:
+    picks = int(stats.get("picks") or 0)
+    seasons = int(stats.get("seasons") or 0)
     return (
-        int(stats.get("picks") or 0) >= QUALIFY_MIN_PICKS
-        and float(stats.get("flat_roi") or -1.0) >= QUALIFY_MIN_ROI
-        and int(stats.get("seasons") or 0) > 0
-        and int(stats.get("seasons_positive") or 0) / int(stats["seasons"]) >= QUALIFY_MIN_SEASON_SHARE
+        picks >= (min_picks if min_picks is not None else int(bar["min_picks"]))
+        and float(stats.get("flat_roi") if stats.get("flat_roi") is not None else -1.0) >= float(bar["min_roi"])
+        and seasons > 0
+        and int(stats.get("seasons_positive") or 0) / seasons >= float(bar["min_season_share"])
     )
+
+
+def _qualifies(stats: dict[str, Any]) -> bool:
+    """Loosest live gate: the LEAN bar (kept for the segment-search report)."""
+
+    return _clears(stats, TIER_BARS[1])
+
+
+def _segment_picks(
+    oof: list[dict[str, Any]],
+    *,
+    pred_key: str,
+    actual_key: str,
+    odds_keys: tuple[str, str],
+    direction: str,
+    market_key: str,
+    low: float,
+    high: float | None,
+) -> list[tuple[int, float, bool | None]]:
+    """Graded picks whose residual magnitude lies in [low, high) on ``direction``."""
+
+    picks: list[tuple[int, float, bool | None]] = []
+    for o in oof:
+        pred = o[pred_key]
+        magnitude = abs(pred)
+        if magnitude < low or (high is not None and magnitude >= high):
+            continue
+        positive_side = pred > 0  # home cover / over
+        side_name = ("home" if positive_side else "away") if market_key == "spread" else ("over" if positive_side else "under")
+        if direction != "both" and side_name != direction:
+            continue
+        odds = o[odds_keys[0]] if positive_side else o[odds_keys[1]]
+        if odds is None or odds < MAX_JUICE:
+            continue
+        actual = o[actual_key]
+        hit = None if actual == 0 else (actual > 0) == positive_side
+        picks.append((o["season"], _profit(hit, odds), hit))
+    return picks
+
+
+def build_ladder(
+    oof: list[dict[str, Any]],
+    *,
+    market_key: str,
+    direction: str,
+    pred_key: str,
+    actual_key: str,
+    odds_keys: tuple[str, str],
+) -> list[dict[str, Any]]:
+    """Graduated tiers for one market direction from band-level evidence.
+
+    Walk the tiers strongest first.  Each tier takes the loosest threshold
+    whose cumulative tail clears the tier's bar (using the direction's own
+    picks, or the pooled both-direction picks for LEAN tiers) and whose band
+    below the stronger tier — measured on the direction's own picks — still
+    clears the tier's ROI and season bars.  A tier that cannot be placed is
+    simply absent; the market then publishes PASS research there.
+    """
+
+    def stats(low: float, high: float | None, use_direction: str) -> dict[str, Any]:
+        return _segment_stats(_segment_picks(
+            oof, pred_key=pred_key, actual_key=actual_key, odds_keys=odds_keys,
+            direction=use_direction, market_key=market_key, low=low, high=high,
+        ))
+
+    def placement(bar: dict[str, Any], threshold: float, ceiling: float | None) -> dict[str, Any] | None:
+        """Tier row for [threshold, ceiling) if that band clears ``bar``."""
+
+        # Only the direction's own picks count: pooling both directions let a
+        # losing side (over ≥1.5, −0.4%) ride on the other side's tail.
+        own_tail = stats(threshold, None, direction)
+        if not _clears(own_tail, bar):
+            return None
+        band = stats(threshold, ceiling, direction)
+        if ceiling is not None and not _clears(band, bar, min_picks=MIN_BAND_PICKS):
+            return None
+        return {
+            "direction": direction,
+            "min_residual": threshold,
+            "max_residual": ceiling,
+            "decision": bar["decision"],
+            "tier": bar["tier"],
+            "units": bar["units"],
+            "max_juice": MAX_JUICE,
+            "walk_forward": {
+                "band": {k: band[k] for k in ("picks", "hit_rate", "flat_roi", "seasons", "seasons_positive", "season_roi") if k in band},
+                "cumulative": {k: own_tail[k] for k in ("picks", "hit_rate", "flat_roi", "seasons", "seasons_positive") if k in own_tail},
+            },
+        }
+
+    bet_bar, lean_bar, light_bar = TIER_BARS
+    thresholds = list(SEGMENT_THRESHOLDS)  # loosest first
+
+    def lean_below(ceiling: float | None, bar: dict[str, Any]) -> dict[str, Any] | None:
+        for threshold in thresholds:
+            if ceiling is not None and threshold >= ceiling:
+                break
+            placed = placement(bar, threshold, ceiling)
+            if placed is not None:
+                return placed
+        return None
+
+    # Prefer a two-tier ladder: the loosest BET threshold that still leaves a
+    # validated LEAN band underneath it.  Otherwise the loosest BET alone.
+    bet_candidates = [t for t in thresholds if placement(bet_bar, t, None) is not None]
+    for bet_threshold in bet_candidates:
+        lean = lean_below(bet_threshold, lean_bar)
+        if lean is not None:
+            return [placement(bet_bar, bet_threshold, None), lean]
+    if bet_candidates:
+        bet = placement(bet_bar, bet_candidates[0], None)
+        light = lean_below(bet_candidates[0], light_bar)
+        return [bet] + ([light] if light else [])
+    lean = lean_below(None, lean_bar)
+    if lean is not None:
+        return [lean]
+    light = lean_below(None, light_bar)
+    return [light] if light else []
 
 
 def train(first_season: int = FIRST_TRAIN_SEASON, last_season: int = 2025) -> dict[str, Any]:
@@ -235,27 +361,21 @@ def train(first_season: int = FIRST_TRAIN_SEASON, last_season: int = 2025) -> di
         stats.update({"edge_lower": lo, "edge_upper": hi, "qualifies": _qualifies(stats)})
         ml_buckets[f"edge:{lo:g}-{hi:g}"] = stats
 
-    def best_qualifying(market_key: str) -> list[dict[str, Any]]:
-        """One gate per direction: the loosest qualifying threshold (largest sample)."""
-        chosen: dict[str, dict[str, Any]] = {}
-        for stats in segments.values():
-            if stats["market"] != market_key or not stats["qualifies"] or stats["direction"] == "both":
-                continue
-            current = chosen.get(stats["direction"])
-            if current is None or stats["picks"] > current["picks"]:
-                chosen[stats["direction"]] = stats
-        return [
-            {
-                "direction": stats["direction"],
-                "min_residual": stats["min_residual"],
-                "decision": MAX_SEGMENT_TIER,
-                "units": LEAN_UNITS,
-                "max_juice": MAX_JUICE,
-                "walk_forward": {k: stats[k] for k in ("picks", "hit_rate", "flat_roi", "seasons", "seasons_positive", "season_roi")},
-            }
-            for stats in chosen.values()
-        ]
+    def ladders(market_key: str) -> list[dict[str, Any]]:
+        pred_key, actual_key, odds_keys = {
+            "spread": ("spread_pred", "margin_residual", ("home_spread_odds", "away_spread_odds")),
+            "total": ("total_pred", "total_residual", ("over_odds", "under_odds")),
+        }[market_key]
+        rows: list[dict[str, Any]] = []
+        for direction in SEGMENT_DIRECTIONS[market_key][:2]:
+            rows.extend(build_ladder(
+                oof, market_key=market_key, direction=direction,
+                pred_key=pred_key, actual_key=actual_key, odds_keys=odds_keys,
+            ))
+        return rows
 
+    spread_ladder = ladders("spread")
+    total_ladder = ladders("total")
     decision_policy = {
         "h2h": {
             "mode": "research_only",
@@ -266,21 +386,26 @@ def train(first_season: int = FIRST_TRAIN_SEASON, last_season: int = 2025) -> di
             "buckets": ml_buckets,
         },
         "spread": {
-            "mode": "segment_gate" if best_qualifying("spread") else "research_only",
-            "segments": best_qualifying("spread"),
-            "reason": "No spread residual segment clears the qualification bar at recorded prices." if not best_qualifying("spread") else "",
+            "mode": "segment_gate" if spread_ladder else "research_only",
+            "segments": spread_ladder,
+            "reason": "" if spread_ladder else "No spread residual band clears any tier bar at recorded prices.",
         },
         "totals": {
-            "mode": "segment_gate" if best_qualifying("total") else "research_only",
-            "segments": best_qualifying("total"),
-            "reason": "No total residual segment clears the qualification bar at recorded prices." if not best_qualifying("total") else "",
+            "mode": "segment_gate" if total_ladder else "research_only",
+            "segments": total_ladder,
+            "reason": "" if total_ladder else "No total residual band clears any tier bar at recorded prices.",
         },
+        "tier_bars": list(TIER_BARS),
         "qualification_bar": {
-            "min_picks": QUALIFY_MIN_PICKS,
-            "min_flat_roi": QUALIFY_MIN_ROI,
-            "min_season_share_positive": QUALIFY_MIN_SEASON_SHARE,
-            "max_tier": MAX_SEGMENT_TIER,
+            "min_band_picks": MIN_BAND_PICKS,
             "max_juice": MAX_JUICE,
+            "evidence": "flat_roi_at_recorded_closing_prices",
+            "ladder_rule": (
+                "Strongest tier first, on the direction's own picks only. A tier takes the loosest threshold whose "
+                "cumulative tail clears its bar; a LEAN band below BET must itself clear the LEAN bar. The loosest "
+                "BET threshold that leaves a validated LEAN band wins; a lighter LEAN exists only where no regular "
+                "LEAN could be placed."
+            ),
         },
     }
 
@@ -317,11 +442,11 @@ def train(first_season: int = FIRST_TRAIN_SEASON, last_season: int = 2025) -> di
         "market_moneyline_brier": round(market_ml_brier, 5) if not math.isnan(market_ml_brier) else None,
         "segment_search": segments,
         "decision_policy": decision_policy,
-        "promotion_status": "segment_gate_lean_only",
+        "promotion_status": "segment_gate_graduated_tiers",
         "notes": (
             "Every head is anchored to the posted line. BET/LEAN are minted only through decision_policy "
-            "segments validated at recorded closing prices; discovered segments are capped at LEAN until "
-            "certified live evidence exists. Moneyline and spread publish as research (PASS)."
+            "bands validated at recorded closing prices (BET = strongest validated band, LEAN = the next band "
+            "that still clears its own bar); everything else publishes as visible PASS research."
         ),
     }
     (ARTIFACT_DIR / "metadata.json").write_text(json.dumps(metadata, indent=2) + "\n", encoding="utf-8")

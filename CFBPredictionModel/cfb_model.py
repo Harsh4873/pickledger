@@ -33,6 +33,11 @@ LEAN_EV = 0.025
 BET_EV = 0.055
 LEAN_PROBABILITY = 0.52
 BET_PROBABILITY = 0.55
+# PASS rows are visible research. A card stays on the board whenever the
+# published side is the one the model favours (a coin flip or better); only a
+# card whose selection the model itself does not favour is hidden. Mirrored by
+# IN_HOUSE_PASS_BOARD_MIN_PROBABILITY in src/data.ts.
+PASS_BOARD_PROBABILITY = 0.5
 # Serving-time fallbacks when an artifact predates the anchored heads.
 DEFAULT_POLICY: dict[str, Any] = {
     "h2h": {"mode": "research_only", "reason": "legacy_artifact"},
@@ -146,14 +151,15 @@ def _decision(ev: float, probability: float) -> str:
 def _board_eligible(row: dict[str, Any]) -> bool:
     """Canonical public-board rule for in-house CFB PASS cards.
 
-    BET/LEAN always belong on the board. Moneyline (and total) PASS belongs only
-    when selected probability clears the LEAN floor (0.52), so +500 dog junk stays
-    off the board. The one published spread card per game still belongs on the
-    board even when the favorite's cover probability is under 0.5 — that card is
-    the model's side, not a longshot ML. The serving payload still includes
-    ineligible PASS rows so cache merge can replace prior market cards and the
-    CFB forecast-audit ledger can score them. The viewer applies the same rule
-    in `isTrackedPick`.
+    BET/LEAN always belong on the board. Moneyline (and total) PASS is visible
+    research whenever the published side is the one the model favours (a coin
+    flip or better), so +500 dog junk stays off the board while ordinary PASS
+    forecasts remain visible. The one published spread card per game still
+    belongs on the board even when the favorite's cover probability is under
+    0.5 — that card is the model's side, not a longshot ML. The serving payload
+    still includes ineligible PASS rows so cache merge can replace prior market
+    cards and the CFB forecast-audit ledger can score them. The viewer applies
+    the same rule in `isTrackedPick`.
     """
 
     decision = str(row.get("decision") or "").upper()
@@ -168,7 +174,7 @@ def _board_eligible(row: dict[str, Any]) -> bool:
         probability = float(row.get("probability"))
     except (TypeError, ValueError):
         return False
-    return probability >= LEAN_PROBABILITY
+    return probability >= PASS_BOARD_PROBABILITY
 
 
 def _selection_rank(ev: float, probability: float, *, priced: bool) -> tuple[int, float, float]:
@@ -273,12 +279,17 @@ def _segment_decision(
         return "PASS", 0.0, "research_only"
     if residual is None:
         return "PASS", 0.0, "research_only:anchored_head_unavailable"
-    for segment in policy.get("segments") or []:
-        if str(segment.get("direction")) != direction:
+    bands = [segment for segment in policy.get("segments") or [] if str(segment.get("direction")) == direction]
+    if not bands:
+        return "PASS", 0.0, f"no_segment_for_direction:{direction}"
+    magnitude = abs(residual)
+    floor = min(float(segment.get("min_residual") or 0.0) for segment in bands)
+    for segment in bands:
+        # Graduated bands: [min_residual, max_residual) with an open top tier.
+        low = float(segment.get("min_residual") or 0.0)
+        high = segment.get("max_residual")
+        if magnitude < low or (high is not None and magnitude >= float(high)):
             continue
-        threshold = float(segment.get("min_residual") or 0.0)
-        if abs(residual) < threshold:
-            return "PASS", 0.0, f"below_segment_threshold:{direction}:{threshold:g}"
         if odds is None:
             return "PASS", 0.0, "unpriced"
         max_juice = float(segment.get("max_juice") or -125)
@@ -286,8 +297,19 @@ def _segment_decision(
             return "PASS", 0.0, f"juice_above_cap:{odds}"
         decision = str(segment.get("decision") or "LEAN").upper()
         units = float(segment.get("units") or 0.0)
-        return decision, units, f"segment:{direction}:{threshold:g}"
-    return "PASS", 0.0, f"no_segment_for_direction:{direction}"
+        tier = str(segment.get("tier") or decision.lower())
+        return decision, units, f"segment:{tier}:{direction}:{low:g}"
+    return "PASS", 0.0, f"below_segment_threshold:{direction}:{floor:g}"
+
+
+def _confidence_label(probability: float) -> str:
+    """Display ladder for research rows: the published win/cover probability."""
+
+    if probability >= 0.65:
+        return "High"
+    if probability >= 0.58:
+        return "Medium"
+    return "Low"
 
 
 def _row(
@@ -341,6 +363,7 @@ def _row(
         "decision": decision,
         "model_decision": model_decision,
         "decision_reason": decision_reason,
+        "confidence_label": _confidence_label(probability),
         "units": units,
         "pricing_type": "market" if price_observed else "unpriced",
         "odds_source": base.get("odds_source") if price_observed else None,
