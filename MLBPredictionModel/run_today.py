@@ -234,17 +234,17 @@ def main(argv: list[str] | None = None) -> int:
             )
             selection = direction if totals_bet else "PASS"
             ou_line = line
+            line_source = "market"
         else:
-            ou_line = 8.5
-            if predicted_total > ou_line + 0.5:
-                selection = "OVER"
-            elif predicted_total < ou_line - 0.5:
-                selection = "UNDER"
-            else:
-                selection = "PASS"
+            # No posted total: there is nothing to price a side against. The
+            # old 8.5 placeholder produced "Over/Under 8.5" on 100% of the
+            # September totals rows while the projection ranged 7.0-10.1.
+            selection = "PASS"
+            ou_line = "NONE"
+            line_source = "none"
             print(f"OU market: unavailable | model: {predicted_total:.2f}")
 
-        print(f"OU|{selection}|{ou_line}|{predicted_total:.2f}")
+        print(f"OU|{selection}|{ou_line}|{predicted_total:.2f}|{line_source}")
         print("---")
 
     return 0

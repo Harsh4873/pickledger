@@ -58,7 +58,8 @@ def test_freeze_falls_back_to_the_bucket_games_list_for_start_times():
 def test_unpriced_stakes_become_research_after_the_market_attach():
     unpriced_bet = _pick(decision="BET", units=1.13, odds=None)
     zero_odds = _pick(decision="LEAN", units=0.25, odds=0, game_id="g2")
-    priced = _pick(decision="LEAN", units=0.25, odds=-115, game_id="g3")
+    priced = _pick(decision="LEAN", units=0.25, odds=-115, game_id="g3", pricing_type="market",
+                   odds_source="posted_market", market_priced=True)
     unpriced_pass = _pick(decision="PASS", units=0, odds=None, game_id="g4")
     scraped = _pick(decision="BET", units=1, odds=None, game_id="g5")
     payload = {"models": {
@@ -71,10 +72,34 @@ def test_unpriced_stakes_become_research_after_the_market_attach():
     assert unpriced_bet["decision"] == "PASS" and unpriced_bet["units"] == 0
     assert unpriced_bet["source_decision"] == "BET" and unpriced_bet["source_units"] == 1.13
     assert unpriced_bet["unpriced_demoted"] is True
+    assert unpriced_bet["decision_reason"] == "unpriced:no_executable_price"
     assert zero_odds["decision"] == "PASS"
     assert priced["decision"] == "LEAN" and priced["units"] == 0.25
     assert unpriced_pass["decision"] == "PASS" and "unpriced_demoted" not in unpriced_pass
     assert scraped["decision"] == "BET"  # scraped feeds have their own demotion path
+
+
+def test_house_assumed_prices_that_were_never_replaced_are_research():
+    # mlb_inning stamps -120 on every row and no book posts that market.
+    inning = _pick(decision="LEAN", units=0.25, odds=-120, assumed_odds=-120, pricing_type="user_assumed",
+                   odds_source="user_assumed_no_run_inning_-120", market_priced=True)
+    # A first-five total whose ladder price was replaced by a real ESPN price stays staked …
+    replaced = _pick(decision="LEAN", units=0.25, odds=-105, model_assumed_odds=-170, assumed_odds_replaced=True,
+                     pricing_type="market", odds_source="posted_market", market_priced=True, game_id="g2")
+    # … even when the posted price happened to equal the placeholder.
+    same_price = _pick(decision="BET", units=0.5, odds=-110, model_assumed_odds=-110, assumed_odds_replaced=True,
+                       pricing_type="market", odds_source="posted_market", market_priced=True, game_id="g3")
+    model_total = _pick(decision="LEAN", units=0.3, odds=-110, assumed_odds=-110, market_total_source="model_output",
+                        game_id="g4")
+    payload = {"models": {"mlb_inning": {"picks": [inning]}, "mlb_first_five": {"picks": [replaced, same_price]},
+                          "mlb_new": {"picks": [model_total]}}}
+
+    assert demote_unpriced_team_model_picks(payload) == 2
+    assert inning["decision"] == "PASS" and inning["units"] == 0
+    assert inning["decision_reason"] == "unpriced:assumed_price_not_replaced"
+    assert inning["source_decision"] == "LEAN"
+    assert replaced["decision"] == "LEAN" and same_price["decision"] == "BET"
+    assert model_total["decision"] == "PASS"
 
 
 def test_refresh_pipeline_freezes_then_demotes_in_order():
