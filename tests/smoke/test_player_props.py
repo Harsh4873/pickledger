@@ -793,16 +793,69 @@ def test_inactive_precision_artifact_abstains_instead_of_using_legacy_ranker(mon
 
 
 @pytest.mark.parametrize(
+    ("stat_key", "line", "expected_reason"),
+    [
+        ("hits", 0.5, "hits has not cleared 70%"),
+        ("hits_runs_rbis", 2.5, "HRR is restricted to the 1.5 line"),
+        ("batter_walks", 0.5, "batter_walks has not cleared 70%"),
+        ("rbis", 0.5, "rbis has not cleared 70%"),
+    ],
+)
+def test_mlb_variant_boards_publish_consensus_rejects_as_pass_research(
+    monkeypatch,
+    stat_key: str,
+    line: float,
+    expected_reason: str,
+):
+    import player_props.consensus as consensus
+    import player_props.variants as variants
+
+    monkeypatch.delenv("PICKLEDGER_DISABLE_PRECISION_MODEL", raising=False)
+    consensus._BUNDLE = {"metadata": _consensus_metadata_for_tests(), "artifacts": {}}
+
+    def high_probability_signal(pick, variant):
+        if variant != "season":
+            return None
+        return "Over", 0.91, int(pick["market_over_odds"]), 0.5238, ["synthetic high-probability signal"]
+
+    monkeypatch.setattr(variants, "_choice_for_variant", high_probability_signal)
+    base_model = {
+        "ok": True,
+        "sport": "MLB",
+        "date": DATE,
+        "games": 1,
+        "picks": [_variant_candidate("MLB", stat_key, line=line)],
+    }
+
+    bucket = variants.build_variant_buckets(sport="MLB", date_iso=DATE, base_model=base_model)[
+        "mlb_player_props"
+    ]
+
+    assert len(bucket["picks"]) == 1
+    pick = bucket["picks"][0]
+    assert pick["decision"] == "PASS"
+    assert pick["units"] == 0.0
+    assert pick["actionability"] == "research_signal"
+    assert pick["consensus_qualified"] is False
+    assert pick["market_priced"] is True
+    assert bucket["abstained"] is False
+    assert bucket["research_pass_count"] == 1
+    assert bucket["scored_count"] == 1
+    assert bucket["consensus_required"] is True
+    assert bucket["consensus_rejected_count"] == 1
+    assert bucket["consensus_rejection_reasons"] == {expected_reason: 1}
+    assert bucket["consensus_rejections"][0]["reason"] == expected_reason
+
+
+@pytest.mark.parametrize(
     ("sport", "stat_key", "line", "expected_reason"),
     [
         ("WNBA", "totalRebounds", 5.5, "totalRebounds has not cleared 70%"),
         ("WNBA", "assists", 4.5, "assists has not cleared 70%"),
-        ("MLB", "hits", 0.5, "hits has not cleared 70%"),
-        ("MLB", "hits_runs_rbis", 2.5, "HRR is restricted to the 1.5 line"),
         ("WNBA", "steals", 1.5, "steals has not cleared 70%"),
     ],
 )
-def test_variant_boards_abstain_when_consensus_policy_rejects_publication(
+def test_non_mlb_variant_boards_still_abstain_when_consensus_rejects(
     monkeypatch,
     sport: str,
     stat_key: str,
@@ -1010,8 +1063,13 @@ def test_consensus_ml_fallback_stays_research_only_when_gate_rejects(monkeypatch
         "mlb_player_props"
     ]
 
-    assert bucket["picks"] == []
-    assert bucket["abstained"] is True
+    assert len(bucket["picks"]) == 1
+    pick = bucket["picks"][0]
+    assert pick["decision"] == "PASS"
+    assert pick["units"] == 0.0
+    assert pick["actionability"] == "research_signal"
+    assert pick["consensus_qualified"] is False
+    assert bucket["abstained"] is False
     assert bucket["consensus_required"] is True
     assert bucket["consensus_rejected_count"] >= 1
 
@@ -1077,6 +1135,125 @@ def test_ml_selection_caps_board_and_rejects_weak_or_extreme_props():
         reverse=True,
     )
     assert all(pick["odds"] <= 250 and pick["ml_probability"] >= 0.52 for pick in selected)
+
+
+
+def test_select_variant_publishes_consensus_rejected_market_priced_as_pass():
+    import player_props.variants as variants
+
+    rejected = {
+        "id": "walks-pass_season",
+        "sport": "MLB",
+        "date": DATE,
+        "game_id": "game-a",
+        "player_id": "walker-1",
+        "player_name": "Walk Guy",
+        "stat_key": "batter_walks",
+        "selection": "Over",
+        "line": 0.5,
+        "market_priced": True,
+        "decision": "PASS",
+        "units": 0.0,
+        "odds": -110,
+        "ml_probability": 0.61,
+        "probability": 0.61,
+        "variant_signal_probability": 0.61,
+        "ml_edge": 0.09,
+        "variant_signal_edge": 0.09,
+        "ml_expected_value": 0.12,
+        "variant_signal_expected_value": 0.12,
+        "consensus_required": True,
+        "consensus_qualified": False,
+        "precision_required": True,
+        "precision_qualified": False,
+        "actionability": "research_signal",
+        "model_variant": "season",
+    }
+    selected = variants._select_variant([rejected], "season")
+    assert len(selected) == 1
+    assert selected[0]["decision"] == "PASS"
+    assert selected[0]["units"] == 0.0
+
+
+def test_select_variant_keeps_qualified_bet_lean_and_skips_duplicate_pass():
+    import player_props.variants as variants
+
+    qualified = {
+        "id": "rbi-bet_season",
+        "sport": "MLB",
+        "date": DATE,
+        "game_id": "game-a",
+        "player_id": "slugger-1",
+        "player_name": "Slugger",
+        "stat_key": "rbis",
+        "selection": "Under",
+        "line": 0.5,
+        "market_priced": True,
+        "decision": "LEAN",
+        "units": 0.25,
+        "odds": -105,
+        "ml_probability": 0.58,
+        "probability": 0.58,
+        "ml_edge": 0.06,
+        "ml_expected_value": 0.08,
+        "consensus_required": True,
+        "consensus_qualified": True,
+        "precision_required": True,
+        "precision_qualified": True,
+        "actionability": "consensus_qualified",
+        "model_variant": "season",
+    }
+    duplicate_pass = {
+        **qualified,
+        "id": "rbi-pass_season",
+        "decision": "PASS",
+        "units": 0.0,
+        "consensus_qualified": False,
+        "precision_qualified": False,
+        "actionability": "research_signal",
+        "variant_signal_probability": 0.90,
+        "variant_signal_edge": 0.30,
+        "variant_signal_expected_value": 0.50,
+        "ml_probability": 0.90,
+        "ml_edge": 0.30,
+        "ml_expected_value": 0.50,
+    }
+    other_pass = {
+        "id": "walks-pass_season",
+        "sport": "MLB",
+        "date": DATE,
+        "game_id": "game-a",
+        "player_id": "walker-2",
+        "player_name": "Other Walker",
+        "stat_key": "batter_walks",
+        "selection": "Over",
+        "line": 0.5,
+        "market_priced": True,
+        "decision": "PASS",
+        "units": 0.0,
+        "odds": -110,
+        "ml_probability": 0.66,
+        "probability": 0.66,
+        "variant_signal_probability": 0.66,
+        "ml_edge": 0.12,
+        "variant_signal_edge": 0.12,
+        "ml_expected_value": 0.15,
+        "variant_signal_expected_value": 0.15,
+        "consensus_required": True,
+        "consensus_qualified": False,
+        "precision_required": True,
+        "precision_qualified": False,
+        "actionability": "research_signal",
+        "model_variant": "season",
+    }
+    selected = variants._select_variant([qualified, duplicate_pass, other_pass], "season")
+    assert len(selected) == 2
+    by_id = {pick["id"]: pick for pick in selected}
+    assert by_id["rbi-bet_season"]["decision"] == "LEAN"
+    assert by_id["rbi-bet_season"]["units"] == 0.25
+    assert "rbi-pass_season" not in by_id
+    assert by_id["walks-pass_season"]["decision"] == "PASS"
+    assert by_id["walks-pass_season"]["units"] == 0.0
 
 
 def test_variant_selection_caps_each_game_instead_of_the_entire_sport():

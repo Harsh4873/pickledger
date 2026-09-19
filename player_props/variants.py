@@ -32,8 +32,14 @@ VARIANT_VERSION = "player_props_variant_v1.0.0"
 MAX_VARIANT_PICKS = 8
 MAX_VARIANT_PICKS_PER_GAME = 8
 MAX_PER_PLAYER = 1
+MAX_RESEARCH_PASS_PICKS = 96
+MAX_RESEARCH_PASS_PER_GAME = 8
 MIN_VARIANT_EDGE = 0.025
 MIN_VARIANT_EV = 0.015
+# Consensus-rejected research PASSes publish for MLB so near-miss walks/RBIs
+# (and other 70%-gate failures) remain visible with units 0.
+RESEARCH_PASS_SPORTS = frozenset({"MLB"})
+MIN_RESEARCH_PASS_PROBABILITY = 0.52
 
 VARIANT_LABELS = {
     "season": "Season",
@@ -646,11 +652,12 @@ def _apply_consensus_publication_gate(pick: dict[str, Any]) -> dict[str, Any]:
     return pick
 
 
-def _score_sort_key(pick: dict[str, Any]) -> tuple[float, int, float, float, str]:
+def _score_sort_key(pick: dict[str, Any]) -> tuple[int, float, float, float, str]:
+    # BET/LEAN always outrank PASS so research signals cannot consume staked slots.
     decision_rank = {"BET": 0, "LEAN": 1, "PASS": 2}
     return (
-        -safe_float(pick.get("ml_expected_value"), -100),
         decision_rank.get(str(pick.get("decision") or ""), 3),
+        -safe_float(pick.get("ml_expected_value"), -100),
         -safe_float(pick.get("ml_edge"), -100),
         -safe_float(pick.get("ml_probability") or pick.get("probability")),
         str(pick.get("id") or ""),
@@ -680,6 +687,47 @@ def _game_identity(pick: dict[str, Any]) -> tuple[str, str, str]:
     )
 
 
+def _research_pass_sort_key(pick: dict[str, Any]) -> tuple[float, float, float, str]:
+    """Prefer highest probability / edge among consensus-rejected research signals."""
+    probability = safe_float(
+        pick.get("variant_signal_probability")
+        or pick.get("ml_probability")
+        or pick.get("probability")
+    )
+    edge = safe_float(pick.get("variant_signal_edge") or pick.get("ml_edge"))
+    expected_value = safe_float(
+        pick.get("variant_signal_expected_value") or pick.get("ml_expected_value")
+    )
+    return (-probability, -edge, -expected_value, str(pick.get("id") or ""))
+
+
+def _is_consensus_research_pass_candidate(pick: dict[str, Any]) -> bool:
+    if pick.get("market_priced") is not True:
+        return False
+    if str(pick.get("sport") or "").upper() not in RESEARCH_PASS_SPORTS:
+        return False
+    if pick.get("consensus_required") is not True:
+        return False
+    if pick.get("consensus_qualified") is True:
+        return False
+    if str(pick.get("decision") or "") != "PASS":
+        return False
+    probability = safe_float(
+        pick.get("variant_signal_probability")
+        or pick.get("ml_probability")
+        or pick.get("probability")
+    )
+    if probability < MIN_RESEARCH_PASS_PROBABILITY:
+        return False
+    try:
+        odds = int(safe_float(pick.get("variant_signal_odds") or pick.get("odds")))
+    except (TypeError, ValueError):
+        return False
+    if odds > MAX_PUBLISHED_POSITIVE_ODDS:
+        return False
+    return True
+
+
 def _select_variant(scored: list[dict[str, Any]], variant: str) -> list[dict[str, Any]]:
     filtered = [
         pick for pick in scored
@@ -697,6 +745,7 @@ def _select_variant(scored: list[dict[str, Any]], variant: str) -> list[dict[str
     selected: list[dict[str, Any]] = []
     per_player: dict[str, int] = {}
     per_game: dict[tuple[str, str, str], int] = {}
+    published_markets: set[tuple[str, str, str, str, str, str, float]] = set()
     for pick in sorted(filtered, key=_score_sort_key):
         player_id = str(pick.get("player_id") or pick.get("player_name") or "")
         game_id = _game_identity(pick)
@@ -705,14 +754,42 @@ def _select_variant(scored: list[dict[str, Any]], variant: str) -> list[dict[str
         if per_game.get(game_id, 0) >= MAX_VARIANT_PICKS_PER_GAME:
             continue
         selected.append(pick)
+        published_markets.add(_market_identity(pick))
         per_player[player_id] = per_player.get(player_id, 0) + 1
         per_game[game_id] = per_game.get(game_id, 0) + 1
+
+    # Consensus-rejected market-priced signals still publish as PASS research
+    # (units 0). Prefer highest probability/edge; never duplicate a BET/LEAN market.
+    research_filtered = [
+        pick for pick in scored
+        if _is_consensus_research_pass_candidate(pick)
+        and _market_identity(pick) not in published_markets
+    ]
+    research_per_game: dict[tuple[str, str, str], int] = {}
+    research_count = 0
+    for pick in sorted(research_filtered, key=_research_pass_sort_key):
+        if research_count >= MAX_RESEARCH_PASS_PICKS:
+            break
+        player_id = str(pick.get("player_id") or pick.get("player_name") or "")
+        game_id = _game_identity(pick)
+        market_key = _market_identity(pick)
+        if market_key in published_markets:
+            continue
+        if per_player.get(player_id, 0) >= MAX_PER_PLAYER:
+            continue
+        if research_per_game.get(game_id, 0) >= MAX_RESEARCH_PASS_PER_GAME:
+            continue
+        selected.append(pick)
+        published_markets.add(market_key)
+        per_player[player_id] = per_player.get(player_id, 0) + 1
+        research_per_game[game_id] = research_per_game.get(game_id, 0) + 1
+        research_count += 1
+
     for index, pick in enumerate(selected, start=1):
         pick["ml_rank"] = index
         pick["model_rank"] = index
         pick["rank"] = index
     return selected
-
 
 def _dedupe_variant_publications(selected_by_variant: dict[str, list[dict[str, Any]]]) -> None:
     winners: dict[tuple[str, str, str, str, str, str, float], tuple[str, tuple[float, int, float, float, str]]] = {}
@@ -758,6 +835,8 @@ def _rank_sport_picks(selected_by_variant: dict[str, list[dict[str, Any]]], spor
     selected: list[dict[str, Any]] = []
     per_player: dict[str, int] = {}
     per_game: dict[tuple[str, str, str], int] = {}
+    research_per_game: dict[tuple[str, str, str], int] = {}
+    research_count = 0
     model_key = player_prop_sport_key(sport)
     source = player_prop_sport_source(sport)
     fingerprint = _variant_fingerprint()
@@ -765,9 +844,16 @@ def _rank_sport_picks(selected_by_variant: dict[str, list[dict[str, Any]]], spor
     for pick in sorted(winners.values(), key=_score_sort_key):
         player_id = str(pick.get("player_id") or pick.get("player_name") or "")
         game_id = _game_identity(pick)
+        decision = str(pick.get("decision") or "")
+        is_research_pass = decision == "PASS" and pick.get("consensus_qualified") is not True
         if per_player.get(player_id, 0) >= MAX_PER_PLAYER:
             continue
-        if per_game.get(game_id, 0) >= MAX_VARIANT_PICKS_PER_GAME:
+        if is_research_pass:
+            if research_count >= MAX_RESEARCH_PASS_PICKS:
+                continue
+            if research_per_game.get(game_id, 0) >= MAX_RESEARCH_PASS_PER_GAME:
+                continue
+        elif per_game.get(game_id, 0) >= MAX_VARIANT_PICKS_PER_GAME:
             continue
         finalized = copy.deepcopy(pick)
         finalized.update(
@@ -786,13 +872,16 @@ def _rank_sport_picks(selected_by_variant: dict[str, list[dict[str, Any]]], spor
         )
         selected.append(finalized)
         per_player[player_id] = per_player.get(player_id, 0) + 1
-        per_game[game_id] = per_game.get(game_id, 0) + 1
+        if is_research_pass:
+            research_per_game[game_id] = research_per_game.get(game_id, 0) + 1
+            research_count += 1
+        else:
+            per_game[game_id] = per_game.get(game_id, 0) + 1
     for index, pick in enumerate(selected, start=1):
         pick["ml_rank"] = index
         pick["model_rank"] = index
         pick["rank"] = index
     return selected
-
 
 def _merge_reason_counts(*counts: dict[str, int]) -> dict[str, int]:
     merged: dict[str, int] = {}
@@ -1133,6 +1222,7 @@ def build_variant_buckets(
         "consensus_rejection_reasons": rejection_reasons,
         "consensus_rejections": rejection_examples,
         "abstained": bool(candidates and not picks),
+        "research_pass_count": sum(1 for pick in picks if str(pick.get("decision") or "") == "PASS"),
         "note": "" if picks else (str(base_model.get("note") or "") if not candidates else "") or f"No {sport} prop cleared the consensus publication gate.",
     }
     return {model_key: bucket}
