@@ -343,18 +343,28 @@ def apply_calibration_to_payload(
     models = payload.get("models")
     if isinstance(models, dict):
         for model_key, bucket in models.items():
-            if str(model_key) in CALIBRATION_EXCLUDED_MODEL_KEYS:
-                continue
             if not isinstance(bucket, dict) or not isinstance(bucket.get("picks"), list):
                 continue
+            if str(model_key) in CALIBRATION_EXCLUDED_MODEL_KEYS:
+                # Excluded in-house team models still get the immutable
+                # first-publication snapshot; without it MLS/CFB/NFL rows had no
+                # in-cache audit trail while decisions changed through the day.
+                if str(model_key) in TEAM_PROP_MODEL_KEYS:
+                    for pick in bucket["picks"]:
+                        if isinstance(pick, dict):
+                            pick["pregame_snapshot"] = make_pregame_snapshot(pick)
+                continue
             for pick in bucket["picks"]:
+                if not isinstance(pick, dict):
+                    continue
                 if (
-                    isinstance(pick, dict)
-                    and not pick.get("calibration_excluded")
+                    not pick.get("calibration_excluded")
                     and str(pick.get("probability_source") or "") != ML_OWNED_PROBABILITY_SOURCE
                     and not pick.get("ml_calibration_excluded")
                 ):
                     apply_calibration_to_pick(pick, str(model_key), active)
+                elif str(model_key) in TEAM_PROP_MODEL_KEYS:
+                    pick["pregame_snapshot"] = make_pregame_snapshot(pick)
     elif isinstance(payload.get("picks"), list):
         if str(payload.get("model_key") or "") in CALIBRATION_EXCLUDED_MODEL_KEYS:
             return payload

@@ -578,3 +578,25 @@ def test_in_house_team_models_bootstrap_as_identity_not_global():
     props = payload["models"]["mlb_player_props"]["picks"][0]
     assert props["calibration"]["key"] == "global"
     assert props["probability"] < 0.7
+
+
+def test_excluded_team_models_still_get_an_immutable_first_publication_snapshot():
+    active = {
+        "version": "test-v8",
+        "minimum_group_samples": 30,
+        "global": {"intercept": -1.0, "slope": 1.0, "samples": 100},
+        "groups": {},
+    }
+    mls = _pick(sport="MLS", market="total", decision="LEAN", units=0.25)
+    nfl = _pick(sport="NFL", market="totals", decision="LEAN", units=0.25, calibration_excluded=True)
+    payload = {"models": {"mls": {"picks": [mls]}, "nfl": {"picks": [nfl]}}}
+    apply_calibration_to_payload(payload, active)
+    for pick in (mls, nfl):
+        assert pick["probability"] == 0.7  # no Platt shift
+        assert "calibration" not in pick
+        assert pick["pregame_snapshot"]["decision"] == "LEAN"
+        assert pick["pregame_snapshot"]["probability"] == 0.7
+    # A later refresh keeps the first snapshot rather than overwriting it.
+    mls["decision"] = "PASS"
+    apply_calibration_to_payload(payload, active)
+    assert mls["pregame_snapshot"]["decision"] == "LEAN"

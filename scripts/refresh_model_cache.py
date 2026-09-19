@@ -21,13 +21,105 @@ sys.path.insert(0, str(REPO_ROOT))
 import pickgrader_server as server  # noqa: E402
 from scripts.cache_manifest import write_cache_manifest  # noqa: E402
 from scripts.market_odds import apply_market_odds_to_payload  # noqa: E402
-from scripts.merge_model_cache_payload import merge_payload, stamp_bucket_date_if_missing  # noqa: E402
+from scripts.merge_model_cache_payload import (  # noqa: E402
+    demote_unpriced_team_model_picks,
+    merge_payload,
+    stamp_bucket_date_if_missing,
+)
 from scripts.mlb_team_consensus import apply_mlb_team_consensus_to_payload  # noqa: E402
 from scripts.pick_calibration import apply_calibration_to_payload  # noqa: E402
 from scripts.team_prop_pregame_ledger import (  # noqa: E402
+    TEAM_PROP_MODEL_KEYS,
     capture_team_prop_pregame_snapshots,
     stamp_team_prop_pregame_timing,
 )
+
+# Buckets whose generated rows are frozen at kickoff: a refresh that runs after
+# a game started must not publish or re-decide that game.
+KICKOFF_FROZEN_MODEL_KEYS = TEAM_PROP_MODEL_KEYS | {"nba", "nba_playoffs"}
+_START_FIELDS = ("game_start_time", "start_time", "startTime", "scheduled_start_time", "event_start_time")
+
+
+def _parse_start_time(value: Any) -> datetime | None:
+    text = str(value or "").strip()
+    if not text:
+        return None
+    try:
+        parsed = datetime.fromisoformat(text.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    if parsed.tzinfo is None:
+        return None
+    return parsed.astimezone(timezone.utc)
+
+
+def _pick_start_time(pick: dict[str, Any], bucket: dict[str, Any]) -> datetime | None:
+    for field in _START_FIELDS:
+        parsed = _parse_start_time(pick.get(field))
+        if parsed is not None:
+            return parsed
+    games = bucket.get("games") if isinstance(bucket.get("games"), list) else []
+    pick_game = str(pick.get("game_id") or pick.get("gamePk") or pick.get("event_id") or "").strip()
+    pick_matchup = str(pick.get("matchup") or pick.get("game") or "").strip().lower()
+    for game in games:
+        if not isinstance(game, dict):
+            continue
+        game_id = str(game.get("game_id") or game.get("gamePk") or game.get("event_id") or "").strip()
+        matchup = str(game.get("matchup") or game.get("game") or "").strip().lower()
+        if (pick_game and game_id == pick_game) or (pick_matchup and matchup == pick_matchup):
+            for field in _START_FIELDS:
+                parsed = _parse_start_time(game.get(field))
+                if parsed is not None:
+                    return parsed
+    return None
+
+
+def freeze_started_games(payload: dict[str, Any], *, now: datetime | None = None) -> dict[str, int]:
+    """Drop freshly generated in-house rows for games that already started.
+
+    The cache merge keeps the rows published before kickoff for any game the
+    new payload omits, so this freezes the pre-kickoff decision instead of
+    letting a late refresh re-decide a live game (98 MLB rows and 32 WNBA rows
+    were first published or re-published after the start; the WNBA
+    post-tip upgrades went 17-1, which is a certification hole, not skill).
+    Rows without a parseable aware start time are kept and counted.
+    """
+
+    clock = (now or datetime.now(timezone.utc)).astimezone(timezone.utc)
+    summary = {"frozen": 0, "kept": 0, "unknown_start": 0}
+    models = payload.get("models")
+    if not isinstance(models, dict):
+        return summary
+    for key, bucket in models.items():
+        if str(key) not in KICKOFF_FROZEN_MODEL_KEYS or not isinstance(bucket, dict):
+            continue
+        picks = bucket.get("picks")
+        if not isinstance(picks, list):
+            continue
+        kept: list[Any] = []
+        frozen = 0
+        for pick in picks:
+            if not isinstance(pick, dict):
+                kept.append(pick)
+                continue
+            start = _pick_start_time(pick, bucket)
+            if start is None:
+                summary["unknown_start"] += 1
+                kept.append(pick)
+            elif start <= clock:
+                frozen += 1
+            else:
+                kept.append(pick)
+        if frozen:
+            picks[:] = kept
+            bucket["frozen_started_games"] = frozen
+            note = str(bucket.get("note") or "").strip()
+            bucket["note"] = (
+                f"{note} {frozen} row(s) for started games skipped; pre-kickoff rows are retained by the cache merge."
+            ).strip()
+        summary["frozen"] += frozen
+        summary["kept"] += len(kept)
+    return summary
 
 
 def _parse_args() -> argparse.Namespace:
@@ -170,6 +262,11 @@ def _write_json_cache(date_iso: str, payload: dict[str, Any]) -> dict[str, Any]:
         published_at=str(payload.get("generatedAt") or ""),
         data_as_of=str(payload.get("generatedAt") or ""),
     )
+    frozen = freeze_started_games(payload)
+    print(
+        "[kickoff-freeze] "
+        f"frozen={frozen['frozen']} kept={frozen['kept']} unknown_start={frozen['unknown_start']}"
+    )
     merged = merge_payload(payload, MODEL_CACHE_DIR)
     # Attach real pregame market prices to every bucket in the merged slate
     # (in-house models and external feeds alike) before it is snapshotted.
@@ -178,6 +275,10 @@ def _write_json_cache(date_iso: str, payload: dict[str, Any]) -> dict[str, Any]:
     # prices, so they run only after the market attach; recalibration is
     # idempotent because it always restarts from each pick's raw probability.
     apply_mlb_team_consensus_to_payload(apply_calibration_to_payload(merged))
+    # A stake with no executable price is research. This runs last so a row
+    # that just received a real posted price keeps its stake.
+    demoted = demote_unpriced_team_model_picks(merged)
+    print(f"[unpriced-demotion] demoted={demoted}")
     for target in (MODEL_CACHE_DIR / f"{date_iso}.json", MODEL_CACHE_DIR / "latest.json"):
         with target.open("w", encoding="utf-8") as handle:
             json.dump(merged, handle, indent=2, sort_keys=True, default=str)
