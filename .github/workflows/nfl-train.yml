@@ -1,0 +1,68 @@
+name: NFL Model Training
+
+on:
+  workflow_dispatch:
+    inputs:
+      first_season:
+        description: "First training season"
+        required: false
+        default: "2007"
+      last_season:
+        description: "Last completed training season"
+        required: false
+        default: "2025"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: nfl-train
+  cancel-in-progress: false
+
+jobs:
+  train:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install "scikit-learn==1.7.2" numpy joblib requests pytest
+
+      - name: Train walk-forward model
+        env:
+          NFL_FIRST_SEASON: ${{ inputs.first_season }}
+          NFL_LAST_SEASON: ${{ inputs.last_season }}
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          from NFLPredictionModel.nfl_train import train
+
+          metadata = train(
+              first_season=int(os.environ["NFL_FIRST_SEASON"]),
+              last_season=int(os.environ["NFL_LAST_SEASON"]),
+          )
+          print(json.dumps({key: metadata[key] for key in (
+              "model_version", "games", "oof_ml_brier", "market_reference_brier",
+              "margin_residual_sigma", "total_residual_sigma",
+          )}, indent=2))
+          print(json.dumps(metadata["decision_policy"], indent=2))
+          PY
+
+      - name: Verify NFL contracts
+        run: python -m pytest tests/smoke/test_nfl_model.py -q
+
+      - name: Upload review artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: nfl-model-${{ github.run_id }}
+          path: NFLPredictionModel/artifacts/
+          if-no-files-found: error
