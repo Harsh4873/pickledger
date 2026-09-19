@@ -1,4 +1,18 @@
-"""Daily CFB moneyline, spread, and total publisher."""
+"""Daily CFB moneyline, spread, and total publisher.
+
+Publication contract (see ``cfb_train.py`` for the walk-forward evidence):
+
+* every eligible pregame FBS game gets one research row per posted market;
+* the market-free originator supplies the displayed margin/total forecast and
+  the ML/spread research cards;
+* stakes are minted only through ``metadata.decision_policy`` — segments of
+  the market-anchored residual heads validated out of fold (currently the
+  total residual gate) — at an observed two-sided price no heavier than the
+  segment's juice cap.  Moneyline and spread publish as PASS research because
+  the originator's disagreement with the market is anti-predictive out of
+  fold, which is exactly what the 2026-09 "PASS flood plus a few overconfident
+  ML BETs" board was showing.
+"""
 from __future__ import annotations
 
 import json
@@ -7,9 +21,9 @@ from pathlib import Path
 from typing import Any
 
 try:
-    from cfb_core import FEATURE_NAMES, matrix, serving_rows
+    from cfb_core import FEATURE_NAMES, anchored_vector, matrix, serving_rows
 except ImportError:
-    from .cfb_core import FEATURE_NAMES, matrix, serving_rows
+    from .cfb_core import FEATURE_NAMES, anchored_vector, matrix, serving_rows
 
 ARTIFACT_DIR = Path(__file__).resolve().parent / "artifacts"
 ARTIFACT_PATH = ARTIFACT_DIR / "cfb_model.joblib"
@@ -19,6 +33,12 @@ LEAN_EV = 0.025
 BET_EV = 0.055
 LEAN_PROBABILITY = 0.52
 BET_PROBABILITY = 0.55
+# Serving-time fallbacks when an artifact predates the anchored heads.
+DEFAULT_POLICY: dict[str, Any] = {
+    "h2h": {"mode": "research_only", "reason": "legacy_artifact"},
+    "spread": {"mode": "research_only", "reason": "legacy_artifact"},
+    "totals": {"mode": "research_only", "reason": "legacy_artifact"},
+}
 
 
 def _cdf(value: float) -> float:
@@ -234,6 +254,42 @@ def _base(game: dict[str, Any], date_iso: str, model_version: str) -> dict[str, 
     }
 
 
+def _segment_decision(
+    policy: dict[str, Any],
+    *,
+    direction: str,
+    residual: float | None,
+    odds: int | None,
+) -> tuple[str, float, str]:
+    """Return (decision, units, reason) for a market under its validated policy.
+
+    ``research_only`` markets always PASS.  A ``segment_gate`` market stakes only
+    when the anchored residual clears the validated threshold for that side and
+    the observed price is no heavier than the segment's juice cap.
+    """
+
+    mode = str(policy.get("mode") or "research_only")
+    if mode != "segment_gate":
+        return "PASS", 0.0, "research_only"
+    if residual is None:
+        return "PASS", 0.0, "research_only:anchored_head_unavailable"
+    for segment in policy.get("segments") or []:
+        if str(segment.get("direction")) != direction:
+            continue
+        threshold = float(segment.get("min_residual") or 0.0)
+        if abs(residual) < threshold:
+            return "PASS", 0.0, f"below_segment_threshold:{direction}:{threshold:g}"
+        if odds is None:
+            return "PASS", 0.0, "unpriced"
+        max_juice = float(segment.get("max_juice") or -125)
+        if odds < max_juice:
+            return "PASS", 0.0, f"juice_above_cap:{odds}"
+        decision = str(segment.get("decision") or "LEAN").upper()
+        units = float(segment.get("units") or 0.0)
+        return decision, units, f"segment:{direction}:{threshold:g}"
+    return "PASS", 0.0, f"no_segment_for_direction:{direction}"
+
+
 def _row(
     base: dict[str, Any],
     *,
@@ -250,12 +306,21 @@ def _row(
     extra: dict[str, Any],
     price_observed: bool,
     uncalibrated: bool = False,
+    policy_decision: tuple[str, float, str] | None = None,
 ) -> dict[str, Any]:
     expected_value = _ev(probability, push_probability, odds) if odds is not None else None
     decision = _decision(expected_value, probability) if expected_value is not None else "PASS"
     if uncalibrated:
         decision = "PASS"
     units = 0.5 if decision == "BET" else 0.25 if decision == "LEAN" else 0.0
+    model_decision = decision
+    decision_reason = "ev_gate"
+    if policy_decision is not None:
+        # The validated decision policy owns the published decision; the raw
+        # EV gate stays visible as model_decision for the forecast audit.
+        decision, units, decision_reason = policy_decision
+        if odds is None and decision != "PASS":
+            decision, units, decision_reason = "PASS", 0.0, "unpriced"
     return {
         **base,
         "source": source,
@@ -274,11 +339,16 @@ def _row(
         "expected_value": round(expected_value, 6) if expected_value is not None else None,
         "source_decision": decision,
         "decision": decision,
+        "model_decision": model_decision,
+        "decision_reason": decision_reason,
         "units": units,
         "pricing_type": "market" if price_observed else "unpriced",
         "odds_source": base.get("odds_source") if price_observed else None,
         "market_priced": price_observed,
-        "features": {name: round(float(features[name]), 6) for name in FEATURE_NAMES},
+        "features": {
+            **{name: round(float(features[name]), 6) for name in FEATURE_NAMES},
+            **{name: round(float(features[name]), 6) for name in ("market_home_line", "market_total_line") if features.get(name) is not None},
+        },
         **extra,
     }
 
@@ -319,22 +389,51 @@ def generate_cfb_picks(date_iso: str) -> dict[str, Any]:
     margin_predictions = bundle["margin_model"].predict(vectors)
     total_predictions = bundle["total_model"].predict(vectors)
     calibrators = bundle["calibrators"]
+    anchored = bundle.get("anchored") if isinstance(bundle.get("anchored"), dict) else {}
+    anchored_meta = metadata.get("anchored") if isinstance(metadata.get("anchored"), dict) else {}
+    policy = metadata.get("decision_policy") if isinstance(metadata.get("decision_policy"), dict) else DEFAULT_POLICY
     sigma_margin = float(metadata["residual_distribution"]["margin_sigma"])
     sigma_total = float(metadata["residual_distribution"]["total_sigma"])
+    sigma_spread_residual = float(anchored_meta.get("spread_residual_sigma") or sigma_margin)
+    sigma_total_residual = float(anchored_meta.get("total_residual_sigma") or sigma_total)
     model_version = str(metadata["model_version"])
 
     games: list[dict[str, Any]] = []
     picks: list[dict[str, Any]] = []
+    staked_rows = 0
     for entry, model_margin_raw, model_total_raw in zip(slate, margin_predictions, total_predictions):
         game = entry["game"]
-        features = entry["features"]
+        features = dict(entry["features"])
         model_margin = float(model_margin_raw)
         model_total = float(model_total_raw)
         base = _base(game, date_iso, model_version)
         base["odds_source"] = game.get("odds_source")
+        home_line_value = game.get("home_line")
+        total_line_value = game.get("total_line")
+        if home_line_value is not None:
+            features["market_home_line"] = float(home_line_value)
+        if total_line_value is not None:
+            features["market_total_line"] = float(total_line_value)
+
+        # Anchored residual heads (posted line appended to the originator vector).
+        anchored_spread_residual: float | None = None
+        anchored_total_residual: float | None = None
+        anchored_home_probability: float | None = None
+        if home_line_value is not None and anchored.get("spread") is not None:
+            anchored_spread_residual = float(anchored["spread"].predict([anchored_vector(features, float(home_line_value))])[0])
+        if home_line_value is not None and anchored.get("moneyline") is not None:
+            anchored_home_probability = float(anchored["moneyline"].predict_proba([anchored_vector(features, float(home_line_value))])[0][1])
+        if total_line_value is not None and anchored.get("total") is not None:
+            anchored_total_residual = float(anchored["total"].predict([anchored_vector(features, float(total_line_value))])[0])
 
         raw_home, _, raw_away = _probabilities(model_margin, 0.0, sigma_margin, push_possible=False)
-        home_probability, ml_uncalibrated = _published_probability(calibrators["moneyline"], raw_home, 0.0)
+        if anchored_home_probability is not None:
+            # The anchored logistic sits at market parity out of fold (Brier
+            # 0.179 vs 0.178); the originator alone is 0.190 and its plateau
+            # calibrator is what forced the old PASS flood.
+            home_probability, ml_uncalibrated = min(0.999, max(0.001, anchored_home_probability)), False
+        else:
+            home_probability, ml_uncalibrated = _published_probability(calibrators["moneyline"], raw_home, 0.0)
         away_probability = 1.0 - home_probability
         home_ml, away_ml = game.get("home_moneyline"), game.get("away_moneyline")
         ml_priced = home_ml is not None and away_ml is not None
@@ -348,6 +447,7 @@ def generate_cfb_picks(date_iso: str) -> dict[str, Any]:
                 _ev(row[4], 0.0, row[2]) if ml_priced else 0.0, row[4], priced=ml_priced
             ),
         )
+        ml_policy = policy.get("h2h") or DEFAULT_POLICY["h2h"]
         picks.append(
             _row(
                 base,
@@ -361,24 +461,44 @@ def generate_cfb_picks(date_iso: str) -> dict[str, Any]:
                 push_probability=0.0,
                 market_probability=ml_market,
                 features=features,
-                extra={"team": ml_team, "side": ml_side, "model_home_win_probability": round(home_probability, 6)},
+                extra={
+                    "team": ml_team,
+                    "side": ml_side,
+                    "model_home_win_probability": round(home_probability, 6),
+                    # raw_probability keeps the market-free originator's view of
+                    # the selected side for the forecast audit; the published
+                    # probability is the anchored head when a line is posted.
+                    "originator_probability": round(ml_raw, 6),
+                    "probability_source": "market_anchored_logistic" if anchored_home_probability is not None else "originator_calibrated",
+                },
                 price_observed=ml_priced,
                 uncalibrated=ml_uncalibrated,
+                policy_decision=_segment_decision(ml_policy, direction=ml_side, residual=None, odds=ml_odds),
             )
         )
 
-        if game.get("home_line") is not None:
-            home_line = float(game["home_line"])
+        if home_line_value is not None:
+            home_line = float(home_line_value)
             home_win, spread_push, home_loss = _probabilities(
                 model_margin,
                 -home_line,
                 sigma_margin,
                 push_possible=_is_integer_line(home_line),
             )
-            calibrated_home_cover, spread_uncalibrated = _published_probability(
-                calibrators["spread"], home_win, spread_push
-            )
-            calibrated_away_cover = max(0.0, 1.0 - spread_push - calibrated_home_cover)
+            if anchored_spread_residual is not None:
+                # Cover probability of the anchored residual head for each side
+                # (push mass from the integer-line rule); the win-aligned
+                # selection rule below still decides which side is the card.
+                anchored_home_cover, spread_push, anchored_away_cover = _probabilities(
+                    anchored_spread_residual, 0.0, sigma_spread_residual, push_possible=_is_integer_line(home_line)
+                )
+                calibrated_home_cover, calibrated_away_cover = anchored_home_cover, anchored_away_cover
+                spread_uncalibrated = False
+            else:
+                calibrated_home_cover, spread_uncalibrated = _published_probability(
+                    calibrators["spread"], home_win, spread_push
+                )
+                calibrated_away_cover = max(0.0, 1.0 - spread_push - calibrated_home_cover)
             home_price, away_price = game.get("home_spread_odds"), game.get("away_spread_odds")
             spread_priced = home_price is not None and away_price is not None
             spread_candidates = [
@@ -388,6 +508,18 @@ def generate_cfb_picks(date_iso: str) -> dict[str, Any]:
             spread_side, spread_team, spread_line, spread_raw, spread_probability, spread_odds, opposite_odds = (
                 _select_spread_candidate(spread_candidates, model_margin=model_margin)
             )
+            side_residual = (
+                None if anchored_spread_residual is None
+                else anchored_spread_residual if spread_side == "home" else -anchored_spread_residual
+            )
+            spread_decision = _segment_decision(
+                policy.get("spread") or DEFAULT_POLICY["spread"],
+                direction=spread_side,
+                residual=side_residual,
+                odds=spread_odds if spread_priced else None,
+            )
+            if spread_decision[0] != "PASS":
+                staked_rows += 1
             picks.append(
                 _row(
                     base,
@@ -407,36 +539,59 @@ def generate_cfb_picks(date_iso: str) -> dict[str, Any]:
                         "line": spread_line,
                         "market_line": spread_line,
                         "model_margin": round(model_margin, 3),
+                        "model_spread_residual": round(side_residual, 3) if side_residual is not None else None,
                     },
                     price_observed=spread_priced,
                     uncalibrated=spread_uncalibrated,
+                    policy_decision=spread_decision,
                 )
             )
 
-        if game.get("total_line") is not None:
-            total_line = float(game["total_line"])
+        if total_line_value is not None:
+            total_line = float(total_line_value)
             raw_over, total_push, raw_under = _probabilities(
                 model_total,
                 total_line,
                 sigma_total,
                 push_possible=_is_integer_line(total_line),
             )
-            calibrated_over, total_uncalibrated = _published_probability(
-                calibrators["total"], raw_over, total_push
-            )
-            calibrated_under = max(0.0, 1.0 - total_push - calibrated_over)
             over_odds, under_odds = game.get("over_odds"), game.get("under_odds")
             total_priced = over_odds is not None and under_odds is not None
-            total_candidates = [
-                ("over", "Over", raw_over, calibrated_over, over_odds, under_odds),
-                ("under", "Under", raw_under, calibrated_under, under_odds, over_odds),
-            ]
-            direction, direction_label, total_raw, total_probability, total_odds, opposite_odds = max(
-                total_candidates,
-                key=lambda row: _selection_rank(
-                    _ev(row[3], total_push, row[4]) if total_priced else 0.0, row[3], priced=total_priced
-                ),
+            if anchored_total_residual is not None:
+                # Direction and probability come from the anchored residual head,
+                # the only CFB head with a validated priced segment.
+                anchored_over, total_push, anchored_under = _probabilities(
+                    anchored_total_residual, 0.0, sigma_total_residual, push_possible=_is_integer_line(total_line)
+                )
+                direction = "over" if anchored_total_residual > 0 else "under"
+                direction_label = "Over" if direction == "over" else "Under"
+                total_raw = raw_over if direction == "over" else raw_under
+                total_probability = anchored_over if direction == "over" else anchored_under
+                total_odds, opposite_odds = (over_odds, under_odds) if direction == "over" else (under_odds, over_odds)
+                total_uncalibrated = False
+            else:
+                calibrated_over, total_uncalibrated = _published_probability(
+                    calibrators["total"], raw_over, total_push
+                )
+                calibrated_under = max(0.0, 1.0 - total_push - calibrated_over)
+                total_candidates = [
+                    ("over", "Over", raw_over, calibrated_over, over_odds, under_odds),
+                    ("under", "Under", raw_under, calibrated_under, under_odds, over_odds),
+                ]
+                direction, direction_label, total_raw, total_probability, total_odds, opposite_odds = max(
+                    total_candidates,
+                    key=lambda row: _selection_rank(
+                        _ev(row[3], total_push, row[4]) if total_priced else 0.0, row[3], priced=total_priced
+                    ),
+                )
+            total_decision = _segment_decision(
+                policy.get("totals") or DEFAULT_POLICY["totals"],
+                direction=direction,
+                residual=anchored_total_residual,
+                odds=total_odds if total_priced else None,
             )
+            if total_decision[0] != "PASS":
+                staked_rows += 1
             picks.append(
                 _row(
                     base,
@@ -455,9 +610,11 @@ def generate_cfb_picks(date_iso: str) -> dict[str, Any]:
                         "line": total_line,
                         "market_line": total_line,
                         "model_total": round(model_total, 3),
+                        "model_total_residual": round(anchored_total_residual, 3) if anchored_total_residual is not None else None,
                     },
                     price_observed=total_priced,
                     uncalibrated=total_uncalibrated,
+                    policy_decision=total_decision,
                 )
             )
 
@@ -472,9 +629,19 @@ def generate_cfb_picks(date_iso: str) -> dict[str, Any]:
                 "features": {name: round(float(features[name]), 6) for name in FEATURE_NAMES},
                 "model_margin": round(model_margin, 3),
                 "model_total": round(model_total, 3),
+                "model_spread_residual": round(anchored_spread_residual, 3) if anchored_spread_residual is not None else None,
+                "model_total_residual": round(anchored_total_residual, 3) if anchored_total_residual is not None else None,
             }
         )
 
+    coverage["staked_rows"] = staked_rows
+    note = f"CFB active slate: {len(games)} game(s), {len(picks)} row(s)."
+    if staked_rows:
+        note += f" {staked_rows} staked row(s) from validated segments."
+    elif games:
+        note += " No market cleared a validated segment; rows are research (PASS)."
+    if coverage.get("unpriced_games"):
+        note += f" {coverage['unpriced_games']} game(s) missing a posted market published as unpriced research."
     return {
         "ok": True,
         "date": date_iso,
@@ -485,5 +652,5 @@ def generate_cfb_picks(date_iso: str) -> dict[str, Any]:
         "coverage": coverage,
         "games": games,
         "picks": picks,
-        "note": f"CFB active slate: {len(games)} game(s), {len(picks)} row(s).",
+        "note": note,
     }

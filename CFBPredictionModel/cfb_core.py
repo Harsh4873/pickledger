@@ -556,3 +556,20 @@ def serving_rows(date_iso: str, *, coverage: dict[str, int] | None = None) -> li
 
 def matrix(records: list[dict[str, Any]]) -> list[list[float]]:
     return [[float(record["features"][name]) for name in FEATURE_NAMES] for record in records]
+
+
+# Market-anchored residual heads append the posted line to the market-free
+# originator vector. The originator contract above stays market-free; these
+# heads exist because the walk-forward tests in cfb_train.py showed the
+# originator's disagreement with the market carries no priced edge on its own,
+# while the residual-over-market total head does in a validated segment.
+ANCHORED_MARKET_KEYS = {"spread": "home_line", "total": "total_line"}
+
+
+def anchored_vector(features: Mapping[str, float], line: float) -> list[float]:
+    return [float(features[name]) for name in FEATURE_NAMES] + [float(line)]
+
+
+def anchored_matrix(records: list[dict[str, Any]], market: str) -> list[list[float]]:
+    key = ANCHORED_MARKET_KEYS[market]
+    return [anchored_vector(record["features"], record[key]) for record in records]

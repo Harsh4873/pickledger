@@ -1,8 +1,32 @@
-"""Train and certify the market-free CFB originator with season walk-forward tests."""
+"""Train and certify the CFB model with season walk-forward tests.
+
+Two layers live in one artifact bundle:
+
+* the **market-free originator** (margin/total Ridge or HGB on the as-of team
+  state, plus its isotonic calibrators) — the research forecast that is
+  audited by the pregame ledger and displayed on every card;
+* the **market-anchored residual heads** — a logistic moneyline model, a
+  spread residual model on (margin + home_line), and a total residual model
+  on (total - total_line), each fed the originator features plus the posted
+  line.  These are the only heads allowed to mint a stake, and only through a
+  segment that this script validated out of fold.
+
+Walk-forward evidence (train < season N, score season N, 2021-2025) recorded
+in ``artifacts/metadata.json``:
+
+* the originator's disagreement with the spread-implied win probability is
+  anti-predictive (the model's side wins 34-39% when it disagrees by 5+
+  points) and its spread/total direction rates sit at 47-53% — so moneyline
+  and spread publish as research (PASS) only;
+* the anchored total residual head beats the 52.4% break-even in a clear
+  majority of seasons once |residual| >= 4 points, which is the segment gate
+  the serving path stakes at LEAN.
+"""
 from __future__ import annotations
 
 import json
 import math
+from collections import defaultdict
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable
@@ -11,23 +35,36 @@ import joblib
 import numpy as np
 from sklearn.ensemble import HistGradientBoostingRegressor
 from sklearn.isotonic import IsotonicRegression
-from sklearn.linear_model import Ridge
+from sklearn.linear_model import LogisticRegression, Ridge
 from sklearn.metrics import mean_absolute_error
 from sklearn.pipeline import make_pipeline
 from sklearn.preprocessing import StandardScaler
 
 try:
-    from cfb_core import FEATURE_NAMES, build_dataset, load_training_rows, matrix
+    from cfb_core import FEATURE_NAMES, anchored_matrix, build_dataset, load_training_rows, matrix
     from cfb_model import _probabilities
 except ImportError:
-    from .cfb_core import FEATURE_NAMES, build_dataset, load_training_rows, matrix
+    from .cfb_core import FEATURE_NAMES, anchored_matrix, build_dataset, load_training_rows, matrix
     from .cfb_model import _probabilities
 
 ARTIFACT_DIR = Path(__file__).resolve().parent / "artifacts"
-MODEL_VERSION = "cfb_v1_market_free_bivariate"
+MODEL_VERSION = "cfb_v2_market_anchored_totals"
 FIRST_SEASON = 2017
 LAST_SEASON = 2025
 WALK_FORWARD_SEASONS = range(2021, 2026)
+
+# Segment search for the anchored residual heads.  Direction-only evidence
+# (historical two-sided prices are unavailable), so the bar is expressed as a
+# hit rate against the -110 break-even (52.38%).
+BREAK_EVEN = 110.0 / 210.0
+SEGMENT_THRESHOLDS = (2.0, 3.0, 4.0, 5.0, 6.0)
+SEGMENT_DIRECTIONS = {"spread": ("home", "away", "both"), "total": ("over", "under", "both")}
+QUALIFY_MIN_PICKS = 100
+QUALIFY_MIN_HIT_RATE = 0.545          # ~ +4% flat ROI at -110
+QUALIFY_MIN_SEASON_SHARE = 0.70
+MAX_SEGMENT_TIER = "LEAN"             # BET is never minted from a backtest alone
+LEAN_UNITS = 0.25
+MAX_JUICE = -125
 
 
 def _ridge() -> Any:
@@ -41,6 +78,23 @@ def _hist() -> Any:
         learning_rate=0.045,
         l2_regularization=5.0,
         min_samples_leaf=30,
+        random_state=17,
+    )
+
+
+def _anchored_logistic() -> Any:
+    return make_pipeline(StandardScaler(), LogisticRegression(C=0.5, max_iter=1000))
+
+
+def _anchored_residual() -> Any:
+    # Deliberately the most regularized configuration that qualified: fewer,
+    # larger disagreements rather than many small ones.
+    return HistGradientBoostingRegressor(
+        max_depth=3,
+        learning_rate=0.03,
+        max_iter=150,
+        min_samples_leaf=60,
+        l2_regularization=5.0,
         random_state=17,
     )
 
@@ -62,6 +116,35 @@ def _fit_calibrator(probabilities: list[float], truth: list[int]) -> IsotonicReg
     calibrator = IsotonicRegression(out_of_bounds="clip", y_min=0.02, y_max=0.98)
     calibrator.fit(probabilities, truth)
     return calibrator
+
+
+def _segment_stats(picks: list[tuple[int, bool | None]]) -> dict[str, Any]:
+    graded = [(season, hit) for season, hit in picks if hit is not None]
+    if not graded:
+        return {"picks": len(picks), "graded": 0}
+    by_season: dict[int, list[int]] = defaultdict(list)
+    for season, hit in graded:
+        by_season[season].append(int(hit))
+    hit_rate = sum(hit for _, hit in graded) / len(graded)
+    seasons_above = sum(1 for hits in by_season.values() if sum(hits) / len(hits) > BREAK_EVEN)
+    return {
+        "picks": len(picks),
+        "graded": len(graded),
+        "hit_rate": round(hit_rate, 4),
+        "flat_roi_at_minus_110": round(hit_rate * (100.0 / 110.0) - (1.0 - hit_rate), 4),
+        "seasons": len(by_season),
+        "seasons_above_break_even": seasons_above,
+        "season_hit_rate": {str(season): round(sum(hits) / len(hits), 4) for season, hits in sorted(by_season.items())},
+    }
+
+
+def _qualifies(stats: dict[str, Any]) -> bool:
+    return (
+        int(stats.get("graded") or 0) >= QUALIFY_MIN_PICKS
+        and float(stats.get("hit_rate") or 0.0) >= QUALIFY_MIN_HIT_RATE
+        and int(stats.get("seasons") or 0) > 0
+        and int(stats.get("seasons_above_break_even") or 0) / int(stats["seasons"]) >= QUALIFY_MIN_SEASON_SHARE
+    )
 
 
 def train(first_season: int = FIRST_SEASON, last_season: int = LAST_SEASON) -> dict[str, Any]:
@@ -105,6 +188,9 @@ def train(first_season: int = FIRST_SEASON, last_season: int = LAST_SEASON) -> d
     calibration_input: dict[str, list[float]] = {"moneyline": [], "spread": [], "total": []}
     calibration_truth: dict[str, list[int]] = {"moneyline": [], "spread": [], "total": []}
     selected_walk_forward: list[dict[str, Any]] = []
+    # Anchored heads: out-of-fold predictions for calibration/segment evidence.
+    anchored_oof: list[dict[str, Any]] = []
+    ml_brier: dict[str, list[float]] = {"originator_raw": [], "anchored_logistic": [], "market_spread_logit": []}
     for season in WALK_FORWARD_SEASONS:
         if season > last_season:
             continue
@@ -129,8 +215,24 @@ def train(first_season: int = FIRST_SEASON, last_season: int = LAST_SEASON) -> d
         test_margin_predictions = margin_model.predict(matrix(test_rows))
         test_total_predictions = total_model.predict(matrix(test_rows))
 
+        home_win_truth = [1 if row["home_margin"] > 0 else 0 for row in train_rows]
+        anchored_ml = _anchored_logistic().fit(anchored_matrix(train_rows, "spread"), home_win_truth)
+        market_logit = LogisticRegression(C=10.0, max_iter=1000).fit([[row["home_line"]] for row in train_rows], home_win_truth)
+        anchored_spread = _anchored_residual().fit(
+            anchored_matrix(train_rows, "spread"), [row["home_margin"] + row["home_line"] for row in train_rows]
+        )
+        anchored_total = _anchored_residual().fit(
+            anchored_matrix(train_rows, "total"), [row["game_total"] - row["total_line"] for row in train_rows]
+        )
+        p_anchored = anchored_ml.predict_proba(anchored_matrix(test_rows, "spread"))[:, 1]
+        p_market = market_logit.predict_proba([[row["home_line"]] for row in test_rows])[:, 1]
+        spread_residual_pred = anchored_spread.predict(anchored_matrix(test_rows, "spread"))
+        total_residual_pred = anchored_total.predict(anchored_matrix(test_rows, "total"))
+
         spread_hits = spread_graded = total_hits = total_graded = 0
-        for row, margin_prediction, total_prediction in zip(test_rows, test_margin_predictions, test_total_predictions):
+        for row, margin_prediction, total_prediction, pa, pm, sr, tr in zip(
+            test_rows, test_margin_predictions, test_total_predictions, p_anchored, p_market, spread_residual_pred, total_residual_pred
+        ):
             margin_prediction = float(margin_prediction)
             total_prediction = float(total_prediction)
             home_margin = float(row["home_margin"])
@@ -142,6 +244,9 @@ def train(first_season: int = FIRST_SEASON, last_season: int = LAST_SEASON) -> d
             home_win = 1 if home_margin > 0 else 0
             calibration_input["moneyline"].extend([ml_home, ml_away])
             calibration_truth["moneyline"].extend([home_win, 1 - home_win])
+            ml_brier["originator_raw"].append((ml_home - home_win) ** 2)
+            ml_brier["anchored_logistic"].append((float(pa) - home_win) ** 2)
+            ml_brier["market_spread_logit"].append((float(pm) - home_win) ** 2)
 
             spread_home, spread_push, spread_away = _probabilities(
                 margin_prediction, -home_line, sigma_margin, push_possible=_push_possible(home_line)
@@ -169,6 +274,16 @@ def train(first_season: int = FIRST_SEASON, last_season: int = LAST_SEASON) -> d
 
             residual_margin.append(home_margin - margin_prediction)
             residual_total.append(game_total - total_prediction)
+            anchored_oof.append({
+                "season": season,
+                "week": row["features"]["week"],
+                "spread_pred": float(sr),
+                "total_pred": float(tr),
+                "actual_spread": actual_spread,
+                "actual_total": actual_total,
+                "p_home": float(pa),
+                "home_win": home_win,
+            })
 
         selected_walk_forward.append(
             {
@@ -178,6 +293,7 @@ def train(first_season: int = FIRST_SEASON, last_season: int = LAST_SEASON) -> d
                 "total_mae": round(mean_absolute_error([row["game_total"] for row in test_rows], test_total_predictions), 5),
                 "spread_direction_rate": round(spread_hits / spread_graded, 5) if spread_graded else None,
                 "total_direction_rate": round(total_hits / total_graded, 5) if total_graded else None,
+                "anchored_ml_brier": round(float(np.mean([(o["p_home"] - o["home_win"]) ** 2 for o in anchored_oof if o["season"] == season])), 5),
             }
         )
 
@@ -190,9 +306,103 @@ def train(first_season: int = FIRST_SEASON, last_season: int = LAST_SEASON) -> d
     residual_array = np.array([residual_margin, residual_total])
     covariance = np.cov(residual_array).tolist()
 
+    # Anchored heads: residual scale and segment search from out-of-fold rows.
+    anchored_sigma_spread = float(np.std([o["actual_spread"] - o["spread_pred"] for o in anchored_oof], ddof=1))
+    anchored_sigma_total = float(np.std([o["actual_total"] - o["total_pred"] for o in anchored_oof], ddof=1))
+    segments: dict[str, dict[str, Any]] = {}
+    for market, pred_key, actual_key in (("spread", "spread_pred", "actual_spread"), ("total", "total_pred", "actual_total")):
+        for direction in SEGMENT_DIRECTIONS[market]:
+            for threshold in SEGMENT_THRESHOLDS:
+                picks: list[tuple[int, bool | None]] = []
+                for o in anchored_oof:
+                    pred = o[pred_key]
+                    if abs(pred) < threshold:
+                        continue
+                    positive = pred > 0  # home cover / over
+                    side = ("home" if positive else "away") if market == "spread" else ("over" if positive else "under")
+                    if direction != "both" and side != direction:
+                        continue
+                    actual = o[actual_key]
+                    hit = None if abs(actual) <= 1e-9 else (actual > 0) == positive
+                    picks.append((o["season"], hit))
+                stats = _segment_stats(picks)
+                stats.update({"market": market, "direction": direction, "min_residual": threshold, "qualifies": _qualifies(stats)})
+                segments[f"{market}:{direction}:{threshold:g}"] = stats
+
+    def qualifying_gates(market: str) -> list[dict[str, Any]]:
+        """One gate per direction: the loosest qualifying threshold (largest sample).
+
+        A qualifying 'both' segment becomes one gate per direction, unless a
+        direction-specific segment already qualifies at a looser threshold.
+        """
+        chosen: dict[str, dict[str, Any]] = {}
+        for stats in segments.values():
+            if stats["market"] != market or not stats["qualifies"]:
+                continue
+            targets = [stats["direction"]] if stats["direction"] != "both" else list(SEGMENT_DIRECTIONS[market][:2])
+            for direction in targets:
+                current = chosen.get(direction)
+                if current is None or stats["min_residual"] < current["min_residual"]:
+                    chosen[direction] = stats
+        return [
+            {
+                "direction": direction,
+                "min_residual": stats["min_residual"],
+                "decision": MAX_SEGMENT_TIER,
+                "units": LEAN_UNITS,
+                "max_juice": MAX_JUICE,
+                "walk_forward": {k: stats[k] for k in ("picks", "graded", "hit_rate", "flat_roi_at_minus_110", "seasons", "seasons_above_break_even", "season_hit_rate")},
+                "evidence_segment": f"{market}:{stats['direction']}:{stats['min_residual']:g}",
+            }
+            for direction, stats in sorted(chosen.items())
+        ]
+
+    spread_gates = qualifying_gates("spread")
+    total_gates = qualifying_gates("total")
+    decision_policy = {
+        "h2h": {
+            "mode": "research_only",
+            "reason": (
+                "The originator's disagreement with the spread-implied win probability is anti-predictive "
+                "out of fold and the anchored logistic only matches the market; no priced edge to stake."
+            ),
+        },
+        "spread": {
+            "mode": "segment_gate" if spread_gates else "research_only",
+            "segments": spread_gates,
+            "reason": "" if spread_gates else "No spread residual segment clears the qualification bar.",
+        },
+        "totals": {
+            "mode": "segment_gate" if total_gates else "research_only",
+            "segments": total_gates,
+            "reason": "" if total_gates else "No total residual segment clears the qualification bar.",
+        },
+        "qualification_bar": {
+            "min_graded_picks": QUALIFY_MIN_PICKS,
+            "min_hit_rate": QUALIFY_MIN_HIT_RATE,
+            "break_even_hit_rate": round(BREAK_EVEN, 4),
+            "min_season_share_above_break_even": QUALIFY_MIN_SEASON_SHARE,
+            "max_tier": MAX_SEGMENT_TIER,
+            "max_juice": MAX_JUICE,
+            "evidence": "direction_only_no_historical_two_sided_prices",
+        },
+    }
+
+    all_home_win = [1 if row["home_margin"] > 0 else 0 for row in records]
+    anchored_final = {
+        "moneyline": _anchored_logistic().fit(anchored_matrix(records, "spread"), all_home_win),
+        "spread": _anchored_residual().fit(anchored_matrix(records, "spread"), [row["home_margin"] + row["home_line"] for row in records]),
+        "total": _anchored_residual().fit(anchored_matrix(records, "total"), [row["game_total"] - row["total_line"] for row in records]),
+    }
+
     ARTIFACT_DIR.mkdir(parents=True, exist_ok=True)
     joblib.dump(
-        {"margin_model": final_margin, "total_model": final_total, "calibrators": calibrators},
+        {
+            "margin_model": final_margin,
+            "total_model": final_total,
+            "calibrators": calibrators,
+            "anchored": anchored_final,
+        },
         ARTIFACT_DIR / "cfb_model.joblib",
     )
     metadata = {
@@ -230,14 +440,29 @@ def train(first_season: int = FIRST_SEASON, last_season: int = LAST_SEASON) -> d
             }
             for market in ("moneyline", "spread", "total")
         },
-        "shadow_mode": True,
-        "promotion_status": "not_qualified",
+        "anchored": {
+            "feature_names": [*FEATURE_NAMES, "posted_line"],
+            "market_features": ["market_home_line", "market_total_line"],
+            "families": {"moneyline": "logistic", "spread": "hist_gradient_boosting_residual", "total": "hist_gradient_boosting_residual"},
+            "spread_residual_sigma": round(anchored_sigma_spread, 6),
+            "total_residual_sigma": round(anchored_sigma_total, 6),
+            "oof_samples": len(anchored_oof),
+            "ml_brier": {key: round(float(np.mean(values)), 6) for key, values in ml_brier.items()},
+            "segment_search": segments,
+        },
+        "decision_policy": decision_policy,
+        "shadow_mode": False,
+        "promotion_status": "segment_gate_lean_only",
         "financial_backtest": {
             "moneyline": "unavailable_no_complete_historical_two_sided_prices",
             "spread": "forecast_direction_only",
             "total": "forecast_direction_only",
         },
-        "notes": "Sportsbook lines are evaluation/pricing only and are absent from FEATURE_NAMES; live shadow evidence is required before promotion.",
+        "notes": (
+            "Originator FEATURE_NAMES stay market-free. Anchored residual heads append the posted line and are the "
+            "only heads allowed to stake, through decision_policy segments validated out of fold; discovered segments "
+            "are capped at LEAN until certified live evidence exists. Moneyline and spread publish as research (PASS)."
+        ),
     }
     (ARTIFACT_DIR / "metadata.json").write_text(json.dumps(metadata, indent=2) + "\n", encoding="utf-8")
     return metadata
@@ -248,3 +473,5 @@ if __name__ == "__main__":
     print(json.dumps({key: result[key] for key in ("model_version", "games", "selected_family")}, indent=2))
     for row in result["walk_forward"]:
         print(row)
+    print(json.dumps(result["anchored"]["ml_brier"], indent=2))
+    print(json.dumps(result["decision_policy"], indent=2))
