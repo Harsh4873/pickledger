@@ -404,8 +404,11 @@ const GAME_TIME_STORAGE_KEY = 'pickledger_static_game_times_v2';
 // seasons ended (summer league finale + World Cup final same day).
 const ARCHIVED_SPORTS = new Set(['NBA', 'NBA SUMMER', 'FIFA WC']);
 const PLAYER_PROPS_ML_SOURCE = 'player_props_ml_v1';
-// Keep in sync with CFBPredictionModel.LEAN_PROBABILITY and the NFL ML LEAN floor.
-const IN_HOUSE_PASS_BOARD_MIN_PROBABILITY = 0.52;
+// Keep in sync with CFBPredictionModel.PASS_BOARD_PROBABILITY. In-house PASS
+// rows are visible research: the published side is the model's favoured side,
+// so anything at or above a coin flip stays on the board and only a card whose
+// selection the model itself does not favour is hidden.
+const IN_HOUSE_PASS_BOARD_MIN_PROBABILITY = 0.5;
 // First snapshot produced by the ML slate-engine launch in commit b6f9dbe.
 const PLAYER_PROPS_ML_FIRST_SNAPSHOT_AT = Date.parse('2026-06-16T19:04:34.909830Z');
 const PLAYER_PROPS_PUBLIC_START_DATE = '2026-06-23';
@@ -736,12 +739,12 @@ function isTrackedPick(pick: Pick): boolean {
   if (decision === 'BET' || decision === 'LEAN') return true;
   // In-house PASS still belongs on the public board.
   if (decision !== 'PASS') return false;
-  // CFB/NFL: hide low-win% PASS cards (same floor as LEAN). Dog-side junk at
-  // ~25% was making the board look broken even though the gate correctly PASSed.
-  // Spreads are exempt: the one published spread per game is the model's side
-  // (favorite / win-aligned), even when cover% is under 0.5.
-  // Keep in sync with CFBPredictionModel.LEAN_PROBABILITY / NFL ML LEAN floor
-  // and `_board_eligible`.
+  // CFB/NFL: hide only PASS cards whose selection the model does not favour
+  // (dog-side junk at ~25% once made the board look broken even though the
+  // gate correctly PASSed). Spreads are exempt: the one published spread per
+  // game is the model's side (favorite / win-aligned), even when cover% is
+  // under 0.5. Keep in sync with CFBPredictionModel.PASS_BOARD_PROBABILITY and
+  // `_board_eligible`.
   const sport = String(pick.sport || pick.league || '').trim().toUpperCase();
   if (sport === 'CFB' || sport === 'NFL') {
     const market = String(pick.market || pick.market_type || '').trim().toLowerCase();

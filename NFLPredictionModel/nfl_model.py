@@ -155,19 +155,27 @@ def _segment_decision(
     odds: int | None,
     evidence_ok: bool,
 ) -> tuple[str, float, str]:
-    """Return (decision, units, reason) for a spread/total row under the policy."""
+    """Return (decision, units, reason) for a spread/total row under the policy.
+
+    Segments are graduated bands of residual magnitude (``min_residual`` up to
+    an exclusive ``max_residual``); the band containing the residual decides.
+    """
 
     mode = str(policy.get("mode") or "research_only")
     if mode != "segment_gate":
-        return "PASS", 0.0, f"research_only:{policy.get('reason') or 'no_validated_segment'}"
+        return "PASS", 0.0, "research_only"
     if not evidence_ok:
         return "PASS", 0.0, "research_only:team_stats_unavailable"
-    for segment in policy.get("segments") or []:
-        if str(segment.get("direction")) != direction:
+    bands = [segment for segment in policy.get("segments") or [] if str(segment.get("direction")) == direction]
+    if not bands:
+        return "PASS", 0.0, f"no_segment_for_direction:{direction}"
+    magnitude = abs(residual)
+    floor = min(float(segment.get("min_residual") or 0.0) for segment in bands)
+    for segment in bands:
+        low = float(segment.get("min_residual") or 0.0)
+        high = segment.get("max_residual")
+        if magnitude < low or (high is not None and magnitude >= float(high)):
             continue
-        threshold = float(segment.get("min_residual") or 0.0)
-        if abs(residual) < threshold:
-            return "PASS", 0.0, f"below_segment_threshold:{direction}:{threshold:g}"
         if odds is None:
             return "PASS", 0.0, "unpriced"
         max_juice = float(segment.get("max_juice") or -125)
@@ -175,8 +183,19 @@ def _segment_decision(
             return "PASS", 0.0, f"juice_above_cap:{odds}"
         decision = str(segment.get("decision") or "LEAN").upper()
         units = float(segment.get("units") or 0.0)
-        return decision, units, f"segment:{direction}:{threshold:g}"
-    return "PASS", 0.0, f"no_segment_for_direction:{direction}"
+        tier = str(segment.get("tier") or decision.lower())
+        return decision, units, f"segment:{tier}:{direction}:{low:g}"
+    return "PASS", 0.0, f"below_segment_threshold:{direction}:{floor:g}"
+
+
+def _confidence_label(probability: float) -> str:
+    """Display ladder for research rows: the model's own win/cover probability."""
+
+    if probability >= 0.65:
+        return "High"
+    if probability >= 0.58:
+        return "Medium"
+    return "Low"
 
 
 def generate_nfl_picks(date_iso: str, *, now: datetime | None = None) -> dict[str, Any]:
@@ -282,6 +301,7 @@ def generate_nfl_picks(date_iso: str, *, now: datetime | None = None) -> dict[st
             "decision": ml_decision,
             "source_decision": ml_decision,
             "decision_reason": ml_reason,
+            "confidence_label": _confidence_label(side_prob),
             "units": ml_units,
             "features": rounded_features,
         })
@@ -327,6 +347,7 @@ def generate_nfl_picks(date_iso: str, *, now: datetime | None = None) -> dict[st
                 "decision": decision,
                 "source_decision": decision,
                 "decision_reason": reason,
+                "confidence_label": _confidence_label(cover_prob),
                 "units": units,
                 "features": rounded_features,
             })
@@ -372,6 +393,7 @@ def generate_nfl_picks(date_iso: str, *, now: datetime | None = None) -> dict[st
                 "decision": decision,
                 "source_decision": decision,
                 "decision_reason": reason,
+                "confidence_label": _confidence_label(total_prob),
                 "units": units,
                 "features": rounded_features,
             })
