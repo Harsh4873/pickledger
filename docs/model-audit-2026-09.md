@@ -88,6 +88,62 @@ overconfident favourite ML BETs.
 - Same-day re-run (17:00Z, 13 started games skipped): 9 games → 27 rows,
   1 LEAN (Over 39.5, residual +3.6), 26 PASS.
 
+### Graduated tiers (follow-up, same day)
+
+The first cut capped every discovered segment at LEAN and used one threshold
+per direction, which left the board almost research-only. The ladder is now
+built from **band-level** evidence in `nfl_train.py` / `cfb_train.py`
+(`build_ladder`) and written to `decision_policy` as bands
+`[min_residual, max_residual)`:
+
+| tier | units | bar (NFL, flat ROI at recorded prices) | bar (CFB, hit rate vs −110 break-even 52.4%) |
+| --- | --- | --- | --- |
+| BET | 0.50 | ≥100 picks, ≥ +8%, ≥75% of seasons positive | ≥100 graded, ≥58.0%, ≥75% of seasons above break-even |
+| LEAN | 0.25 | ≥100 picks, ≥ +3%, ≥70% | ≥100 graded, ≥54.5%, ≥70% |
+| LEAN (light) | 0.15 | ≥150 picks, ≥ +2%, ≥50% — only where no regular LEAN exists | ≥150 graded, ≥53.5%, ≥50% |
+| PASS | 0 | everything else: visible research with a `confidence_label` | same |
+
+Rules: a tier takes the loosest threshold whose cumulative tail clears its
+bar, **on the direction's own picks only** (pooling directions let a losing
+side — NFL over ≥1.5, −0.4% — ride on the other side's tail, so pooling was
+removed); a LEAN band sitting under a BET band must clear the LEAN bar by
+itself (≥60 picks in the band); and the loosest BET threshold that still
+leaves a validated LEAN band wins, so the ladder has two rungs whenever the
+data supports two.
+
+What the data produced:
+
+| sport | market | band | tier | walk-forward band evidence |
+| --- | --- | --- | --- | --- |
+| NFL | total Under | residual ≤ −1.5 | **BET** 0.5u | 144 picks, 63.6%, +23.7%, 11/14 seasons |
+| NFL | total Under | −1.5 < residual ≤ −1.0 | **LEAN** 0.25u | 162 picks, 57.4%, +11.3%, 10/14 |
+| NFL | total Under | −1.0 < residual ≤ −0.5 | PASS | 231 picks, 51.1%, −0.7% (below break-even) |
+| NFL | total Over, spread, moneyline | — | PASS | no band beats break-even at any threshold |
+| CFB | total Under | residual ≤ −3.5 | **BET** 0.5u | 158 graded, 60.1%, +14.8% at −110, 4/5 seasons |
+| CFB | total Under | −3.5 < residual ≤ −2.5 | PASS | the [2.5, 3.5) band is 49–52% — below break-even |
+| CFB | total Over | residual ≥ 2.5 | **LEAN** 0.25u | 668 graded, 54.9%, +4.9% at −110, 4/5 seasons |
+| CFB | spread, moneyline | — | PASS | spreads 48–53% at every threshold; ML disagreement is anti-predictive |
+
+Slate dry-runs under the ladder: NFL 2026-09-20 from the 06:30 CT clock →
+14 games, 42 rows, **1 BET + 1 LEAN**, 40 PASS, none hidden. CFB replayed
+out of fold over every 2025 week: 3–28 LEAN overs and 0–2 BET unders per
+Saturday against 37–76 PASS totals (season: BET 2-5, LEAN 98-76). Today's
+remaining CFB evening games and next Saturday's early lines all sit below the
+ladder floor, which is what PASS is for.
+
+Visibility: PASS rows are research and stay on the board. The viewer used to
+hide CFB/NFL PASS moneyline/total cards under 52% — which hid most research
+rows since the published side is the model's favourite at market parity.
+The floor is now 50% (`PASS_BOARD_PROBABILITY` /
+`IN_HOUSE_PASS_BOARD_MIN_PROBABILITY`), so only a card whose selection the
+model does not favour is hidden, and every CFB/NFL row carries a
+`confidence_label` (High ≥65%, Medium ≥58%, Low) for the visible ladder.
+
+Rows from the previous model version that were published before kickoff
+(the leftover CFB ML BETs on 2026-09-19) are retained by the kickoff freeze
+on purpose: a published bet is never erased after its game starts. They are
+a one-day transition artifact, not a live decision.
+
 ## Priority 2 — the other in-house models, ranked
 
 | rank | model | what is broken | class | evidence | shipped fix |

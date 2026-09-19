@@ -73,10 +73,13 @@ Model and feed refreshes:
    can place is research.
 8. Commit and push as the triggering GitHub actor.
 
-NFL and CFB mint stakes only through `decision_policy` segments that their
-training scripts validated out of fold at recorded prices (see
-`docs/model-audit-2026-09.md`); moneyline and spread rows for both sports
-publish as PASS research.
+NFL and CFB mint stakes only through the graduated `decision_policy` bands
+that their training scripts validated out of fold at recorded prices — BET is
+the strongest validated band, LEAN the next band that still clears its own
+bar (see `docs/model-audit-2026-09.md`). Every other row, including all
+moneyline and spread rows for both sports, publishes as visible PASS research
+with a `confidence_label`; in-house PASS cards stay on the board whenever the
+published side is the model's favourite.
 
 For the audited in-house team-model buckets (`mlb_new`, `mlb_first_five`,
 `mlb_inning`, `fifa_world_cup`, and `nba_summer`), the model refresh also
