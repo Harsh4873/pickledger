@@ -1,0 +1,106 @@
+name: Bet Brief
+
+on:
+  # GitHub schedule runs in UTC. 14:00 UTC is 9am America/Chicago in daylight
+  # time (after Daily Refresh); 20:00 UTC is 3pm for the afternoon refresh.
+  schedule:
+    - cron: "0 14 * * *"
+    - cron: "0 20 * * *"
+  workflow_dispatch:
+    inputs:
+      slot:
+        description: "Brief slot (auto, am, pm, manual)"
+        required: false
+        default: "auto"
+      date:
+        description: "Optional backfill date (YYYY-MM-DD)"
+        required: false
+        default: ""
+
+permissions:
+  contents: write
+  actions: write
+
+concurrency:
+  group: pick-cache-writer
+  cancel-in-progress: false
+
+jobs:
+  brief:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Sync latest main
+        run: |
+          git fetch origin main
+          git reset --hard origin/main
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Generate bet brief
+        run: |
+          SLOT="${{ github.event.inputs.slot || 'auto' }}"
+          BACKFILL_DATE="${{ github.event.inputs.date || '' }}"
+          if [ -n "$BACKFILL_DATE" ] && [ -f "data/profit_desk/${BACKFILL_DATE}.json" ]; then
+            python3 scripts/generate_bet_brief.py --slot "$SLOT" \
+              --profit-desk "data/profit_desk/${BACKFILL_DATE}.json" \
+              --date "$BACKFILL_DATE"
+          else
+            python3 scripts/generate_bet_brief.py --slot "$SLOT"
+          fi
+
+      - name: Commit brief JSON if changed
+        id: commit-brief
+        run: |
+          ACTOR_EMAIL="${GITHUB_ACTOR_ID:-41898282}+${GITHUB_ACTOR}@users.noreply.github.com"
+          git config user.name "${GITHUB_ACTOR}"
+          git config user.email "${ACTOR_EMAIL}"
+          BRANCH="main"
+          if [ -z "$(git status --porcelain -- data/bet_briefs)" ]; then
+            echo "No bet-brief change, skipping commit."
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          SLOT="${{ github.event.inputs.slot || 'auto' }}"
+          BACKFILL_DATE="${{ github.event.inputs.date || '' }}"
+          for attempt in 1 2 3; do
+            if [ -n "$BACKFILL_DATE" ] && [ -f "data/profit_desk/${BACKFILL_DATE}.json" ]; then
+              python3 scripts/generate_bet_brief.py --slot "$SLOT" \
+                --profit-desk "data/profit_desk/${BACKFILL_DATE}.json" \
+                --date "$BACKFILL_DATE"
+            else
+              python3 scripts/generate_bet_brief.py --slot "$SLOT"
+            fi
+            git add data/bet_briefs
+            if git diff --cached --quiet; then
+              echo "No staged brief change after regenerate, skipping commit."
+              echo "changed=false" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+            BRIEF_DATE=$(python3 -c "import json; print(json.load(open('data/bet_briefs/latest.json'))['date'])")
+            BRIEF_SLOT=$(python3 -c "import json; print(json.load(open('data/bet_briefs/latest.json'))['slot'])")
+            git commit -m "chore(brief): publish bet brief for ${BRIEF_DATE} (${BRIEF_SLOT})"
+            git fetch origin "$BRANCH"
+            if git rebase "origin/${BRANCH}" && git push origin "HEAD:${BRANCH}"; then
+              echo "changed=true" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+            echo "Push failed on attempt ${attempt}; retrying on latest origin/${BRANCH}."
+            git rebase --abort 2>/dev/null || true
+            git fetch origin "$BRANCH"
+            git reset --hard "origin/${BRANCH}"
+          done
+          echo "Unable to publish bet brief after retrying latest origin/${BRANCH}."
+          exit 1
+
+      - name: Deploy updated brief
+        if: steps.commit-brief.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run deploy-pages.yml --ref main
