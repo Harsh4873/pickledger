@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Harsh - Bet Brief and Ledger</title>
+<meta name="description" content="Harsh Dave daily bet brief: max 1-2 BET THIS plus the personal ledger.">
+<link rel="icon" type="image/svg+xml" href="./favicon.svg">
+<style>
+  :root { --bg: #0b0f14; --panel: #121924; --text: #e8eef5; --muted: #93a1b3;
+    --accent: #00e5a0; --warn: #ffb020; --bad: #ff5d5d; --line: #223047; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text);
+    font-family: "DM Sans", system-ui, -apple-system, sans-serif; }
+  .wrap { max-width: 860px; margin: 0 auto; padding: 24px 16px 64px; }
+  a { color: var(--accent); }
+  header { display: flex; justify-content: space-between; align-items: baseline;
+    gap: 12px; flex-wrap: wrap; margin-bottom: 16px; }
+  h1 { font-size: 22px; margin: 0; letter-spacing: 1px; }
+  .sub { color: var(--muted); font-size: 13px; margin-top: 4px; }
+  .card { background: var(--panel); border: 1px solid var(--line);
+    border-radius: 12px; padding: 16px; margin: 12px 0; }
+  .tag { display: inline-block; font-size: 11px; letter-spacing: 1px;
+    border: 1px solid var(--accent); color: var(--accent);
+    border-radius: 999px; padding: 2px 10px; margin-left: 8px; }
+  .tag.sitout { border-color: var(--warn); color: var(--warn); }
+  h2 { font-size: 15px; letter-spacing: 1px; margin: 0 0 8px; color: var(--muted); }
+  .pick { font-size: 19px; margin: 0 0 6px; }
+  p { margin: 8px 0; line-height: 1.5; font-size: 14px; }
+  .meta { color: var(--muted); font-size: 13px; }
+  ul { margin: 8px 0; padding-left: 20px; font-size: 14px; line-height: 1.55; }
+  li { margin: 6px 0; }
+  .books { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 10px; margin-top: 8px; }
+  .book { border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; }
+  .book b { display: block; font-size: 14px; }
+  .book span { color: var(--muted); font-size: 12px; }
+  .run { font-size: 18px; margin: 4px 0; }
+  .pos { color: var(--accent); } .neg { color: var(--bad); }
+  .err { border-color: var(--bad); }
+  footer { color: var(--muted); font-size: 12px; margin-top: 20px; line-height: 1.6; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <h1>HARSH: BET BRIEF</h1>
+      <div class="sub" id="brief-sub">Loading today's brief...</div>
+    </div>
+    <div><a href="./index.html">Back to PickLedger</a></div>
+  </header>
+
+  <div class="card" id="bet-card"><h2>BET THIS</h2><p id="bet-body">Loading...</p></div>
+  <div class="card" id="pass-card"><h2>PASS</h2><ul id="pass-list"><li>Loading...</li></ul></div>
+  <div class="card" id="ledger-card"><h2>PERSONAL LEDGER</h2><div id="ledger-body"><p>Loading...</p></div></div>
+
+  <footer id="foot"></footer>
+</div>
+
+<script>
+function fmtOdds(o) {
+  if (o === null || o === undefined) return "odds TBD";
+  var n = Number(o);
+  if (!isFinite(n)) return "odds TBD";
+  return (n > 0 ? "+" : "") + n;
+}
+function money(n) {
+  if (n === null || n === undefined) return "n/a";
+  return "$" + Number(n).toFixed(2);
+}
+function signedMoney(n) {
+  var v = Number(n || 0);
+  return (v >= 0 ? "+" : "") + "$" + v.toFixed(2);
+}
+function esc(s) {
+  return String(s === null || s === undefined ? "" : s)
+    .replace(/&/g, "&amp;").replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+}
+async function loadJson(path) {
+  var res = await fetch(path, { cache: "no-store" });
+  if (!res.ok) throw new Error("Missing " + path + " (" + res.status + ")");
+  return res.json();
+}
+function renderBrief(b) {
+  var pd = b.profitDesk || {};
+  var live = pd.liveRecordToDate || {};
+  var sub = "Brief " + esc(b.date || "?") + " (" + esc(b.slot || "?") + ")";
+  if (b.asOf) sub += " as of " + esc(b.asOf);
+  document.getElementById("brief-sub").textContent =
+    sub.replace(/<[^>]*>/g, "") + " | Desk " + (pd.candidateCount || 0) +
+    " candidates, " + (pd.liveQualified || 0) + " qualified | Live to date " +
+    (live.wins || 0) + "-" + (live.losses || 0) + " (" +
+    (Number(live.netUnits || 0) >= 0 ? "+" : "") + Number(live.netUnits || 0).toFixed(2) + "u)";
+  var bets = b.betThis || [];
+  var html = "";
+  if (!bets.length) {
+    html = '<p><span class="tag sitout">SIT OUT</span></p>' +
+      "<p>No Profit Desk qualifier and no gatekept BET survived the climb filter. " +
+      "Zero action is a valid result.</p>";
+  } else {
+    bets.forEach(function (x) {
+      var tag = x.qualified ? "QUALIFIED " + String(x.lane || "").toUpperCase()
+        : "CLIMB SINGLE (not qualified)";
+      html += '<p class="pick">' + esc(x.pick) + " " + esc(fmtOdds(x.oddsAmerican)) +
+        '<span class="tag">' + esc(tag) + "</span></p>";
+      html += '<p class="meta">Sport ' + esc(x.sport) + " via " + esc(x.source) +
+        ". Desk " + esc(x.decision) + "/" + esc(x.tier) + ".</p>";
+      html += "<p><b>Why:</b> " + esc(x.why) + "</p>";
+      html += "<p><b>Risks:</b> " + esc(x.risks) + "</p>";
+      var sg = x.stakeGuide || {};
+      html += "<p><b>Stake:</b> Novig: " + esc(sg.Novig || "see brief") +
+        " | Onyx: " + esc(sg.Onyx || "") + " | ReBet: " + esc(sg.ReBet || "") +
+        " | Fliff: " + esc(sg.Fliff || "") + "</p>";
+    });
+  }
+  document.getElementById("bet-body").outerHTML =
+    '<div id="bet-body">' + html + "</div>";
+  var plist = (b.pass || []).map(function (p) {
+    return "<li><b>" + esc(p.pick) + " " + esc(fmtOdds(p.oddsAmerican)) + "</b> (" +
+      esc(p.sport) + ", " + esc(p.source) + "): " + esc(p.reason) + "</li>";
+  }).join("");
+  document.getElementById("pass-list").innerHTML = plist || "<li>None.</li>";
+  var notes = (b.disclaimers || []).map(function (d) { return "<div>Note: " + esc(d) + "</div>"; }).join("");
+  document.getElementById("foot").innerHTML = notes +
+    "<div>Generated " + esc(b.generatedAt || "?") + ". Nothing here places bets.</div>";
+}
+function renderLedger(l) {
+  var books = l.books || [];
+  var snap = l.updatedAt ? " (updated " + esc(l.updatedAt) + ")" : "";
+  var html = "<p class='meta'>Running bankroll = snapshot + settled P&L on or after the snapshot date." + snap + "</p>";
+  html += '<div class="books">' + books.map(function (x) {
+    var run = (x.snapshotBankroll === null || x.snapshotBankroll === undefined)
+      ? null : Number(x.snapshotBankroll) + Number(x.settledProfitSinceSnapshot || 0);
+    var cls = run === null ? "" : (run >= 0 ? "pos" : "neg");
+    var unit = (x.unitDollars === null || x.unitDollars === undefined)
+      ? "unit n/a" : "$" + Number(x.unitDollars).toFixed(2) + "/u";
+    return '<div class="book"><b>' + esc(x.book) + " [" + esc(x.status) + "]</b>" +
+      '<div class="run ' + cls + '">' + (run === null ? "n/a" : money(run)) + "</div>" +
+      "<span>settled " + esc(signedMoney(x.settledProfitSinceSnapshot)) +
+      " | pending " + esc(money(x.pendingRisk)) + " | " + esc(unit) + "</span></div>";
+  }).join("") + "</div>";
+  var open = (l.open || []);
+  if (open.length) {
+    html += "<p><b>Open tickets:</b></p><ul>" + open.map(function (t) {
+      return "<li>" + esc(t.id) + " " + esc(t.date) + " " + esc(t.book) + " " +
+        esc(t.sport) + " " + esc(t.selection) + " " + esc(money(t.stakeDollars)) +
+        " " + esc(fmtOdds(t.oddsAmerican)) + "</li>";
+    }).join("") + "</ul>";
+  } else {
+    html += "<p class='meta'>No open tickets.</p>";
+  }
+  document.getElementById("ledger-body").innerHTML = html;
+}
+(async function () {
+  try {
+    var brief = await loadJson("./data/bet_briefs/latest.json");
+    renderBrief(brief);
+  } catch (e) {
+    document.getElementById("bet-card").classList.add("err");
+    document.getElementById("bet-body").textContent = "Brief unavailable: " + e.message;
+    document.getElementById("pass-list").innerHTML = "<li>Brief unavailable.</li>";
+    document.getElementById("brief-sub").textContent = "Brief unavailable";
+  }
+  try {
+    var led = await loadJson("./data/personal_ledger.json");
+    var books = (led.books || []).map(function (b) {
+      var settled = 0, pending = 0;
+      (led.bets || []).forEach(function (x) {
+        if (String(x.book).toLowerCase() !== String(b.book).toLowerCase()) return;
+        if (x.status === "pending") { pending += Number(x.stakeDollars || 0); return; }
+        if (b.snapshotDate && String(x.date) < String(b.snapshotDate)) return;
+        settled += Number(x.profitDollars || 0);
+      });
+      return { book: b.book, status: b.status, snapshotBankroll: b.snapshotBankroll,
+        settledProfitSinceSnapshot: Math.round(settled * 100) / 100,
+        pendingRisk: Math.round(pending * 100) / 100, unitDollars: b.unitDollars };
+    });
+    renderLedger({ books: books, open: (led.bets || []).filter(function (x) { return x.status === "pending"; }),
+      updatedAt: led.updatedAt });
+  } catch (e) {
+    document.getElementById("ledger-card").classList.add("err");
+    document.getElementById("ledger-body").innerHTML = "<p>Ledger unavailable: " + esc(e.message) + "</p>";
+  }
+})();
+</script>
+</body>
+</html>
