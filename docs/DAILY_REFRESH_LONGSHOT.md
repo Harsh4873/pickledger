@@ -35,48 +35,87 @@ or props in this lane. No same-game or correlated legs.
    from the multiplied posted legs. Log the book combined odds, never the
    computed estimate, as the ticket odds.
 
-## Next slate tickets (9/21): PASS both, do not bet
+## Next slate tickets (9/21): BEST-EFFORT (Boss override, thin slate)
 
-Status as of 2026-09-21 14:27 UTC: the committed PickLedger slate is 9/21
+Status as of 2026-09-21 15:03 UTC: the committed PickLedger slate is 9/21
 (`data/model_cache/latest.json` dated 2026-09-21 11:56Z,
 `data/profit_desk/latest.json` dated 2026-09-21 12:14Z). Morning refresh
-has run. Only 10 ML legs exist on the slate, and only 2 pass the filters.
-Insufficient for two non-overlapping 2+ leg plus-money longshots, so both
-books PASS. No ticket is listed.
+has run. Boss override 15:00 UTC: build best-effort longshots even though
+full filters say PASS (only 2 pass, best 2-leg about -103). Tickets below
+relax win-chance and start verification as noted. Harsh places manually,
+confirms the book combined price, no auto-place. Computed odds are estimates
+from posted legs; log the book combined from the ticket, never the estimate.
+If a leg moved more than 10c against on the book, or started, drop it or pass.
 
-ReBet ($1): PASS. Only 1 fully qualifying leg (LA ML) plus 1 conditional
-(Dallas Wings, missing start_time in source bucket). Best 2-leg combo is
-about -103 (not a plus-money longshot). Do not bet.
-Fliff ($2): PASS. No legs left for a second non-overlapping 2+ leg ticket.
-Do not bet.
+ReBet ($1, 3 legs, about +290): Giants ML -102 + LA ML -285 + Dallas Wings
+ML -218. $1 pays about $3.90, hit about 23.7 percent. No shared legs with
+Fliff. See legs and caveats.
+Fliff ($2, 2 legs, about +255): Atlanta Dream ML -120 + Blue Jays ML -107.
+$2 pays about $7.09, hit about 24.6 percent. No shared legs with ReBet. See
+legs and caveats.
 
-Passing legs (2, ranked by edge):
+Legs (5 executable full-game MLs, ranked by edge per method, all pregame as
+of 15:03Z, all 452 to 657 min out):
 
+- Giants ML (Twins vs Giants, mlb_new) -102, prob 0.4954, break-even 0.5050,
+  edge -0.0096. Start 2026-09-22T01:45Z (Sep 21 8:45 PM CT), pregame, updated
+  11:56Z fresh via posted_market. Relaxed: prob below 0.65, lighter than
+  preferred -150 to -400.
 - LA ML (NYG at LA, nfl) -285, prob 0.7266, break-even 0.7403, edge -0.0137.
   Start 2026-09-22T00:15Z (Sep 21 7:15 PM CT), pregame, fresh from the 11:56Z
-  refresh, odds via nflverse_posted_lines. Fully qualifies.
+  refresh via nflverse_posted_lines. Fully qualifies (price has no timestamp,
+  certification 11:56Z).
 - Dallas Wings ML (Dallas at Phoenix, wnba) -218, prob 0.659, break-even
   0.6855, edge -0.0265. Start missing in the wnba bucket (same game
   2026-09-22T02:00Z in forebet_wnba and scores24_wnba, Sep 21 9 PM CT),
-  market updated 11:56Z fresh via DraftKings/ESPN. Conditional: needs
-  pregame confirm, no start_time in source bucket.
+  market updated 11:56Z fresh via DraftKings/ESPN. Relaxed: start inferred,
+  needs book pregame confirm.
+- Atlanta Dream ML (Atlanta at New York, wnba) -120, prob 0.515, break-even
+  0.5455, edge -0.0305. Start missing in the wnba bucket (same game
+  2026-09-22T00:00Z in forebet_wnba and scores24_wnba, Sep 21 7 PM CT),
+  market updated 11:56Z fresh. Relaxed: prob below 0.65, start inferred,
+  lighter than -150.
+- Blue Jays ML (Blue Jays vs Orioles, mlb_new) -107, prob 0.4767, break-even
+  0.5169, edge -0.0402. Start 2026-09-21T22:35Z (Sep 21 5:35 PM CT), pregame,
+  updated 11:56Z fresh via posted_market. Relaxed: prob below 0.65, lighter
+  than -150.
 
-Failed legs (8, all below the 0.65 win-chance filter):
+Ticket math (from posted legs, confirm book combined):
 
-- Toronto Blue Jays ML -110 (0.54), Blue Jays ML -107 (0.4767), Nationals ML
-  +129 (0.4767), Giants ML -102 (0.4954), Atlanta Dream ML -120 (0.515), plus
-  3 F5 MLs: Orioles -125 (0.4733, edge -0.082), Tigers -154 (0.4419, edge
-  -0.164), Twins -120 (0.4628, edge -0.083). All out. F5 MLs are first-five
-  derivatives, not full-game MLs, and fail anyway.
+- ReBet: 1.9804 * 1.3509 * 1.4587 = 3.9025, about +290. $1 pays about $3.90.
+  Hit 0.4954 * 0.7266 * 0.659 = 23.7 percent. EV about -0.074. Contains 1
+  relaxed prob leg (Giants) plus 1 conditional start (Dallas).
+- Fliff: 1.8333 * 1.9346 = 3.5467, about +255. $2 pays about $7.09. Hit
+  0.515 * 0.4767 = 24.6 percent. EV about -0.129. Both legs relaxed prob,
+  Atlanta start inferred.
 
-Best available 2-leg math (DO NOT BET, shown for transparency): LA -285 (dec
-1.3509) plus Dallas -218 (dec 1.4587) gives combined dec 1.9705, about -103.
-$1 pays about $1.97, $2 pays about $3.94, hit chance 0.7266 times 0.659 =
-47.9 percent, EV about -0.056. Not a plus-money longshot (needs 3+ legs for
-plus money, only 2 available), and Dallas start needs confirm. So PASS both.
-Balances refresh tomorrow.
+Relaxed filters (honest, Boss override):
 
-Build command used (same filter as Method, all buckets scanned for ML):
+1. Win-chance 0.65 relaxed to 0.47 to get 5 legs (only LA and Dallas pass
+   0.65). Giants, Atlanta, Blue Jays included by override. Why: thin slate
+   (10 ML legs total, only 2 pass), need min 4 for two 2+ leg tickets. Hit
+   chances drop to about 24 percent each.
+2. Start verification relaxed for Dallas and Atlanta (no start_time in wnba
+   bucket, inferred from same-game entries in other buckets). Why: data gap,
+   same-game starts exist in cache. Must confirm pregame on the book; if
+   started, drop the leg or pass the ticket.
+3. Preferred juice -150 to -400: Giants -102, Atlanta -120, Blue Jays -107
+   are lighter than -150 (coin-flip range, not heavy chalk). Allowed by the
+   hard cap (none heavier than -500) but outside preferred. Noted.
+
+Kept: ML only, pregame only (all more than 10 min out), edge at or above
+-0.05 (all 5 pass), no same-game within a ticket (5 distinct games: MIN at
+SF, NYG at LA, DAL at PHX, ATL at NYL, TOR at BAL), no shared legs (3 plus 2
+uses all 5), fresh executable prices (11:56Z, within 24h, posted_market or
+nflverse, no invented odds), confirm book combined.
+
+Excluded: Nationals +129 (underdog, not chalk, excluded despite +0.04 edge),
+Toronto forebet -110 (no price source, not executable, same game as Blue Jays
+-107, used the executable version), 3 F5 MLs (derivatives, fail prob and edge:
+Orioles -125 edge -0.082, Twins -120 edge -0.083, Tigers -154 edge -0.164).
+
+Build command used (same filter as Method, all buckets scanned for ML, then
+Boss override relaxes win-chance to 0.47 for this slate):
 
 ```bash
 python3 -c "
