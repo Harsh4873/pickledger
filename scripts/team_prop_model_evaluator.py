@@ -212,6 +212,10 @@ def _model_key(record: Mapping[str, Any]) -> str:
 
 
 def _model_version(record: Mapping[str, Any]) -> str:
+    # The canonical ledger hashes this version into the immutable record. Some
+    # serving snapshots contain only the older human-readable model label.
+    if record.get("snapshot_hash") and isinstance(record.get("pregame_snapshot"), Mapping):
+        return str(record.get("model_version") or UNVERSIONED)
     value = _value_from_contexts(record, "prediction_model_version")
     if value is None:
         value = _value_from_contexts(record, "model_version", "modelVersion", "version")

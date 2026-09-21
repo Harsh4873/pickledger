@@ -27,6 +27,10 @@ def test_canonical_nested_snapshot_uses_prediction_fingerprint_over_serving_labe
     report = evaluate_team_prop_ledger({'records': [row]})
     assert report['segments'][0]['model_version'] == 'nfl:artifact-hash'
     assert report['exact_market_prices'][0]['model_version'] == 'nfl:artifact-hash'
+    row['snapshot_hash'] = 'immutable-hash'
+    del row['pregame_snapshot']['prediction_model_version']
+    report = evaluate_team_prop_ledger({'records': [row]})
+    assert report['segments'][0]['model_version'] == 'nfl:artifact-hash'
 
 
 def _certification(*, financial: bool = False, benchmark: bool = False) -> dict:
