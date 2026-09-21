@@ -242,3 +242,28 @@ def test_primary_nfl_profile_loader_flattens_grouped_rosters():
     assert len(profiles) == 1
     assert profiles[0]['id'] == 'espn-player'
     assert profiles[0]['games'] == 6
+
+
+def test_baseline_outage_preserves_same_day_research_without_retiming(monkeypatch, tmp_path):
+    import json
+    freeze(monkeypatch)
+    base = cfb.generate_cfb_candidate_model(Client(), DAY, sport='NFL', league='nfl')
+    models = build_variant_buckets(sport='NFL', date_iso=DAY, base_model=base)
+    (tmp_path / f'{DAY}.json').write_text(json.dumps({'date': DAY, 'models': models}))
+    failed = {**models['nfl_player_props'], 'picks': [], 'errors': ['market HTTP 504']}
+    merged = merge_payload({'date': DAY, 'models': {'nfl_player_props': failed}}, tmp_path, tmp_path)
+    bucket = merged['models']['nfl_player_props']
+    assert bucket['errors'] == ['market HTTP 504']
+    assert bucket['publication_status'] == 'preserved_research'
+    fields = ('id', 'market_retrieved_at', 'line', 'odds', 'decision', 'units', 'start_time',
+              'projection', 'probability', 'model_version', 'ml_rank_epoch')
+    assert [{key: row.get(key) for key in fields} for row in bucket['picks']] == [
+        {key: row.get(key) for key in fields} for row in models['nfl_player_props']['picks']]
+    healthy_empty = {**failed, 'errors': []}
+    assert merge_payload({'date': DAY, 'models': {'nfl_player_props': healthy_empty}}, tmp_path, tmp_path)['models']['nfl_player_props']['picks'] == []
+    failed['date'] = '2026-09-13'
+    assert merge_payload({'date': DAY, 'models': {'nfl_player_props': failed}}, tmp_path, tmp_path)['models']['nfl_player_props']['picks'] == []
+    failed['date'] = DAY
+    models['nfl_player_props']['picks'][0]['full_kelly'] = 0.1
+    (tmp_path / f'{DAY}.json').write_text(json.dumps({'date': DAY, 'models': models}))
+    assert merge_payload({'date': DAY, 'models': {'nfl_player_props': failed}}, tmp_path, tmp_path)['models']['nfl_player_props']['picks'] == []

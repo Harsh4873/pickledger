@@ -1360,6 +1360,7 @@ export function getPlayerSourceStatuses(date: string): SourceStatus[] {
     } else if (bucket.ok === false || bucket.error || errors.length) {
       status.state = 'error';
       status.detail = 'Player-prop refresh reported an error; coverage may be incomplete.';
+      if (bucket.preserved_research_from && count) status.detail += ' Earlier same-day PASS research remains visible with its original quote timestamps.';
     } else if (bucket.ok === true && count) {
       status.state = 'ready';
       status.detail = bucket.football_baseline === true

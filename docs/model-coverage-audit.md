@@ -10,6 +10,8 @@ Football now handles grouped ESPN rosters and paginated prop feeds. NFL can use 
 
 Source-health warnings run in all three refresh jobs and the local upcheck; main receives the same development checks as pull requests. These warnings distinguish fresh output from incomplete inputs.
 
+The repaired production refresh published 38 NFL PASS projections. A later scheduled refresh encountered an upstream HTTP 504; failed empty football refreshes now retain earlier same-day, uncalibrated, zero-stake research from immutable snapshots. Original quote timestamps and outage diagnostics remain intact. Healthy empty slates and prior-day picks are not carried forward.
+
 ## Coverage and evidence limits
 
 - MLB player props: the September 21 cache had 1,615 candidates across three games, 4,272 scored variant rows and 24 published research PASS rows. Sparse actionable output is principally a qualification gate, not absence of candidate generation. Current artifacts qualify hits and RBIs; strikeouts, combined hits/runs/RBIs and other markets fail existing policies. Strikeouts show 6/13 validation and 7/12 holdout wins. Missing under prices also exclude rows. Counts of rejection reasons are variant-level and must not be interpreted as unique players. Publication also applies per-player and per-game concentration limits. None of these gates was loosened.
