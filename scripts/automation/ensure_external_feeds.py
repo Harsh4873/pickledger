@@ -19,8 +19,8 @@ from zoneinfo import ZoneInfo
 
 CENTRAL = ZoneInfo("America/Chicago")
 GROUPS = {
-    "scores24": ("scores24_mlb", "scores24_wnba", "scores24_cfb", "scores24_nfl"),
-    "forebet": ("forebet_mlb", "forebet_wnba", "forebet_mls", "forebet_cfb", "forebet_nfl"),
+    "scores24": ("scores24_mlb", "scores24_wnba", "scores24_cfb", "scores24_nfl", "scores24_nhl"),
+    "forebet": ("forebet_mlb", "forebet_wnba", "forebet_mls", "forebet_cfb", "forebet_nfl", "forebet_nhl"),
     "tennis": ("tennistonic_tennis", "scores24_tennis"),
 }
 SCRIPTS = {

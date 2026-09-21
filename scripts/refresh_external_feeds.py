@@ -26,6 +26,7 @@ from scripts.scrapers.forebet_scraper import (  # noqa: E402
     run_forebet_mlb,
     run_forebet_mls,
     run_forebet_nfl,
+    run_forebet_nhl,
     run_forebet_wnba,
 )
 from scripts.scrapers.scores24_scraper import (  # noqa: E402
@@ -34,6 +35,7 @@ from scripts.scrapers.scores24_scraper import (  # noqa: E402
     run_scores24_mlb,
     run_scores24_nba_summer,
     run_scores24_nfl,
+    run_scores24_nhl,
     run_scores24_wnba,
 )
 from scripts.scrapers.tennis_scraper import (  # noqa: E402
@@ -51,11 +53,13 @@ FEED_RUNNERS: dict[str, Callable[[str, list[str]], dict[str, Any]]] = {
     "scores24_fifa_world_cup": run_scores24_fifa_world_cup,
     "scores24_cfb": run_scores24_cfb,
     "scores24_nfl": run_scores24_nfl,
+    "scores24_nhl": run_scores24_nhl,
     "forebet_mls": run_forebet_mls,
     "forebet_mlb": run_forebet_mlb,
     "forebet_wnba": run_forebet_wnba,
     "forebet_cfb": run_forebet_cfb,
     "forebet_nfl": run_forebet_nfl,
+    "forebet_nhl": run_forebet_nhl,
     "tennistonic_tennis": run_tennistonic_tennis,
     "scores24_tennis": run_scores24_tennis,
 }
@@ -69,6 +73,7 @@ SPLIT_PROVIDER_MODEL_KEYS = {
         "sportytrader_fifa_world_cup",
         "sportytrader_cfb",
         "sportytrader_nfl",
+        "sportytrader_nhl",
     ),
     "sportsgambler": (
         "sportsgambler_nba",
@@ -78,6 +83,7 @@ SPLIT_PROVIDER_MODEL_KEYS = {
         "sportsgambler_fifa_world_cup",
         "sportsgambler_cfb",
         "sportsgambler_nfl",
+        "sportsgambler_nhl",
     ),
 }
 
@@ -96,7 +102,7 @@ def _parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--sports",
-        default="nba,mlb,wnba,cfb,nfl",
+        default="nba,mlb,wnba,cfb,nfl,nhl",
         help="Comma-separated sports passed to each feed scraper.",
     )
     parser.add_argument("--skip-firestore", action="store_true", help="Write JSON only; useful for local checks.")
@@ -416,6 +422,7 @@ def main() -> int:
         "fifa_world_cup",
         "cfb",
         "nfl",
+        "nhl",
     ]
     now_iso = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
 

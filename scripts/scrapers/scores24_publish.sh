@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Publish Scores24 MLB/WNBA (required) plus CFB/NFL (soft-fail optional) from a
+# Publish Scores24 MLB/WNBA (required) plus CFB/NFL/NHL (soft-fail optional) from a
 # non-GitHub-Actions IP. FIFA and NBA Summer stay archived from the daily run.
 set -euo pipefail
 
@@ -32,8 +32,8 @@ DATE_ISO="${SCORES24_DATE:-$(TZ=America/Chicago date +%F)}"
 # no block-retry sleep budget so a Camoufox hang cannot delay MLB+WNBA publish
 # for 900s. Afternoon reruns resume from SCORES24_CHECKPOINT_DIR.
 PUBLISH_FEEDS="${SCORES24_PUBLISH_FEEDS:-scores24_mlb,scores24_wnba}"
-OPTIONAL_FEEDS="${SCORES24_OPTIONAL_FEEDS:-scores24_cfb,scores24_nfl}"
-PUBLISH_SPORTS="${SCORES24_PUBLISH_SPORTS:-mlb,wnba,cfb,nfl}"
+OPTIONAL_FEEDS="${SCORES24_OPTIONAL_FEEDS:-scores24_cfb,scores24_nfl,scores24_nhl}"
+PUBLISH_SPORTS="${SCORES24_PUBLISH_SPORTS:-mlb,wnba,cfb,nfl,nhl}"
 OPTIONAL_FEED_TIMEOUT="${SCORES24_OPTIONAL_FEED_TIMEOUT_SECONDS:-180}"
 REQUEST_INTERVAL="${SCORES24_REQUEST_INTERVAL_SECONDS:-12}"
 REQUEST_ATTEMPTS="${SCORES24_REQUEST_ATTEMPTS:-1}"

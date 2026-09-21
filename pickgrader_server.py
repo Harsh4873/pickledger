@@ -4694,6 +4694,9 @@ _SPORTYTRADER_SPORT_ALIAS = {
     "CFB": "CFB",
     "USA - NFL": "NFL",
     "NFL": "NFL",
+    "USA - NHL": "NHL",
+    "NHL": "NHL",
+    "USA - HOCKEY": "NHL",
 }
 
 
@@ -5226,6 +5229,24 @@ def run_nfl_model(date_str: str | None = None) -> dict[str, Any]:
         if not isinstance(result, dict):
             return {"ok": False, "error": "NFL model returned an invalid payload"}
         _save_admin_picks_doc("nfl", result, target_iso)
+        return result
+    except Exception as exc:
+        return {"ok": False, "error": str(exc)}
+
+
+def run_nhl_model(date_str: str | None = None) -> dict[str, Any]:
+    """Execute the in-house NHL model and publish research moneylines."""
+    target_iso, _ = _parse_model_date_arg(date_str)
+    nhl_dir = os.path.join(BASE_DIR, "NHLPredictionModel")
+    if not os.path.exists(nhl_dir):
+        return {"ok": False, "error": "NHL model directory not found"}
+    try:
+        from NHLPredictionModel import generate_nhl_picks
+
+        result = generate_nhl_picks(target_iso)
+        if not isinstance(result, dict):
+            return {"ok": False, "error": "NHL model returned an invalid payload"}
+        _save_admin_picks_doc("nhl", result, target_iso)
         return result
     except Exception as exc:
         return {"ok": False, "error": str(exc)}
@@ -5911,6 +5932,7 @@ _EXTERNAL_FEED_SPORT_CONFIG = {
     "fifa_world_cup": {"label": "FIFA WC", "model_keys": ("fifa_world_cup",)},
     "cfb": {"label": "CFB", "model_keys": ("cfb",)},
     "nfl": {"label": "NFL", "model_keys": ("nfl",)},
+    "nhl": {"label": "NHL", "model_keys": ("nhl",)},
 }
 
 _EXTERNAL_FEED_SPORT_KEY_BY_LABEL = {
@@ -5921,6 +5943,7 @@ _EXTERNAL_FEED_SPORT_KEY_BY_LABEL = {
     "FIFA WC": "fifa_world_cup",
     "CFB": "cfb",
     "NFL": "nfl",
+    "NHL": "nhl",
 }
 _EXTERNAL_FEED_SPORT_LABEL_BY_KEY = {
     key: str(config["label"])
@@ -5934,6 +5957,7 @@ _EXTERNAL_FEED_SPORT_SOURCE_SUFFIX = {
     "FIFA WC": "FIFAWorldCup",
     "CFB": "CFB",
     "NFL": "NFL",
+    "NHL": "NHL",
 }
 _EXTERNAL_FEED_PROVIDER_LABEL = {
     "sportytrader": "SportyTrader",
@@ -5961,6 +5985,8 @@ def _canonical_external_feed_sport(value: Any) -> str:
         "ncaa": "cfb",
         "ncaa_football": "cfb",
         "nfl": "nfl",
+        "hockey": "nhl",
+        "ice_hockey": "nhl",
     }
     sport_key = aliases.get(normalized, normalized)
     if sport_key in _EXTERNAL_FEED_SPORT_LABEL_BY_KEY:
@@ -6169,7 +6195,7 @@ def _external_feed_slate_whitelists(
 
 # CFB and NFL must not fail an otherwise successful MLB/WNBA provider refresh.
 # Tennis is a separate feed with the same idea.
-_EXTERNAL_FEED_OPTIONAL_SPORTS = frozenset({"cfb", "nfl"})
+_EXTERNAL_FEED_OPTIONAL_SPORTS = frozenset({"cfb", "nfl", "nhl"})
 
 
 def _partition_external_feed_errors(
@@ -6410,8 +6436,10 @@ def run_sportytrader_scraper(
         "college_football": "cfb",
         "ncaa": "cfb",
         "nfl": "nfl",
+        "nhl": "nhl",
+        "hockey": "nhl",
     }
-    default_sports = ["nba", "nba_summer", "mlb", "wnba", "fifa_world_cup", "cfb", "nfl"]
+    default_sports = ["nba", "nba_summer", "mlb", "wnba", "fifa_world_cup", "cfb", "nfl", "nhl"]
     selected = [sport_map.get(str(s).strip().lower(), "") for s in (sports or default_sports)]
     selected = [sport for sport in selected if sport]
     if not selected:
@@ -6567,8 +6595,10 @@ def run_sportsgambler_scraper(
         "college_football": "cfb",
         "ncaa": "cfb",
         "nfl": "nfl",
+        "nhl": "nhl",
+        "hockey": "nhl",
     }
-    default_sports = ["nba", "nba_summer", "mlb", "wnba", "fifa_world_cup", "cfb", "nfl"]
+    default_sports = ["nba", "nba_summer", "mlb", "wnba", "fifa_world_cup", "cfb", "nfl", "nhl"]
     selected = [sport_map.get(str(s).strip().lower(), "") for s in (sports or default_sports)]
     selected = [sport for sport in selected if sport]
     if not selected:

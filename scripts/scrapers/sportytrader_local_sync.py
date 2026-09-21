@@ -42,7 +42,7 @@ import pickgrader_server as p
 date_str = datetime.now().strftime("%Y-%m-%d")
 result = p.run_sportytrader_scraper(
     date_str,
-    ["nba", "nba_summer", "mlb", "wnba", "fifa_world_cup", "cfb", "nfl"],
+    ["nba", "nba_summer", "mlb", "wnba", "fifa_world_cup", "cfb", "nfl", "nhl"],
 )
 if not result.get("ok"):
     raise SystemExit(result.get("error") or "SportyTrader sync failed")
@@ -50,7 +50,7 @@ if not result.get("ok"):
 payload = {
     "updated_at": datetime.now().isoformat(),
     "date": date_str,
-    "leagues": "nba,nba_summer,mlb,wnba,fifa_world_cup,cfb,nfl",
+    "leagues": "nba,nba_summer,mlb,wnba,fifa_world_cup,cfb,nfl,nhl",
     "note": "Auto-synced locally via macOS launchd.",
     "picks": result.get("picks", []),
 }
