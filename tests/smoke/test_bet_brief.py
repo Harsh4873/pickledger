@@ -185,7 +185,10 @@ def test_brief_ledger_snapshot_uses_post_reset_balances():
     assert by_book["Onyx"]["runningBankroll"] == 5.00
     assert by_book["ReBet"]["runningBankroll"] == 1.00
     assert by_book["Fliff"]["runningBankroll"] == 2.00
+    assert by_book["ReBet"]["pendingRisk"] == 1.00
+    assert by_book["Fliff"]["pendingRisk"] == 2.00
     assert brief["ledger"]["open"][0]["id"] == "pl-20260919-003"
+    assert len(brief["ledger"]["open"]) == 3
 
 
 def test_2026_09_21_sits_out_on_proven_negative():

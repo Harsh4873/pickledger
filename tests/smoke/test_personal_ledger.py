@@ -41,11 +41,17 @@ def test_post_reset_summary_with_boss_actuals():
     assert by_book["ReBet"]["status"] == "active"
     assert by_book["ReBet"]["snapshotBankroll"] == 1.00
     assert by_book["ReBet"]["runningBankroll"] == 1.00
+    assert by_book["ReBet"]["pendingRisk"] == 1.00
+    assert by_book["ReBet"]["targetBankroll"] == 20.00
     assert by_book["Fliff"]["status"] == "active"
     assert by_book["Fliff"]["snapshotBankroll"] == 2.00
     assert by_book["Fliff"]["runningBankroll"] == 2.00
     assert by_book["Fliff"]["lifetimeSettledProfit"] == -2.00
-    assert summary["openCount"] == 1
+    assert by_book["Fliff"]["pendingRisk"] == 2.00
+    assert by_book["Fliff"]["targetBankroll"] == 50.00
+    assert by_book["Novig"]["targetBankroll"] == 50.00
+    assert by_book["Onyx"]["targetBankroll"] == 20.00
+    assert summary["openCount"] == 3
     assert summary["settledCount"] == 4
     assert summary["lifetimeSettledProfit"] == -7.09
     assert summary["open"][0]["id"] == "pl-20260919-003"
@@ -56,6 +62,8 @@ def test_post_reset_summary_with_boss_actuals():
     assert "pl-20260919-003" in ids
     assert "pl-20260920-004" in ids
     assert "pl-20260920-005" in ids
+    assert "pl-20260921-001" in ids
+    assert "pl-20260921-002" in ids
     pre = {b["id"]: b.get("preSnapshot") for b in ledger["bets"]}
     assert pre["pl-20260919-001"] is True
     assert pre["pl-20260919-002"] is True
@@ -70,6 +78,16 @@ def test_post_reset_summary_with_boss_actuals():
     assert by_id["pl-20260920-005"]["oddsAmerican"] is None
     assert by_id["pl-20260920-005"]["units"] == 1.50
     assert by_id["pl-20260920-005"]["status"] == "loss"
+    assert by_id["pl-20260921-001"]["book"] == "ReBet"
+    assert by_id["pl-20260921-001"]["stakeDollars"] == 1.00
+    assert by_id["pl-20260921-001"]["oddsAmerican"] is None
+    assert by_id["pl-20260921-001"]["status"] == "pending"
+    assert by_id["pl-20260921-001"]["legs"] == 3
+    assert by_id["pl-20260921-002"]["book"] == "Fliff"
+    assert by_id["pl-20260921-002"]["stakeDollars"] == 2.00
+    assert by_id["pl-20260921-002"]["oddsAmerican"] is None
+    assert by_id["pl-20260921-002"]["status"] == "pending"
+    assert by_id["pl-20260921-002"]["legs"] == 2
     assert "\u2014" not in json.dumps(summary)
     assert "\u2014" not in json.dumps(ledger)
 

@@ -1,9 +1,11 @@
 # Daily-refresh longshot lane (ReBet and Fliff)
 
-ReBet $1 and Fliff $2 refresh daily. This lane spends each refresh on one
-chalk-stack longshot parlay per book per day. It is separate from the
-Novig and Onyx climb singles (those stay singles only, never parlays).
-Harsh places every ticket manually; nothing here auto-places.
+ReBet $1 and Fliff $2 refresh daily, play every day per Policy 9/21 (cashout
+targets ReBet $20, Fliff $50; Novig $50, Onyx $20; Novig and Onyx surefire
+only). This lane spends each refresh on one longshot parlay per book per day.
+It is separate from the Novig and Onyx climb singles (those stay singles only,
+never parlays, surefire only). Harsh places every ticket manually; nothing
+here auto-places.
 
 ## Method: chalk-stack with filters
 
@@ -149,6 +151,35 @@ tickets per the caps (ReBet 3, Fliff 4, prefer no shared legs so one
 landmine does not wipe both), compute the combined decimal as the product
 of leg decimals (decimal = 1 + 100/abs(odds) for favorites), confirm the
 book combined price, then log.
+
+## Placed 9/21 (spread variants, Boss placed, combined TBD)
+
+Boss placed both 9/21 longshots as SPREAD variants on Sep 21 (per did it
+like u said), not the ML best-effort tickets above. Logged as pending in
+`data/personal_ledger.json` (`pl-20260921-001` ReBet $1, `pl-20260921-002`
+Fliff $2) with combined odds TBD until Boss sends them, payouts TBD, never
+invented. Method stays ML-only chalk-stack; spread variants were Boss choice
+for this slate, documented here for transparency.
+
+- ReBet $1 (3 legs, `pl-20260921-001`): Giants ML -102 + Rams -6.5 + Wings
+  -5.5. Combined TBD, payout TBD. Legs: Giants ML -102 (Boss confirmed,
+  cache -102 prob 0.4954 start 01:45Z), Rams -6.5 (Boss line, cache LA -6.5
+  -115 prob 0.5216 start 00:15Z as reference, book leg price TBD), Wings -5.5
+  (Boss line, no direct cache price, opposite Mercury +5.5 -108 as reference
+  only, start inferred 02:00Z, needs pregame confirm).
+- Fliff $2 (2 legs, `pl-20260921-002`): Dream -2.5 + Blue Jays -1.5. Combined
+  TBD, payout TBD. Legs: Dream -2.5 (Boss typed -2.4, treat as -2.5 typo, flag
+  for confirm; no direct cache price, opposite NYL +1.5 -110 different line as
+  reference only, start inferred 00:00Z, needs pregame confirm), Blue Jays -1.5
+  (Boss line, no MLB run line price in cache, book leg price TBD, game start
+  22:35Z).
+
+No shared legs between the two placed tickets (Giants/Rams/Wings vs
+Dream/Blue Jays, 5 distinct games). Both pregame as of placement (evening
+slate). Per-leg spread prices (except Giants ML -102) and combined odds are
+TBD from the book tickets. When Boss sends combined odds and payouts, log them
+with `personal_ledger.py settle` (for wins/losses) or update the pending notes
+(stay pending with combined noted, never guessed).
 
 ## Expired 9/20 examples (DO NOT BET)
 
