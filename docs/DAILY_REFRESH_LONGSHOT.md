@@ -35,18 +35,48 @@ or props in this lane. No same-game or correlated legs.
    from the multiplied posted legs. Log the book combined odds, never the
    computed estimate, as the ticket odds.
 
-## Next slate tickets (9/21)
+## Next slate tickets (9/21): PASS both, do not bet
 
-Status as of 2026-09-21 04:37 UTC: the committed PickLedger slate is 9/20
-(`data/model_cache/latest.json` dated 2026-09-20, `data/profit_desk/latest.json`
-dated 2026-09-20). Every 9/20 game has started or gone final. The 9/21 slate
-has not yet published (next daily refresh 6:30 AM CT). No pregame legs are
-available, so no bettable ticket can be listed without inventing odds.
+Status as of 2026-09-21 14:27 UTC: the committed PickLedger slate is 9/21
+(`data/model_cache/latest.json` dated 2026-09-21 11:56Z,
+`data/profit_desk/latest.json` dated 2026-09-21 12:14Z). Morning refresh
+has run. Only 10 ML legs exist on the slate, and only 2 pass the filters.
+Insufficient for two non-overlapping 2+ leg plus-money longshots, so both
+books PASS. No ticket is listed.
 
-ReBet ($1): TBD pending the 9/21 refresh. Do not bet.
-Fliff ($2): TBD pending the 9/21 refresh. Do not bet.
+ReBet ($1): PASS. Only 1 fully qualifying leg (LA ML) plus 1 conditional
+(Dallas Wings, missing start_time in source bucket). Best 2-leg combo is
+about -103 (not a plus-money longshot). Do not bet.
+Fliff ($2): PASS. No legs left for a second non-overlapping 2+ leg ticket.
+Do not bet.
 
-Build steps once the 9/21 refresh lands:
+Passing legs (2, ranked by edge):
+
+- LA ML (NYG at LA, nfl) -285, prob 0.7266, break-even 0.7403, edge -0.0137.
+  Start 2026-09-22T00:15Z (Sep 21 7:15 PM CT), pregame, fresh from the 11:56Z
+  refresh, odds via nflverse_posted_lines. Fully qualifies.
+- Dallas Wings ML (Dallas at Phoenix, wnba) -218, prob 0.659, break-even
+  0.6855, edge -0.0265. Start missing in the wnba bucket (same game
+  2026-09-22T02:00Z in forebet_wnba and scores24_wnba, Sep 21 9 PM CT),
+  market updated 11:56Z fresh via DraftKings/ESPN. Conditional: needs
+  pregame confirm, no start_time in source bucket.
+
+Failed legs (8, all below the 0.65 win-chance filter):
+
+- Toronto Blue Jays ML -110 (0.54), Blue Jays ML -107 (0.4767), Nationals ML
+  +129 (0.4767), Giants ML -102 (0.4954), Atlanta Dream ML -120 (0.515), plus
+  3 F5 MLs: Orioles -125 (0.4733, edge -0.082), Tigers -154 (0.4419, edge
+  -0.164), Twins -120 (0.4628, edge -0.083). All out. F5 MLs are first-five
+  derivatives, not full-game MLs, and fail anyway.
+
+Best available 2-leg math (DO NOT BET, shown for transparency): LA -285 (dec
+1.3509) plus Dallas -218 (dec 1.4587) gives combined dec 1.9705, about -103.
+$1 pays about $1.97, $2 pays about $3.94, hit chance 0.7266 times 0.659 =
+47.9 percent, EV about -0.056. Not a plus-money longshot (needs 3+ legs for
+plus money, only 2 available), and Dallas start needs confirm. So PASS both.
+Balances refresh tomorrow.
+
+Build command used (same filter as Method, all buckets scanned for ML):
 
 ```bash
 python3 -c "

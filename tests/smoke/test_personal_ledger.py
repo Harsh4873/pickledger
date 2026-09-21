@@ -25,7 +25,7 @@ def test_american_profit_math():
     assert american_profit(2.0, -110, "void") == 0.0
 
 
-def test_post_reset_summary_with_inferred_novig():
+def test_post_reset_summary_with_boss_actuals():
     ledger = load_ledger(ROOT / "data" / "personal_ledger.json")
     summary = summarize(ledger)
     by_book = {b["book"]: b for b in summary["books"]}
@@ -59,6 +59,17 @@ def test_post_reset_summary_with_inferred_novig():
     pre = {b["id"]: b.get("preSnapshot") for b in ledger["bets"]}
     assert pre["pl-20260919-001"] is True
     assert pre["pl-20260919-002"] is True
+    by_id = {b["id"]: b for b in ledger["bets"]}
+    assert by_id["pl-20260920-004"]["stakeDollars"] == 1.50
+    assert by_id["pl-20260920-004"]["profitDollars"] == 1.41
+    assert by_id["pl-20260920-004"]["oddsAmerican"] is None
+    assert by_id["pl-20260920-004"]["units"] == 1.50
+    assert by_id["pl-20260920-004"]["status"] == "win"
+    assert by_id["pl-20260920-005"]["stakeDollars"] == 1.50
+    assert by_id["pl-20260920-005"]["profitDollars"] == -1.50
+    assert by_id["pl-20260920-005"]["oddsAmerican"] is None
+    assert by_id["pl-20260920-005"]["units"] == 1.50
+    assert by_id["pl-20260920-005"]["status"] == "loss"
     assert "\u2014" not in json.dumps(summary)
     assert "\u2014" not in json.dumps(ledger)
 
