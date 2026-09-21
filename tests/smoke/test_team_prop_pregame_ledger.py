@@ -198,3 +198,11 @@ def test_unreplaced_placeholder_odds_are_not_financial_but_replaced_ones_are(tmp
     assert records[0]["financial_eligibility_reason"] == "assumed_or_proxy_price"
     assert records[1]["financial_eligible"] is True
     assert records[1]["observed_american_odds"] == -110.0
+
+
+def test_frozen_legacy_pick_never_inherits_fresh_bucket_fingerprint():
+    from scripts.team_prop_pregame_ledger import _model_version
+    bucket = {'prediction_model_version': 'nfl:new-artifact', 'model_version': 'legacy-bucket'}
+    assert _model_version('nfl', bucket, {'model_version': 'legacy-pick'}) == 'legacy-pick'
+    assert _model_version('nfl', bucket, {'prediction_model_version': 'nfl:old-artifact'}) == 'nfl:old-artifact'
+    assert _model_version('nfl', bucket, {}) != 'nfl:new-artifact'

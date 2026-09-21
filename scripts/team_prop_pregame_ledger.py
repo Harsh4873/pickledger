@@ -356,7 +356,6 @@ def _displayed_probability(pick: Mapping[str, Any]) -> float | None:
 def _model_version(model_key: str, bucket: Mapping[str, Any], pick: Mapping[str, Any]) -> str:
     value = _first_value(
         pick.get("prediction_model_version"),
-        bucket.get("prediction_model_version"),
         pick.get("model_version"),
         pick.get("model_epoch"),
         bucket.get("model_version"),
