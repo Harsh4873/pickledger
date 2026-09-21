@@ -212,7 +212,9 @@ def _model_key(record: Mapping[str, Any]) -> str:
 
 
 def _model_version(record: Mapping[str, Any]) -> str:
-    value = _value_from_contexts(record, "model_version", "modelVersion", "version")
+    value = _value_from_contexts(record, "prediction_model_version")
+    if value is None:
+        value = _value_from_contexts(record, "model_version", "modelVersion", "version")
     return str(value or UNVERSIONED).strip() or UNVERSIONED
 
 

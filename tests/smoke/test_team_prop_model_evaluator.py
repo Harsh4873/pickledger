@@ -20,6 +20,15 @@ def test_all_model_exact_prices_and_fresh_holdout_are_separate():
 from scripts.team_prop_model_evaluator import evaluate_team_prop_ledger, load_ledger
 
 
+def test_canonical_nested_snapshot_uses_prediction_fingerprint_over_serving_label():
+    row = _record(model_key='nfl', model_version='nfl:artifact-hash',
+        pregame_snapshot={'model_version': 'legacy-serving-label',
+                          'prediction_model_version': 'nfl:artifact-hash'})
+    report = evaluate_team_prop_ledger({'records': [row]})
+    assert report['segments'][0]['model_version'] == 'nfl:artifact-hash'
+    assert report['exact_market_prices'][0]['model_version'] == 'nfl:artifact-hash'
+
+
 def _certification(*, financial: bool = False, benchmark: bool = False) -> dict:
     return {
         "certified": True,
