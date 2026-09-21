@@ -33,3 +33,29 @@ Open tickets:
 Note: Prices are quoted from Profit Desk evidence (book posted lines). Confirm the Novig ticket before betting; if the price moved, pass.
 Note: Climb singles are not Profit Desk EDGE or VALUE qualifiers unless marked qualified.
 Note: Nothing here places bets. Harsh places every ticket manually.
+
+## Status note (added 9/21 from desk reconciliation plus Boss results)
+
+Morning brief stays as the published record. Updates below, no rewrite.
+
+- BET THIS U43.5 (CAR at ATL): window closed at 12:00 CT kick per the desk
+  afternoon refresh. Per Boss 9/21, it was placed and WON. Logged in the
+  ledger as `pl-20260920-004` (inferred $1 at -110, +$0.91, needs Boss
+  confirm on stake and price).
+- WAS at DAL U51.5 -118 PASS: consistent with the desk (moved from U50.5
+  +100, edge about 2 percent, juice). No change. Separately, per Boss 9/21,
+  the earlier U50.5 line was played and LOST. Logged as `pl-20260920-005`
+  (inferred $1, -$1.00, needs confirm).
+- Sparks ML -112: brief says PASS, desk afternoon refresh allows it as an
+  optional $1-max evening HOLD (6 PM CT, only if Boss wants action).
+  Nothing logged as placed either way. Still outstanding.
+- Ledger snapshot figures in this brief (Novig $50 / Onyx $15 / ReBet $20)
+  are stale: targets were used as balances. Correct post-reset balances are
+  Novig $30, Onyx $5, ReBet $1. Current Boss-reported 9/21 balances: Novig
+  $29.92, Onyx $5, ReBet $1, Fliff $2. Novig inference: $1 each gives
+  30 + 0.91 - 1 = 29.91 (1c under reported, needs confirm).
+- Fliff and ReBet are ACTIVE daily-refresh (Fliff $2 promo, ReBet $1),
+  never OUT or HOLD for good. Longshot lane: `docs/DAILY_REFRESH_LONGSHOT.md`.
+- Still outstanding: Novig 2-leg parlay result (`pl-20260919-003`), SEA +0.5,
+  Sparks ML, ATL at POR backup. Open ticket above is now `pl-20260919-003`
+  (9/19 MLS 2-leg MATCHED parlay, about +221, $2.00, 1u under 1u=$2 policy).

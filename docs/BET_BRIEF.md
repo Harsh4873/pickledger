@@ -40,8 +40,10 @@ The filter applies in this order:
    (sources at or below -5% flat ROI over 50+ rows are out). Rank by sport
    priority (NFL, CFB, MLB, WNBA, MLS, then the rest) and cleanest price
    (closest break-even to -110). LEAN-only slates sit out.
-6. Singles only. Never parlays. Stake guide is Novig first (about $1 = 1u),
-   Onyx as backup (about $0.50 = 1u), ReBet HOLD, Fliff OUT.
+6. Singles only for climb (Novig, Onyx). Never parlays in climb. Stake
+   guide is Novig first (about $1 = 1u), Onyx as backup (about $0.50 = 1u).
+   ReBet and Fliff are daily-refresh longshot lane only
+   (see `docs/DAILY_REFRESH_LONGSHOT.md`), never climb singles.
 
 Every PASS row cites its real reason: the exclusion above, or the desk
 decision and tier, the source flat ROI over rows and dates with Prob+EV, and
@@ -49,16 +51,27 @@ the top desk blockers.
 
 ## Personal ledger
 
-`data/personal_ledger.json` is Harsh's book-by-book record, seeded from chat
-on 2026-09-20. Full bet-by-bet history before that date is not reconstructed.
+`data/personal_ledger.json` is Harsh's book-by-book record. 9/19 history was
+reconstructed from the desk file on 9/20; snapshot moment is the BOOK RESET
+9/19 about 8:14 PM CT.
 
-- Books: Novig (active, $1/u), Onyx (active, $0.50/u), ReBet (HOLD micro),
-  Fliff (OUT).
+- Books: Novig (active primary, $1/u, snapshot $30, target $50), Onyx
+  (active, $0.50/u, snapshot $5 post-loss, target $20), ReBet (active
+  daily-refresh, $0.25 soft/u, snapshot $1, target $20), Fliff (active
+  daily-refresh promo, $0.50 soft/u, snapshot $2 promo 9/20, no target).
 - Running bankroll = snapshot bankroll + settled P&L on or after the snapshot
-  date. Pending bets never move settled bankroll.
-- Units = stake dollars / unit dollars. Null when the book has no unit set.
+  date, excluding preSnapshot history. Pending bets never move settled
+  bankroll. Pre-snapshot 9/19 tickets carry `preSnapshot: true` (visible in
+  lifetime P&L, never subtracted from post-reset snapshots).
+- ReBet $1 and Fliff $2 refresh daily; ledger running for those books is
+  informational, Boss confirms the promo balance each morning. Never OUT or
+  HOLD for good while the promos live. Longshot lane only, see
+  `docs/DAILY_REFRESH_LONGSHOT.md`.
+- Units = stake dollars / unit dollars. Historical units reflect the policy
+  in force at placement. Null only for pre-unit-policy tickets.
 - Wins and losses require confirmed American odds from Harsh or the ticket.
-  Unknown odds stay null until confirmed.
+  Inferred odds stay flagged unconfirmed until Boss confirms. Unknown odds
+  stay null until confirmed.
 
 CLI:
 
@@ -66,12 +79,13 @@ CLI:
 python3 scripts/personal_ledger.py --ledger data/personal_ledger.json summary
 python3 scripts/personal_ledger.py --ledger data/personal_ledger.json add \
   --date 2026-09-21 --book Novig --sport NFL \
-  --selection "Under 43.5 (CAR @ ATL)" --odds -110 --stake 2.0
+  --selection "Under 43.5 (CAR @ ATL)" --odds -110 --stake 1.0
 python3 scripts/personal_ledger.py --ledger data/personal_ledger.json settle \
-  --id pl-20260920-003 --result win --odds -110
+  --id pl-20260919-003 --result win --odds 221
 ```
 
-OUT books reject new tickets. HOLD books need `--allow-hold`.
+All four books are active; no OUT or HOLD gate applies. Novig and Onyx take
+climb singles only. ReBet and Fliff take daily-refresh longshots only.
 
 ## Local brief runs
 

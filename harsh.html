@@ -129,7 +129,7 @@ function renderBrief(b) {
 function renderLedger(l) {
   var books = l.books || [];
   var snap = l.updatedAt ? " (updated " + esc(l.updatedAt) + ")" : "";
-  var html = "<p class='meta'>Running bankroll = snapshot + settled P&L on or after the snapshot date." + snap + "</p>";
+  var html = "<p class='meta'>Running bankroll = snapshot + settled P and L on or after the snapshot date (pre-snapshot history excluded; ReBet and Fliff refresh daily)." + snap + "</p>";
   html += '<div class="books">' + books.map(function (x) {
     var run = (x.snapshotBankroll === null || x.snapshotBankroll === undefined)
       ? null : Number(x.snapshotBankroll) + Number(x.settledProfitSinceSnapshot || 0);
@@ -170,6 +170,7 @@ function renderLedger(l) {
       (led.bets || []).forEach(function (x) {
         if (String(x.book).toLowerCase() !== String(b.book).toLowerCase()) return;
         if (x.status === "pending") { pending += Number(x.stakeDollars || 0); return; }
+        if (x.preSnapshot === true) return;
         if (b.snapshotDate && String(x.date) < String(b.snapshotDate)) return;
         settled += Number(x.profitDollars || 0);
       });

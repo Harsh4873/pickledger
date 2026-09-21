@@ -13,7 +13,8 @@ Rules (see docs/BET_BRIEF.md):
   - When Profit Desk qualifies zero (valid sit out), fall back to max 1 climb
     single: the top decision BET by sport priority then cleanest price.
     LEAN-only slates sit out rather than forcing action.
-  - Novig first for sizing. ReBet is HOLD, Fliff is OUT.
+  - Novig first for sizing, Onyx backup. ReBet and Fliff are daily-refresh
+    longshot lane only (see docs/DAILY_REFRESH_LONGSHOT.md), never climb singles.
   - Never auto-places bets. Harsh confirms the book price before betting.
 
 Usage:
@@ -310,8 +311,8 @@ def build_bet_entry(candidate: dict, rank: int, qualified: bool) -> dict:
         "stakeGuide": {
             "Novig": "1u (about $1). Confirm the Novig price matches before betting.",
             "Onyx": "1u (about $0.50) only if Harsh prefers Onyx for this ticket.",
-            "ReBet": "HOLD, no bet.",
-            "Fliff": "OUT, no bet.",
+            "ReBet": "Daily-refresh longshot lane only, no climb single.",
+            "Fliff": "Daily-refresh longshot lane only, no climb single.",
         },
         "why": "",
         "risks": "",
@@ -383,6 +384,8 @@ def load_ledger_snapshot(path: Path) -> dict:
             if bet.get("status") == "pending":
                 pending += float(bet.get("stakeDollars") or 0.0)
             else:
+                if bet.get("preSnapshot") is True:
+                    continue
                 if snap_date and str(bet.get("date", "")) < str(snap_date):
                     continue
                 settled += float(bet.get("profitDollars") or 0.0)
@@ -507,7 +510,7 @@ def generate(profit: dict, ledger_path: Path, slot: str, as_of: dt.datetime) -> 
             "noTennis": True,
             "juiceCap": JUICE_CAP,
             "juiceException": "conservative EV above 0.05 with Prob+EV at least 0.80",
-            "bookPriority": "Novig first. ReBet HOLD, Fliff OUT.",
+            "bookPriority": "Novig first, Onyx backup. ReBet and Fliff daily-refresh longshot lane only.",
         },
         "disclaimers": [
             "Prices are quoted from Profit Desk evidence (book posted lines). Confirm the Novig ticket before betting; if the price moved, pass.",

@@ -7,7 +7,8 @@ bankroll per book.
 
 Ledger math:
   running bankroll = snapshot bankroll + settled P&L on or after snapshot date
-Pending bets never move settled bankroll. Units = stake / unit dollars.
+  (preSnapshot history excluded, pending never moves settled bankroll).
+  Units = stake / unit dollars.
 Unknown odds stay null until Harsh or the ticket confirms them.
 
 Usage:
@@ -68,7 +69,20 @@ def settled_profit_for_book(ledger: dict, book: str, snapshot_date: str | None) 
             continue
         if bet.get("status") in (None, "pending"):
             continue
+        if bet.get("preSnapshot") is True:
+            continue
         if snapshot_date and str(bet.get("date", "")) < snapshot_date:
+            continue
+        total += float(bet.get("profitDollars") or 0.0)
+    return round(total, 2)
+
+
+def lifetime_profit_for_book(ledger: dict, book: str) -> float:
+    total = 0.0
+    for bet in ledger.get("bets", []):
+        if bet.get("book", "").lower() != book.lower():
+            continue
+        if bet.get("status") in (None, "pending"):
             continue
         total += float(bet.get("profitDollars") or 0.0)
     return round(total, 2)
@@ -106,7 +120,9 @@ def summarize(ledger: dict) -> dict:
                 "openingBankroll": entry.get("openingBankroll"),
                 "snapshotBankroll": entry.get("snapshotBankroll"),
                 "snapshotDate": snap_date,
+                "targetBankroll": entry.get("targetBankroll"),
                 "settledProfitSinceSnapshot": settled,
+                "lifetimeSettledProfit": lifetime_profit_for_book(ledger, name),
                 "pendingRisk": pending,
                 "runningBankroll": running_bankroll(entry, settled),
                 "notes": entry.get("notes"),
@@ -114,12 +130,14 @@ def summarize(ledger: dict) -> dict:
         )
     open_bets = [b for b in ledger.get("bets", []) if b.get("status") == "pending"]
     settled_bets = [b for b in ledger.get("bets", []) if b.get("status") != "pending"]
+    lifetime_total = round(sum(float(b.get("profitDollars") or 0.0) for b in settled_bets), 2)
     return {
         "owner": ledger.get("owner"),
         "updatedAt": ledger.get("updatedAt"),
         "books": books_out,
         "openCount": len(open_bets),
         "settledCount": len(settled_bets),
+        "lifetimeSettledProfit": lifetime_total,
         "open": open_bets,
         "settled": settled_bets,
     }

@@ -163,6 +163,9 @@ def test_today_brief_matches_morning_context():
     assert top["pick"] == "Under 43.5 (CAR @ ATL)"
     assert top["oddsAmerican"] == -110
     assert top["qualified"] is False
+    assert "longshot" in top["stakeGuide"]["ReBet"].lower()
+    assert "longshot" in top["stakeGuide"]["Fliff"].lower()
+    assert "daily-refresh" in brief["rules"]["bookPriority"]
     picks = [p["pick"] for p in brief["pass"]]
     assert "Under 51.5 (WAS @ DAL)" in picks
     assert len(brief["betThis"]) <= 2
@@ -172,3 +175,14 @@ def test_today_brief_matches_morning_context():
     assert "Under 43.5 (CAR @ ATL)" in md
     assert "\u2014" not in md
     assert "\u2014" not in json.dumps(brief)
+
+
+def test_brief_ledger_snapshot_uses_post_reset_balances():
+    profit = json.loads((ROOT / "data" / "profit_desk" / "latest.json").read_text())
+    brief = generate(profit, ROOT / "data" / "personal_ledger.json", "am", ASOF_AM)
+    by_book = {b["book"]: b for b in brief["ledger"]["books"]}
+    assert by_book["Novig"]["runningBankroll"] == 29.91
+    assert by_book["Onyx"]["runningBankroll"] == 5.00
+    assert by_book["ReBet"]["runningBankroll"] == 1.00
+    assert by_book["Fliff"]["runningBankroll"] == 2.00
+    assert brief["ledger"]["open"][0]["id"] == "pl-20260919-003"
