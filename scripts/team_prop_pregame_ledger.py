@@ -49,10 +49,12 @@ TEAM_PROP_MODEL_KEYS = {
     "mls",
     "nfl",
     "cfb",
+    "tennis",
+    "ipl",
 }
 FIFA_MODEL_KEYS = {"fifa_world_cup", "mls"}  # soccer models share the evaluation exclusion
 TRACKED_TEAM_DECISIONS = {"BET", "LEAN"}
-FORECAST_AUDIT_MODEL_KEYS = {"cfb"}
+FORECAST_AUDIT_MODEL_KEYS = TEAM_PROP_MODEL_KEYS
 
 _TIMESTAMP_FIELDS = (
     "game_start_time",
@@ -353,6 +355,8 @@ def _displayed_probability(pick: Mapping[str, Any]) -> float | None:
 
 def _model_version(model_key: str, bucket: Mapping[str, Any], pick: Mapping[str, Any]) -> str:
     value = _first_value(
+        pick.get("prediction_model_version"),
+        bucket.get("prediction_model_version"),
         pick.get("model_version"),
         pick.get("model_epoch"),
         bucket.get("model_version"),
@@ -691,9 +695,8 @@ def capture_team_prop_pregame_snapshots(
         for pick in picks:
             if not isinstance(pick, dict):
                 continue
-            # PASS rows remain in the raw model cache for diagnostics, but they
-            # were never tracked wagers and therefore cannot enter the
-            # certified snapshot/grading/calibration pipeline.
+            # Capture PASS forecasts for unbiased probability evaluation. They
+            # remain zero-stake research and are excluded from financial ROI.
             decision = _tracked_team_decision(pick)
             if decision not in TRACKED_TEAM_DECISIONS and not (
                 model_key in FORECAST_AUDIT_MODEL_KEYS and decision == "PASS"

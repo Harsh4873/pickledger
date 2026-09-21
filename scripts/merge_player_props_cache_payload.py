@@ -308,6 +308,7 @@ def _preserve_pick_metadata(
         merged["picks"] = sorted(unique.values(), key=lambda p: (str(p.get("start_time")), str(p.get("player_name")), str(p.get("stat_key"))))
         for index, pick in enumerate(merged["picks"], 1):
             pick["rank"] = index
+            pick["ml_rank"] = index
     else:
         merged["picks"] = _rank_published_picks(fresh_picks)
     return merged

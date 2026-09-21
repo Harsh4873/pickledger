@@ -83,15 +83,17 @@ def test_capture_certifies_first_publication_and_appends_material_revision(tmp_p
     assert records[0]["snapshot_hash"] != records[1]["snapshot_hash"]
 
 
-def test_capture_leaves_pass_only_in_raw_team_cache_diagnostics(tmp_path):
+def test_capture_keeps_pass_for_probability_evaluation_without_staking(tmp_path):
     payload = _payload(decision="PASS")
+    payload["models"]["mlb_new"]["picks"][0]["units"] = 0
     assert stamp_team_prop_pregame_timing(payload) == 1
 
     summary = capture_team_prop_pregame_snapshots(payload, repo_root=tmp_path)
 
-    assert summary == {"added": 0, "unchanged": 0, "team_picks": 0}
-    assert payload["models"]["mlb_new"]["picks"][0]["decision"] == "PASS"
-    assert load_team_prop_pregame_ledger(tmp_path)["records"] == []
+    assert summary == {"added": 1, "unchanged": 0, "team_picks": 1}
+    record = load_team_prop_pregame_ledger(tmp_path)["records"][0]
+    assert record["decision"] == "PASS"
+    assert record["stake"] == 0
 
 
 def test_assumed_and_untrusted_rows_never_become_financial_or_calibration_evidence(tmp_path):

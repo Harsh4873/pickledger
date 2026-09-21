@@ -85,6 +85,8 @@ def test_realistic_nested_roster_prior_season_market_to_publication_and_merge(mo
     models = build_variant_buckets(sport='CFB', date_iso=DAY, base_model=base)
     merged = merge_payload({'date': DAY, 'models': models}, tmp_path, tmp_path)
     assert len(merged['models']['cfb_player_props']['picks']) == 2
+    assert [p['ml_rank'] for p in models['cfb_player_props']['picks']] == [1, 2]
+    assert all(p['ml_rank_epoch'].startswith(f'CFB:{cfb.VERSION}:baseline:') for p in models['cfb_player_props']['picks'])
     assert merged['models']['cfb_player_props']['publication_status'] == 'baseline_projections'
 
 
@@ -205,3 +207,38 @@ def test_deployment_exemption_never_allows_an_uncalibrated_stake():
     assert _documented_cfb_baseline(row)
     for update in ({'decision': 'BET'}, {'units': 1}, {'full_kelly': .1}, {'sport': 'MLB'}, {'probability_calibrated': True}):
         assert not _documented_cfb_baseline({**row, **update})
+
+
+def test_nfl_paired_quote_fallback_keeps_nested_roster_projection_unstaked(monkeypatch):
+    from player_props.football import generate_football_candidate_model
+    freeze(monkeypatch)
+    base = generate_football_candidate_model(Client(), 'nfl', 'NFL', DAY)
+    bucket = build_variant_buckets(sport='NFL', date_iso=DAY, base_model=base)['nfl_player_props']
+    assert len(bucket['picks']) == 2
+    assert bucket['football_baseline'] is True
+    for pick in bucket['picks']:
+        assert pick['sport'] == 'NFL'
+        assert pick['decision'] == 'PASS' and pick['units'] == 0
+        assert pick['ml_rank_epoch'].startswith('NFL:')
+        assert pick['probability_calibrated'] is False
+
+
+def test_football_market_feed_loads_all_pages_without_changing_quotes(monkeypatch):
+    from player_props.api import DirectApiClient
+    client = DirectApiClient()
+    calls = []
+    def get(url, params):
+        calls.append(params)
+        return {'pageCount': 2, 'items': [{'id': params.get('page', 1)}]}
+    monkeypatch.setattr(client, '_get', get)
+    assert client.football_espn_prop_bets('nfl', 'game')['items'] == [{'id': 1}, {'id': 2}]
+    assert len(calls) == 2 and calls[1]['page'] == 2
+
+
+def test_primary_nfl_profile_loader_flattens_grouped_rosters():
+    from player_props.football import _player_profiles
+    client = Client()
+    profiles = _player_profiles(client, 'nfl', 2025, client.football_roster('nfl', '245'), {'espn-player'}, 1)
+    assert len(profiles) == 1
+    assert profiles[0]['id'] == 'espn-player'
+    assert profiles[0]['games'] == 6

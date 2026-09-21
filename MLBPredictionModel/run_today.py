@@ -13,7 +13,7 @@ from model_variants import VALID_MLB_MODEL_VARIANTS
 from moneyline_model import predict_home_win_probability
 from prediction_logging import append_prediction_rows, build_prediction_log_rows
 from probability_layers import predict_total_runs
-from sportsline_odds import fetch_mlb_market_odds_for_date
+from observed_odds import fetch_mlb_market_odds_for_date
 from totals_model import predict_totals
 
 
@@ -166,6 +166,7 @@ def main(argv: list[str] | None = None) -> int:
         row["market_ml_home"] = mo.get("ml_home")
         row["market_total_line"] = mo.get("total_line")
         row["totals_line"] = mo.get("total_line")
+        row["observed_market"] = mo
 
     if not args.no_log:
         append_prediction_rows(
@@ -244,7 +245,10 @@ def main(argv: list[str] | None = None) -> int:
             line_source = "none"
             print(f"OU market: unavailable | model: {predicted_total:.2f}")
 
-        print(f"OU|{selection}|{ou_line}|{predicted_total:.2f}|{line_source}")
+        quote = row.get("observed_market") or {}
+        print(f"OU|{selection}|{ou_line}|{predicted_total:.2f}|{line_source}|"
+              f"{quote.get('total_over_odds') or ''}|{quote.get('total_under_odds') or ''}|"
+              f"{quote.get('source') or ''}|{quote.get('captured_at') or ''}|{quote.get('start_time') or ''}")
         print("---")
 
     return 0

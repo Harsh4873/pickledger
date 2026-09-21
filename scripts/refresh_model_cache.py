@@ -20,6 +20,7 @@ sys.path.insert(0, str(REPO_ROOT))
 
 import pickgrader_server as server  # noqa: E402
 from scripts.cache_manifest import write_cache_manifest  # noqa: E402
+from scripts.model_versions import stamp_prediction_versions
 from scripts.market_odds import apply_market_odds_to_payload  # noqa: E402
 from scripts.merge_model_cache_payload import (  # noqa: E402
     demote_unpriced_team_model_picks,
@@ -253,6 +254,7 @@ def _run_model_job_with_retries(
 
 def _write_json_cache(date_iso: str, payload: dict[str, Any]) -> dict[str, Any]:
     MODEL_CACHE_DIR.mkdir(parents=True, exist_ok=True)
+    stamp_prediction_versions(payload)
     # This is the only normal publication path that is allowed to certify a
     # team pick.  The marker is per-pick (not inferred later from a mutable
     # daily cache timestamp), and it does not alter any model value or

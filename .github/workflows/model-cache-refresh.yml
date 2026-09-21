@@ -50,6 +50,13 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
+      - name: Cache completed tennis results
+        uses: actions/cache@v4
+        with:
+          path: data/tennis/raw/espn_results
+          key: ${{ runner.os }}-tennis-results-v1-${{ github.run_id }}
+          restore-keys: ${{ runner.os }}-tennis-results-v1-
+
       - name: Refresh model caches
         run: |
           python scripts/refresh_model_cache.py \
@@ -63,6 +70,10 @@ jobs:
 
       - name: Rebuild Profit Desk
         run: python scripts/build_profit_desk.py --date "${{ github.event.inputs.date || '' }}"
+
+      - name: Report source coverage and feature freshness
+        if: always()
+        run: python scripts/source_health.py
 
       - name: Commit cache JSON if changed
         id: commit-cache

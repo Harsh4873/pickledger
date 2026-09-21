@@ -10,9 +10,9 @@ from __future__ import annotations
 
 import math
 import statistics
-from collections import defaultdict
+from collections import Counter, defaultdict
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from datetime import date, timedelta
+from datetime import date, timedelta, datetime, timezone
 from typing import Any
 
 from .basketball import (
@@ -183,6 +183,7 @@ def _football_market_index(
     client: Any,
     league: str,
     event: dict[str, Any],
+    diagnostics: dict | None = None,
 ) -> dict[str, dict[str, list[dict[str, Any]]]]:
     market_method = getattr(client, "football_espn_prop_bets", None)
     provider = _event_market_provider(event)
@@ -191,9 +192,17 @@ def _football_market_index(
     provider_id, source = provider
     try:
         payload = market_method(league, str(event.get("id") or ""), provider_id)
-    except Exception:
+    except Exception as exc:
+        if diagnostics is not None:
+            diagnostics["error"] = str(exc)
         return {}
 
+    if diagnostics is not None:
+        diagnostics["posted_market_rows"] = len(payload.get("items") or [])
+        diagnostics["unpriced_market_rows"] = sum(
+            _american_odds((((row.get("odds") or {}).get("american") or {}).get("value"))) is None
+            for row in payload.get("items") or []
+        )
     grouped: dict[tuple[str, str, float, str], list[dict[str, Any]]] = defaultdict(list)
     markets: dict[str, dict[str, list[dict[str, Any]]]] = defaultdict(lambda: defaultdict(list))
     for row in payload.get("items") or []:
@@ -422,7 +431,8 @@ def _player_profiles(
 ) -> list[dict[str, Any]]:
     athletes = [
         athlete
-        for athlete in roster.get("athletes") or []
+        for group in roster.get("athletes") or []
+        for athlete in (group.get("items") or [] if "items" in group else [group])
         if str(athlete.get("id") or "") in wanted_ids and athlete.get("displayName")
     ]
     if not athletes:
@@ -461,7 +471,9 @@ def _game_props(
     event: dict[str, Any],
     injuries: dict[str, dict[str, str]],
     max_workers: int,
+    diagnostics: dict | None = None,
 ) -> list[dict[str, Any]]:
+    diagnostics = diagnostics if diagnostics is not None else {}
     competition = (event.get("competitions") or [{}])[0]
     competitors = competition.get("competitors") or []
     away_competitor = next((item for item in competitors if item.get("homeAway") == "away"), {})
@@ -470,7 +482,9 @@ def _game_props(
     home = home_competitor.get("team") or {}
     if not away.get("id") or not home.get("id"):
         return []
-    market_index = _football_market_index(client, league, event)
+    market_index = _football_market_index(client, league, event, diagnostics)
+    diagnostics["players_with_markets"] = len(market_index)
+    diagnostics["market_inventory"] = dict(Counter(stat for markets in market_index.values() for stat in markets))
     if not market_index:
         return []
     wanted_ids = set(market_index)
@@ -492,6 +506,8 @@ def _game_props(
             "players": _player_profiles(client, league, season, roster, wanted_ids, max_workers),
         }
 
+    diagnostics["players_with_history"] = sum(len(t["players"]) for t in team_payloads.values())
+    diagnostics["insufficient_history"] = 0
     candidates: list[dict[str, Any]] = []
     for side, opponent_side in (("away", "home"), ("home", "away")):
         team_data = team_payloads[side]
@@ -506,6 +522,7 @@ def _game_props(
             if status in OUT_STATUSES:
                 continue
             if int(player.get("games") or 0) < MIN_SAMPLE_GAMES:
+                diagnostics["insufficient_history"] += 1
                 continue
             available_stats = set(player.get("available_stats") or [])
             player_markets = market_index.get(player["id"]) or {}
@@ -701,7 +718,14 @@ def generate_football_candidate_model(
 
     picks: list[dict[str, Any]] = []
     errors: list[str] = list(schedule_errors)
+    diagnostics = []
     for event in events:
+        diagnostic = {"game_id": str(event.get("id")), "status": "input_floor"}
+        diagnostics.append(diagnostic)
+        state = ((event.get("status") or {}).get("type") or {}).get("state")
+        if state in {"in", "post"}:
+            diagnostic["status"] = "not_pregame"
+            continue
         try:
             picks.extend(
                 _game_props(
@@ -713,10 +737,22 @@ def generate_football_candidate_model(
                     event=event,
                     injuries=injuries,
                     max_workers=max_workers,
+                    diagnostics=diagnostic,
                 )
             )
         except Exception as exc:
-            errors.append(f"{event.get('id')}: {exc}")
+            diagnostic["error"] = str(exc)
+        if diagnostic.get("error"):
+            diagnostic["status"] = "source_error"
+            errors.append(f"{event.get('id')}: {diagnostic['error']}")
+        elif not diagnostic.get("players_with_markets"):
+            diagnostic["status"] = "no_posted_markets"
+    if sport == "NFL" and not picks and callable(getattr(client, "cfb_market_json", None)):
+        from .cfb import generate_cfb_candidate_model
+        baseline = generate_cfb_candidate_model(client, date_iso, max_workers=max_workers, sport=sport, league=league)
+        baseline["primary_source_diagnostics"] = diagnostics
+        baseline["primary_source_errors"] = errors
+        return baseline
     return {
         "ok": True,
         "sport": sport,
@@ -724,6 +760,7 @@ def generate_football_candidate_model(
         "games": len(events),
         "picks": picks,
         "errors": errors,
+        "diagnostics": diagnostics,
         "method": "ESPN football candidate pool with posted markets, gamelogs, opponent, and injury context",
         "note": "" if picks else f"No {sport} posted player-prop market cleared the in-house input floor.",
     }

@@ -67,6 +67,7 @@ def _upcheck_repo(tmp_path: Path, date: str) -> Path:
     scripts = tmp_path / "scripts"
     scripts.mkdir()
     shutil.copyfile(ROOT / "scripts" / "site_upcheck.py", scripts / "site_upcheck.py")
+    shutil.copyfile(ROOT / "scripts" / "source_health.py", scripts / "source_health.py")
 
     model_payload = {
         "date": date,

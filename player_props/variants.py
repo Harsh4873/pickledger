@@ -1108,6 +1108,7 @@ def build_wnba_3pm_bucket(
         "games": int(base_model.get("games") or 0),
         "picks": selected,
         "errors": list(base_model.get("errors") or []),
+        "diagnostics": list(base_model.get("diagnostics") or []),
         "model": WNBA_3PM_SOURCE,
         "model_key": WNBA_3PM_MODEL_KEY,
         "model_variants": [WNBA_3PM_VARIANT],
@@ -1135,12 +1136,15 @@ def build_variant_buckets(
     base_model: dict[str, Any],
 ) -> dict[str, dict[str, Any]]:
     sport = str(sport or "").upper()
-    if sport == "CFB" and base_model.get("football_baseline") is True:
+    if sport in {"CFB", "NFL"} and base_model.get("football_baseline") is True:
         # Show honest statistical projections even before a native betting model
         # is calibrated. PASS rows never satisfy the BET/LEAN staking gates.
         picks = sorted(base_model.get("picks") or [], key=lambda p: (str(p.get("start_time")), str(p.get("player_name")), str(p.get("stat_key"))))
-        return {"cfb_player_props": {
-            **base_model, "picks": picks, "model": "CFBPlayerProps", "model_key": "cfb_player_props",
+        for rank, pick in enumerate(picks, 1):
+            pick["ml_rank"] = rank
+            pick["ml_rank_epoch"] = f"{sport}:{pick.get('model_version', 'historical_baseline')}:baseline:{date_iso}"
+        return {f"{sport.lower()}_player_props": {
+            **base_model, "picks": picks, "model": f"{sport}PlayerProps", "model_key": f"{sport.lower()}_player_props",
             "candidate_count": len(picks), "scored_count": len(picks), "model_variants": ["historical_baseline"],
             "consensus_required": True, "consensus_qualified": False, "abstained": True,
             "publication_status": "baseline_projections" if picks else "missing_inputs",
@@ -1206,6 +1210,7 @@ def build_variant_buckets(
         "games": int(base_model.get("games") or 0),
         "picks": picks,
         "errors": list(base_model.get("errors") or []),
+        "diagnostics": list(base_model.get("diagnostics") or []),
         "model": player_prop_sport_source(sport),
         "model_key": model_key,
         "model_variants": list(VARIANT_ORDER),

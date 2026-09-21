@@ -161,13 +161,14 @@ class DirectApiClient:
         )
 
     def football_espn_prop_bets(self, league: str, event_id: str, provider_id: str = "100") -> dict[str, Any]:
-        return self._get(
-            (
-                f"https://sports.core.api.espn.com/v2/sports/football/leagues/{league}/"
-                f"events/{event_id}/competitions/{event_id}/odds/{provider_id}/propBets"
-            ),
-            {"lang": "en", "region": "us", "limit": 1000},
-        )
+        url = (f"https://sports.core.api.espn.com/v2/sports/football/leagues/{league}/"
+               f"events/{event_id}/competitions/{event_id}/odds/{provider_id}/propBets")
+        params = {"lang": "en", "region": "us", "limit": 1000}
+        first = self._get(url, params)
+        items = list(first.get("items") or [])
+        for page in range(2, int(first.get("pageCount") or 1) + 1):
+            items.extend(self._get(url, {**params, "page": page}).get("items") or [])
+        return {**first, "items": items}
 
     def football_espn_summary(self, league: str, event_id: str) -> dict[str, Any]:
         return self._get(

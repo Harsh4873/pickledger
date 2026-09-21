@@ -33,6 +33,7 @@ SUPPORTED_MODEL_KEYS = (
     "nba_summer",
     "cfb",
     "nfl",
+    "mls", "wnba", "mlb_team_total", "nba", "nba_playoffs", "tennis", "ipl",
 )
 UNVERSIONED = "unversioned"
 
@@ -573,6 +574,7 @@ def _group_report(records: list[dict[str, Any]], bins: int) -> dict[str, Any]:
             "note": "Benchmark excludes assumed, proxy, synthetic, and unpriced market data.",
         },
         "real_price_roi": _roi(records),
+        "model_on_same_priced_sample": _binary_metrics(market_binary, "probability"),
     }
 
 
@@ -606,7 +608,7 @@ def _latest_certified_revisions(records: list[dict[str, Any]]) -> tuple[list[dic
     return final, len(records) - len(final)
 
 
-def evaluate_team_prop_ledger(ledger: Mapping[str, Any], *, bins: int = 10) -> dict[str, Any]:
+def evaluate_team_prop_ledger(ledger: Mapping[str, Any], *, bins: int = 10, forward_since: str | None = None) -> dict[str, Any]:
     """Build a deterministic chronological report from a certified ledger payload."""
     if not isinstance(ledger, Mapping):
         raise ValueError("Team-prop pregame ledger must be a JSON object")
@@ -661,6 +663,28 @@ def evaluate_team_prop_ledger(ledger: Mapping[str, Any], *, bins: int = 10) -> d
         for (model_key, model_version, market), group_records in sorted(groups.items())
     ]
     all_records_report = _group_report(certified, bins)
+    exact_groups = defaultdict(list)
+    for item in certified:
+        record = item["record"]
+        line = _value_from_contexts(record, "line", "market_line", "vegas")
+        selection = str(_value_from_contexts(record, "selection", "direction", "pick") or "")
+        exact_groups[(item["model_key"], item["model_version"], item["market"], str(line), selection,
+                      str(_american_odds(record)))].append(item)
+    exact_reports = [{"model_key": key[0], "model_version": key[1], "market": key[2],
+                      "line": key[3], "selection": key[4], "offered_american_odds": key[5],
+                      **_group_report(rows, bins)} for key, rows in sorted(exact_groups.items())]
+    forward = []
+    if forward_since:
+        boundary = _timestamp_key(forward_since)
+        if boundary[0] != 0:
+            raise ValueError("forward_since must be an aware ISO timestamp fixed before the evaluation window")
+        for (model_key, version, market), rows in sorted(groups.items()):
+            heldout = [r for r in rows if _timestamp_key(r["prediction_at"])[0] == 0 and _timestamp_key(r["prediction_at"]) >= boundary]
+            report = _group_report(heldout, bins)
+            n = report["real_price_roi"]["priced_settled_actionable_records"]
+            forward.append({"model_key": model_key, "model_version": version, "market": market,
+                "evaluation_start": forward_since, "status": "insufficient_samples" if n < 100 else "requires_review",
+                "promotion_approved": False, **report})
     return {
         "schema_version": SCHEMA_VERSION,
         "ledger_schema_version": ledger.get("schema_version"),
@@ -676,6 +700,9 @@ def evaluate_team_prop_ledger(ledger: Mapping[str, Any], *, bins: int = 10) -> d
         },
         "overall": all_records_report,
         "segments": segment_reports,
+        "exact_market_prices": exact_reports,
+        "forward_holdout": forward,
+        "promotion_note": "Freeze thresholds before forward_since. This report never promotes models; selected historical segments are not a fresh holdout.",
         "feature_contract_audit": _feature_audit(certified),
     }
 
@@ -707,6 +734,7 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument("--ledger-path", type=Path, help="Explicit immutable certified ledger JSON.")
     parser.add_argument("--output", type=Path, help="Optional JSON report path; stdout when omitted.")
     parser.add_argument("--bins", type=int, default=10, help="Equal-width calibration bins (default: 10).")
+    parser.add_argument("--forward-since", help="Prospectively fixed UTC start of a fresh evaluation window.")
     return parser.parse_args()
 
 
@@ -714,7 +742,7 @@ def main() -> int:
     args = _parse_args()
     try:
         ledger = load_ledger(args.ledger_path)
-        report = evaluate_team_prop_ledger(ledger, bins=args.bins)
+        report = evaluate_team_prop_ledger(ledger, bins=args.bins, forward_since=args.forward_since)
     except ValueError as exc:
         raise SystemExit(str(exc)) from exc
     rendered = json.dumps(report, indent=2, sort_keys=True) + "\n"

@@ -77,6 +77,10 @@ jobs:
             --sports "nba,mlb,wnba,cfb,nfl" \
             --skip-firestore
 
+      - name: Report source coverage and feature freshness
+        if: always()
+        run: python scripts/source_health.py
+
       - name: Commit feed cache JSON if changed
         id: commit-feeds
         run: |

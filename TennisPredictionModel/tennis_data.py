@@ -41,8 +41,8 @@ RAW_DIR = DATA_DIR / "raw"
 PROCESSED_DIR = DATA_DIR / "processed"
 MATCHES_CSV = PROCESSED_DIR / "matches.csv"
 
-ATP_URL = "http://tennis-data.co.uk/{year}/{year}.xlsx"
-WTA_URL = "http://tennis-data.co.uk/{year}w/{year}.xlsx"
+ATP_URL = "https://tennis-data.co.uk/{year}/{year}.xlsx"
+WTA_URL = "https://tennis-data.co.uk/{year}w/{year}.xlsx"
 ATP_FIRST_SEASON = 2000
 # The women's archive genuinely starts in 2007. The 2005w/2006w URLs exist but
 # serve the *men's* workbook byte-for-byte, which silently poisons the WTA
