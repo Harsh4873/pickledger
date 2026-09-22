@@ -74,6 +74,44 @@ def over_probability(lambda_home: float, lambda_away: float, line: float) -> flo
     return probability / mass if mass else 0.5
 
 
+def counting_over_probability(mean: float, line: float) -> float:
+    """P(a Poisson counting stat exceeds a posted line). The mean must be observed."""
+    pmf = _poisson(mean)
+    mass = sum(pmf)
+    probability = sum(weight for count, weight in enumerate(pmf) if count > line)
+    return probability / mass if mass else 0.5
+
+
+def team_total_over_probability(
+    lambda_side: float,
+    lambda_opponent: float,
+    line: float,
+    *,
+    ot_win_rate: float | None,
+) -> float:
+    """P(this team's goals, plus the overtime goal when they win a tie, exceed the line)."""
+    side_pmf = _poisson(lambda_side)
+    opp_pmf = _poisson(lambda_opponent)
+    probability = 0.0
+    mass = 0.0
+    ot_rate = float(ot_win_rate) if isinstance(ot_win_rate, (int, float)) else None
+    if ot_rate is None or not 0.0 < ot_rate < 1.0:
+        ot_rate = None
+    for side_goals, side_probability in enumerate(side_pmf):
+        for opp_goals, opp_probability in enumerate(opp_pmf):
+            weight = side_probability * opp_probability
+            mass += weight
+            if side_goals != opp_goals or ot_rate is None:
+                if side_goals > line:
+                    probability += weight
+                continue
+            if side_goals + 1 > line:
+                probability += weight * ot_rate
+            if side_goals > line:
+                probability += weight * (1.0 - ot_rate)
+    return probability / mass if mass else 0.5
+
+
 def project_game(ratings: dict[str, Any], home_abbrev: str, away_abbrev: str) -> dict[str, Any]:
     """Return goal rates and win/cover probabilities for one matchup."""
     league = ratings["league"]
@@ -91,7 +129,7 @@ def project_game(ratings: dict[str, Any], home_abbrev: str, away_abbrev: str) ->
         lam_away = (float(away["goals_for_per_game"]) * float(home["goals_against_per_game"]) / league_gpg) * away_factor
     home_pmf = _poisson(lam_home)
     away_pmf = _poisson(lam_away)
-    regulation_home = regulation_away = tie = cover = 0.0
+    regulation_home = regulation_away = tie = cover = away_cover = 0.0
     for home_goals, home_probability in enumerate(home_pmf):
         for away_goals, away_probability in enumerate(away_pmf):
             probability = home_probability * away_probability
@@ -103,12 +141,15 @@ def project_game(ratings: dict[str, Any], home_abbrev: str, away_abbrev: str) ->
                 tie += probability
             if home_goals >= away_goals + 2:
                 cover += probability
+            if away_goals >= home_goals + 2:
+                away_cover += probability
     mass = regulation_home + regulation_away + tie
     if mass > 0:
         regulation_home /= mass
         regulation_away /= mass
         tie /= mass
         cover /= mass
+        away_cover /= mass
     ot_home = league.get("ot_home_win_rate")
     if isinstance(ot_home, (int, float)) and 0.0 < float(ot_home) < 1.0:
         ot_rate = float(ot_home)
@@ -131,6 +172,7 @@ def project_game(ratings: dict[str, Any], home_abbrev: str, away_abbrev: str) ->
         "regulation_tie_probability": tie,
         "moneyline_home_probability": moneyline_home,
         "puckline_home_cover_probability": cover,
+        "puckline_away_cover_probability": away_cover,
         "ot_home_win_rate": ot_rate,
         "ot_rate_source": ot_source,
         "home_games": None if home is None else home.get("games_played"),

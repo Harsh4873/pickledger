@@ -5235,7 +5235,7 @@ def run_nfl_model(date_str: str | None = None) -> dict[str, Any]:
 
 
 def run_nhl_model(date_str: str | None = None) -> dict[str, Any]:
-    """Execute the in-house NHL model and publish research moneylines."""
+    """Execute the in-house NHL model and publish priced research markets."""
     target_iso, _ = _parse_model_date_arg(date_str)
     nhl_dir = os.path.join(BASE_DIR, "NHLPredictionModel")
     if not os.path.exists(nhl_dir):

@@ -514,7 +514,7 @@ const MARKET_SOURCE_LABELS: Record<string, Record<string, string>> = {
   nba_summer: { h2h: 'NBA Summer ML', moneyline: 'NBA Summer ML', '': 'NBA Summer ML' },
   mls: { moneyline: 'MLS ML', total: 'MLS Total', totals: 'MLS Total', spread: 'MLS Spread' },
   nfl: { h2h: 'NFL ML', moneyline: 'NFL ML', totals: 'NFL Total', total: 'NFL Total', spread: 'NFL Spread' },
-  nhl: { h2h: 'NHL ML', moneyline: 'NHL ML', totals: 'NHL Total', total: 'NHL Total', spread: 'NHL Spread' },
+  nhl: { h2h: 'NHL ML', moneyline: 'NHL ML', totals: 'NHL Total', total: 'NHL Total', spread: 'NHL Spread', team_total: 'NHL Team Total', player_props: 'NHL Player Prop' },
   cfb: { h2h: 'CFB ML', moneyline: 'CFB ML', totals: 'CFB Total', total: 'CFB Total', spread: 'CFB Spread' },
 };
 

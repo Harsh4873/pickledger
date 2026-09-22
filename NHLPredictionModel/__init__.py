@@ -1,4 +1,4 @@
-"""In-house NHL moneyline publisher."""
+"""In-house NHL market publisher."""
 
 from .nhl_model import generate_nhl_picks
 
