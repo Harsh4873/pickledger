@@ -10,6 +10,19 @@ from __future__ import annotations
 import json
 
 
+def test_observed_runner_totals_keep_exact_line_side_price_and_timestamp(monkeypatch):
+    import pickgrader_server as ps
+    _stub_sl_get_ml(monkeypatch, None, None)
+    monkeypatch.setattr(ps, '_sl_get_total', lambda *args: (_ for _ in ()).throw(AssertionError('observed totals must not use SportsLine')))
+    output = ('Blue Jays|Orioles|110|-120|0.48|0.52\n'
+              'OU|UNDER|7.5|6.20|market|-115|-105|espn_scoreboard:DraftKings|2026-09-21T12:00:00Z|2026-09-21T22:00:00Z')
+    pick = next(p for p in ps._parse_mlb_output(output) if p['market_type'] == 'totals')
+    assert pick['line'] == 7.5 and pick['odds'] == -105
+    assert pick['market_priced'] is True and pick['pricing_type'] == 'market'
+    assert pick['market_odds_captured_at'] == '2026-09-21T12:00:00Z'
+    assert pick['game_start_time'] == '2026-09-21T22:00:00Z'
+
+
 def _stub_sl_get_ml(monkeypatch, ml_home: int | None, ml_away: int | None):
     import pickgrader_server as ps
     monkeypatch.setattr(ps, "_sl_get_ml", lambda h, a, league: (ml_home, ml_away))

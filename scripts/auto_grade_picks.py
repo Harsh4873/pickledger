@@ -24,15 +24,13 @@ import pickgrader_server  # noqa: E402
 from scripts.merge_external_feed_cache_payload import EXTERNAL_FEED_MODEL_KEYS  # noqa: E402
 from scripts.merge_model_cache_payload import DEPLOYED_MODEL_KEYS  # noqa: E402
 from scripts.scrapers.tennis_scraper import grade_tennis_picks, is_tennis_pick  # noqa: E402
+from scripts.team_prop_pregame_ledger import FORECAST_AUDIT_MODEL_KEYS  # noqa: E402
 
 IN_HOUSE_GRADE_SCOPES = {
     str(key).strip().lower()
     for key in DEPLOYED_MODEL_KEYS
     if key not in EXTERNAL_FEED_MODEL_KEYS
 }
-
-
-FORECAST_AUDIT_MODEL_KEYS = {"cfb"}
 
 
 def _read_json(path: Path) -> dict[str, Any] | None:
@@ -288,7 +286,7 @@ def _pending_certified_team_prop_candidate(record: dict[str, Any]) -> tuple[str,
         for value in (record.get("decision"), record.get("raw_decision"), snapshot.get("decision"))
         if str(value or "").strip()
     }
-    # CFB deliberately grades all shadow forecasts (including PASS) so model
+    # Team models grade all certified forecasts (including PASS) so model
     # accuracy can be evaluated without turning those rows into wagers.
     forecast_audit = str(record.get("model_key") or "").strip() in FORECAST_AUDIT_MODEL_KEYS
     allowed_decisions = {"BET", "LEAN", "PASS"} if forecast_audit else {"BET", "LEAN"}

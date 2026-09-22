@@ -82,6 +82,10 @@ jobs:
       - name: Rebuild Profit Desk
         run: python scripts/build_profit_desk.py --date "${{ github.event.inputs.date || '' }}"
 
+      - name: Report source coverage and feature freshness
+        if: always()
+        run: python scripts/source_health.py
+
       - name: Commit player-props cache if changed
         id: commit-props
         run: |

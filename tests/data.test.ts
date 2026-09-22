@@ -614,3 +614,15 @@ test('ESPN scoreboard and nflverse market prices count as verified CFB/NFL units
   assert.equal(byId.get('nfl-priced-lean')?.pl, 0.15);
 });
 
+
+test('fresh tennis cache still exposes stale feature inputs', { concurrency: false }, async () => {
+  const date = '2026-09-21';
+  installFetch(new Map([['./data/model_cache/latest.json', { date, models: { tennis: {
+    ok: true, picks: [], meta: { ratingsThrough: '2026-09-20', archiveThrough: '2026-07-20', unknownPlayers: 24 },
+  } } }]]));
+  await loadAllData({ includeHistory: false });
+  const status = getSourceStatuses(date).find(source => source.key === 'tennis')!;
+  assert.equal(status.state, 'error');
+  assert.match(status.detail, /24 unrated players/);
+  assert.match(status.detail, /archive is stale/);
+});

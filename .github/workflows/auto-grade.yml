@@ -63,6 +63,16 @@ jobs:
           print(f"Calibration due: {due} ({decided - last} new decisions)")
           PY
 
+      - name: Evaluate certified forecasts and frozen forward window
+        run: python scripts/team_prop_model_evaluator.py --forward-since 2026-09-22T00:00:00Z --output /tmp/model-evaluation.json
+
+      - name: Save model evaluation
+        uses: actions/upload-artifact@v4
+        with:
+          name: certified-model-evaluation
+          path: /tmp/model-evaluation.json
+          retention-days: 30
+
       - name: Commit and Push Changes
         id: commit-grades
         run: |

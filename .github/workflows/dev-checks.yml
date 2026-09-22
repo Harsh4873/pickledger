@@ -2,7 +2,10 @@ name: Dev Checks
 
 on:
   push:
-    branches: [dev]
+    branches: [dev, main]
+    paths-ignore:
+      - 'data/**'
+      - 'player_props/artifacts/**'
   pull_request:
     branches: [main]
 

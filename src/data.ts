@@ -777,8 +777,8 @@ function isMlEraPlayerProp(pick: Pick): boolean {
   return Number.isFinite(timestamp) && timestamp >= PLAYER_PROPS_ML_FIRST_SNAPSHOT_AT;
 }
 
-function isCfbBaselineProjection(pick: Pick): boolean {
-  return pick.sport === 'CFB' && pick.baseline_only === true
+function isFootballBaselineProjection(pick: Pick): boolean {
+  return (pick.sport === 'CFB' || pick.sport === 'NFL') && pick.baseline_only === true
     && pick.probability_calibrated === false && pick.ml_model_active === false
     && pick.decision === 'PASS' && pick.units === 0;
 }
@@ -1056,7 +1056,7 @@ function rebuildPicks(): void {
   // in Player mode alongside the in-house ML-era props; the
   // scope routing above already keeps them out of Team mode and rankings.
   playerPicks = sortPicks([...playerById.values()].filter(
-    pick => !ARCHIVED_SPORTS.has(pick.sport) && (isMlEraPlayerProp(pick) || isCfbBaselineProjection(pick) || pick.external_player_feed === true),
+    pick => !ARCHIVED_SPORTS.has(pick.sport) && (isMlEraPlayerProp(pick) || isFootballBaselineProjection(pick) || pick.external_player_feed === true),
   ));
 }
 
@@ -1360,6 +1360,7 @@ export function getPlayerSourceStatuses(date: string): SourceStatus[] {
     } else if (bucket.ok === false || bucket.error || errors.length) {
       status.state = 'error';
       status.detail = 'Player-prop refresh reported an error; coverage may be incomplete.';
+      if (bucket.preserved_research_from && count) status.detail += ' Earlier same-day PASS research remains visible with its original quote timestamps.';
     } else if (bucket.ok === true && count) {
       status.state = 'ready';
       status.detail = bucket.football_baseline === true
@@ -1435,6 +1436,10 @@ export function getSourceStatuses(date: string): SourceStatus[] {
       .filter(pick => pick.date === date && !tracked.some(row => row.id === pick.id))
       .map(pick => pick.id)).size;
     const missing = Array.isArray(meta.missingMatchups) ? meta.missingMatchups.length : 0;
+    const featureAge = key === 'tennis' && meta.ratingsThrough
+      ? (Date.parse(date) - Date.parse(String(meta.ratingsThrough))) / 86400000 : 0;
+    const partial = numberOrNull(meta.matchedPicks) != null && numberOrNull(meta.expectedMatchups) != null
+      && Number(meta.matchedPicks) < Number(meta.expectedMatchups);
     const countBySport = recordValue(meta.officialMatchupCounts);
     const coverage = recordValue(bucket.coverage);
     const official = numberOrNull(meta.officialMatchups ?? countBySport[sport.toLowerCase()]
@@ -1443,9 +1448,19 @@ export function getSourceStatuses(date: string): SourceStatus[] {
       || (Array.isArray(meta.zeroSlateSports) && meta.zeroSlateSports.includes(sport.toLowerCase()))
       || /no (?:official )?(?:mls |nfl |cfb |wnba |mlb )?(?:games|matchups)(?: on| for| found)/i.test(String(bucket.note || ''))
       || /active slate:\s*0 game/i.test(String(bucket.note || ''));
-    if (failed || blocked || missing > 0) {
+    const archiveAge = key === 'tennis' && meta.archiveThrough
+      ? (Date.parse(date) - Date.parse(String(meta.archiveThrough))) / 86400000 : 0;
+    if (key === 'tennis' && (featureAge > 7 || archiveAge > 7 || Number(meta.unknownPlayers || 0) > 0
+      || (Array.isArray(meta.catchUpErrors) && meta.catchUpErrors.length > 0))) {
+      status.state = 'error';
+      status.detail = `Ratings through ${String(meta.ratingsThrough || 'unknown')}; ${String(meta.unknownPlayers || 0)} unrated players.`;
+      if (archiveAge > 7) status.detail += ' Ranking and points archive is stale.';
+      if (featureAge > 7 || (Array.isArray(meta.catchUpErrors) && meta.catchUpErrors.length > 0)) status.detail += ' Result updates are incomplete.';
+      status.detail += ' Available research remains visible.';
+    } else if (failed || blocked || missing > 0 || partial) {
       status.state = 'error';
       status.detail = blocked ? 'Upstream access blocked; coverage is incomplete.'
+        : partial ? `Partial provider coverage: ${String(meta.matchedPicks)}/${String(meta.expectedMatchups)} expected matchups.`
         : missing > 0 ? `Incomplete coverage: ${missing} scheduled matchup${missing === 1 ? '' : 's'} missing.`
           : 'Latest refresh failed; awaiting a successful update.';
       if (status.pickCount + status.researchCount > 0) status.detail += ' Available same-day picks remain visible.';

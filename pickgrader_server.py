@@ -4340,8 +4340,19 @@ def _parse_mlb_output(output: str, source_label: str = "MLB Model") -> list[dict
                 league = "MLB"
                 home_team = current_team_b
                 away_team = current_team_a
-                vegas_total, total_odds = _sl_get_total(home_team, away_team, league)
+                observed_quote = len(parts) >= 10 and parts[7].startswith("espn_scoreboard:")
+                vegas_total, total_odds = (None, None) if observed_quote else _sl_get_total(home_team, away_team, league)
                 market_total_source = "sportsline"
+                if observed_quote and output_total_line is not None:
+                    vegas_total = output_total_line
+                    direction = model_selection if model_selection in {"OVER", "UNDER"} else ("UNDER" if predicted_total < vegas_total else "OVER")
+                    try:
+                        total_odds = int(parts[5] if direction == "OVER" else parts[6])
+                        if abs(total_odds) < 100:
+                            total_odds = None
+                    except ValueError:
+                        total_odds = None
+                    market_total_source = parts[7]
                 if vegas_total is None:
                     if output_total_line is None or runner_line_source != "market":
                         # A missing market total must produce no pick, not a
@@ -4412,6 +4423,10 @@ def _parse_mlb_output(output: str, source_label: str = "MLB Model") -> list[dict
                     "away_team": away_team,
                     "home_team": home_team,
                 }
+                if observed_quote:
+                    ou_pick.update({"odds_source": parts[7], "market_odds_provider": parts[7],
+                        "market_odds_captured_at": parts[8], "game_start_time": parts[9],
+                        "line_source": "posted_market"})
                 picks.append(ou_pick)
                 continue
 

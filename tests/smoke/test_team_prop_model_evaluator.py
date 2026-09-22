@@ -2,7 +2,35 @@ from __future__ import annotations
 
 import json
 
+
+def test_all_model_exact_prices_and_fresh_holdout_are_separate():
+    rows = [_record(snapshot_id=str(i), model_key=key, market='total', line=3.5,
+                    snapshot_at='2026-09-20T12:00:00Z')
+            for i, key in enumerate(['mls', 'wnba', 'mlb_team_total', 'nba', 'nba_playoffs', 'tennis', 'ipl'])]
+    rows.append(_record(snapshot_id='next', model_key='mls', market='total', line=4.5,
+                        observed_american_odds=-145, snapshot_at='2026-09-21T12:00:00Z'))
+    report = evaluate_team_prop_ledger({'records': rows}, forward_since='2026-09-21T00:00:00Z')
+    assert report['record_quality']['certified_evaluable_records'] == 8
+    mls = [r for r in report['exact_market_prices'] if r['model_key'] == 'mls']
+    assert {(r['line'], r['offered_american_odds']) for r in mls} == {('3.5', '-110.0'), ('4.5', '-145.0')}
+    forward = next(r for r in report['forward_holdout'] if r['model_key'] == 'mls')
+    assert forward['records'] == 1 and forward['status'] == 'insufficient_samples'
+    assert forward['promotion_approved'] is False
+
 from scripts.team_prop_model_evaluator import evaluate_team_prop_ledger, load_ledger
+
+
+def test_canonical_nested_snapshot_uses_prediction_fingerprint_over_serving_label():
+    row = _record(model_key='nfl', model_version='nfl:artifact-hash',
+        pregame_snapshot={'model_version': 'legacy-serving-label',
+                          'prediction_model_version': 'nfl:artifact-hash'})
+    report = evaluate_team_prop_ledger({'records': [row]})
+    assert report['segments'][0]['model_version'] == 'nfl:artifact-hash'
+    assert report['exact_market_prices'][0]['model_version'] == 'nfl:artifact-hash'
+    row['snapshot_hash'] = 'immutable-hash'
+    del row['pregame_snapshot']['prediction_model_version']
+    report = evaluate_team_prop_ledger({'records': [row]})
+    assert report['segments'][0]['model_version'] == 'nfl:artifact-hash'
 
 
 def _certification(*, financial: bool = False, benchmark: bool = False) -> dict:

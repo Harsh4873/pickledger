@@ -52,9 +52,9 @@ ML_PLAYER_PROP_KEYS = {"mlb_player_props", "wnba_player_props"}
 
 
 def _documented_cfb_baseline(pick: dict[str, Any]) -> bool:
-    """Only explicitly uncalibrated zero-stake CFB projections bypass ML fields."""
+    """Only explicitly uncalibrated zero-stake football projections bypass ML fields."""
     return (
-        str(pick.get("sport") or "").upper() == "CFB"
+        str(pick.get("sport") or "").upper() in {"CFB", "NFL"}
         and pick.get("baseline_only") is True
         and pick.get("probability_calibrated") is False
         and pick.get("ml_model_active") is False
@@ -456,6 +456,13 @@ def main() -> int:
 
     models = latest.get("models") if isinstance(latest, dict) else {}
     models = models if isinstance(models, dict) else {}
+    try:
+        from scripts.source_health import source_issues
+    except ModuleNotFoundError:
+        from source_health import source_issues
+    for key, bucket in models.items():
+        if isinstance(bucket, dict):
+            warnings.extend(f"{key}: {issue}" for issue in source_issues(key, bucket, today))
     for key in sorted(REQUIRED_MODEL_KEYS):
         bucket = models.get(key)
         if not isinstance(bucket, dict):

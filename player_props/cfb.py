@@ -156,7 +156,10 @@ def _quotes(payload: dict, books: dict[str, str], game_id: str) -> list[dict]:
     return quotes
 
 
-def _game(client: Any, event: dict, game: dict, books: dict, date_iso: str, injuries: dict, stamp: str) -> tuple[list[dict], dict]:
+def _game(client: Any, event: dict, game: dict, books: dict, date_iso: str, injuries: dict, stamp: str, *, sport="CFB", league="college-football") -> tuple[list[dict], dict]:
+    source = f"{sport}PlayerProps"
+    model_key = f"{sport.lower()}_player_props"
+    version = f"{sport.lower()}_history_baseline_v1"
     game_id = str(game["id"])
     diagnostic = {"game_id": str(event["id"]), "matchup": event.get("name"), "markets": 0,
                   "unmatched_players": [], "insufficient_history": [], "history_errors": []}
@@ -170,7 +173,7 @@ def _game(client: Any, event: dict, game: dict, books: dict, date_iso: str, inju
     competitors = (event.get("competitions") or [{}])[0].get("competitors", [])
     official = {c["homeAway"]: c["team"] for c in competitors}
     teams = {str(game[f"{side}_team_id"]): (side, team) for side, team in official.items()}
-    rosters = {side: _roster(client.football_roster("college-football", str(team["id"]))) for side, team in official.items()}
+    rosters = {side: _roster(client.football_roster(league, str(team["id"]))) for side, team in official.items()}
     player_history = {}
     picks = []
     grouped = defaultdict(list)
@@ -195,7 +198,7 @@ def _game(client: Any, event: dict, game: dict, books: dict, date_iso: str, inju
             payloads = []
             for season in (int(date_iso[:4]), int(date_iso[:4]) - 1):
                 try:
-                    payloads.append(client.football_player_gamelog("college-football", athlete_id, season))
+                    payloads.append(client.football_player_gamelog(league, athlete_id, season))
                 except Exception as exc:
                     diagnostic["history_errors"].append(f"{athlete_id}/{season}: {exc}")
             player_history[athlete_id] = _history(payloads, date_iso)
@@ -217,8 +220,8 @@ def _game(client: Any, event: dict, game: dict, books: dict, date_iso: str, inju
         opponent = official["away" if side == "home" else "home"]
         validation = _backtest(values)
         reason = (f"Historical baseline projects {mean:.1f} {quote['label'].lower()} versus {line:g} at {quote['book']}. "
-                  "PASS: betting probabilities have not passed native CFB calibration. Role changes and opponent strength are not modeled.")
-        extra = {"source": "CFBPlayerProps", "model_key": "cfb_player_props", "published_model": "CFBPlayerProps", "game_id": str(event["id"]),
+                  f"PASS: betting probabilities have not passed native {sport} calibration. Role changes and opponent strength are not modeled.")
+        extra = {"source": source, "model_key": model_key, "published_model": source, "game_id": str(event["id"]),
                  "player_id": athlete_id, "espn_athlete_id": athlete_id, "team_id": str(team["id"]),
                  "opponent_id": str(opponent["id"]), "market_athlete_id": athlete_id, "provider_player_id": pid,
                  "provider_game_id": game_id, "sample_games": min(12, len(values)), "history_games": len(values),
@@ -227,11 +230,11 @@ def _game(client: Any, event: dict, game: dict, books: dict, date_iso: str, inju
                  "book_id": quote["book_id"], "market_over_odds": quote["over_odds"], "market_under_odds": quote["under_odds"],
                  "market_retrieved_at": stamp, "market_format": "total", "market_priced": True,
                  "line_source": "posted_market", "odds_source": "posted_market", "pricing_type": "market",
-                 "baseline_only": True, "model_version": VERSION, "ml_model_active": False,
+                 "baseline_only": True, "model_version": version, "ml_model_active": False,
                  "calibration_excluded": True,
                  "probability_calibrated": False, "actionability": "research_signal", "injury_status": injury.get("status", "Unknown"),
                  "decision": "PASS", "units": 0.0, "full_kelly": 0.0, "quarter_kelly": 0.0, "confidence": "Low"}
-        picks.append(build_pick(sport="CFB", date_iso=date_iso, game_id=str(event["id"]),
+        picks.append(build_pick(sport=sport, date_iso=date_iso, game_id=str(event["id"]),
             away_team=official["away"]["displayName"], home_team=official["home"]["displayName"], start_time=event["date"],
             player_id=athlete_id, player_name=athlete["displayName"], team=team["displayName"], opponent=opponent["displayName"],
             stat_key=stat, stat_label=quote["label"], selection=selection, line=line, projection=mean,
@@ -244,20 +247,20 @@ def _game(client: Any, event: dict, game: dict, books: dict, date_iso: str, inju
     return picks, diagnostic
 
 
-def generate_cfb_candidate_model(client: Any, date_iso: str, max_workers: int = 6) -> dict:
-    events, injuries, _, errors = _football_schedule(client, "college-football", "CFB", date_iso)
+def generate_cfb_candidate_model(client: Any, date_iso: str, max_workers: int = 6, *, sport="CFB", league="college-football") -> dict:
+    events, injuries, _, errors = _football_schedule(client, league, sport, date_iso)
     stamp = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
-    bucket = {"ok": True, "sport": "CFB", "date": date_iso, "updatedAt": stamp, "games": len(events), "picks": [], "errors": errors,
+    bucket = {"ok": True, "sport": sport, "date": date_iso, "updatedAt": stamp, "games": len(events), "picks": [], "errors": errors,
               "football_baseline": True, "diagnostics": [], "method": "Posted Action Network markets + dated ESPN history; uncalibrated statistical baseline"}
     if not events:
-        bucket["note"] = "CFB schedule unavailable." if errors else "No CFB games scheduled."
+        bucket["note"] = f"{sport} schedule unavailable." if errors else f"No {sport} games scheduled."
         return bucket
     try:
-        games = client.cfb_market_json("v2/scoreboard/ncaaf", date_iso).get("games", [])
+        games = client.cfb_market_json(f"v2/scoreboard/{'nfl' if sport == 'NFL' else 'ncaaf'}", date_iso).get("games", [])
         books = {str(b["id"]): str(b.get("display_name") or "") for b in client.cfb_market_json("v1/books").get("books", [])}
     except Exception as exc:
         bucket["errors"].append(str(exc))
-        bucket["note"] = "CFB player markets unavailable; no projection was evaluated."
+        bucket["note"] = f"{sport} player markets unavailable; no projection was evaluated."
         return bucket
     work = []
     now = datetime.now(timezone.utc)
@@ -276,7 +279,7 @@ def generate_cfb_candidate_model(client: Any, date_iso: str, max_workers: int = 
     def run(pair):
         event, game = pair
         try:
-            return _game(client, event, game, books, date_iso, injuries, stamp)
+            return _game(client, event, game, books, date_iso, injuries, stamp, sport=sport, league=league)
         except Exception as exc:
             return [], {"game_id": str(event["id"]), "status": "source_error", "error": str(exc)}
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
@@ -285,6 +288,6 @@ def generate_cfb_candidate_model(client: Any, date_iso: str, max_workers: int = 
             bucket["diagnostics"].append(diagnostic)
             if diagnostic.get("error"):
                 bucket["errors"].append(f"{diagnostic['game_id']}: {diagnostic['error']}")
-    bucket["note"] = ("Historical CFB projections are visible as PASS while native betting calibration is unvalidated."
-                      if bucket["picks"] else "No pregame CFB projection has sufficient posted-market and player-history inputs; see diagnostics.")
+    bucket["note"] = (f"Historical {sport} projections are visible as PASS while native betting calibration is unvalidated."
+                      if bucket["picks"] else f"No pregame {sport} projection has sufficient posted-market and player-history inputs; see diagnostics.")
     return bucket

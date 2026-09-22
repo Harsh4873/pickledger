@@ -85,6 +85,8 @@ def test_latest_player_prop_records_use_one_bucket_per_sport():
             assert pick["model_key"] == model_key
             rank_epoch = str(pick.get("ml_rank_epoch") or "")
             expected_prefix = f"{pick['sport']}:player_props_consensus_v2.0.0:published:"
+            if site_upcheck._documented_cfb_baseline(pick):
+                expected_prefix = f"{pick['sport']}:{pick['model_version']}:baseline:"
             assert rank_epoch.startswith(expected_prefix)
 
 

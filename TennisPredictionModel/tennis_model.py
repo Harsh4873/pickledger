@@ -260,7 +260,7 @@ def _round_order(round_name: str) -> int:
     return 2
 
 
-def catch_up_ratings(engine: RatingEngine, through_date: str, *, download: bool = True) -> dict[str, Any]:
+def catch_up_ratings(engine: RatingEngine, through_date: str, *, download: bool = True, before: str | None = None) -> dict[str, Any]:
     """Replay results that landed after the snapshot was taken.
 
     Only the current (and, across a new year boundary, the previous) season is
@@ -288,13 +288,25 @@ def catch_up_ratings(engine: RatingEngine, through_date: str, *, download: bool 
                 fresh.extend(parse_workbook(path, tour, season))
             except Exception as exc:  # a stale snapshot beats a crashed slate
                 print(f"[tennis] catch-up parse failed for {tour} {season}: {exc}")
+    cutoff = before or date.today().isoformat()
+    archive_through = max((m.date for m in fresh if m.date < cutoff), default=through_date)
+    errors = []
+    fallback_count = 0
+    if download and (date.fromisoformat(cutoff) - date.fromisoformat(archive_through)).days > 2:
+        from .tennis_results import fetch_completed_matches
+        index = load_tournament_index()
+        extra, errors = fetch_completed_matches(archive_through, cutoff,
+            lambda tour, tournament, day, venue: _tournament_meta(index, tour, tournament, day, venue), _round_order)
+        fresh.extend(extra)
+        fallback_count = len(extra)
     pending = sorted(
-        (match for match in fresh if match.date > through_date),
+        (match for match in fresh if through_date < match.date < cutoff),
         key=Match.sort_key,
     )
     for match in pending:
         engine.update(match)
-    return {"applied": len(pending), "through": engine.last_date}
+    return {"applied": len(pending), "through": engine.last_date, "fallback_matches": fallback_count, "errors": errors,
+            "archive_through": archive_through}
 
 
 def _decision(probability: float) -> str:
@@ -350,7 +362,7 @@ def generate_tennis_picks(
         print("[tennis] ratings snapshot Elo config differs from the trained config; retrain to realign")
 
     snapshot_through = engine.last_date
-    catch_up = catch_up_ratings(engine, snapshot_through, download=download)
+    catch_up = catch_up_ratings(engine, snapshot_through, download=download, before=target_iso)
     index = load_tournament_index()
 
     # Imported lazily: the scraper pulls in requests/bs4, which the rating and
@@ -493,6 +505,10 @@ def generate_tennis_picks(
             "ratingsSnapshotThrough": snapshot_through,
             "ratingsThrough": engine.last_date,
             "catchUpMatches": catch_up["applied"],
+            "fallbackMatches": catch_up.get("fallback_matches", 0),
+            "featureAgeDays": (target - date.fromisoformat(engine.last_date)).days if engine.last_date else None,
+            "archiveThrough": catch_up.get("archive_through"),
+            "catchUpErrors": catch_up.get("errors", []),
             "betThreshold": BET_PROBABILITY,
             "leanThreshold": LEAN_PROBABILITY,
             "ratingConfigMatchesModel": config_matches,

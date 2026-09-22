@@ -263,6 +263,28 @@ def _preserve_pick_metadata(
     generated_picks = generated_bucket.get("picks")
     if not isinstance(generated_picks, list):
         return generated_bucket
+    if (generated_bucket.get("football_baseline") is True and not generated_picks
+            and (generated_bucket.get("errors") or generated_bucket.get("ok") is False)):
+        # Preserve only already-published zero-stake research from this slate.
+        # Keep the failed refresh diagnostics and original per-pick quote times.
+        for prior in reversed(source_buckets):
+            if not isinstance(prior, dict) or prior.get("date") != generated_bucket.get("date"):
+                continue
+            rows = prior.get("picks") or []
+            if prior.get("football_baseline") is not True or not rows:
+                continue
+            if not all(row.get("baseline_only") is True and row.get("decision") == "PASS"
+                       and row.get("probability_calibrated") is False and row.get("ml_model_active") is False
+                       and all(float(row.get(field) or 0) == 0 for field in ("units", "full_kelly", "quarter_kelly"))
+                       for row in rows):
+                continue
+            generated_bucket = {**generated_bucket,
+                "preserved_research_from": prior.get("preserved_research_from") or prior.get("updatedAt"),
+                "publication_status": "preserved_research",
+                "note": "Refresh failed; retaining earlier same-day PASS research with its original quote timestamps.",
+                "picks": [dict(row) for row in rows]}
+            generated_picks = generated_bucket["picks"]
+            break
     source_picks = [
         pick
         for bucket in source_buckets
@@ -308,6 +330,7 @@ def _preserve_pick_metadata(
         merged["picks"] = sorted(unique.values(), key=lambda p: (str(p.get("start_time")), str(p.get("player_name")), str(p.get("stat_key"))))
         for index, pick in enumerate(merged["picks"], 1):
             pick["rank"] = index
+            pick["ml_rank"] = index
     else:
         merged["picks"] = _rank_published_picks(fresh_picks)
     return merged
