@@ -40,10 +40,10 @@ The filter applies in this order:
    (sources at or below -5% flat ROI over 50+ rows are out). Rank by sport
    priority (NFL, CFB, MLB, WNBA, MLS, then the rest) and cleanest price
    (closest break-even to -110). LEAN-only slates sit out.
-6. Singles only for climb (Novig, Onyx, surefire only per Policy 9/21).
+6. Singles only for climb (Novig, Onyx, weak-day leans when playable per Policy 9/22 (still prefer qualified and singles)).
    Never parlays in climb. Stake guide is Novig first (about $1 = 1u), Onyx
    as backup (about $0.50 = 1u). ReBet and Fliff are daily-refresh longshot
-   lane only, every day per Policy 9/21
+   lane only, every day per Policy 9/22
    (see `docs/DAILY_REFRESH_LONGSHOT.md`), never climb singles.
 
 Every PASS row cites its real reason: the exclusion above, or the desk
@@ -56,17 +56,17 @@ the top desk blockers.
 reconstructed from the desk file on 9/20; snapshot moment is the BOOK RESET
 9/19 about 8:14 PM CT.
 
-- Books: Novig (active primary, surefire only, $1/u, snapshot $30, cashout
-  $50), Onyx (active, surefire only, $0.50/u, snapshot $5 post-loss, cashout
-  $20), ReBet (active daily-refresh, every day, $0.25 soft/u, snapshot $1,
+- Books: Novig (active primary, weak-day leans when playable, $1/u, snapshot $30, cashout
+  $50), Onyx (active, weak-day leans when playable, $0.50/u, snapshot $5 post-loss, cashout
+  $20), ReBet (active daily-refresh, every day, $0.25 soft/u, snapshot $1 refresh 9/22,
   cashout $20), Fliff (active daily-refresh promo, every day, $0.50 soft/u,
-  snapshot $2 promo 9/20, cashout $50). Policy 9/21: ReBet and Fliff every
-  day; Novig and Onyx surefire only.
+  snapshot $2 refresh 9/22, cashout $50). Policy 9/22: ReBet and Fliff every
+  day; Novig and Onyx weak-day leans when playable (no longer surefire-only silence).
 - Running bankroll = snapshot bankroll + settled P&L on or after the snapshot
   date, excluding preSnapshot history. Pending bets never move settled
   bankroll. Pre-snapshot 9/19 tickets carry `preSnapshot: true` (visible in
   lifetime P&L, never subtracted from post-reset snapshots).
-- ReBet $1 and Fliff $2 refresh daily, play every day per Policy 9/21;
+- ReBet $1 and Fliff $2 refresh daily, play every day per Policy 9/22;
   ledger running for those books is informational, Boss confirms the promo
   balance each morning. Never OUT or HOLD for good while the promos live.
   Longshot lane only, see `docs/DAILY_REFRESH_LONGSHOT.md`.
@@ -88,8 +88,8 @@ python3 scripts/personal_ledger.py --ledger data/personal_ledger.json settle \
 ```
 
 All four books are active; no OUT or HOLD gate applies. Novig and Onyx take
-climb singles only, surefire only. ReBet and Fliff take daily-refresh
-longshots only, every day. Cashout targets (Policy 9/21): Novig $50, Fliff
+climb singles only, weak-day leans when playable (thin boards surface best 1 if posted price and non-junk case exist, labeled qualified vs weak-day lean, never force juice past about -200, no tennis). ReBet and Fliff take daily-refresh
+longshots only, every day. Cashout targets (Policy 9/22): Novig $50, Fliff
 $50, ReBet $20, Onyx $20.
 
 ## Local brief runs

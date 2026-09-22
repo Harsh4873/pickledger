@@ -185,21 +185,33 @@ def test_brief_ledger_snapshot_uses_post_reset_balances():
     assert by_book["Onyx"]["runningBankroll"] == 5.00
     assert by_book["ReBet"]["runningBankroll"] == 1.00
     assert by_book["Fliff"]["runningBankroll"] == 2.00
-    assert by_book["ReBet"]["pendingRisk"] == 1.00
-    assert by_book["Fliff"]["pendingRisk"] == 2.00
+    assert by_book["ReBet"]["pendingRisk"] == 0.00
+    assert by_book["Fliff"]["pendingRisk"] == 0.00
     assert brief["ledger"]["open"][0]["id"] == "pl-20260919-003"
-    assert len(brief["ledger"]["open"]) == 3
+    assert len(brief["ledger"]["open"]) == 1
 
 
-def test_2026_09_21_sits_out_on_proven_negative():
+def test_2026_09_21_sits_out_lean_only():
     profit = json.loads((ROOT / "data" / "profit_desk" / "2026-09-21.json").read_text())
     assert profit.get("date") == "2026-09-21"
     asof = dt.datetime(2026, 9, 21, 14, 27, tzinfo=dt.timezone.utc)
     brief = generate(profit, ROOT / "data" / "personal_ledger.json", "am", asof)
     assert brief["betThis"] == []
-    assert len(brief["pass"]) == 1
-    assert brief["pass"][0]["pick"] == "Angel Reese Over 16.5 Points"
-    assert "proven negative" in brief["pass"][0]["reason"]
+    assert len(brief["pass"]) == 3
+    md = brief_markdown(brief)
+    assert "BET THIS (0)" in md
+    assert "Sit out" in md
+    assert "\u2014" not in md
+    assert "\u2014" not in json.dumps(brief)
+
+
+def test_2026_09_22_sits_out_climb_filter():
+    profit = json.loads((ROOT / "data" / "profit_desk" / "2026-09-22.json").read_text())
+    assert profit.get("date") == "2026-09-22"
+    asof = dt.datetime(2026, 9, 22, 14, 56, tzinfo=dt.timezone.utc)
+    brief = generate(profit, ROOT / "data" / "personal_ledger.json", "am", asof)
+    assert brief["betThis"] == []
+    assert len(brief["pass"]) == 10
     md = brief_markdown(brief)
     assert "BET THIS (0)" in md
     assert "Sit out" in md

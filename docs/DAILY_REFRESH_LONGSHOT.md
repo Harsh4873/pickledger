@@ -1,43 +1,122 @@
 # Daily-refresh longshot lane (ReBet and Fliff)
 
-ReBet $1 and Fliff $2 refresh daily, play every day per Policy 9/21 (cashout
-targets ReBet $20, Fliff $50; Novig $50, Onyx $20; Novig and Onyx surefire
-only). This lane spends each refresh on one longshot parlay per book per day.
-It is separate from the Novig and Onyx climb singles (those stay singles only,
-never parlays, surefire only). Harsh places every ticket manually; nothing
-here auto-places.
+ReBet $1 and Fliff $2 refresh daily, play every day per Policy 9/22 (cashout
+targets ReBet $20, Fliff $50; Novig $50, Onyx $20; Novig and Onyx weak-day
+leans when playable, still prefer qualified and singles). This lane spends
+each refresh on one 2-leg longshot per book per day (Method 9/22 fix: fewer
+legs, higher bar, no padding). It is separate from the Novig and Onyx singles
+(those stay singles only, never parlays). Harsh places every ticket manually;
+nothing here auto-places.
 
-## Method: chalk-stack with filters
+## Method: chalk-stack with filters (Method 9/22 fix in effect)
 
-Stack heavy favorites (chalk) on the moneyline only. No spreads, totals,
-or props in this lane. No same-game or correlated legs.
+Method 9/22 fix (one weak leg killed both 9/21 tickets; misses were relaxed
+legs, real chalk covered): fewer legs (exactly 2 each), higher bar (prob
+0.60 plus, edge 0.00 plus, price -125 to -200), rank by prob, verified starts
+only, no padding with coin-flips to field two tickets. Replaces the 9/20
+method below where they differ; unchanged rules still apply.
+
+Stack favorites on the moneyline only. No spreads, totals, props, F5
+derivatives, or same-game/correlated legs in this lane. No tennis.
 
 1. Model win-chance filter: each leg must have model probability at least
-   0.65 in the committed PickLedger cache (`data/model_cache/latest.json`).
-   Below 0.65, the leg is out, even if the payout looks nice.
-2. Juice reasonableness: skip legs heavier than -500 (that is, -501 or
-   shorter like -950 or -2100). They add little payout for the added loss
-   risk. Prefer -150 to -400.
-3. Edge filter (A and M lesson): compute edge as model probability minus
-   market break-even. Drop any leg with edge below -0.05. Among the rest,
-   rank by edge (best first) and take the top legs per the caps below.
-   The 9/19 Onyx 10-leg ML parlay at +259 lost; Texas A and M was the
-   worst-edge landmine in that stack. Lesson: cap legs and drop any
-   worst-edge leg, even if dropping it lowers the payout.
-4. Leg caps: ReBet 2 to 3 legs (cap 3), Fliff 2 to 4 legs (cap 4), prefer
-   3. Never more than 4. Ten-leg sprays are out.
-5. Pregame only: each leg must have a fresh executable posted price
-   (observed within 24h, start more than 10 minutes out). If any leg
-   moved more than 10c against the posted price on the book ticket, drop
-   that leg or pass the ticket.
-6. One ticket per book per day, full refresh ($1 ReBet, $2 Fliff). No
-   chase, no second ticket after a loss. If no legs pass the filters,
-   pass and note why; the balance refreshes tomorrow anyway.
+   0.60 in the committed PickLedger cache (`data/model_cache/latest.json`).
+   Below 0.60, the leg is out. Up from relaxed 0.47 that allowed 0.47-0.55
+   coin-flips on 9/21; realistic for MLB slate where 0.65 plus executable
+   legs are rare, still excludes coin-flips below 0.60.
+2. Edge filter (positive only): compute edge as model probability minus
+   market break-even. Drop any leg with edge below 0.00. No negative-edge
+   landmines. Up from -0.05. Rank qualifying legs by prob (highest win chance
+   first, not edge) to prioritize hitting. The 9/19 Onyx 10-leg at +259 lost
+   with Texas A and M as the worst-edge landmine; the 9/21 best-effort used
+   negative-edge legs (-0.01 to -0.04) and Boss spread-variants lost by relaxed
+   legs. Lesson: fewer legs, positive edge only, drop landmines even if payout
+   drops.
+3. Price filter (real chalk only): each leg must be -125 to -200 inclusive.
+   Required (not preferred). Excludes too-light coin-flips like -102/-107/-120
+   and too-heavy thin payout like -500 plus. Up from skip heavier than -500
+   (preferred -150 to -400). 9/21 weak MLs (-102, -107, -120) all fail this;
+   9/21 heavy (-285, -218) also fail as too heavy for longshot value.
+4. Leg caps (fewer legs): ReBet exactly 2 legs, Fliff exactly 2 legs. No 3-4
+   leg padding. Down from ReBet 2-3 and Fliff 2-4 (prefer 3). Two legs means
+   fewer landmines and higher hit chance than 3-4.
+5. Pregame only with verified start: each leg must have a fresh price in
+   today cache (observed within 24h via refresh) and a verified start_time
+   more than 10 minutes out. No inferred starts; drop the leg if start is
+   missing. Price source is any cache odds with verified start
+   (posted_market preferred, forebet reference allowed with book confirm since
+   9/22 posted_market MLs are all weak; never invented). If any leg moved more
+   than 10c against on the book ticket, drop it or pass.
+6. One ticket per book per day, full refresh ($1 ReBet, $2 Fliff). No chase,
+   no second ticket after a loss. No padding: if fewer than 4 legs qualify,
+   field one 2-leg ticket (best 2 by prob) and pass the other book; never add
+   below-bar legs to force two tickets. Every-day means play when legs qualify,
+   refresh daily, not forced. If zero legs qualify, pass both and note why.
 7. Confirm the book ticket before placing. Book parlay pricing may differ
-   from the multiplied posted legs. Log the book combined odds, never the
+   from the multiplied reference legs. Log the book combined odds, never the
    computed estimate, as the ticket odds.
 
-## Next slate tickets (9/21): BEST-EFFORT (Boss override, thin slate)
+## Next slate tickets (9/22, Method 9/22 fix)
+
+Status as of 2026-09-22 14:49 UTC: slate is 9/22 (`data/model_cache`
+11:48Z, `data/profit_desk` 12:36Z). Morning refresh has run. Four legs
+clear the Method 9/22 fix bar (prob 0.60 plus, edge 0.00 plus, price -125
+to -200, verified starts, ML only, no tennis). Split 2 plus 2, no shared
+legs, no padding. Harsh places manually, confirms book per-leg and combined
+prices, no auto-place. Computed odds are estimates from reference legs; log
+the book combined from the ticket, never the estimate. If a leg moved more
+than 10c against on the book, or started, drop it or pass.
+
+ReBet ($1, 2 legs, about +192): Dodgers ML -125 + Tigers ML -161. $1 pays
+about $2.92, hit about 48.3 percent. No shared legs with Fliff.
+Fliff ($2, 2 legs, about +179): Mariners ML -149 + Rangers ML -149. $2 pays
+about $5.59, hit about 40.9 percent. No shared legs with ReBet.
+
+Legs (4 forebet MLs, ranked by prob per Method 9/22 fix, all pregame as of
+14:49Z, all 8 to 11.5 hours out):
+
+- Dodgers ML (SD at LAD) -125, prob 0.71, break-even 0.5556, edge +0.1544.
+  Start 2026-09-23T02:10Z (Sep 22 9:10 PM CT), verified pregame. Price is
+  forebet reference (no book source in cache); mlb_new posted_market Dodgers
+  -120 for same game confirms similar real-price range. Book leg price to
+  confirm.
+- Tigers ML (WSH at DET) -161, prob 0.68, break-even 0.6169, edge +0.0631.
+  Start 2026-09-22T22:40Z (Sep 22 5:40 PM CT), verified pregame. Forebet
+  reference; mlb_new posted_market Tigers -157 confirms range. Book to confirm.
+- Mariners ML (HOU at SEA) -149, prob 0.66, break-even 0.5984, edge +0.0616.
+  Start 2026-09-23T01:40Z (Sep 22 8:40 PM CT), verified pregame. Forebet -149;
+  mlb_new posted_market Mariners -149 same price confirms executable. Book to
+  confirm.
+- Rangers ML (NYM at TEX) -149, prob 0.62, break-even 0.5984, edge +0.0216.
+  Start 2026-09-23T00:05Z (Sep 22 7:05 PM CT), verified pregame. Forebet -149;
+  mlb_new posted_market Rangers -149 same price confirms executable. Book to
+  confirm.
+
+Ticket math (from reference legs, confirm book combined):
+
+- ReBet: 1.80 * 1.6211 = 2.9180, about +192. $1 pays about $2.92. Hit 0.71
+  times 0.68 = 48.3 percent. EV about +0.409 (positive, higher bar works).
+- Fliff: 1.6711 * 1.6711 = 2.7926, about +179. $2 pays about $5.59. Hit 0.66
+  times 0.62 = 40.9 percent. EV about +0.142 (positive).
+
+Why these 4 (Method 9/22 fix: prob 0.60 plus, edge 0.00 plus, price -125 to
+-200, exactly 2 each, rank by prob, verified starts, no padding): all 4 clear
+higher bar (probs 0.62-0.71, all positive edges, all real chalk -125 to -161,
+all verified pregame starts, 4 distinct games, no shared legs). No coin-flip
+padding (all above 0.60, none 0.47-0.55). Fewer legs (2 each, not 3-4).
+
+Excluded (honest): all posted_market MLs fail prob below 0.60 (best are Sky
+0.651 but edge -0.059 fails 0.00, Fever 0.513, Yankees 0.516, etc.) or edge
+negative or price outside -125 to -200. WNBA heavy chalk Mystics -1600
+(0.844), Aces -1800 (0.816), Valkyries -950 (0.795) excluded (heavier than
+-200, edges -0.09 to -0.13, thin payout). Forebet D-backs -200 (0.61) fails
+edge -0.057. Forebet Brewers +110, Guardians +110, Giants +110 are underdogs
+(not -125 to -200). Forebet Angels -110, Yankees -125 (0.56), Orioles -125
+(0.52) fail prob below 0.60. All F5 MLs are derivatives, excluded (best F5
+prob 0.557 Tigers, edge -0.059 fails). All tennis excluded (no tennis, 30
+tennis MLs with no odds/prob anyway).
+
+## Expired 9/21 best-effort MLs (not placed, DO NOT BET)
 
 Status as of 2026-09-21 15:03 UTC: the committed PickLedger slate is 9/21
 (`data/model_cache/latest.json` dated 2026-09-21 11:56Z,
@@ -152,14 +231,15 @@ landmine does not wipe both), compute the combined decimal as the product
 of leg decimals (decimal = 1 + 100/abs(odds) for favorites), confirm the
 book combined price, then log.
 
-## Placed 9/21 (spread variants, Boss placed, combined TBD)
+## Expired 9/21 spread-variants (settled LOSS Sep 22, DO NOT BET)
 
-Boss placed both 9/21 longshots as SPREAD variants on Sep 21 (per did it
-like u said), not the ML best-effort tickets above. Logged as pending in
-`data/personal_ledger.json` (`pl-20260921-001` ReBet $1, `pl-20260921-002`
-Fliff $2) with combined odds TBD until Boss sends them, payouts TBD, never
-invented. Method stays ML-only chalk-stack; spread variants were Boss choice
-for this slate, documented here for transparency.
+Boss placed both 9/21 longshots as SPREAD variants on Sep 21, not the ML
+best-effort above. Both lost by one leg Sep 22 per Boss. Logged as settled
+losses in `data/personal_ledger.json` (`pl-20260921-001` ReBet $1 LOSS,
+Wings -5.5 missed, Giants and Rams hit; `pl-20260921-002` Fliff $2 LOSS,
+Jays -1.5 missed, Dream hit) with combined odds TBD (Boss did not send),
+payouts never invented. ReBet and Fliff reset to 9/22 refresh ($1 and $2
+fresh, losses in lifetime only).
 
 - ReBet $1 (3 legs, `pl-20260921-001`): Giants ML -102 + Rams -6.5 + Wings
   -5.5. Combined TBD, payout TBD. Legs: Giants ML -102 (Boss confirmed,
@@ -175,11 +255,10 @@ for this slate, documented here for transparency.
   22:35Z).
 
 No shared legs between the two placed tickets (Giants/Rams/Wings vs
-Dream/Blue Jays, 5 distinct games). Both pregame as of placement (evening
-slate). Per-leg spread prices (except Giants ML -102) and combined odds are
-TBD from the book tickets. When Boss sends combined odds and payouts, log them
-with `personal_ledger.py settle` (for wins/losses) or update the pending notes
-(stay pending with combined noted, never guessed).
+Dream/Blue Jays, 5 distinct games). Both were pregame as of placement. Spreads
+that were real chalk covered (Giants, Rams, Dream); misses were relaxed legs
+(Wings -5.5, Jays -1.5). Lesson applied in Method 9/22 fix above (fewer legs,
+higher bar, no padding).
 
 ## Expired 9/20 examples (DO NOT BET)
 

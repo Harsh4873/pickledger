@@ -25,7 +25,7 @@ def test_american_profit_math():
     assert american_profit(2.0, -110, "void") == 0.0
 
 
-def test_post_reset_summary_with_boss_actuals():
+def test_post_reset_summary_with_9_22_settlements():
     ledger = load_ledger(ROOT / "data" / "personal_ledger.json")
     summary = summarize(ledger)
     by_book = {b["book"]: b for b in summary["books"]}
@@ -40,20 +40,25 @@ def test_post_reset_summary_with_boss_actuals():
     assert by_book["Onyx"]["lifetimeSettledProfit"] == -5.00
     assert by_book["ReBet"]["status"] == "active"
     assert by_book["ReBet"]["snapshotBankroll"] == 1.00
+    assert by_book["ReBet"]["snapshotDate"] == "2026-09-22"
     assert by_book["ReBet"]["runningBankroll"] == 1.00
-    assert by_book["ReBet"]["pendingRisk"] == 1.00
+    assert by_book["ReBet"]["pendingRisk"] == 0.00
     assert by_book["ReBet"]["targetBankroll"] == 20.00
+    assert by_book["ReBet"]["settledProfitSinceSnapshot"] == 0.00
+    assert by_book["ReBet"]["lifetimeSettledProfit"] == -1.00
     assert by_book["Fliff"]["status"] == "active"
     assert by_book["Fliff"]["snapshotBankroll"] == 2.00
+    assert by_book["Fliff"]["snapshotDate"] == "2026-09-22"
     assert by_book["Fliff"]["runningBankroll"] == 2.00
-    assert by_book["Fliff"]["lifetimeSettledProfit"] == -2.00
-    assert by_book["Fliff"]["pendingRisk"] == 2.00
+    assert by_book["Fliff"]["lifetimeSettledProfit"] == -4.00
+    assert by_book["Fliff"]["pendingRisk"] == 0.00
     assert by_book["Fliff"]["targetBankroll"] == 50.00
+    assert by_book["Fliff"]["settledProfitSinceSnapshot"] == 0.00
     assert by_book["Novig"]["targetBankroll"] == 50.00
     assert by_book["Onyx"]["targetBankroll"] == 20.00
-    assert summary["openCount"] == 3
-    assert summary["settledCount"] == 4
-    assert summary["lifetimeSettledProfit"] == -7.09
+    assert summary["openCount"] == 1
+    assert summary["settledCount"] == 6
+    assert summary["lifetimeSettledProfit"] == -10.09
     assert summary["open"][0]["id"] == "pl-20260919-003"
     assert summary["open"][0]["oddsAmerican"] == 221
     ids = {b["id"] for b in ledger["bets"]}
@@ -81,12 +86,14 @@ def test_post_reset_summary_with_boss_actuals():
     assert by_id["pl-20260921-001"]["book"] == "ReBet"
     assert by_id["pl-20260921-001"]["stakeDollars"] == 1.00
     assert by_id["pl-20260921-001"]["oddsAmerican"] is None
-    assert by_id["pl-20260921-001"]["status"] == "pending"
+    assert by_id["pl-20260921-001"]["status"] == "loss"
+    assert by_id["pl-20260921-001"]["profitDollars"] == -1.00
     assert by_id["pl-20260921-001"]["legs"] == 3
     assert by_id["pl-20260921-002"]["book"] == "Fliff"
     assert by_id["pl-20260921-002"]["stakeDollars"] == 2.00
     assert by_id["pl-20260921-002"]["oddsAmerican"] is None
-    assert by_id["pl-20260921-002"]["status"] == "pending"
+    assert by_id["pl-20260921-002"]["status"] == "loss"
+    assert by_id["pl-20260921-002"]["profitDollars"] == -2.00
     assert by_id["pl-20260921-002"]["legs"] == 2
     assert "\u2014" not in json.dumps(summary)
     assert "\u2014" not in json.dumps(ledger)
