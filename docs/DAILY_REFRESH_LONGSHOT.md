@@ -1,12 +1,13 @@
 # Daily-refresh longshot lane (ReBet and Fliff)
 
-ReBet $1 and Fliff $2 refresh daily, play every day per Policy 9/22 (cashout
-targets ReBet $20, Fliff $50; Novig $50, Onyx $20; Novig and Onyx weak-day
-leans when playable, still prefer qualified and singles). This lane spends
-each refresh on one 2-leg longshot per book per day (Method 9/22 fix: fewer
-legs, higher bar, no padding). It is separate from the Novig and Onyx singles
-(those stay singles only, never parlays). Harsh places every ticket manually;
-nothing here auto-places.
+ReBet $1 and Fliff $2 refresh daily, play every day per Policy 9/22 correction
+(cashout targets ReBet $20, Fliff $50; Novig $50, Onyx $20; all four books get
+best-available ticket on day with slate, labeled qualified, weak-day lean, or
+last-resort; Novig and Onyx best-available distinct, never same pick on both).
+This lane spends each refresh on one 2-leg longshot per book per day (Method
+9/22 fix: fewer legs, higher bar, best-available with honest labels). It is
+separate from the Novig and Onyx singles (those stay singles only, never
+parlays). Harsh places every ticket manually; nothing here auto-places.
 
 ## Method: chalk-stack with filters (Method 9/22 fix in effect)
 
@@ -48,29 +49,37 @@ derivatives, or same-game/correlated legs in this lane. No tennis.
    9/22 posted_market MLs are all weak; never invented). If any leg moved more
    than 10c against on the book ticket, drop it or pass.
 6. One ticket per book per day, full refresh ($1 ReBet, $2 Fliff). No chase,
-   no second ticket after a loss. No padding: if fewer than 4 legs qualify,
-   field one 2-leg ticket (best 2 by prob) and pass the other book; never add
-   below-bar legs to force two tickets. Every-day means play when legs qualify,
-   refresh daily, not forced. If zero legs qualify, pass both and note why.
+   no second ticket after a loss. Best-available (Policy 9/22 correction, do not
+   return zero tickets when slate has posted pregame non-tennis legs): if 4 plus
+   legs clear higher bar, split 2 plus 2 with no shared legs (weak-day lean
+   equivalent, positive EV, no padding). If fewer than 4 clear higher bar, field
+   best-available last-resort tickets with best remaining posted pregame
+   non-tennis ML legs (still skipping F5, tennis, dogs, heavy past -200, still
+   pregame verified starts, still no shared legs if possible), labeled last-resort
+   honestly (never called weak-day). Label each ticket qualified (never for
+   longshots, desk only), weak-day lean (clears higher bar, positive EV), or
+   last-resort (least-bad remaining, weaker legs). Every-day means each book gets
+   action on day with slate, refresh daily.
 7. Confirm the book ticket before placing. Book parlay pricing may differ
    from the multiplied reference legs. Log the book combined odds, never the
    computed estimate, as the ticket odds.
 
-## Next slate tickets (9/22, Method 9/22 fix)
+## Next slate tickets (9/22, Method 9/22 fix, both weak-day lean)
 
 Status as of 2026-09-22 14:49 UTC: slate is 9/22 (`data/model_cache`
 11:48Z, `data/profit_desk` 12:36Z). Morning refresh has run. Four legs
 clear the Method 9/22 fix bar (prob 0.60 plus, edge 0.00 plus, price -125
 to -200, verified starts, ML only, no tennis). Split 2 plus 2, no shared
-legs, no padding. Harsh places manually, confirms book per-leg and combined
-prices, no auto-place. Computed odds are estimates from reference legs; log
-the book combined from the ticket, never the estimate. If a leg moved more
-than 10c against on the book, or started, drop it or pass.
+legs, no padding. Both labeled weak-day lean (clears higher bar, positive EV,
+not qualified, not last-resort). Harsh places manually, confirms book per-leg
+and combined prices, no auto-place. Computed odds are estimates from reference
+legs; log the book combined from the ticket, never the estimate. If a leg moved
+more than 10c against on the book, or started, drop it or pass.
 
-ReBet ($1, 2 legs, about +192): Dodgers ML -125 + Tigers ML -161. $1 pays
-about $2.92, hit about 48.3 percent. No shared legs with Fliff.
-Fliff ($2, 2 legs, about +179): Mariners ML -149 + Rangers ML -149. $2 pays
-about $5.59, hit about 40.9 percent. No shared legs with ReBet.
+ReBet ($1, 2 legs, about +192) [WEAK-DAY LEAN]: Dodgers ML -125 + Tigers ML
+-161. $1 pays about $2.92, hit about 48.3 percent. No shared legs with Fliff.
+Fliff ($2, 2 legs, about +179) [WEAK-DAY LEAN]: Mariners ML -149 + Rangers ML
+-149. $2 pays about $5.59, hit about 40.9 percent. No shared legs with ReBet.
 
 Legs (4 forebet MLs, ranked by prob per Method 9/22 fix, all pregame as of
 14:49Z, all 8 to 11.5 hours out):
