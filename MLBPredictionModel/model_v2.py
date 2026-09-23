@@ -269,13 +269,45 @@ def fit_calibration(
     return {"mode": "isotonic", "calibrator": calibrator, "metadata": metadata}
 
 
+# The shipped isotonic map holds one output across a wide input band
+# (about 0.56 to 0.71 all become 0.574). A step that wide is not a local
+# reliability correction: a -150 home side and a -300 home side come out
+# identical, and the shared layer then prints both as coin flips. Steps
+# narrower than this stay on the isotonic value.
+_ISOTONIC_FLAT_WIDTH = 0.05
+
+
+def _wide_flat_mask(calibrator: IsotonicRegression, probabilities: np.ndarray) -> np.ndarray:
+    x_thresholds = np.asarray(getattr(calibrator, "X_thresholds_", []), dtype=float)
+    y_thresholds = np.asarray(getattr(calibrator, "y_thresholds_", []), dtype=float)
+    flat = np.zeros(probabilities.shape, dtype=bool)
+    if x_thresholds.size < 2 or y_thresholds.size != x_thresholds.size:
+        return flat
+    index = 0
+    count = int(x_thresholds.size)
+    while index < count:
+        end = index
+        while end + 1 < count and abs(float(y_thresholds[end + 1]) - float(y_thresholds[index])) <= 1e-8:
+            end += 1
+        if float(x_thresholds[end]) - float(x_thresholds[index]) >= _ISOTONIC_FLAT_WIDTH:
+            low = float(x_thresholds[index])
+            high = float(x_thresholds[end])
+            flat |= (probabilities >= low) & (probabilities <= high)
+        index = end + 1
+    return flat
+
+
 def apply_calibration(artifact: dict[str, Any], probabilities: np.ndarray) -> np.ndarray:
+    probabilities = np.asarray(probabilities, dtype=float)
     if artifact is None:
         return np.clip(probabilities, 0.03, 0.97)
     mode = artifact.get("mode")
     if mode == "isotonic":
         calibrator: IsotonicRegression = artifact["calibrator"]
-        return np.clip(calibrator.predict(probabilities), 0.03, 0.97)
+        calibrated = np.clip(calibrator.predict(probabilities), 0.03, 0.97)
+        flat = _wide_flat_mask(calibrator, probabilities)
+        restored = np.where(flat, np.clip(probabilities, 0.03, 0.97), calibrated)
+        return restored
     if mode == "platt_shift":
         shifted = probabilities + float(artifact.get("shift", 0.0))
         return np.clip(shifted, 0.03, 0.97)

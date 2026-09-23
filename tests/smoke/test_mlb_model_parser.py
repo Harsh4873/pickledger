@@ -337,3 +337,34 @@ def test_mlb_specialty_rows_use_user_assumed_prices(monkeypatch):
     assert side_row["market_priced"] is True
     assert side_row["odds"] == 125
     assert side_row["market_implied_probability"] is not None
+
+
+def test_flat_isotonic_plateau_keeps_distinct_home_probabilities():
+    """A wide flat isotonic step must not publish one probability for every game.
+
+    The shipped MLB calibrator maps roughly 0.56 through 0.71 onto 0.574.
+    Two home sides the classifier separates inside that band have to stay
+    separated, or every moneyline on the slate is the same coin flip.
+    """
+    import sys
+    from pathlib import Path
+
+    import numpy as np
+    from sklearn.isotonic import IsotonicRegression
+
+    model_dir = Path(__file__).resolve().parents[2] / "MLBPredictionModel"
+    if str(model_dir) not in sys.path:
+        sys.path.insert(0, str(model_dir))
+    from model_v2 import apply_calibration
+
+    raw_x = np.array([0.40, 0.50, 0.55, 0.60, 0.65, 0.70, 0.72, 0.80, 0.90])
+    raw_y = np.array([0.42, 0.48, 0.57, 0.57, 0.57, 0.57, 0.57, 0.78, 0.88])
+    calibrator = IsotonicRegression(out_of_bounds="clip")
+    calibrator.fit(raw_x, raw_y)
+    artifact = {"mode": "isotonic", "calibrator": calibrator}
+
+    restored = apply_calibration(artifact, np.array([0.58, 0.68]))
+    assert float(restored[1]) > float(restored[0]) + 0.04
+
+    sloped = apply_calibration(artifact, np.array([0.85]))
+    assert float(sloped[0]) > 0.75

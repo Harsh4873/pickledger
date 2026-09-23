@@ -106,7 +106,11 @@ def fit_mapping(rows: list[dict[str, Any]]) -> dict[str, Any]:
     for key, group_rows in sorted(grouped.items()):
         if len(group_rows) < MIN_GROUP_SAMPLES:
             continue
-        groups[key] = fit_platt(group_rows, prior=global_parameters, prior_strength=80.0)
+        # Shrink each group toward identity, not toward the pooled global fit.
+        # The global intercept is largely other sports and publication-selected
+        # tails. Using it as the group prior dragged every in-house intercept
+        # negative and turned a 57% MLB probability into a 51% coin flip.
+        groups[key] = fit_platt(group_rows, prior=_identity(), prior_strength=80.0)
     return {"global": global_parameters, "groups": groups}
 
 
