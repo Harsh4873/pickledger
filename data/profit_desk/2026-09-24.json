@@ -2,6 +2,146 @@
   "candidates": [
     {
       "blockers": [
+        "edge_insufficient_segment_samples",
+        "edge_insufficient_distinct_prior_dates",
+        "edge_negative_chronological_evidence_half",
+        "edge_probability_positive_ev_below_0.80",
+        "edge_conservative_probability_margin_below_0.02",
+        "edge_non_positive_conservative_ev",
+        "value_negative_chronological_evidence_half"
+      ],
+      "canonicalGame": "2026-09-24:mlb:arizona diamondbacks|colorado rockies",
+      "consensusSources": [],
+      "date": "2026-09-24",
+      "decimalOdds": 1.266667,
+      "decision": "LEAN",
+      "dedupeRule": "exact_market_identity_best_executable_price",
+      "direction": "under",
+      "duplicateCount": 1,
+      "duplicateSources": [
+        "MLBPlayerProps"
+      ],
+      "edgeQualified": false,
+      "estimate": {
+        "alpha": 0.042842,
+        "alphaStdError": 0.062741,
+        "breakEvenProbability": 0.789474,
+        "conservativeExpectedValue": -0.112654,
+        "expectedValue": -0.010807,
+        "lowerProbability": 0.700536,
+        "marketProbability": 0.7381,
+        "method": "market_baseline_plus_hierarchically_shrunk_prior_residual",
+        "probability": 0.780942,
+        "probabilityPositiveEv": 0.445915,
+        "sourceAlpha": 0.027504,
+        "value": {
+          "alpha": 0.027504,
+          "alphaStdError": 0.01968,
+          "conservativeExpectedValue": 0.002892,
+          "expectedValue": 0.034839,
+          "lowerProbability": 0.791757,
+          "method": "source_flat_roi_shrunk_residual_vs_break_even",
+          "probability": 0.816978,
+          "probabilityPositiveEv": 0.91888
+        }
+      },
+      "evidence": {
+        "chronologicalHalvesNonnegative": false,
+        "cutoffExclusive": "2026-09-24",
+        "distinctDates": 10,
+        "firstHalfFlatNetUnits": 0.8476,
+        "flatNetUnits": 0.4465,
+        "flatRoi": 0.027907,
+        "losses": 3,
+        "modelVersion": "player_props_consensus_v2.0.0",
+        "policyVersion": "profit_desk_policy_v2",
+        "priorOnly": true,
+        "pushes": 0,
+        "secondHalfFlatNetUnits": -0.4011,
+        "segmentDistinctDates": 10,
+        "segmentEvidenceKey": "player|mlb_player_props|mlb|player_props_consensus_v2.0.0|rbis|under|gte_0.60",
+        "segmentSamples": 16,
+        "sourceChronologicalHalvesNonnegative": false,
+        "sourceDistinctDates": 78,
+        "sourceEvidenceKey": "player|mlb_player_props|mlb",
+        "sourceFirstHalfFlatNetUnits": 20.1081,
+        "sourceFlatNetUnits": 18.135,
+        "sourceFlatRoi": 0.033961,
+        "sourceLosses": 228,
+        "sourceSamples": 534,
+        "sourceSecondHalfFlatNetUnits": -1.9731,
+        "sourceWins": 306,
+        "wins": 13
+      },
+      "game": "Arizona Diamondbacks @ Colorado Rockies",
+      "gradeSupportSource": "repository_grader_default",
+      "gradeSupported": true,
+      "id": "profit-510cc76eec6fc989e416fb4c",
+      "lane": null,
+      "laneBlockers": {
+        "edge": [
+          "edge_insufficient_segment_samples",
+          "edge_insufficient_distinct_prior_dates",
+          "edge_negative_chronological_evidence_half",
+          "edge_probability_positive_ev_below_0.80",
+          "edge_conservative_probability_margin_below_0.02",
+          "edge_non_positive_conservative_ev"
+        ],
+        "structural": [],
+        "value": [
+          "value_negative_chronological_evidence_half"
+        ]
+      },
+      "line": 0.5,
+      "liveQualified": false,
+      "market": "Total RBIs",
+      "marketFamily": "rbis",
+      "marketIdentity": "market:07ecf8215e65b92bc77cd372",
+      "mode": "player",
+      "modelVersion": "player_props_consensus_v2.0.0",
+      "oddsAmerican": -375,
+      "pick": "Jordan Beck Under 0.5 RBIs",
+      "player": "Jordan Beck",
+      "policyVersion": "profit_desk_policy_v2",
+      "price": {
+        "ageHours": 6.8,
+        "breakEvenProbability": 0.789474,
+        "decimalOdds": 1.266667,
+        "eligibleForAlphaEstimate": true,
+        "fresh": true,
+        "freshPregame": true,
+        "maxAgeHours": 24.0,
+        "noVigInputs": {
+          "field": "market_no_vig_selected_probability"
+        },
+        "noVigMethod": "explicit:pick.market_no_vig_selected_probability",
+        "noVigProbability": 0.7381,
+        "noVigVerified": true,
+        "observedExecutable": true,
+        "oddsAmerican": -375,
+        "quality": "verified_two_sided",
+        "source": "posted_market",
+        "sourceField": "pick.odds_source",
+        "startTime": "2026-09-24T19:10:00Z",
+        "tier": "B",
+        "tierLabel": "posted_two_sided",
+        "timestamp": "2026-09-24T12:22Z",
+        "timestampField": "pick.market_updated_at",
+        "twoSided": true,
+        "updatedAt": "2026-09-24T12:22Z"
+      },
+      "rawModelProbabilityIgnored": 0.8381,
+      "result": "pending",
+      "shadowQualified": false,
+      "source": "MLBPlayerProps",
+      "sourceKey": "mlb_player_props",
+      "sport": "MLB",
+      "stakeUnits": 0.0,
+      "tier": "watch",
+      "valueQualified": false
+    },
+    {
+      "blockers": [
         "missing_or_invalid_game_start_time",
         "edge_insufficient_segment_samples",
         "edge_insufficient_distinct_prior_dates",
@@ -303,7 +443,7 @@
   "date": "2026-09-24",
   "engineVersion": "profit_desk_v2_live",
   "firstLiveDate": "2026-07-11",
-  "generatedAt": "2026-09-24T11:55:45.511549Z",
+  "generatedAt": "2026-09-24T12:18:02.413334Z",
   "notices": [
     "Qualified picks carry real flat stakes: EDGE 1.0u, VALUE 0.5u; everything else stays 0u.",
     "The market price is the baseline; historical residual alpha is shrunk and uncertainty-adjusted.",
@@ -371,7 +511,7 @@
   "sources": [
     {
       "alpha": 0.027504,
-      "candidatesToday": 0,
+      "candidatesToday": 1,
       "distinctDates": 78,
       "evidenceQualified": false,
       "flatNetUnits": 18.135,
@@ -410,7 +550,7 @@
       "mode": "player",
       "probabilityPositiveEv": 0.91888,
       "samples": 534,
-      "source": "mlb_player_props",
+      "source": "MLBPlayerProps",
       "sourceKey": "mlb_player_props",
       "sport": "mlb",
       "wins": 306
@@ -1936,12 +2076,12 @@
   ],
   "summary": {
     "avoid": 2,
-    "candidateCount": 2,
-    "candidatesEvaluated": 2,
+    "candidateCount": 3,
+    "candidatesEvaluated": 3,
     "deduplicatedPicks": 0,
     "edgeQualified": 0,
     "evidenceRows": 3520,
-    "inputPicks": 2,
+    "inputPicks": 3,
     "livePortfolioCandidates": 0,
     "liveQualified": 0,
     "liveRecord": {
@@ -1973,19 +2113,19 @@
     "modes": {
       "player": {
         "avoid": 0,
-        "candidateCount": 0,
-        "candidates": 0,
-        "candidatesEvaluated": 0,
+        "candidateCount": 1,
+        "candidates": 1,
+        "candidatesEvaluated": 1,
         "edgeQualified": 0,
         "evidenceRows": 781,
         "liveQualified": 0,
-        "observedPriceCandidates": 0,
+        "observedPriceCandidates": 1,
         "portfolioCandidates": 0,
         "researchQualified": 0,
         "selected": 0,
         "shadowQualified": 0,
         "valueQualified": 0,
-        "watchlist": 0
+        "watchlist": 1
       },
       "team": {
         "avoid": 2,
@@ -2004,7 +2144,7 @@
         "watchlist": 0
       }
     },
-    "observedPriceCandidates": 2,
+    "observedPriceCandidates": 3,
     "portfolioCandidates": 0,
     "researchQualified": 0,
     "researchRecord": {
@@ -2036,6 +2176,6 @@
     },
     "sourcesTracked": 34,
     "valueQualified": 0,
-    "watchlist": 0
+    "watchlist": 1
   }
 }
