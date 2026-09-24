@@ -702,7 +702,7 @@ def _research_pass_sort_key(pick: dict[str, Any]) -> tuple[float, float, float, 
 
 
 def _market_price_can_ship(pick: dict[str, Any]) -> bool:
-    """Market-priced rows need a fresh book stamp. Unpriced research is unchanged."""
+    """Market-priced rows need a pregame book stamp. Unpriced research is unchanged."""
     if pick.get("market_priced") is not True:
         return True
     from scripts.observed_price import fresh_observed_book_price

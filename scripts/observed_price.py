@@ -1,9 +1,12 @@
 """Decide whether an observed book price is fresh enough to ship.
 
-A price ships only when the book stamped it, that stamp is before the
-start, and the stamp is at most 24 hours before the start. Refresh clocks,
-capture clocks, and empty strings are not book timestamps. This module
-never fills in a replacement price.
+A price ships when the book stamped it and that stamp is strictly before
+the start. A missing stamp does not ship. A stamp at or after the start
+does not ship. The 24 hour limit is the age of the stamp against the
+publish clock, not the gap from the stamp to kickoff. An NFL number posted
+two days before kickoff is still the book's price. Refresh clocks, capture
+clocks, and empty strings are not book timestamps. This module never fills
+in a replacement price.
 """
 
 from __future__ import annotations
@@ -83,11 +86,13 @@ def book_timestamp(pick: dict[str, Any]) -> datetime | None:
     return None
 
 
-def fresh_observed_book_price(pick: dict[str, Any]) -> bool:
-    """True when this pick carries a pregame book price no older than 24 hours.
+def fresh_observed_book_price(pick: dict[str, Any], *, now: datetime | None = None) -> bool:
+    """True when this pick carries a pregame book price.
 
-    Age is measured from the book stamp to the start, the same window the
-    profit desk already uses. A missing stamp, a post-start stamp, or a
+    The comparison against the start is only ``stamp < start``. It does not
+    require the stamp to fall inside the 24 hours before kickoff. When
+    ``now`` is the publish clock, the stamp also has to be at most 24 hours
+    old as of that clock. A missing stamp, a post-start stamp, or a
     synthetic price is not fresh. Nothing here invents a price or a stamp.
     """
     if pick.get("market_priced") is not True:
@@ -100,8 +105,12 @@ def fresh_observed_book_price(pick: dict[str, Any]) -> bool:
     start = parse_timestamp(pick.get("start_time") or pick.get("game_start_time"))
     if stamped is None or start is None or stamped >= start:
         return False
-    age_hours = (start - stamped).total_seconds() / 3600.0
-    return 0.0 <= age_hours <= MAX_FRESH_OBSERVED_PRICE_HOURS
+    if now is None:
+        return True
+    if now.tzinfo is None:
+        now = now.replace(tzinfo=timezone.utc)
+    age_from_now = (now.astimezone(timezone.utc) - stamped).total_seconds() / 3600.0
+    return 0.0 <= age_from_now <= MAX_FRESH_OBSERVED_PRICE_HOURS
 
 
 def pick_has_quote(pick: dict[str, Any]) -> bool:
@@ -132,18 +141,12 @@ def quote_is_current(
     quote on today's slate. The book stamp also has to fall inside the last
     24 hours.
     """
-    if not fresh_observed_book_price(pick):
+    if not fresh_observed_book_price(pick, now=now):
         return False
     pick_date = str(pick.get("date") or "").strip()
     if slate_date and pick_date and pick_date != slate_date:
         return False
-    stamped = book_timestamp(pick)
-    if stamped is None:
-        return False
-    if now.tzinfo is None:
-        now = now.replace(tzinfo=timezone.utc)
-    age_from_now = (now.astimezone(timezone.utc) - stamped).total_seconds() / 3600.0
-    return 0.0 <= age_from_now <= MAX_FRESH_OBSERVED_PRICE_HOURS
+    return True
 
 
 def scrub_stale_quote(
