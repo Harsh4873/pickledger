@@ -9,8 +9,12 @@ BET/LEAN picks have beaten their own market probabilities historically. That
 excess is tracked per source, per market-probability band, and (for player
 props) per Over/Under direction, each with Beta-style shrinkage so small
 samples stay near the market. Model-quoted probabilities are never trusted
-directly: June/July 2026 grading showed market probability is well calibrated
-while raw model probabilities added no lift.
+directly as the card price: June/July 2026 grading showed market probability
+is well calibrated while raw model probabilities added no lift. They are a
+veto, not a price. A leg whose own model probability does not beat the posted
+American price is out, even when trailing excess would otherwise fill the
+slip. Odds are never invented, and a below-bar leg is never added to complete
+a ticket.
 
 Cards are deliberately few and disciplined:
   * Team "Edge Double"  — up to 2 disjoint 2-leg slips whose legs clear a
@@ -302,6 +306,39 @@ def decimal_to_american(decimal_odds: float) -> int:
 
 def implied_probability(odds: int | float) -> float:
     return 1.0 / american_to_decimal(odds)
+
+
+def model_posted_edge(model_probability: float | None, american_odds: int | float | None) -> float | None:
+    """Model probability minus the break-even of a posted American price.
+
+    Both inputs are required. A missing model probability or a missing posted
+    price is not an edge, and this function does not substitute either one.
+    """
+    if model_probability is None or american_odds is None:
+        return None
+    try:
+        probability = float(model_probability)
+        odds = float(american_odds)
+    except (TypeError, ValueError):
+        return None
+    if isinstance(model_probability, bool) or isinstance(american_odds, bool):
+        return None
+    if odds == 0 or not math.isfinite(odds) or not math.isfinite(probability):
+        return None
+    return probability - implied_probability(odds)
+
+
+def leg_has_positive_model_edge(leg: Leg) -> bool:
+    """True only when the model's own probability beats the posted price.
+
+    Market-implied stand-ins are not a model probability. A leg that fails
+    this check stays out of every ticket, including a ticket that is one leg
+    short.
+    """
+    if leg.probability_source == "market_implied":
+        return False
+    edge = model_posted_edge(leg.raw_probability, leg.odds)
+    return edge is not None and edge > 0
 
 
 def fair_odds_from_probability(probability: float) -> int:
@@ -1004,11 +1041,31 @@ def _card_has_positive_ev(card: dict[str, Any]) -> bool:
     return ev is not None and ev > 0
 
 
+def _card_legs_have_positive_model_edge(card: dict[str, Any]) -> bool:
+    """Every published leg must beat its own posted price on model probability.
+
+    There is no second pass that adds a short leg to finish a 2-leg card.
+    """
+    legs = [leg for leg in card.get("legs") or [] if isinstance(leg, dict)]
+    if len(legs) < 2:
+        return False
+    for leg in legs:
+        if _clean_text(leg.get("probabilitySource")) == "market_implied":
+            return False
+        edge = model_posted_edge(leg.get("rawProbability"), leg.get("oddsAmerican"))
+        if edge is None or edge <= 0:
+            return False
+    return True
+
+
 def select_team_cards(legs: list[Leg]) -> list[dict[str, Any]]:
+    # The pool is only legs that already clear the model-vs-posted edge bar.
+    # Combinations never reach back for a below-bar leg to fill a card.
     eligible = [
         leg
         for leg in legs
         if leg.source_type != "player_prop"
+        and leg_has_positive_model_edge(leg)
         and leg.calibrated_edge >= TEAM_EDGE_MIN
         and leg.probability >= TEAM_P_MIN
     ]
@@ -1037,10 +1094,14 @@ def select_team_cards(legs: list[Leg]) -> list[dict[str, Any]]:
 
 
 def select_player_cards(legs: list[Leg]) -> list[dict[str, Any]]:
+    # Same rule as team cards: a prop below the model-vs-posted bar is not
+    # added to complete the one Prop Double.
     eligible = [
         leg
         for leg in legs
-        if leg.source_type == "player_prop" and leg.probability >= PLAYER_P_MIN
+        if leg.source_type == "player_prop"
+        and leg_has_positive_model_edge(leg)
+        and leg.probability >= PLAYER_P_MIN
     ]
     eligible.sort(key=lambda leg: (-leg.probability, leg.leg_id))
     pool = eligible[:PLAYER_POOL_TOP]
@@ -1177,7 +1238,11 @@ def build_parlay_payload(
     legs = collect_legs(date_iso, team_payload, prop_payload, trailing)
     team_cards = select_team_cards(legs)
     player_cards = select_player_cards(legs)
-    cards = [card for card in team_cards + player_cards if _card_has_positive_ev(card)]
+    cards = [
+        card
+        for card in team_cards + player_cards
+        if _card_has_positive_ev(card) and _card_legs_have_positive_model_edge(card)
+    ]
     team_cards = [card for card in cards if card.get("pickMode") == "team"]
     player_cards = [card for card in cards if card.get("pickMode") == "player"]
 
@@ -1226,6 +1291,7 @@ def build_parlay_payload(
         "No same-game, same-player, or same-side duplicate legs are allowed; game keys are canonicalized across sources.",
         "Slates without qualified edges show fewer cards (or none) instead of forcing action.",
         "A card is unpublished when its own parlay EV is zero or negative.",
+        "A leg is included only when the model's own probability beats the posted price. A below-bar leg is not added to fill a card.",
     ]
     if not cards:
         notices.append("No qualified parlay cards met the trailing-edge, price, and overlap rules for this slate.")

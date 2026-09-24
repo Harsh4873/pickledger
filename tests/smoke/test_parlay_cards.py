@@ -308,6 +308,66 @@ def test_select_team_cards_requires_trailing_edge(monkeypatch):
         assert parlays.CARD_ODDS_MIN <= card["oddsAmerican"] <= parlays.CARD_ODDS_MAX
 
 
+def test_sep23_coin_flip_probabilities_are_not_a_recommended_parlay(monkeypatch):
+    """Two 0.516 model probabilities at the 9/23 posted prices are not a parlay.
+
+    Pirates -121 and Red Sox -136 are the posted ReBet legs from 2026-09-23.
+    Each model probability is below that price's break-even. Trailing excess
+    must not promote the pair, and neither leg may be added to fill a card.
+    """
+    payload = make_payload(
+        {
+            "mlb_new": [
+                make_pick(pick="Pirates ML", game="STL at PIT", odds=-121, probability=0.516),
+                make_pick(pick="Red Sox ML", game="CLE at BOS", odds=-136, probability=0.516),
+            ]
+        }
+    )
+    history = winning_team_history()
+    shipped = parlays.collect_legs(DATE, payload, None, parlays.TrailingExcess.build(DATE, history, []))
+    assert parlays.select_team_cards(shipped) == []
+    for leg in shipped:
+        assert leg.raw_probability == 0.516
+        assert parlays.model_posted_edge(leg.raw_probability, leg.odds) < 0
+        assert parlays.leg_has_positive_model_edge(leg) is False
+
+    monkeypatch.setattr(parlays, "ADJ_POSITIVE_CAP", parlays.ADJ_CAP)
+    lifted = parlays.collect_legs(DATE, payload, None, parlays.TrailingExcess.build(DATE, history, []))
+    assert parlays.select_team_cards(lifted) == []
+    built = parlays.build_parlay_payload(
+        DATE,
+        payload,
+        None,
+        team_history=history,
+        prop_history=[],
+        prior_payloads=[],
+    )
+    assert built["cards"] == []
+
+
+def test_below_bar_leg_is_not_added_to_fill_a_parlay(monkeypatch):
+    """A leg that clears the bar cannot recruit a 0.516 leg to finish the slip."""
+    monkeypatch.setattr(parlays, "ADJ_POSITIVE_CAP", parlays.ADJ_CAP)
+    payload = make_payload(
+        {
+            "mlb_new": [
+                make_pick(pick="Dodgers ML", game="SD at LAD", odds=-125, probability=0.71),
+                make_pick(pick="Pirates ML", game="STL at PIT", odds=-121, probability=0.516),
+            ]
+        }
+    )
+    legs = parlays.collect_legs(
+        DATE,
+        payload,
+        None,
+        parlays.TrailingExcess.build(DATE, winning_team_history(), []),
+    )
+    by_pick = {leg.pick: leg for leg in legs}
+    assert parlays.leg_has_positive_model_edge(by_pick["Dodgers ML"]) is True
+    assert parlays.leg_has_positive_model_edge(by_pick["Pirates ML"]) is False
+    assert parlays.select_team_cards(legs) == []
+
+
 def test_select_team_cards_are_leg_disjoint(monkeypatch):
     monkeypatch.setattr(parlays, "ADJ_POSITIVE_CAP", parlays.ADJ_CAP)
     trailing = parlays.TrailingExcess.build(DATE, winning_team_history(), [])
@@ -365,10 +425,16 @@ def test_select_player_cards_prefers_mixed_families_and_caps_at_one():
         }
     )
     legs = parlays.collect_legs(DATE, None, prop_payload, parlays.TrailingExcess())
-    # Market-priced props with a zero positive-edge cap sit at 0 EV. Lift
-    # probability so the mixed-family preference is tested on a real +EV slip.
+    # Market-priced props with a zero positive-edge cap sit at 0 EV. Lift the
+    # model's own probability above the posted break-even so the mixed-family
+    # preference is tested on a real +EV slip. The posted odds stay put.
     legs = [
-        replace(leg, probability=min(0.84, leg.market_probability + 0.08), calibrated_edge=0.08)
+        replace(
+            leg,
+            probability=min(0.84, leg.market_probability + 0.08),
+            raw_probability=min(0.84, leg.market_probability + 0.08),
+            calibrated_edge=0.08,
+        )
         for leg in legs
     ]
     cards = parlays.select_player_cards(legs)
