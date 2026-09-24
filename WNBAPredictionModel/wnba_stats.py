@@ -562,6 +562,39 @@ def compute_rolling_stats(game_logs: list[dict], n: int = 10) -> dict:
     return averages
 
 
+def apply_rolling_scoring(profile: dict | None, rolling: dict | None) -> dict:
+    """Attach a recent scoring window to the keys the totals model reads.
+
+    ``compute_rolling_stats`` returns ``pts``, ``opp_pts``, and
+    ``games_used``. ``_scoring_rate`` reads ``rolling_pts``,
+    ``rolling_opp_pts``, and ``rolling_games_used``, and it ignores the
+    window until five games are in it. Season profiles are built with
+    ``rolling={}``, so without this merge every projected total is the
+    lagging season average.
+    """
+    merged = dict(profile or {})
+    rolling = rolling or {}
+    try:
+        games = float(rolling.get("games_used") if rolling.get("games_used") is not None else rolling.get("rolling_games_used") or 0.0)
+    except (TypeError, ValueError):
+        return merged
+    if games < 5:
+        return merged
+    pts = rolling.get("pts", rolling.get("rolling_pts"))
+    opp = rolling.get("opp_pts", rolling.get("rolling_opp_pts"))
+    try:
+        pts_f = float(pts)
+        opp_f = float(opp)
+    except (TypeError, ValueError):
+        return merged
+    if not (50.0 <= pts_f <= 130.0 and 50.0 <= opp_f <= 130.0):
+        return merged
+    merged["rolling_pts"] = pts_f
+    merged["rolling_opp_pts"] = opp_f
+    merged["rolling_games_used"] = games
+    return merged
+
+
 def build_team_stats_profile(team_abbr, ratings, four_factors, bdl_season, rolling) -> dict:
     profile = {field: None for field in PROFILE_FIELDS}
     profile["team_abbr"] = team_abbr
