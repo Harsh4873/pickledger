@@ -148,7 +148,12 @@ def _publication_contract_errors(
 def main() -> int:
     args = _parse_args()
     target_date = _target_date(args.date)
-    payload = apply_calibration_to_payload(generate_payload(target_date))
+    from scripts.desk_loss_feedback import seal_published_picks
+
+    payload = seal_published_picks(
+        apply_calibration_to_payload(generate_payload(target_date)),
+        repo_root=REPO_ROOT,
+    )
     models = payload.get("models") if isinstance(payload.get("models"), dict) else {}
     payload = {
         **payload,

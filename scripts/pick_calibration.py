@@ -74,6 +74,9 @@ SNAPSHOT_EXCLUDED_FIELDS = {
     "raw_decision",
     "calibrated_probability",
     "calibration",
+    # The settled-desk link is republished every run and must not move the
+    # immutable pregame snapshot.
+    "lossFeedback",
 }
 
 

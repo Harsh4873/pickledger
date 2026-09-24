@@ -116,7 +116,10 @@ REQUIRED_TEAM_MODEL_KEYS = {
     "nfl",
     "cfb",
 }
-PICK_METADATA_FIELDS = {"result", "start_time", "game_start_time", "pregame_snapshot"}
+# ``id`` is the link from a published pick back to its settled grade. A
+# regenerated row used to ship without it, so the next cache could no longer
+# find the settled record.
+PICK_METADATA_FIELDS = {"id", "result", "start_time", "game_start_time", "pregame_snapshot"}
 MARKET_ODDS_METADATA_FIELDS = {
     # Pregame market prices captured by scripts/market_odds.py.  Once a game
     # goes live the attach step skips it, so these captured pregame values
