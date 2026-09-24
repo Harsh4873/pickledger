@@ -196,7 +196,7 @@ def _rest_days_for_team(team_abbr: str, game_date: str) -> int | None:
     return None
 
 
-def _with_recent_scoring(team_abbr: str, stats: dict | None) -> dict:
+def _with_recent_scoring(team_abbr: str, stats: dict | None, *, as_of: str | None = None) -> dict:
     """Merge last-10 points scored and allowed onto a season profile.
 
     The totals blend is rolling-first, but ``get_team_stats`` returns the
@@ -204,7 +204,7 @@ def _with_recent_scoring(team_abbr: str, stats: dict | None) -> dict:
     never reaches ``compute_projected_total``.
     """
     try:
-        rolling = get_rolling_stats(team_abbr, n=10)
+        rolling = get_rolling_stats(team_abbr, n=10, as_of=as_of)
     except Exception:
         rolling = {}
     if not isinstance(rolling, dict):
@@ -896,8 +896,8 @@ def generate_wnba_picks(
         home_name = _team_full_name(home_abbr)
         away_name = _team_full_name(away_abbr)
 
-        home_stats = _with_recent_scoring(home_abbr, get_team_stats(home_abbr) or {})
-        away_stats = _with_recent_scoring(away_abbr, get_team_stats(away_abbr) or {})
+        home_stats = _with_recent_scoring(home_abbr, get_team_stats(home_abbr) or {}, as_of=game.date_str)
+        away_stats = _with_recent_scoring(away_abbr, get_team_stats(away_abbr) or {}, as_of=game.date_str)
 
         if not _has_usable_stats(home_stats) and not _has_usable_stats(away_stats):
             if echo:

@@ -295,6 +295,42 @@ def test_recent_scoring_window_lifts_a_lagging_season_total():
     assert compute_projected_total(short, dict(season), league_averages=league) == cold
 
 
+def test_live_publish_fills_a_null_rolling_window_without_balldontlie(monkeypatch):
+    """generate_wnba_picks merges rolling through _with_recent_scoring.
+
+    The committed season cache has rolling_pts null on every team, and
+    BallDontLie logs are empty when the key is unset. The publish helper
+    still has to attach a real last-10 window from scored games. It must
+    not write offensive rating to 105 to do that.
+    """
+    from WNBAPredictionModel import wnba_picks, wnba_stats
+    from WNBAPredictionModel.wnba_probability_layers import compute_projected_total
+
+    monkeypatch.setattr(wnba_stats, "fetch_bdl_team_game_logs", lambda *_args, **_kwargs: [])
+    season = {
+        "ORtg": 112.6,
+        "DRtg": 107.6,
+        "Pace": 79.4,
+        "pts_pg": 89.9,
+        "opp_pts_pg": 85.9,
+        "W": 17,
+        "L": 7,
+        "rolling_pts": None,
+        "rolling_opp_pts": None,
+        "rolling_games_used": None,
+    }
+    merged = wnba_picks._with_recent_scoring("LV", season)
+    assert merged["rolling_games_used"] >= 5
+    assert merged["rolling_pts"] != season["pts_pg"]
+    assert merged["ORtg"] == 112.6
+    cold = compute_projected_total(season, dict(season), league_averages={"ORtg": 108.0, "Pace": 80.0})
+    hot = compute_projected_total(merged, dict(merged), league_averages={"ORtg": 108.0, "Pace": 80.0})
+    assert cold is not None and hot is not None
+    assert hot != cold
+    early = wnba_picks._with_recent_scoring("LV", dict(season), as_of="2026-05-16")
+    assert early.get("rolling_pts") != merged["rolling_pts"]
+
+
 def test_inactive_wnba_prop_model_stays_on_the_price():
     """A coin-flip points baseline must not be published near 0.80.
 
