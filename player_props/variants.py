@@ -24,6 +24,7 @@ from .schema import (
     decision_and_stake,
     market_fair_probability,
     normal_probability,
+    poisson_side_probability,
     safe_float,
 )
 
@@ -605,11 +606,29 @@ def _apply_consensus_publication_gate(pick: dict[str, Any]) -> dict[str, Any]:
     selection = str(result.get("selection") or pick.get("selection") or "Over")
     odds = int(result["odds"])
     implied = safe_float(result.get("implied_probability"), american_implied_probability(odds) or 0.0)
-    probability = _clamp(safe_float(result.get("probability"), safe_float(pick.get("probability"), 0.5)))
+    classifier_probability = _clamp(
+        safe_float(result.get("probability"), safe_float(pick.get("probability"), 0.5))
+    )
+    probability = classifier_probability
+    line = safe_float(pick.get("line"))
+    count_probability = None
+    raw_projection = None
+    # Qualification checks above are unchanged. The published price has to
+    # follow the projected count: a classifier can sit a few points over a
+    # juiced under while the mean itself is at or through the line.
+    if str(pick.get("sport") or "").upper() == "MLB":
+        raw_projection = pick.get("baseline_projection")
+        if raw_projection in (None, ""):
+            raw_projection = pick.get("projection")
+        if raw_projection not in (None, ""):
+            count_probability = poisson_side_probability(safe_float(raw_projection), line, selection)
+            probability = min(probability, count_probability)
     decision, edge_pp, full_kelly, quarter_kelly, units = decision_and_stake(
         probability, odds, fair_probability=market_fair_probability(pick, selection)
     )
-    line = safe_float(pick.get("line"))
+    count_bound = (
+        count_probability is not None and count_probability + 1e-9 < classifier_probability
+    )
     stat_label = str(pick.get("stat_label") or pick.get("market_type") or pick.get("stat_key") or "").strip()
     player_name = str(pick.get("player_name") or pick.get("player") or "").strip()
     model_version = str(result.get("model_version") or pick.get("ml_model_version") or VARIANT_VERSION)
@@ -641,14 +660,31 @@ def _apply_consensus_publication_gate(pick: dict[str, Any]) -> dict[str, Any]:
             "units": 0.0 if decision == "PASS" else min(units, 1.0),
             "actionability": "consensus_qualified",
             "precision_probability": round(probability, 4),
+            "count_side_probability": round(count_probability, 4) if count_probability is not None else None,
             "reason": (
-                f"The active four-model consensus gate qualifies this market at {probability:.1%}; "
-                f"the {pick.get('model_variant_label')} variant is retained as a supporting signal."
+                (
+                    f"Projected mean {safe_float(raw_projection):.2f} prices this {selection.lower()} at "
+                    f"{probability:.1%}, below the posted price. The classifier's "
+                    f"{classifier_probability:.1%} is not used as the published probability."
+                )
+                if count_bound and decision == "PASS"
+                else (
+                    f"The active four-model consensus gate qualifies this market at {probability:.1%}; "
+                    f"the {pick.get('model_variant_label')} variant is retained as a supporting signal."
+                )
             ),
         }
     )
     pick.update(_market_probability_context(pick, selection))
     pick.setdefault("key_factors", []).insert(0, "Active four-model consensus gate qualified publication")
+    if count_bound:
+        pick.setdefault("key_factors", []).insert(
+            0,
+            (
+                f"Count mean {safe_float(raw_projection):.2f} caps this {selection.lower()} at "
+                f"{count_probability:.1%} (classifier {classifier_probability:.1%})"
+            ),
+        )
     return pick
 
 

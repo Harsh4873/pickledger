@@ -66,6 +66,43 @@ def normal_probability(projection: float, line: float, sigma: float, selection: 
     return max(0.01, min(0.99, probability))
 
 
+def _poisson_cdf(mean: float, k: int) -> float:
+    """P(X <= k) for a Poisson random variable. k < 0 is zero."""
+    if k < 0:
+        return 0.0
+    if mean <= 0:
+        return 1.0
+    term = math.exp(-mean)
+    total = term
+    for i in range(1, k + 1):
+        term *= mean / i
+        total += term
+        if term < 1e-15 and i > mean:
+            break
+    return min(1.0, total)
+
+
+def poisson_side_probability(projection: float, line: float, selection: str) -> float:
+    """Probability a counting stat lands on one side of a posted total.
+
+    The mean is the projected count. Half-point lines have no push, so under
+    is X <= floor(line). Integer lines leave the push mass out of both sides.
+    A normal draw with a wide sigma floor is the wrong distribution for a
+    0.5 or 1.5 count: it prices the side as if the mean were near a coin flip.
+    """
+    mean = max(0.0, float(projection))
+    integer_line = abs(line - round(line)) < 1e-9
+    if integer_line:
+        threshold = int(round(line))
+        under = _poisson_cdf(mean, threshold - 1)
+        over = 1.0 - _poisson_cdf(mean, threshold)
+    else:
+        under = _poisson_cdf(mean, int(math.floor(line)))
+        over = 1.0 - under
+    probability = over if str(selection or "").strip().lower() == "over" else under
+    return max(0.01, min(0.99, probability))
+
+
 def american_implied_probability(odds: int | None) -> float | None:
     if odds is None or odds == 0:
         return None
