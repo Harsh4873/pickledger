@@ -171,9 +171,14 @@ CATEGORY_DEFS: dict[str, dict[str, str]] = {
         "shortLabel": "Prop Double",
         "description": "A single disciplined two-leg player-prop slip from consensus-qualified, market-priced props.",
     },
+    "daily_book": {
+        "label": "Daily Book",
+        "shortLabel": "Daily Book",
+        "description": "ReBet and Fliff two-leg tickets. Each leg cleared the daily bar on the model's own probability. A below-bar leg is not added to fill a book.",
+    },
 }
 
-CATEGORY_ORDER = ["edge_double", "prop_double"]
+CATEGORY_ORDER = ["edge_double", "prop_double", "daily_book"]
 
 _WORD_RE = re.compile(r"[a-z0-9]+")
 _TOTAL_RE = re.compile(r"\b(over|under)\b[^0-9]*([0-9]+(?:[.,][0-9])?)", re.IGNORECASE)
@@ -973,10 +978,67 @@ def _why_qualified(category: str) -> str:
             "Both legs come from sources whose graded picks have beaten their own "
             "market prices, and the slip clears the calibrated edge gate."
         )
+    if category == "daily_book":
+        return (
+            "Both legs cleared the daily bar: model probability at least 0.60, "
+            "posted price from -200 to -125, and model probability above the posted break-even."
+        )
     return (
         "Consensus-qualified player props with market pricing; families are mixed "
         "when possible to reduce correlated misses."
     )
+
+
+def _daily_book_cards(legs: list[Leg]) -> list[dict[str, Any]]:
+    """Tickets the site can ship, taken only from build_daily_parlays.
+
+    Imported lazily so this module can finish defining the odds helpers that
+    daily_parlay_legs imports. A missing call here means the daily module
+    never sees the slate the Pages artifact is built from.
+    """
+    from scripts.daily_parlay_legs import DailyLeg, build_daily_parlays
+
+    by_id: dict[str, Leg] = {}
+    daily_legs: list[DailyLeg] = []
+    for leg in legs:
+        if leg.source_type == "player_prop" or leg.probability_source == "market_implied":
+            continue
+        if leg.leg_id in by_id:
+            continue
+        by_id[leg.leg_id] = leg
+        daily_legs.append(
+            DailyLeg(
+                leg_id=leg.leg_id,
+                pick=leg.pick,
+                game=leg.canonical_game or leg.game,
+                american_odds=int(leg.odds),
+                model_probability=leg.raw_probability,
+            )
+        )
+    cards: list[dict[str, Any]] = []
+    for ticket in build_daily_parlays(daily_legs):
+        if ticket.ev <= 0:
+            continue
+        pair = tuple(by_id[item.leg_id] for item in ticket.legs)
+        card = _card_from_legs(pair, "daily_book")
+        card["categoryLabel"] = f"{ticket.book} daily parlay"
+        card["categoryShortLabel"] = ticket.book
+        card["title"] = ticket.book
+        card["stakeUnits"] = ticket.stake
+        card["decimalOdds"] = round(ticket.combined_decimal, 4)
+        card["oddsAmerican"] = decimal_to_american(ticket.combined_decimal)
+        card["estimatedProbability"] = round(ticket.hit_probability, 4)
+        card["fairOdds"] = fair_odds_from_probability(ticket.hit_probability)
+        card["parlayEv"] = round(ticket.ev, 4)
+        card["whyQualified"] = (
+            f"{ticket.book} stake {ticket.stake:g}u. "
+            "Both legs cleared the daily bar: model probability at least 0.60, "
+            "posted price from -200 to -125, and model probability above the posted break-even."
+        )
+        if not _card_has_positive_ev(card) or not _card_legs_have_positive_model_edge(card):
+            continue
+        cards.append(card)
+    return cards
 
 
 def _card_from_legs(legs: tuple[Leg, ...], category: str) -> dict[str, Any]:
@@ -1238,11 +1300,15 @@ def build_parlay_payload(
     legs = collect_legs(date_iso, team_payload, prop_payload, trailing)
     team_cards = select_team_cards(legs)
     player_cards = select_player_cards(legs)
+    # Daily ReBet/Fliff tickets come only from daily_parlay_legs. The edge
+    # doubles above do not call that module, so without this the 0.516
+    # last-resort pairs never hit the code that is supposed to reject them.
+    daily_cards = _daily_book_cards(legs)
     cards = [
         card
         for card in team_cards + player_cards
         if _card_has_positive_ev(card) and _card_legs_have_positive_model_edge(card)
-    ]
+    ] + daily_cards
     team_cards = [card for card in cards if card.get("pickMode") == "team"]
     player_cards = [card for card in cards if card.get("pickMode") == "player"]
 

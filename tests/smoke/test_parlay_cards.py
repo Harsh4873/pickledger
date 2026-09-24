@@ -345,6 +345,79 @@ def test_sep23_coin_flip_probabilities_are_not_a_recommended_parlay(monkeypatch)
     assert built["cards"] == []
 
 
+def test_shipping_payload_rejects_both_sep23_coin_flip_pairs(monkeypatch):
+    """The Pages payload is build_parlay_payload, not the unused daily helper.
+
+    Mariners -149 and Yankees -157 at 0.516 are the Fliff pair. They were not
+    in the card-builder regression, which only built Pirates and Red Sox.
+    """
+    monkeypatch.setattr(parlays, "ADJ_POSITIVE_CAP", parlays.ADJ_CAP)
+    pairs = [
+        [
+            make_pick(pick="Pirates ML", game="STL at PIT", odds=-121, probability=0.516),
+            make_pick(pick="Red Sox ML", game="CLE at BOS", odds=-136, probability=0.516),
+        ],
+        [
+            make_pick(pick="Mariners ML", game="HOU vs SEA", odds=-149, probability=0.516),
+            make_pick(pick="Yankees ML", game="TB vs NYY", odds=-157, probability=0.516),
+        ],
+    ]
+    for picks in pairs:
+        payload = parlays.build_parlay_payload(
+            DATE,
+            make_payload({"mlb_new": picks}),
+            None,
+            team_history=winning_team_history(),
+            prop_history=[],
+            prior_payloads=[],
+        )
+        assert payload["cards"] == []
+        assert payload["summary"]["displayedCards"] == 0
+
+    both = parlays.build_parlay_payload(
+        DATE,
+        make_payload({"mlb_new": pairs[0] + pairs[1]}),
+        None,
+        team_history=winning_team_history(),
+        prop_history=[],
+        prior_payloads=[],
+    )
+    assert both["cards"] == []
+
+
+def test_shipping_payload_calls_daily_builder_for_a_clearing_pair():
+    """A pair that clears the daily bar has to show up on the published card list.
+
+    If build_parlay_payload stops calling build_daily_parlays, this slate has
+    no edge-double (trailing excess cannot mark the legs up) and the cards
+    list stays empty.
+    """
+    payload = parlays.build_parlay_payload(
+        DATE,
+        make_payload(
+            {
+                "mlb_new": [
+                    make_pick(pick="Dodgers ML", game="SD at LAD", odds=-125, probability=0.71),
+                    make_pick(pick="Tigers ML", game="WSH at DET", odds=-161, probability=0.68),
+                    make_pick(pick="Pirates ML", game="STL at PIT", odds=-121, probability=0.516),
+                ]
+            }
+        ),
+        None,
+        team_history=[],
+        prop_history=[],
+        prior_payloads=[],
+    )
+    assert len(payload["cards"]) == 1
+    card = payload["cards"][0]
+    assert card["category"] == "daily_book"
+    assert card["categoryShortLabel"] == "ReBet"
+    assert card["stakeUnits"] == 1.0
+    assert {leg["pick"] for leg in card["legs"]} == {"Dodgers ML", "Tigers ML"}
+    assert card["parlayEv"] > 0
+    assert all(parlays.model_posted_edge(leg["rawProbability"], leg["oddsAmerican"]) > 0 for leg in card["legs"])
+
+
 def test_below_bar_leg_is_not_added_to_fill_a_parlay(monkeypatch):
     """A leg that clears the bar cannot recruit a 0.516 leg to finish the slip."""
     monkeypatch.setattr(parlays, "ADJ_POSITIVE_CAP", parlays.ADJ_CAP)
