@@ -60,6 +60,48 @@ def _phi(z: float) -> float:
     return 0.5 * (1.0 + math.erf(z / math.sqrt(2.0)))
 
 
+def _sigmoid(z: float) -> float:
+    if z >= 0:
+        return 1.0 / (1.0 + math.exp(-z))
+    ez = math.exp(z)
+    return ez / (1.0 + ez)
+
+
+def _positive_residual_probability(
+    residual: float,
+    calibration: dict[str, Any] | None,
+    sigma: float,
+) -> float:
+    """P(the actual margin or total finishes above the posted line).
+
+    A symmetric normal assigns the same confidence to +r and -r. Graded NFL
+    totals do not: the under tail wins much more often than the over tail of
+    the same size. When the artifact carries a signed logistic fit on
+    walk-forward residuals, that map is the published probability.
+    """
+
+    if calibration and {"intercept", "negative_slope", "positive_slope"} <= set(calibration):
+        z = (
+            float(calibration["intercept"])
+            + float(calibration["negative_slope"]) * min(residual, 0.0)
+            + float(calibration["positive_slope"]) * max(residual, 0.0)
+        )
+        return min(0.99, max(0.01, _sigmoid(z)))
+    return _phi(residual / sigma) if sigma > 0 else 0.5
+
+
+def _selected_side_probability(positive_side: bool, positive_probability: float) -> float:
+    """Probability of the side the point prediction selected.
+
+    The card keeps that side. A flat logistic can land a tenth of a point
+    under 0.5 on a coin-flip over; flooring at 0.5 keeps the research row
+    on the board without inventing the old symmetric confidence.
+    """
+
+    probability = positive_probability if positive_side else 1.0 - positive_probability
+    return min(0.99, max(0.5, probability))
+
+
 def _implied(odds: float | None) -> float | None:
     if odds is None or odds == 0:
         return None
@@ -218,6 +260,7 @@ def generate_nfl_picks(date_iso: str, *, now: datetime | None = None) -> dict[st
     policy: dict[str, Any] = metadata.get("decision_policy") or {}
     sigma_margin = float(metadata.get("margin_residual_sigma") or 13.0)
     sigma_total = float(metadata.get("total_residual_sigma") or 13.3)
+    total_calibration = metadata.get("total_side_probability") or None
 
     seasons = slate_seasons(date_iso)
     team_stats, loaded_seasons = load_team_stats(seasons, required=(seasons[-1],))
@@ -359,7 +402,13 @@ def generate_nfl_picks(date_iso: str, *, now: datetime | None = None) -> dict[st
             total_residual = float(artifacts["total"].predict(_vector(features, head_features["total"]))[0])
             over = total_residual > 0
             direction = "over" if over else "under"
-            total_prob = _phi(abs(total_residual) / sigma_total)
+            total_positive = _positive_residual_probability(total_residual, total_calibration, sigma_total)
+            total_prob = _selected_side_probability(over, total_positive)
+            total_probability_source = (
+                "signed_residual_logistic"
+                if isinstance(total_calibration, dict) and total_calibration.get("family") == "signed_residual_logistic"
+                else "symmetric_normal"
+            )
             total_odds = _american(game.get("over_odds") if over else game.get("under_odds"))
             total_opposite = _american(game.get("under_odds") if over else game.get("over_odds"))
             total_market = _no_vig(total_odds, total_opposite)
@@ -386,6 +435,7 @@ def generate_nfl_picks(date_iso: str, *, now: datetime | None = None) -> dict[st
                 "probability": round(total_prob, 4),
                 "raw_probability": round(total_prob, 4),
                 "calibrated_probability": round(total_prob, 4),
+                "probability_source": total_probability_source,
                 "market_implied_probability": round(total_market, 4) if total_market is not None else None,
                 "market_probability": round(total_market, 4) if total_market is not None else None,
                 "edge": round((total_prob - total_market) * 100, 2) if total_market is not None else None,

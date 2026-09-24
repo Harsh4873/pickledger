@@ -94,6 +94,38 @@ def _brier(truth: list[int], probs: list[float]) -> float:
     return float(np.mean([(p - y) ** 2 for p, y in zip(probs, truth)])) if truth else float("nan")
 
 
+def fit_signed_side_probability(
+    rows: list[dict[str, Any]],
+    *,
+    pred_key: str,
+    actual_key: str,
+) -> dict[str, Any] | None:
+    """Logistic P(actual residual > 0) with separate slopes for each sign.
+
+    Walk-forward NFL totals are not a symmetric normal: a residual of -1.5
+    (under) wins far more often than a residual of +1.5 (over). One slope on
+    the signed residual cannot say both of those things. Pushes are left out
+    of the fit; the probability is conditional on a non-push.
+    """
+
+    usable = [row for row in rows if row.get(actual_key) not in (None, 0)]
+    if len(usable) < 200:
+        return None
+    design = [[min(float(row[pred_key]), 0.0), max(float(row[pred_key]), 0.0)] for row in usable]
+    target = [1 if float(row[actual_key]) > 0 else 0 for row in usable]
+    if len(set(target)) < 2:
+        return None
+    model = LogisticRegression(C=1.0, max_iter=1000).fit(design, target)
+    return {
+        "family": "signed_residual_logistic",
+        "intercept": round(float(model.intercept_[0]), 6),
+        "negative_slope": round(float(model.coef_[0][0]), 6),
+        "positive_slope": round(float(model.coef_[0][1]), 6),
+        "fit_rows": len(usable),
+        "fit": "walk_forward_oof_excluding_pushes",
+    }
+
+
 def _implied(odds: float | None) -> float | None:
     if odds is None or odds == 0:
         return None
@@ -435,6 +467,7 @@ def train(first_season: int = FIRST_TRAIN_SEASON, last_season: int = 2025) -> di
         "head_families": {"moneyline": "logistic", "moneyline_free": "logistic", "spread": "ridge", "total": "ridge"},
         "margin_residual_sigma": round(sigma_margin, 4),
         "total_residual_sigma": round(sigma_total, 4),
+        "total_side_probability": fit_signed_side_probability(oof, pred_key="total_pred", actual_key="total_residual"),
         "walk_forward": walk_forward,
         "oof_ml_brier": round(_brier([o["home_win"] for o in oof], [o["p_home"] for o in oof]), 5),
         "oof_ml_free_brier": round(_brier([o["home_win"] for o in oof], [o["p_free"] for o in oof]), 5),
