@@ -422,6 +422,14 @@ def assign_ml_ranks(props: list[dict[str, Any]]) -> list[dict[str, Any]]:
 
 
 def is_publishable_ml_pick(prop: dict[str, Any]) -> bool:
+    # A market price ships only with a fresh book stamp. Missing or old
+    # stamps stay out of the published set. Stake and consensus thresholds
+    # below are unchanged.
+    if prop.get("market_priced") is True:
+        from scripts.observed_price import fresh_observed_book_price
+
+        if not fresh_observed_book_price(prop):
+            return False
     if prop.get("precision_required") is True:
         return bool(
             prop.get("precision_qualified") is True

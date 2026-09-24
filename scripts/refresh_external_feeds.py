@@ -20,6 +20,11 @@ import pickgrader_server as server  # noqa: E402
 from scripts.cache_manifest import write_cache_manifest  # noqa: E402
 from scripts.market_odds import apply_market_odds_to_payload  # noqa: E402
 from scripts.merge_external_feed_cache_payload import merge_payload  # noqa: E402
+from scripts.observed_price import (  # noqa: E402
+    any_current_quote,
+    parse_timestamp,
+    scrub_picks,
+)
 from scripts.pick_calibration import apply_calibration_to_payload  # noqa: E402
 from scripts.scrapers.forebet_scraper import (  # noqa: E402
     run_forebet_cfb,
@@ -289,6 +294,82 @@ def _today_result_picks(result: dict[str, Any], date_iso: str) -> list[dict[str,
     return picks
 
 
+def _attempt_now(now_iso: str) -> datetime:
+    return parse_timestamp(now_iso) or datetime.now(timezone.utc)
+
+
+def _incoming_picks(result: dict[str, Any]) -> list[Any]:
+    picks = result.get("picks")
+    return picks if isinstance(picks, list) else []
+
+
+def _result_is_empty_or_challenged(result: dict[str, Any]) -> bool:
+    """No incoming rows: a timeout, a Cloudflare empty, or a blank listing.
+
+    Any of those must not replace a newer fresh quote with nothing. A listing
+    that actually returned picks is not empty, even when ok is false.
+    """
+    return not _incoming_picks(result)
+
+
+def _scrub_bucket_quotes(
+    bucket: dict[str, Any],
+    *,
+    now: datetime,
+    slate_date: str,
+    drop_untimestamped: bool,
+) -> dict[str, Any]:
+    picks = bucket.get("picks")
+    if not isinstance(picks, list):
+        return bucket
+    scrubbed = scrub_picks(
+        picks,
+        now=now,
+        slate_date=slate_date,
+        drop_untimestamped=drop_untimestamped,
+    )
+    if scrubbed == picks:
+        return bucket
+    revised = dict(bucket)
+    revised["picks"] = scrubbed
+    return revised
+
+
+def _preserve_fresh_quotes(
+    previous: Any,
+    result: dict[str, Any],
+    date_iso: str,
+    now_iso: str,
+    now: datetime,
+) -> dict[str, Any] | None:
+    """Keep a newer fresh quote when this attempt came back empty or challenged."""
+    if not _result_is_empty_or_challenged(result) or not isinstance(previous, dict):
+        return None
+    previous_picks = previous.get("picks") if isinstance(previous.get("picks"), list) else []
+    if not any_current_quote(previous_picks, now=now, slate_date=date_iso):
+        return None
+    bucket = dict(previous)
+    bucket["picks"] = scrub_picks(
+        previous_picks,
+        now=now,
+        slate_date=date_iso,
+        drop_untimestamped=True,
+    )
+    bucket["lastAttemptAt"] = now_iso
+    bucket["lastAttemptDate"] = date_iso
+    bucket["empty_feed_preserved_fresh_quotes"] = True
+    if result.get("ok") is True:
+        bucket["refreshStatus"] = "preserved_fresh_quotes"
+        bucket["lastError"] = str(
+            result.get("error") or "Empty feed returned no quotes; kept newer fresh quotes"
+        )
+    else:
+        bucket["refreshStatus"] = "error"
+        bucket["lastError"] = str(result.get("error") or "Empty or challenged feed")
+        bucket["ok"] = previous.get("ok")
+    return bucket
+
+
 def _record_feed_attempt(
     previous: Any,
     result: dict[str, Any],
@@ -301,7 +382,16 @@ def _record_feed_attempt(
     partial scrape (matched picks for date_iso, even when ok=False) replaces
     yesterday's successful snapshot so an optional CFB hang cannot leave
     yesterday's bucket as the live research feed.
+
+    An empty or challenged attempt cannot replace a newer fresh quote with
+    nothing. A retained row from a timeout or a blocked fetch cannot keep a
+    stale quote in the pick path.
     """
+    now = _attempt_now(now_iso)
+    preserved = _preserve_fresh_quotes(previous, result, date_iso, now_iso, now)
+    if preserved is not None:
+        return preserved
+
     if result.get("ok"):
         bucket = dict(result)
         bucket.pop("lastError", None)
@@ -309,7 +399,14 @@ def _record_feed_attempt(
         bucket["refreshStatus"] = "ok"
         bucket["lastAttemptAt"] = now_iso
         bucket["lastAttemptDate"] = date_iso
-        return bucket
+        # A successful listing can still carry an old book stamp. Drop that
+        # quote. Rows with no book stamp were observed on this fetch and stay.
+        return _scrub_bucket_quotes(
+            bucket,
+            now=now,
+            slate_date=date_iso,
+            drop_untimestamped=False,
+        )
 
     today_picks = _today_result_picks(result, date_iso)
     previous_date = str((previous or {}).get("date") or "").strip() if isinstance(previous, dict) else ""
@@ -334,11 +431,18 @@ def _record_feed_attempt(
         bucket["lastError"] = str(result.get("error") or "Source refresh incomplete")
         bucket["lastAttemptAt"] = now_iso
         bucket["lastAttemptDate"] = date_iso
-        return bucket
+        return _scrub_bucket_quotes(
+            bucket,
+            now=now,
+            slate_date=date_iso,
+            drop_untimestamped=True,
+        )
 
     # A failed fetch must not erase already published picks, or redatestamp
     # yesterday's rows as today's. Attempt freshness is separate from the
     # date and time of the last successfully collected source snapshot.
+    # Quotes that are old, from another day, or missing a book stamp do not
+    # stay in the pick path. A newer fresh quote is left as it was.
     has_previous = isinstance(previous, dict) and previous.get("ok")
     bucket = dict(previous if has_previous else result)
     if has_previous:
@@ -347,7 +451,12 @@ def _record_feed_attempt(
     bucket["lastError"] = str(result.get("error") or "Source refresh failed")
     bucket["lastAttemptAt"] = now_iso
     bucket["lastAttemptDate"] = date_iso
-    return bucket
+    return _scrub_bucket_quotes(
+        bucket,
+        now=now,
+        slate_date=date_iso,
+        drop_untimestamped=True,
+    )
 
 
 def _previous_feed_bucket(payload: dict[str, Any], key: str) -> dict[str, Any] | None:

@@ -701,8 +701,19 @@ def _research_pass_sort_key(pick: dict[str, Any]) -> tuple[float, float, float, 
     return (-probability, -edge, -expected_value, str(pick.get("id") or ""))
 
 
+def _market_price_can_ship(pick: dict[str, Any]) -> bool:
+    """Market-priced rows need a fresh book stamp. Unpriced research is unchanged."""
+    if pick.get("market_priced") is not True:
+        return True
+    from scripts.observed_price import fresh_observed_book_price
+
+    return fresh_observed_book_price(pick)
+
+
 def _is_consensus_research_pass_candidate(pick: dict[str, Any]) -> bool:
     if pick.get("market_priced") is not True:
+        return False
+    if not _market_price_can_ship(pick):
         return False
     if str(pick.get("sport") or "").upper() not in RESEARCH_PASS_SPORTS:
         return False
@@ -732,6 +743,7 @@ def _select_variant(scored: list[dict[str, Any]], variant: str) -> list[dict[str
     filtered = [
         pick for pick in scored
         if pick.get("market_priced") is True
+        and _market_price_can_ship(pick)
         and (pick.get("consensus_required") is not True or pick.get("consensus_qualified") is True)
         and (pick.get("precision_required") is not True or pick.get("precision_qualified") is True)
         and str(pick.get("decision") or "") in {"BET", "LEAN"}
@@ -842,6 +854,8 @@ def _rank_sport_picks(selected_by_variant: dict[str, list[dict[str, Any]]], spor
     fingerprint = _variant_fingerprint()
     rank_epoch = f"{sport}:player_props_consensus_v2.0.0:published:{fingerprint}"
     for pick in sorted(winners.values(), key=_score_sort_key):
+        if not _market_price_can_ship(pick):
+            continue
         player_id = str(pick.get("player_id") or pick.get("player_name") or "")
         game_id = _game_identity(pick)
         decision = str(pick.get("decision") or "")
@@ -1085,6 +1099,8 @@ def build_wnba_3pm_bucket(
     selected: list[dict[str, Any]] = []
     per_player: dict[str, int] = {}
     for pick in sorted(scored, key=_wnba_3pm_sort_key):
+        if not _market_price_can_ship(pick):
+            continue
         player_id = str(pick.get("player_id") or pick.get("player_name") or "")
         if per_player.get(player_id, 0) >= MAX_PER_PLAYER:
             continue

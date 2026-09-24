@@ -6,10 +6,14 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+_REPO_ROOT = Path(__file__).resolve().parents[1]
+if str(_REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(_REPO_ROOT))
 
 from cache_manifest import write_cache_manifest  # noqa: E402
 
@@ -404,17 +408,73 @@ def _bucket_date(bucket: Any) -> str:
     return str(bucket.get("date") or meta.get("date") or "").strip()
 
 
+def _merge_clock(bucket: Any) -> datetime:
+    from scripts.observed_price import parse_timestamp
+
+    if isinstance(bucket, dict):
+        parsed = parse_timestamp(bucket.get("lastAttemptAt") or bucket.get("updatedAt"))
+        if parsed is not None:
+            return parsed
+    return datetime.now(timezone.utc)
+
+
+def _generated_picks_empty(bucket: Any) -> bool:
+    if not isinstance(bucket, dict):
+        return False
+    picks = bucket.get("picks")
+    return isinstance(picks, list) and not picks
+
+
+def _retain_fresh_quotes(current_bucket: dict[str, Any], generated_bucket: dict[str, Any]) -> dict[str, Any]:
+    """Keep today's fresh quotes when the incoming feed is empty or challenged."""
+    from scripts.observed_price import scrub_picks
+
+    retained = dict(current_bucket)
+    now = _merge_clock(generated_bucket)
+    slate_date = _bucket_date(generated_bucket) or _bucket_date(current_bucket)
+    picks = current_bucket.get("picks") if isinstance(current_bucket.get("picks"), list) else []
+    retained["picks"] = scrub_picks(
+        picks,
+        now=now,
+        slate_date=slate_date,
+        drop_untimestamped=True,
+    )
+    for key in ("lastError", "lastAttemptAt", "lastAttemptDate", "refreshStatus", "error"):
+        if generated_bucket.get(key) not in (None, ""):
+            retained[key] = generated_bucket[key]
+    if generated_bucket.get("ok") is False:
+        retained["refreshStatus"] = generated_bucket.get("refreshStatus") or "error"
+        retained["lastError"] = str(generated_bucket.get("error") or generated_bucket.get("lastError") or "Empty or challenged feed")
+    retained["empty_feed_preserved_fresh_quotes"] = True
+    return retained
+
+
+def _empty_feed_would_wipe_fresh_quote(current_bucket: Any, generated_bucket: Any) -> bool:
+    from scripts.observed_price import any_current_quote
+
+    if not isinstance(current_bucket, dict) or not _generated_picks_empty(generated_bucket):
+        return False
+    picks = current_bucket.get("picks") if isinstance(current_bucket.get("picks"), list) else []
+    slate_date = _bucket_date(generated_bucket) or _bucket_date(current_bucket)
+    return any_current_quote(picks, now=_merge_clock(generated_bucket), slate_date=slate_date)
+
+
 def _prefer_feed_bucket(current_bucket: Any, generated_bucket: Any) -> Any:
     """Keep a newer checked-out feed when the generated snapshot is a day behind.
 
     External-feed jobs copy the whole latest.json, including Scores24 buckets
     they did not refresh. A later merge must not replace today's local
     Scores24 publish with that stale starting snapshot.
+
+    An empty or challenged snapshot also must not replace a newer fresh quote
+    with nothing.
     """
     current_date = _bucket_date(current_bucket)
     generated_date = _bucket_date(generated_bucket)
     if current_date and generated_date and generated_date < current_date:
         return current_bucket
+    if _empty_feed_would_wipe_fresh_quote(current_bucket, generated_bucket):
+        return _retain_fresh_quotes(current_bucket, generated_bucket)
     return _preserve_pick_metadata(current_bucket, generated_bucket)
 
 
@@ -425,15 +485,21 @@ def _preserve_pick_metadata(current_bucket: Any, generated_bucket: Any) -> Any:
     generated_picks = generated_bucket.get("picks")
     if not isinstance(current_picks, list) or not isinstance(generated_picks, list):
         return generated_bucket
+    from scripts.observed_price import copy_current_quote, pick_has_quote, quote_is_current
+
+    now = _merge_clock(generated_bucket)
+    slate_date = _bucket_date(generated_bucket) or _bucket_date(current_bucket)
+
     def _kept_fields(pick: dict[str, Any]) -> dict[str, Any]:
-        kept = {
-            field: pick[field]
-            for field in (*PICK_METADATA_FIELDS, *MARKET_ODDS_METADATA_FIELDS)
-            if field in pick
-        }
+        kept = {field: pick[field] for field in PICK_METADATA_FIELDS if field in pick}
+        # Only a still-fresh book quote is copied onto the next snapshot.
+        # A stale stamp must not ride along and look bettable.
+        if quote_is_current(pick, now=now, slate_date=slate_date):
+            kept.update({field: pick[field] for field in MARKET_ODDS_METADATA_FIELDS if field in pick})
         if pick.get("assumed_odds_replaced") is True:
             # A real captured price must not be reverted to a regenerated
             # assumed price after the game has started.
+            kept.update({field: pick[field] for field in MARKET_ODDS_METADATA_FIELDS if field in pick})
             kept.update({field: pick[field] for field in REPLACED_PRICE_FIELDS if field in pick})
         return kept
 
@@ -442,11 +508,28 @@ def _preserve_pick_metadata(current_bucket: Any, generated_bucket: Any) -> Any:
         for pick in current_picks
         if isinstance(pick, dict)
     }
+    current_by_key = {
+        _pick_key(pick): pick
+        for pick in current_picks
+        if isinstance(pick, dict)
+    }
     merged = dict(generated_bucket)
-    merged["picks"] = [
-        {**pick, **metadata.get(_pick_key(pick), {})} if isinstance(pick, dict) else pick
-        for pick in generated_picks
-    ]
+    merged_picks: list[Any] = []
+    for pick in generated_picks:
+        if not isinstance(pick, dict):
+            merged_picks.append(pick)
+            continue
+        combined = {**pick, **metadata.get(_pick_key(pick), {})}
+        current_pick = current_by_key.get(_pick_key(pick))
+        if (
+            isinstance(current_pick, dict)
+            and quote_is_current(current_pick, now=now, slate_date=slate_date)
+            and not quote_is_current(combined, now=now, slate_date=slate_date)
+            and not pick_has_quote(pick)
+        ):
+            combined = copy_current_quote(current_pick, combined)
+        merged_picks.append(combined)
+    merged["picks"] = merged_picks
     return merged
 
 
