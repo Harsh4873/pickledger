@@ -440,3 +440,63 @@ def test_cross_half_plateau_does_not_flip_the_home_side():
     dog = apply_calibration(artifact, np.array([0.49]))
     assert float(dog[0]) < 0.5
     assert abs(float(dog[0]) - 0.47) < 1e-6
+
+
+def test_shipped_calibrator_publish_path_keeps_home_and_the_band(monkeypatch):
+    """The moneyline publisher, not only apply_calibration, uses the shipped map.
+
+    On the artifact in MLBPredictionModel/artifacts, 0.52 home becomes 0.4869
+    (away) and 0.56 and 0.63 share one output. predict_moneyline_v2 is what
+    run_today prints, and the parser bets the side of that printed probability.
+    """
+    import sys
+    from pathlib import Path
+
+    import numpy as np
+    import pandas as pd
+
+    model_dir = Path(__file__).resolve().parents[2] / "MLBPredictionModel"
+    if str(model_dir) not in sys.path:
+        sys.path.insert(0, str(model_dir))
+    import model_v2
+
+    raw = np.array([0.52, 0.56, 0.63])
+    artifact = model_v2.load_calibration_v2()
+    collapsed = np.clip(artifact["calibrator"].predict(raw), 0.03, 0.97)
+    assert float(collapsed[0]) < 0.5
+    assert abs(float(collapsed[1]) - float(collapsed[2])) < 1e-9
+
+    class _Pipe:
+        def predict_proba(self, matrix):
+            return np.column_stack([1.0 - raw, raw])
+
+    monkeypatch.setattr(
+        model_v2,
+        "load_moneyline_v2",
+        lambda: {"pipeline": _Pipe(), "metadata": {"variant": "new"}},
+    )
+    monkeypatch.setattr(model_v2, "build_feature_frame", lambda frame: frame)
+    monkeypatch.setattr(model_v2, "select_feature_matrix", lambda features: features)
+    frame = pd.DataFrame(
+        {
+            "away_team": ["Red Sox", "Cubs", "Mets"],
+            "home_team": ["Yankees", "Reds", "Phillies"],
+        }
+    )
+    published = model_v2.predict_moneyline_v2(frame)
+    calibrated = published["calibrated_home_win_probability"].to_numpy()
+    assert abs(float(calibrated[0]) - 0.52) < 1e-9
+    assert abs(float(calibrated[1]) - 0.56) < 1e-9
+    assert abs(float(calibrated[2]) - 0.63) < 1e-9
+
+    _stub_sl_get_ml(monkeypatch, None, None)
+    from pickgrader_server import _parse_mlb_output
+
+    lines = []
+    for row in published.itertuples(index=False):
+        home = float(row.calibrated_home_win_probability)
+        away = 1.0 - home
+        lines.append(f"{row.away_team}|{row.home_team}|120|-130|{away:.4f}|{home:.4f}")
+    picks = [p for p in _parse_mlb_output("\n".join(lines)) if p.get("market_type") == "h2h"]
+    assert [p["team"] for p in picks] == ["Yankees", "Reds", "Phillies"]
+    assert abs(float(picks[0]["probability"]) - 0.52) < 1e-3

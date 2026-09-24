@@ -72,9 +72,13 @@ GLOBAL_FALLBACK_EXEMPT_MODEL_KEYS = {"mlb_team_total", "mlb_new", "wnba", "mlb_i
 # 0.516, so the slate published as a coin flip and the unchanged consensus
 # gate correctly rejected it. mlb_team_total's group fit moved Brier the
 # wrong way (0.2344 raw to 0.2426 calibrated) by pulling a 0.577 mean toward
-# 0.534 while the outcomes sat at 0.658. They stay on identity even after a
-# group crosses the sample minimum. WNBA keeps its group: that fit improved
-# Brier, because the raw totals probabilities were over-confident.
+# 0.534 while the outcomes sat at 0.658. They stay off that group Platt even
+# after a group crosses the sample minimum. A priced mlb_new moneyline then
+# publishes the posted no-vig probability: identity on the stored model
+# number beat the old Platt probability and still lost to the posted price,
+# so that model number is not published as an improvement. WNBA keeps its
+# group: that fit improved Brier, because the raw totals probabilities were
+# over-confident.
 ML_OWNED_PROBABILITY_SOURCE = "player_props_ml_v1"
 
 SNAPSHOT_EXCLUDED_FIELDS = {
@@ -213,6 +217,17 @@ def _sigmoid(value: float) -> float:
     return exp_value / (1 + exp_value)
 
 
+def _posted_selected_no_vig(pick: dict[str, Any], snapshot: dict[str, Any]) -> float | None:
+    """Posted vig-removed probability of the side this pick already selected."""
+    for source in (pick, snapshot):
+        if not isinstance(source, dict):
+            continue
+        posted = normalize_probability(source.get("market_no_vig_selected_probability"))
+        if posted is not None:
+            return posted
+    return None
+
+
 def calibrated_probability(probability: float, parameters: dict[str, Any]) -> float:
     intercept = _number(parameters.get("intercept"))
     slope = _number(parameters.get("slope"))
@@ -281,6 +296,17 @@ def apply_calibration_to_pick(
     bet_type = infer_bet_type(snapshot)
     key, parameters = _calibration_parameters(active, model_key, source, sport, bet_type)
     adjusted = calibrated_probability(raw_probability, parameters)
+    # Identity keeps the model number, which on graded 2026 mlb_new h2h rows
+    # had a worse Brier than the posted no-vig and a positive mean edge
+    # against that price. The side still comes from the classifier (a step
+    # that would cross 0.5 does not flip the team). The priced publication
+    # uses the posted no-vig so the graded probability is not that worse number.
+    if str(model_key or "").strip().lower() == "mlb_new" and bet_type in {"h2h", "moneyline"}:
+        posted_no_vig = _posted_selected_no_vig(pick, snapshot)
+        if posted_no_vig is not None:
+            adjusted = posted_no_vig
+            key = "posted_no_vig"
+            parameters = {}
     probability_delta = adjusted - raw_probability
 
     raw_edge = _number(pick.get("raw_edge"))

@@ -643,6 +643,48 @@ def test_mlb_new_ignores_the_cross_sport_group_shrink():
     assert adjusted["units"] > 0
 
 
+def test_priced_mlb_moneyline_publishes_posted_no_vig_not_the_worse_model_number():
+    """Identity on the stored model probability loses to the posted no-vig.
+
+    A 0.62 classifier at a 0.55 no-vig must not stay a staked LEAN. The
+    published probability is the posted price. The raw model number is kept
+    so the side chosen upstream is still visible.
+    """
+    from scripts.pick_calibration import calibration_group_key
+
+    group = calibration_group_key("mlb_new", "MLB", "h2h", "MLB Model")
+    active = {
+        "version": "test-mlb-posted-novig",
+        "minimum_group_samples": 30,
+        "global": {"intercept": -0.16, "slope": 0.74, "samples": 800},
+        "groups": {
+            group: {"intercept": -0.12670385, "slope": 0.63598861, "samples": 98},
+        },
+    }
+    pick = _pick(
+        sport="MLB",
+        source="MLB Model",
+        pick="Yankees ML",
+        stat_key="",
+        market="h2h",
+        probability=0.62,
+        decision="LEAN",
+        edge=9.6,
+        odds=-150,
+        units=0.25,
+        market_no_vig_selected_probability=0.55,
+    )
+    payload = {"models": {"mlb_new": {"picks": [pick]}}}
+    apply_calibration_to_payload(payload, active)
+    adjusted = payload["models"]["mlb_new"]["picks"][0]
+
+    assert adjusted["calibration"]["key"] == "posted_no_vig"
+    assert adjusted["raw_probability"] == 0.62
+    assert abs(adjusted["calibrated_probability"] - 0.55) < 1e-9
+    assert adjusted["decision"] == "PASS"
+    assert adjusted["units"] == 0
+
+
 def test_mlb_team_total_group_that_worsened_brier_stays_identity():
     from scripts.pick_calibration import calibration_group_key
 
