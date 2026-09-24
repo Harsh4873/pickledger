@@ -368,3 +368,75 @@ def test_flat_isotonic_plateau_keeps_distinct_home_probabilities():
 
     sloped = apply_calibration(artifact, np.array([0.85]))
     assert float(sloped[0]) > 0.75
+
+
+def test_probability_band_0_56_to_0_71_cannot_collapse_to_one_number():
+    """Classifier scores from 0.56 through 0.71 must stay distinct.
+
+    The shipped MLB isotonic map sends that whole band to 0.574209. Graded
+    2026 rows then piled up on a single published probability.
+    """
+    import sys
+    from pathlib import Path
+
+    import numpy as np
+    from sklearn.isotonic import IsotonicRegression
+
+    model_dir = Path(__file__).resolve().parents[2] / "MLBPredictionModel"
+    if str(model_dir) not in sys.path:
+        sys.path.insert(0, str(model_dir))
+    from model_v2 import apply_calibration
+
+    raw_x = np.array([0.40, 0.50, 0.56, 0.63, 0.71, 0.80, 0.90])
+    raw_y = np.array([0.42, 0.48, 0.57, 0.57, 0.57, 0.78, 0.88])
+    calibrator = IsotonicRegression(out_of_bounds="clip")
+    calibrator.fit(raw_x, raw_y)
+    artifact = {"mode": "isotonic", "calibrator": calibrator}
+
+    band = np.array([0.56, 0.63, 0.71])
+    # The unfixed map collapses the band. This locks the regression to that
+    # failure mode rather than to an unrelated slope.
+    collapsed = np.clip(calibrator.predict(band), 0.03, 0.97)
+    assert len({round(float(value), 6) for value in collapsed}) == 1
+
+    restored = apply_calibration(artifact, band)
+    assert float(restored[0]) == 0.56
+    assert float(restored[1]) == 0.63
+    assert float(restored[2]) == 0.71
+    assert len({round(float(value), 4) for value in restored}) == 3
+
+
+def test_cross_half_plateau_does_not_flip_the_home_side():
+    """A home probability above 0.5 must not be published as an away lean.
+
+    The shipped map sends about 0.40 through 0.53 to 0.4869. The moneyline
+    path then bets the away team at 0.5131, including games the classifier
+    had on the home side of a coin flip. 637 deduped graded 2026 rows sit
+    on that single away number and hit 49.5%.
+    """
+    import sys
+    from pathlib import Path
+
+    import numpy as np
+    from sklearn.isotonic import IsotonicRegression
+
+    model_dir = Path(__file__).resolve().parents[2] / "MLBPredictionModel"
+    if str(model_dir) not in sys.path:
+        sys.path.insert(0, str(model_dir))
+    from model_v2 import apply_calibration
+
+    # Narrow on purpose: width 0.04 is under the wide-step cutoff, so only
+    # the cross-half guard keeps 0.515 on the home side of 0.5.
+    raw_x = np.array([0.30, 0.48, 0.52, 0.70])
+    raw_y = np.array([0.35, 0.47, 0.47, 0.66])
+    calibrator = IsotonicRegression(out_of_bounds="clip")
+    calibrator.fit(raw_x, raw_y)
+    artifact = {"mode": "isotonic", "calibrator": calibrator}
+
+    home_side = apply_calibration(artifact, np.array([0.515]))
+    assert float(home_side[0]) > 0.5
+
+    # Same side of 0.5 still takes the isotonic value.
+    dog = apply_calibration(artifact, np.array([0.49]))
+    assert float(dog[0]) < 0.5
+    assert abs(float(dog[0]) - 0.47) < 1e-6

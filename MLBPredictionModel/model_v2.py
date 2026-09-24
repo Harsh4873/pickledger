@@ -269,11 +269,13 @@ def fit_calibration(
     return {"mode": "isotonic", "calibrator": calibrator, "metadata": metadata}
 
 
-# The shipped isotonic map holds one output across a wide input band
-# (about 0.56 to 0.71 all become 0.574). A step that wide is not a local
-# reliability correction: a -150 home side and a -300 home side come out
-# identical, and the shared layer then prints both as coin flips. Steps
-# narrower than this stay on the isotonic value.
+# The shipped isotonic map holds one output across wide input bands.
+# About 0.56 to 0.71 all become 0.574, so a -150 home side and a -300
+# home side come out identical. A second band, about 0.40 to 0.53, all
+# becomes 0.487. That step crosses 0.5, so a 0.52 home probability is
+# published as 0.487 and the moneyline path bets the away team. Steps
+# narrower than this stay on the isotonic value unless they would move
+# the probability across a coin flip.
 _ISOTONIC_FLAT_WIDTH = 0.05
 
 
@@ -306,7 +308,17 @@ def apply_calibration(artifact: dict[str, Any], probabilities: np.ndarray) -> np
         calibrator: IsotonicRegression = artifact["calibrator"]
         calibrated = np.clip(calibrator.predict(probabilities), 0.03, 0.97)
         flat = _wide_flat_mask(calibrator, probabilities)
-        restored = np.where(flat, np.clip(probabilities, 0.03, 0.97), calibrated)
+        # Crossing 0.5 flips which team the moneyline path bets, including
+        # a step that lands exactly on 0.5 (the parser breaks that tie
+        # toward the away team). Magnitude can still move on the same side.
+        side_flip = ((probabilities > 0.5) & (calibrated <= 0.5)) | (
+            (probabilities < 0.5) & (calibrated >= 0.5)
+        )
+        restored = np.where(
+            flat | side_flip,
+            np.clip(probabilities, 0.03, 0.97),
+            calibrated,
+        )
         return restored
     if mode == "platt_shift":
         shifted = probabilities + float(artifact.get("shift", 0.0))
