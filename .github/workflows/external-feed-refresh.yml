@@ -114,7 +114,8 @@ jobs:
             if [ "$DEPLOYABLE" = "true" ]; then
               python scripts/build_parlay_cards.py --date "$CACHE_DATE"
               python scripts/build_profit_desk.py --date "$CACHE_DATE"
-              git add data/parlay_cards data/profit_desk
+              python scripts/desk_loss_feedback.py
+              git add data/parlay_cards data/profit_desk data/loss_feedback
             fi
             git commit -m "chore(feeds): refresh external feeds for ${CACHE_DATE}"
             if git push origin "HEAD:${BRANCH}"; then

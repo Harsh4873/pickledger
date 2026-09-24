@@ -281,17 +281,22 @@ def _write_json_cache(date_iso: str, payload: dict[str, Any]) -> dict[str, Any]:
     # that just received a real posted price keeps its stake.
     demoted = demote_unpriced_team_model_picks(merged)
     print(f"[unpriced-demotion] demoted={demoted}")
-    for target in (MODEL_CACHE_DIR / f"{date_iso}.json", MODEL_CACHE_DIR / "latest.json"):
-        with target.open("w", encoding="utf-8") as handle:
-            json.dump(merged, handle, indent=2, sort_keys=True, default=str)
-            handle.write("\n")
-    write_cache_manifest(MODEL_CACHE_DIR)
+    # Snapshot the pregame row before the desk link is attached. The link is
+    # republished every run and is excluded from the snapshot hash.
     summary = capture_team_prop_pregame_snapshots(merged, repo_root=REPO_ROOT)
     print(
         "[team-pregame-ledger] "
         f"captured={summary['added']} unchanged={summary['unchanged']} "
         f"team_picks={summary['team_picks']}"
     )
+    from scripts.desk_loss_feedback import seal_published_picks
+
+    seal_published_picks(merged, repo_root=REPO_ROOT)
+    for target in (MODEL_CACHE_DIR / f"{date_iso}.json", MODEL_CACHE_DIR / "latest.json"):
+        with target.open("w", encoding="utf-8") as handle:
+            json.dump(merged, handle, indent=2, sort_keys=True, default=str)
+            handle.write("\n")
+    write_cache_manifest(MODEL_CACHE_DIR)
     return merged
 
 

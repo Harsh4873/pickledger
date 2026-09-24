@@ -396,6 +396,9 @@ def _write_json_cache(date_iso: str, payload: dict[str, Any]) -> dict[str, Any]:
     # each pick's raw probability.
     apply_market_odds_to_payload(merged)
     apply_calibration_to_payload(merged)
+    from scripts.desk_loss_feedback import seal_published_picks
+
+    seal_published_picks(merged, repo_root=REPO_ROOT)
     for target in (MODEL_CACHE_DIR / f"{date_iso}.json", MODEL_CACHE_DIR / "latest.json"):
         with target.open("w", encoding="utf-8") as handle:
             json.dump(merged, handle, indent=2, sort_keys=True, default=str)

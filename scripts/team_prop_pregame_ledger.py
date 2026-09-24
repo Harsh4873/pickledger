@@ -82,6 +82,8 @@ _SNAPSHOT_EXCLUDED_FIELDS = {
     "calibration_eligible",
     "financial_eligible",
     "market_benchmark_eligible",
+    # Republished every run from the desk grade. Not part of the pregame hash.
+    "lossFeedback",
 }
 
 

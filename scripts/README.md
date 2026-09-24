@@ -13,6 +13,7 @@ The active production automation uses GitHub Actions plus local Codex morning an
 | `train_player_prop_consensus_ml.py` | Trains the four season/history models and requires at least 70% on chronological validation and holdout before publication. |
 | `archive_player_prop_snapshot.py` | Freezes every published prop slate so later refreshes cannot rewrite its measured record. |
 | `auto_grade_picks.py` | Grades completed games through ESPN and rebuilds the universal outcome ledger. |
+| `desk_loss_feedback.py` | Scores settled Profit Desk picks against results already in the caches and writes `data/loss_feedback/desk_grade.json` for the next model run. |
 | `rebuild_pick_outcome_ledger.py` | Deduplicates all model and player-prop picks into `data/calibration/outcome_ledger.json`. |
 | `train_pick_calibration.py` | Evaluates a shrinkage-based probability calibrator against the active champion. |
 | `pick_calibration.py` | Preserves immutable pregame snapshots and applies the promoted calibrator to refresh payloads. |

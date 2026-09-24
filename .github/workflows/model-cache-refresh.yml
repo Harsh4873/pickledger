@@ -100,7 +100,8 @@ jobs:
             CACHE_DATE=$(python -c "import json; print(json.load(open('data/model_cache/latest.json'))['date'])")
             python scripts/build_parlay_cards.py --date "$CACHE_DATE"
             python scripts/build_profit_desk.py --date "$CACHE_DATE"
-            git add data/model_cache data/parlay_cards data/profit_desk data/calibration/team_prop_pregame_ledger.json
+            python scripts/desk_loss_feedback.py
+            git add data/model_cache data/parlay_cards data/profit_desk data/loss_feedback data/calibration/team_prop_pregame_ledger.json
             if git diff --cached --quiet; then
               echo "No staged cache change after merge — skipping commit."
               echo "changed=false" >> "$GITHUB_OUTPUT"

@@ -1361,6 +1361,7 @@ def _candidate_payload(
     )
     return {
         "id": candidate_id,
+        "sourcePickId": _text(record.get("id")) or None,
         "date": raw.date,
         "mode": context.mode,
         "sport": raw.sport,
@@ -1953,7 +1954,10 @@ def _result_map_for_date(
 
 
 def _sync_artifact_results(
-    destination: Path, model_dir: Path, player_dir: Path
+    destination: Path,
+    model_dir: Path,
+    player_dir: Path,
+    snapshot_dir: Path | None = None,
 ) -> int:
     """Refresh result and closing fields on frozen artifacts as caches grade.
 
@@ -1981,20 +1985,35 @@ def _sync_artifact_results(
             for row in (bucket if isinstance(bucket, list) else [])
             if isinstance(row, dict)
         ]
-        needs_sync = [
-            row
-            for row in rows
-            if _result(row.get("result")) == "pending" or "closing" not in row
-        ]
-        if not needs_sync:
-            continue
         results, closings = _grade_sync_maps(model_dir, player_dir, path.stem)
-        if not results and not closings:
+        # Cache grades win. Snapshots fill a market only when the dated cache
+        # has no settled result and the snapshots agree. A later correction in
+        # the cache replaces a stale desk result. Conflicting sources are left
+        # alone rather than inventing a winner.
+        from scripts.desk_loss_feedback import index_settled_sources
+
+        indexed = index_settled_sources(
+            model_dir,
+            player_dir,
+            snapshot_dir,
+            path.stem,
+            repo_root=REPO_ROOT,
+        )
+        for key, hit in indexed["by_identity"].items():
+            if hit.get("status") == "graded" and hit.get("result"):
+                results[key] = hit["result"]
+        by_source_pick = indexed["by_source_pick_id"]
+        if not results and not closings and not by_source_pick:
             continue
         updated = False
-        for row in needs_sync:
+        for row in rows:
             key = (_text(row.get("sourceKey")), _text(row.get("marketIdentity")))
             result = results.get(key)
+            if not result:
+                source_pick_id = _text(row.get("sourcePickId"))
+                alt = by_source_pick.get((key[0], source_pick_id)) if source_pick_id else None
+                if alt and alt.get("status") == "graded":
+                    result = alt.get("result")
             if result and result != _result(row.get("result")):
                 row["result"] = result
                 updated = True
@@ -2095,12 +2114,20 @@ def rebuild_profit_desk(
     player_cache_dir: Path | str | None = None,
     output_dir: Path | str | None = None,
     today_iso: str | None = None,
+    snapshot_dir: Path | str | None = None,
 ) -> int:
     """Write dated, latest, and index files; return the changed-file count."""
 
     model_dir = Path(model_cache_dir) if model_cache_dir is not None else MODEL_CACHE_DIR
     player_dir = Path(player_cache_dir) if player_cache_dir is not None else PLAYER_PROPS_CACHE_DIR
     destination = Path(output_dir) if output_dir is not None else PROFIT_DESK_DIR
+    if snapshot_dir is not None:
+        snapshots: Path | None = Path(snapshot_dir)
+    elif model_dir.resolve() == MODEL_CACHE_DIR.resolve() or player_dir.resolve() == PLAYER_PROPS_CACHE_DIR.resolve():
+        snapshots = REPO_ROOT / "data" / "player_props_snapshots"
+    else:
+        # Fixture rebuilds must not consult the real snapshot corpus.
+        snapshots = None
     today = today_iso or datetime.now(timezone.utc).strftime("%Y-%m-%d")
     targets = _target_dates(
         date_iso=date_iso,
@@ -2143,7 +2170,7 @@ def rebuild_profit_desk(
             f"{payload['summary']['liveQualified']} live"
         )
 
-    changed += _sync_artifact_results(destination, model_dir, player_dir)
+    changed += _sync_artifact_results(destination, model_dir, player_dir, snapshots)
 
     files = sorted(path.name for path in destination.glob("20??-??-??.json"))
     if files:

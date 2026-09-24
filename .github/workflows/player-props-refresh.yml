@@ -128,7 +128,8 @@ jobs:
             CACHE_DATE=$(python -c "import json; print(json.load(open('data/player_props_cache/latest.json'))['date'])")
             python scripts/build_parlay_cards.py --date "$CACHE_DATE"
             python scripts/build_profit_desk.py --date "$CACHE_DATE"
-            git add data/player_props_cache data/player_props_snapshots data/player_props_training data/calibration/outcome_ledger.json data/parlay_cards data/profit_desk player_props/artifacts
+            python scripts/desk_loss_feedback.py
+            git add data/player_props_cache data/player_props_snapshots data/player_props_training data/calibration/outcome_ledger.json data/parlay_cards data/profit_desk data/loss_feedback player_props/artifacts
             if git diff --cached --quiet; then
               echo "No staged player-props change after merge; skipping commit."
               echo "changed=false" >> "$GITHUB_OUTPUT"

@@ -459,6 +459,16 @@ def main() -> int:
     print(f"[auto-grade] parlay cards: {parlay_changed} file update(s)")
     profit_desk_changed = rebuild_profit_desk(all_dates=True)
     print(f"[auto-grade] Profit Desk: {profit_desk_changed} file update(s)")
+    from scripts.desk_loss_feedback import write_desk_grade_report
+
+    feedback, feedback_changed = write_desk_grade_report()
+    record = feedback["summary"]["sourceGradedRecord"]
+    print(
+        "[auto-grade] desk loss feedback: "
+        f"{feedback['summary']['graded']} graded, "
+        f"{record['wins']}-{record['losses']}-{record['pushes']}, "
+        f"changed={feedback_changed}"
+    )
     print(f"[auto-grade] complete: {total} update(s)")
     return 0
 

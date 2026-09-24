@@ -33,7 +33,8 @@ SOFT_PLAYER_PROP_MODEL_KEYS = {
     "nfl_player_props",
     "cfb_player_props",
 }
-PICK_METADATA_FIELDS = {"result", "start_time", "game_start_time", "pregame_snapshot"}
+# ``id`` is the link from a published pick back to its settled grade.
+PICK_METADATA_FIELDS = {"id", "result", "start_time", "game_start_time", "pregame_snapshot"}
 MARKET_METADATA_FIELDS = {"start_time", "game_start_time", "pregame_snapshot"}
 MAX_PUBLISHED_PROPS_PER_GAME = 8
 MAX_PUBLISHED_PROPS_PER_PLAYER = 1
