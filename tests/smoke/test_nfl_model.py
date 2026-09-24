@@ -372,3 +372,59 @@ def test_ladder_prefers_a_validated_lean_band_under_bet_and_never_pools_directio
     assert by_tier["lean"]["min_residual"] == 1.0 and by_tier["lean"]["max_residual"] == by_tier["bet"]["min_residual"]
     assert by_tier["bet"]["units"] > by_tier["lean"]["units"]
     assert build_ladder(oof, market_key="total", direction="over", pred_key="total_pred", actual_key="total_residual", odds_keys=("over_odds", "under_odds")) == []
+
+
+def test_total_probability_follows_graded_asymmetry_and_the_stake_gate_does_not_move(monkeypatch):
+    """A -1.8 total residual and a +1.8 residual are the same distance from
+    the line. The symmetric normal gives them the same side probability.
+    Graded walk-forward totals do not: the under tail hits, the over tail
+    does not. The published probability has to say so. The stake gate still
+    keys off the residual band, so the under remains BET and the over PASS.
+    """
+    from NFLPredictionModel.nfl_model import _phi
+
+    rows = [
+        _game("2026-09-06", 2026, 1, "KC", "BAL", 30, 10, -3.0, 46.5),
+        _game("2026-09-13", 2026, 2, "KC", "CIN", None, None, -4.5, 48.0),
+    ]
+    now = datetime(2026, 9, 13, 12, 0, tzinfo=timezone.utc)
+    under_payload = _serve(
+        monkeypatch, rows, "2026-09-13", now, _artifacts(total_residual=-1.8, policy=UNDER_GATE)
+    )
+    over_payload = _serve(
+        monkeypatch, rows, "2026-09-13", now, _artifacts(total_residual=1.8, policy=UNDER_GATE)
+    )
+    under = next(pick for pick in under_payload["picks"] if pick["market"] == "totals")
+    over = next(pick for pick in over_payload["picks"] if pick["market"] == "totals")
+    meta = json.loads((ROOT / "NFLPredictionModel" / "artifacts" / "metadata.json").read_text())
+    symmetric = _phi(1.8 / float(meta["total_residual_sigma"]))
+    assert under["direction"] == "under" and under["decision"] == "BET" and under["units"] == 0.5
+    assert under["decision_reason"] == "segment:bet:under:1.5"
+    assert over["direction"] == "over" and over["decision"] == "PASS" and over["units"] == 0
+    assert over["decision_reason"] == "no_segment_for_direction:over"
+    assert under["probability_source"] == "signed_residual_logistic"
+    assert over["probability_source"] == "signed_residual_logistic"
+    assert under["probability"] > symmetric + 0.03
+    assert over["probability"] < symmetric
+    assert under["probability"] > over["probability"]
+    assert over["probability"] >= 0.5
+
+
+def test_signed_side_probability_fit_separates_a_real_under_tail():
+    from NFLPredictionModel.nfl_train import fit_signed_side_probability
+
+    rows = []
+    for pred in (-2.0, -1.5, -1.0, 1.0, 1.5, 2.0):
+        for i in range(40):
+            # Unders cover three times in four. Overs are a coin flip.
+            if pred < 0:
+                actual = -3.0 if i % 4 else 3.0
+            else:
+                actual = 3.0 if i % 2 == 0 else -3.0
+            rows.append({"total_pred": pred, "total_residual": actual})
+    fitted = fit_signed_side_probability(rows, pred_key="total_pred", actual_key="total_residual")
+    assert fitted is not None
+    assert fitted["family"] == "signed_residual_logistic"
+    assert fitted["fit_rows"] == 240
+    assert fitted["negative_slope"] > fitted["positive_slope"]
+    assert fitted["negative_slope"] > 0
