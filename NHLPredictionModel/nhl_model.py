@@ -1,10 +1,9 @@
 """Daily NHL publisher.
 
-Moneyline, puck line, game total, team total, and player props are published
-only when that market has an observed American price. A missing price is
-skipped. Player props also need an observed scoring mean; this model does not
-invent one. Decisions stay PASS at 0 units: the goal model has no validated
-staking segment.
+Moneyline, puck line, and game total rows need an observed American price.
+Team totals and player props also need an observed scoring mean. Preseason
+games are not sided from the completed regular-season prior: that prior is
+not a validated preseason model. Decisions stay PASS at 0 units.
 """
 from __future__ import annotations
 
@@ -12,27 +11,15 @@ import math
 from typing import Any
 
 try:
-    from nhl_core import (
-        canonical_abbrev,
-        counting_over_probability,
-        load_ratings,
-        over_probability,
-        project_game,
-        team_total_over_probability,
-    )
+    from nhl_core import canonical_abbrev, counting_over_probability, load_ratings, over_probability, project_game
     from nhl_data import is_pregame, load_slate
     from nhl_markets import fetch_pregame_quotes
+    from nhl_observed import fetch_player_rates, lookup_player_mean, stat_key_from_market, team_observed_mean
 except ImportError:
-    from .nhl_core import (
-        canonical_abbrev,
-        counting_over_probability,
-        load_ratings,
-        over_probability,
-        project_game,
-        team_total_over_probability,
-    )
+    from .nhl_core import canonical_abbrev, counting_over_probability, load_ratings, over_probability, project_game
     from .nhl_data import is_pregame, load_slate
     from .nhl_markets import fetch_pregame_quotes
+    from .nhl_observed import fetch_player_rates, lookup_player_mean, stat_key_from_market, team_observed_mean
 
 
 def _num(value: Any) -> float | None:
@@ -77,9 +64,50 @@ def _round_features(projection: dict[str, Any]) -> dict[str, Any]:
 def _reason(game: dict[str, Any], evidence_ok: bool) -> str:
     if not evidence_ok:
         return "research_only:team_ratings_unavailable"
-    if str(game.get("season_type") or "") == "PRE":
-        return "research_only:preseason"
     return "research_only:no_validated_segment"
+
+
+def _prices_seen(game: dict[str, Any]) -> list[str]:
+    seen: list[str] = []
+    if _american(game.get("home_moneyline")) is not None and _american(game.get("away_moneyline")) is not None:
+        seen.append("h2h")
+    if _num(game.get("spread_line")) is not None and (
+        _american(game.get("home_spread_odds")) is not None or _american(game.get("away_spread_odds")) is not None
+    ):
+        seen.append("spread")
+    if _num(game.get("total_line")) is not None and (
+        _american(game.get("over_odds")) is not None or _american(game.get("under_odds")) is not None
+    ):
+        seen.append("totals")
+    team_totals = game.get("team_totals") if isinstance(game.get("team_totals"), dict) else {}
+    if any(
+        isinstance(row, dict) and _num(row.get("line")) is not None and (
+            _american(row.get("over_odds")) is not None or _american(row.get("under_odds")) is not None
+        )
+        for row in team_totals.values()
+    ):
+        seen.append("team_total")
+    props = game.get("player_props") if isinstance(game.get("player_props"), list) else []
+    if any(
+        isinstance(prop, dict) and _num(prop.get("line")) is not None and (
+            _american(prop.get("over_odds")) is not None or _american(prop.get("under_odds")) is not None
+        )
+        for prop in props
+    ):
+        seen.append("player_props")
+    return seen
+
+
+def _needs_player_rates(slate: list[dict[str, Any]]) -> bool:
+    for game in slate:
+        if not isinstance(game, dict) or not is_pregame(game):
+            continue
+        if str(game.get("season_type") or "") == "PRE":
+            continue
+        for prop in game.get("player_props") or []:
+            if isinstance(prop, dict) and _num(prop.get("mean")) is None and prop.get("player") and _num(prop.get("line")) is not None:
+                return True
+    return False
 
 
 def _row_shell(
@@ -116,6 +144,7 @@ def generate_nhl_picks(
     games: list[dict[str, Any]] | None = None,
     ratings: dict[str, Any] | None = None,
     fetch_json: Any = None,
+    player_rates: dict[str, dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     loaded = ratings if ratings is not None else load_ratings()
     if not loaded:
@@ -146,6 +175,11 @@ def generate_nhl_picks(
     else:
         slate, slate_source = games, "injected"
         quote_summary = {"feeds_read": 0, "matched_games": 0, "injected": True}
+    if player_rates is None and games is None and _needs_player_rates(slate):
+        try:
+            player_rates = fetch_player_rates(str(loaded.get("prior_season") or ""))
+        except Exception:
+            player_rates = {}
     model_version = str(loaded.get("model_version") or "nhl_poisson_v1")
     picks: list[dict[str, Any]] = []
     games_out: list[dict[str, Any]] = []
@@ -158,6 +192,8 @@ def generate_nhl_picks(
         "player_props": 0,
     }
     player_prior_missing = 0
+    team_mean_missing = 0
+    preseason_blocked = 0
     for game in slate:
         if not isinstance(game, dict):
             continue
@@ -201,6 +237,23 @@ def generate_nhl_picks(
             "units": 0,
             "features": _round_features(projection),
         }
+        prices_seen = _prices_seen(game)
+        if str(game.get("season_type") or "") == "PRE":
+            preseason_blocked += 1
+            games_out.append({
+                "game_id": base["game_id"],
+                "matchup": matchup,
+                "start_time": start,
+                "season_type": "PRE",
+                "ratings_found": bool(projection["evidence_ok"]),
+                "published_markets": [],
+                "posted_market_names": list(game.get("posted_market_names") or []),
+                "prices_seen": prices_seen,
+                "side_published": False,
+                "side_block": "preseason_prior_not_validated",
+                "prior_season": loaded.get("prior_season"),
+            })
+            continue
         published_markets: list[str] = []
         pick_home = home_probability >= 0.5
         team = home if pick_home else away
@@ -308,30 +361,31 @@ def generate_nhl_picks(
             skipped["team_total"] += 1
         else:
             published_team_total = False
-            ot_rate = projection.get("ot_home_win_rate")
+            saw_team_price = False
             for side, row in team_totals.items():
                 if side not in {"home", "away"} or not isinstance(row, dict):
                     continue
                 line = _num(row.get("line"))
                 if line is None:
                     continue
-                if side == "home":
-                    over_prob = team_total_over_probability(
-                        float(projection["lambda_home"]),
-                        float(projection["lambda_away"]),
-                        line,
-                        ot_win_rate=float(ot_rate) if isinstance(ot_rate, (int, float)) else None,
-                    )
-                    team_name = str(row.get("team") or home)
+                if _american(row.get("over_odds")) is not None or _american(row.get("under_odds")) is not None:
+                    saw_team_price = True
+                team_name = str(row.get("team") or (home if side == "home" else away))
+                abbrev = game.get("home_abbrev") if side == "home" else game.get("away_abbrev")
+                explicit_mean = _num(row.get("mean"))
+                if explicit_mean is not None:
+                    observed_mean = explicit_mean
+                    mean_source = str(row.get("mean_source") or "observed_quote")
+                    mean_games = row.get("mean_games")
                 else:
-                    away_ot = None if not isinstance(ot_rate, (int, float)) else 1.0 - float(ot_rate)
-                    over_prob = team_total_over_probability(
-                        float(projection["lambda_away"]),
-                        float(projection["lambda_home"]),
-                        line,
-                        ot_win_rate=away_ot,
-                    )
-                    team_name = str(row.get("team") or away)
+                    observed = team_observed_mean(loaded, abbrev)
+                    if observed is None:
+                        team_mean_missing += 1
+                        continue
+                    observed_mean = float(observed["mean"])
+                    mean_source = str(observed["mean_source"])
+                    mean_games = observed.get("games_played")
+                over_prob = counting_over_probability(observed_mean, line)
                 take_over = over_prob >= 0.5
                 direction = "over" if take_over else "under"
                 probability = over_prob if take_over else 1.0 - over_prob
@@ -353,12 +407,15 @@ def generate_nhl_picks(
                         "direction": direction,
                         "line": line,
                         "market_line": line,
+                        "mean": round(observed_mean, 4),
+                        "mean_source": mean_source,
+                        "mean_games": mean_games,
                     },
                 ))
                 published_team_total = True
             if published_team_total:
                 published_markets.append("team_total")
-            else:
+            elif not saw_team_price:
                 skipped["team_total"] += 1
 
         raw_props = game.get("player_props") if isinstance(game.get("player_props"), list) else []
@@ -366,17 +423,28 @@ def generate_nhl_picks(
             skipped["player_props"] += 1
         else:
             published_prop = False
+            saw_prop_price = False
             for prop in raw_props:
                 if not isinstance(prop, dict):
                     continue
                 line = _num(prop.get("line"))
-                mean = _num(prop.get("mean"))
                 player = str(prop.get("player") or "").strip()
                 if line is None or not player:
                     continue
+                if _american(prop.get("over_odds")) is not None or _american(prop.get("under_odds")) is not None:
+                    saw_prop_price = True
+                mean = _num(prop.get("mean"))
+                mean_source = str(prop.get("mean_source") or "observed_quote") if mean is not None else None
+                mean_games = prop.get("mean_games")
+                stat_key = stat_key_from_market(prop.get("stat") or prop.get("stat_label"))
                 if mean is None:
-                    player_prior_missing += 1
-                    continue
+                    looked_up = lookup_player_mean(player_rates, player, stat_key)
+                    if looked_up is None:
+                        player_prior_missing += 1
+                        continue
+                    mean = float(looked_up["mean"])
+                    mean_source = str(looked_up.get("mean_source") or "")
+                    mean_games = looked_up.get("games_played")
                 over_prob = counting_over_probability(mean, line)
                 take_over = over_prob >= 0.5
                 direction = "over" if take_over else "under"
@@ -403,13 +471,16 @@ def generate_nhl_picks(
                         "direction": direction,
                         "line": line,
                         "market_line": line,
-                        "projection": round(mean, 3),
+                        "mean": round(mean, 4),
+                        "mean_source": mean_source,
+                        "mean_games": mean_games,
+                        "projection": round(mean, 4),
                     },
                 ))
                 published_prop = True
             if published_prop:
                 published_markets.append("player_props")
-            else:
+            elif not saw_prop_price:
                 skipped["player_props"] += 1
 
         games_out.append({
@@ -422,8 +493,10 @@ def generate_nhl_picks(
             "ratings_found": bool(projection["evidence_ok"]),
             "published_markets": published_markets,
             "posted_market_names": list(game.get("posted_market_names") or []),
+            "prices_seen": prices_seen,
+            "side_published": bool(published_markets),
+            "side_block": None,
         })
-    season_types = sorted({str(game.get("season_type") or "") for game in games_out if game.get("season_type")})
     if not slate:
         note = f"NHL active slate: 0 game(s), 0 row(s). No NHL games scheduled for {date_iso}."
     else:
@@ -436,12 +509,17 @@ def generate_nhl_picks(
         missing = [name for name, count in skipped.items() if count]
         if missing:
             note += " Markets with no observed price were skipped: " + ", ".join(missing) + "."
+        if team_mean_missing:
+            note += f" {team_mean_missing} team total(s) had a line but no observed team scoring mean, so no side was published."
         if player_prior_missing:
             note += (
                 f" {player_prior_missing} posted player prop(s) had a price but no observed player mean, so no side was published."
             )
-        if "PRE" in season_types:
-            note += " Preseason games use the previous regular season's goal rates and are not staked."
+        if preseason_blocked:
+            note += (
+                f" {preseason_blocked} preseason game(s) were not sided. "
+                "The completed regular-season prior is not a validated preseason model."
+            )
         if any(not game["ratings_found"] for game in games_out):
             note += " One or more teams had no prior-season rating; those rows use league-average rates."
     return {
@@ -460,12 +538,15 @@ def generate_nhl_picks(
         "quote_summary": quote_summary,
         "markets_skipped": skipped,
         "player_props_without_prior": player_prior_missing,
+        "team_totals_without_mean": team_mean_missing,
+        "preseason_blocked": preseason_blocked,
         "coverage": {
             "official_games": len(slate),
             "pregame_games": len(games_out),
             "started_games": started,
             "staked_rows": 0,
             "priced_rows": len(picks),
+            "preseason_blocked": preseason_blocked,
         },
     }
 

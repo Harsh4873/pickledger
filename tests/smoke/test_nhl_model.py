@@ -40,18 +40,44 @@ def test_ratings_are_a_full_regular_season_and_contain_no_prices():
     assert 0.0 < league["ot_home_win_rate"] < 1.0
 
 
-def test_unpriced_markets_are_skipped(monkeypatch):
+def test_preseason_does_not_publish_a_side_from_the_regular_season_prior():
     from NHLPredictionModel import nhl_model
 
-    payload = nhl_model.generate_nhl_picks("2026-09-22", games=[_game()])
-    assert payload["ok"] is True
-    assert payload["coverage"]["staked_rows"] == 0
-    assert payload["picks"] == []
-    assert payload["coverage"]["pregame_games"] == 1
-    assert payload["markets_skipped"]["h2h"] == 1
-    assert payload["markets_skipped"]["team_total"] == 1
-    assert payload["markets_skipped"]["player_props"] == 1
-    assert "no observed price" in payload["note"]
+    bare = nhl_model.generate_nhl_picks("2026-09-22", games=[_game()])
+    assert bare["ok"] is True
+    assert bare["picks"] == []
+    assert bare["preseason_blocked"] == 1
+    assert bare["games"][0]["side_published"] is False
+    assert bare["games"][0]["side_block"] == "preseason_prior_not_validated"
+    assert "not a validated preseason model" in bare["note"]
+
+    priced = nhl_model.generate_nhl_picks("2026-09-22", games=[_game(
+        spread_line=-1.5,
+        home_spread_odds=-110,
+        away_spread_odds=-110,
+        total_line=6.5,
+        over_odds=-105,
+        under_odds=-115,
+        home_moneyline=-140,
+        away_moneyline=120,
+        team_totals={
+            "home": {"line": 3.5, "over_odds": -120, "under_odds": 100, "team": "Boston Bruins", "mean": 3.3, "mean_source": "nhl_standings_goals_for"},
+        },
+        player_props=[{
+            "player": "David Pastrnak",
+            "stat": "shots_on_goal",
+            "stat_label": "Shots on Goal",
+            "line": 1.5,
+            "mean": 4.0,
+            "mean_source": "nhl_skater_summary",
+            "over_odds": -115,
+            "under_odds": -105,
+        }],
+    )])
+    assert priced["picks"] == []
+    assert priced["games"][0]["prices_seen"] == ["h2h", "spread", "totals", "team_total", "player_props"]
+    assert priced["games"][0]["side_published"] is False
+    assert "home_win_probability" not in priced["games"][0]
 
 
 def test_started_games_and_empty_slates_publish_nothing():
@@ -70,9 +96,11 @@ def test_started_games_and_empty_slates_publish_nothing():
 def test_lines_are_used_only_when_observed():
     from NHLPredictionModel import nhl_model
 
-    bare = nhl_model.generate_nhl_picks("2026-09-22", games=[_game()])
+    bare = nhl_model.generate_nhl_picks("2026-09-22", games=[_game(season_type="REG")])
     assert bare["picks"] == []
+    assert bare["markets_skipped"]["h2h"] == 1
     quoted = nhl_model.generate_nhl_picks("2026-09-22", games=[_game(
+        season_type="REG",
         spread_line=-1.5,
         home_spread_odds=-110,
         away_spread_odds=-110,
@@ -91,6 +119,7 @@ def test_lines_are_used_only_when_observed():
     assert markets["totals"]["decision"] == "PASS"
     assert markets["totals"]["units"] == 0
     other_line = nhl_model.generate_nhl_picks("2026-09-22", games=[_game(
+        season_type="REG",
         spread_line=-1.0,
         home_spread_odds=-110,
         away_spread_odds=-110,
@@ -100,10 +129,36 @@ def test_lines_are_used_only_when_observed():
     assert {pick["market"] for pick in other_line["picks"]} == {"h2h"}
 
 
-def test_team_total_and_player_props_need_posted_prices_and_a_player_mean():
+def test_team_total_and_player_props_publish_only_with_price_and_observed_mean():
     from NHLPredictionModel import nhl_model
+    from NHLPredictionModel.nhl_observed import lookup_player_mean, rates_from_summaries, stat_key_from_market
 
-    missing_price = nhl_model.generate_nhl_picks("2026-09-22", games=[_game(
+    assert stat_key_from_market("David Pastrnak Shots on Goal") == "shots"
+    assert stat_key_from_market("CAR Hurricanes: Team Total Goals") is None
+    assert stat_key_from_market("First to 5 Shots on Goal") is None
+    rates = rates_from_summaries(
+        [{
+            "skaterFullName": "David Pastrnak",
+            "gamesPlayed": 77,
+            "goals": 29,
+            "assists": 71,
+            "points": 100,
+            "shots": 261,
+        }],
+        [],
+        season="20252026",
+    )
+    looked = lookup_player_mean(rates, "David Pastrnak", "shots")
+    assert looked is not None
+    assert abs(looked["mean"] - (261 / 77)) < 1e-9
+    assert lookup_player_mean(rates_from_summaries(
+        [{"skaterFullName": "Cup Of Coffee", "gamesPlayed": 4, "goals": 2, "assists": 0, "points": 2, "shots": 8}],
+        [],
+        season="20252026",
+    ), "Cup Of Coffee", "shots") is None
+
+    missing = nhl_model.generate_nhl_picks("2026-10-10", games=[_game(
+        season_type="REG",
         home_moneyline=-140,
         away_moneyline=120,
         team_totals={"home": {"line": 3.5, "team": "Boston Bruins"}},
@@ -115,41 +170,93 @@ def test_team_total_and_player_props_need_posted_prices_and_a_player_mean():
             "over_odds": -115,
             "under_odds": -105,
         }],
-    )])
-    assert {pick["market"] for pick in missing_price["picks"]} == {"h2h"}
-    assert missing_price["player_props_without_prior"] == 1
+    )], player_rates={})
+    assert {pick["market"] for pick in missing["picks"]} == {"h2h"}
+    assert missing["player_props_without_prior"] == 1
+    assert "team_total" not in {pick["market"] for pick in missing["picks"]}
 
-    quoted = nhl_model.generate_nhl_picks("2026-09-22", games=[_game(
+    quoted = nhl_model.generate_nhl_picks("2026-10-10", games=[_game(
+        season_type="REG",
         home_moneyline=-140,
         away_moneyline=120,
         odds_source="draftkings",
         team_totals={
-            "home": {"line": 3.5, "over_odds": -120, "under_odds": 100, "team": "Boston Bruins"},
-            "away": {"line": 2.5, "over_odds": -110, "under_odds": -110, "team": "Philadelphia Flyers"},
+            "home": {
+                "line": 3.5,
+                "over_odds": -120,
+                "under_odds": 100,
+                "team": "Boston Bruins",
+                "mean": 3.317073,
+                "mean_source": "nhl_standings_goals_for",
+                "mean_games": 82,
+            },
         },
         player_props=[{
             "player": "David Pastrnak",
             "team": "BOS",
             "stat": "shots_on_goal",
             "stat_label": "Shots on Goal",
-            "line": 1.5,
-            "mean": 4.0,
+            "line": 3.5,
             "over_odds": -115,
             "under_odds": -105,
         }],
-    )])
-    markets = {pick["market"]: pick for pick in quoted["picks"]}
+    )], player_rates=rates)
+    markets = [pick["market"] for pick in quoted["picks"]]
     assert "team_total" in markets
-    assert markets["team_total"]["odds"] in {-120, 100, -110}
-    assert markets["team_total"]["decision"] == "PASS"
-    assert markets["team_total"]["units"] == 0
-    assert markets["team_total"]["market_priced"] is True
+    team_row = next(pick for pick in quoted["picks"] if pick["market"] == "team_total")
+    assert team_row["mean_source"] == "nhl_standings_goals_for"
+    assert team_row["odds"] in {-120, 100}
+    assert team_row["decision"] == "PASS"
+    assert team_row["units"] == 0
+    assert team_row["market_priced"] is True
     prop = next(pick for pick in quoted["picks"] if pick["market"] == "player_props")
-    assert prop["direction"] == "over"
-    assert prop["odds"] == -115
+    assert prop["direction"] == "under"
+    assert prop["odds"] == -105
     assert prop["units"] == 0
-    assert prop["player"] == "David Pastrnak"
+    assert prop["mean_source"] == "nhl_skater_summary"
+    assert abs(prop["mean"] - (261 / 77)) < 1e-4
     assert "score" not in prop
+
+
+def test_team_total_uses_the_balanced_posted_line_not_the_first_alternate():
+    from NHLPredictionModel.nhl_markets import choose_balanced_line, fetch_pregame_quotes
+
+    chosen = choose_balanced_line([
+        {"line": 0.5, "over_odds": -4500, "under_odds": 1200},
+        {"line": 3.5, "over_odds": -125, "under_odds": -115},
+        {"line": 4.5, "over_odds": 195, "under_odds": -270},
+        {"line": 2.5, "over_odds": -190, "under_odds": 145},
+    ])
+    assert chosen is not None
+    assert chosen["line"] == 3.5
+
+    def fetch(url: str):
+        if not url.endswith("/leagues/42133"):
+            return {"markets": [], "selections": []}
+        return {
+            "events": [{
+                "id": "reg",
+                "status": "NOT_STARTED",
+                "startEventDate": "2026-10-10T23:00:00.0000000Z",
+                "participants": [
+                    {"name": "BOS Bruins", "venueRole": "Home", "type": "Team", "metadata": {"shortName": "BOS"}},
+                    {"name": "PHI Flyers", "venueRole": "Away", "type": "Team", "metadata": {"shortName": "PHI"}},
+                ],
+            }],
+            "markets": [{"id": "tt", "eventId": "reg", "name": "BOS Bruins: Team Total Goals", "marketType": {"name": "Team Total Goals"}}],
+            "selections": [
+                {"marketId": "tt", "label": "Over", "outcomeType": "Over", "points": 0.5, "displayOdds": {"american": "-4500"}, "participants": [{"type": "Team", "venueRole": "Home", "name": "BOS Bruins"}]},
+                {"marketId": "tt", "label": "Under", "outcomeType": "Under", "points": 0.5, "displayOdds": {"american": "+1200"}, "participants": [{"type": "Team", "venueRole": "Home", "name": "BOS Bruins"}]},
+                {"marketId": "tt", "label": "Over", "outcomeType": "Over", "points": 3.5, "displayOdds": {"american": "+115"}, "participants": [{"type": "Team", "venueRole": "Home", "name": "BOS Bruins"}]},
+                {"marketId": "tt", "label": "Under", "outcomeType": "Under", "points": 3.5, "displayOdds": {"american": "-155"}, "participants": [{"type": "Team", "venueRole": "Home", "name": "BOS Bruins"}]},
+            ],
+        }
+
+    games = [_game(season_type="REG", start_time="2026-10-10T23:00:00Z")]
+    fetch_pregame_quotes(games, fetch_json=fetch)
+    assert games[0]["team_totals"]["home"]["line"] == 3.5
+    assert games[0]["team_totals"]["home"]["over_odds"] == 115
+    assert games[0]["team_totals"]["home"]["alternate_lines"] == 2
 
 
 def test_draftkings_board_attaches_only_posted_prices():

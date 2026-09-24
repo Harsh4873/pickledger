@@ -38,7 +38,7 @@ SEASON_BY_CODE = {
 
 
 def _season_type(value: Any) -> str:
-    token = str(value or "").strip().upper()
+    token = str(value or "").strip().upper().replace("-", " ")
     return SEASON_BY_CODE.get(token, "")
 
 

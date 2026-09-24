@@ -186,11 +186,53 @@ def _apply_game_lines(quote: dict[str, Any], markets: list[dict[str, Any]], sele
             quote[f"{side}_odds"] = price
 
 
+def favorite_magnitude(over_odds: int, under_odds: int) -> int | None:
+    """How far the favorite is from even.
+
+    The favorite is the more negative American price. A pick'em can have both
+    sides minus (for example -125/-115). Two plus prices are not a two-way.
+    """
+    if over_odds >= 0 and under_odds >= 0:
+        return None
+    favorite = over_odds if over_odds < under_odds else under_odds
+    if favorite >= 0:
+        return None
+    return abs(favorite)
+
+
+def choose_balanced_line(lines: list[dict[str, Any]]) -> dict[str, Any] | None:
+    """Pick the posted team-total number closest to even.
+
+    Books list several alternates on one market. The first number is often
+    0.5, which is not the main line. If two lines are equally tight, none is
+    chosen.
+    """
+    ranked: list[tuple[int, float, dict[str, Any]]] = []
+    for row in lines:
+        try:
+            over_odds = int(row["over_odds"])
+            under_odds = int(row["under_odds"])
+            line = float(row["line"])
+        except (KeyError, TypeError, ValueError):
+            continue
+        magnitude = favorite_magnitude(over_odds, under_odds)
+        if magnitude is None:
+            continue
+        ranked.append((magnitude, line, row))
+    if not ranked:
+        return None
+    ranked.sort(key=lambda item: (item[0], item[1]))
+    if len(ranked) > 1 and ranked[0][0] == ranked[1][0]:
+        return None
+    return ranked[0][2]
+
+
 def _apply_team_totals(quote: dict[str, Any], markets: list[dict[str, Any]], selections: list[dict[str, Any]]) -> None:
     by_id = {str(market.get("id") or ""): market for market in markets if _is_team_total_market(market)}
     if not by_id:
         return
-    grouped: dict[str, dict[str, Any]] = {}
+    grouped: dict[str, dict[float, dict[str, Any]]] = {}
+    names: dict[str, str] = {}
     for selection in selections:
         if not isinstance(selection, dict):
             continue
@@ -218,17 +260,27 @@ def _apply_team_totals(quote: dict[str, Any], markets: list[dict[str, Any]], sel
             continue
         if price is None:
             continue
-        row = grouped.setdefault(side, {"team": team_name, "line": line})
-        if abs(float(row.get("line") or line) - line) > 1e-9:
-            continue
-        row[f"{direction}_odds"] = price
+        bucket = grouped.setdefault(side, {}).setdefault(line, {"line": line})
+        bucket[f"{direction}_odds"] = price
         if team_name:
-            row["team"] = team_name
-    quote["team_totals"] = {
-        side: row
-        for side, row in grouped.items()
-        if row.get("over_odds") is not None and row.get("under_odds") is not None and row.get("line") is not None
-    }
+            names[side] = team_name
+    published: dict[str, dict[str, Any]] = {}
+    for side, by_line in grouped.items():
+        complete = [
+            row for row in by_line.values()
+            if row.get("over_odds") is not None and row.get("under_odds") is not None
+        ]
+        chosen = choose_balanced_line(complete)
+        if chosen is None:
+            continue
+        published[side] = {
+            "team": names.get(side) or "",
+            "line": chosen["line"],
+            "over_odds": chosen["over_odds"],
+            "under_odds": chosen["under_odds"],
+            "alternate_lines": len(complete),
+        }
+    quote["team_totals"] = published
 
 
 def _apply_player_props(quote: dict[str, Any], markets: list[dict[str, Any]], selections: list[dict[str, Any]]) -> None:
