@@ -11,6 +11,7 @@ from .schema import (
     build_pick,
     normal_probability,
     normalize_name,
+    poisson_side_probability,
     safe_float,
     safe_int,
 )
@@ -405,16 +406,6 @@ def _pitch_type_hit_signal(
     factor = 1.0 + _clamp(normalized * 0.085, -0.10, 0.10)
     direction = "handles arsenal" if factor > 1.025 else "vulnerable to arsenal" if factor < 0.975 else "neutral"
     return factor, f"Batter pitch-type hit matchup {direction} ({sample} pitches): " + "; ".join(details[:2])
-
-
-def _binomial_over_probability(per_trial: float, trials: float, line: float) -> float:
-    p = _clamp(per_trial, 0.01, 0.65)
-    n = max(1, int(round(trials)))
-    threshold = max(1, int(math.floor(line)) + 1)
-    probability = 0.0
-    for successes in range(threshold, n + 1):
-        probability += math.comb(n, successes) * (p ** successes) * ((1.0 - p) ** (n - successes))
-    return _clamp(probability, 0.01, 0.99)
 
 
 def _american_odds(value: Any) -> int | None:
@@ -1016,7 +1007,7 @@ def _hitter_props(
             continue
         if stat_key == "hits":
             projection = per_at_bat * expected_at_bats
-            over_probability = _binomial_over_probability(per_at_bat, expected_at_bats, line)
+            over_probability = poisson_side_probability(projection, line, "Over")
             market_factors = [
                 f"Posted {line:.1f} hits line at {int(market['over_odds']):+d} over",
                 *factors,
@@ -1032,7 +1023,7 @@ def _hitter_props(
             pitcher_walk_factor = _clamp(pitcher_walks_per_9 / 3.1, 0.82, 1.20)
             per_pa = _clamp(walk_rate * pitcher_walk_factor, 0.025, 0.24)
             projection = per_pa * expected_plate_appearances
-            over_probability = _binomial_over_probability(per_pa, expected_plate_appearances, line)
+            over_probability = poisson_side_probability(projection, line, "Over")
             market_factors = [
                 f"Season walk rate {walk_rate:.1%} over {int(plate_appearances)} PA",
                 f"Posted {line:.1f} walks line at {int(market['over_odds']):+d} over",
@@ -1049,7 +1040,7 @@ def _hitter_props(
             pitcher_k_factor = _clamp(pitcher_k_per_9 / 8.4, 0.82, 1.22)
             per_pa = _clamp(strikeout_rate * pitcher_k_factor, 0.06, 0.45)
             projection = per_pa * expected_plate_appearances
-            over_probability = _binomial_over_probability(per_pa, expected_plate_appearances, line)
+            over_probability = poisson_side_probability(projection, line, "Over")
             market_factors = [
                 f"Season strikeout rate {strikeout_rate:.1%} over {int(plate_appearances)} PA",
                 f"Posted {line:.1f} batter strikeouts line at {int(market['over_odds']):+d} over",
@@ -1070,12 +1061,7 @@ def _hitter_props(
             if per_game <= 0:
                 continue
             projection = per_game * run_creation_adjustment
-            over_probability = normal_probability(
-                projection,
-                line,
-                max(1.20, math.sqrt(max(0.5, projection)) * 0.95),
-                "Over",
-            )
+            over_probability = poisson_side_probability(projection, line, "Over")
             stat_label = str(market.get("stat_label") or stat_key)
             market_factors = [
                 f"Season {stat_label.lower()} per game {per_game:.2f} over {int(games_played)} games",
