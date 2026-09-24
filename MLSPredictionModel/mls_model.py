@@ -23,6 +23,8 @@ in this package's README:
   filter anti-selected model blind spots in the backtest). Frozen held-out hit
   rates at the shipped gates with the cap: moneyline BET >=0.60 hit 67.8%
   (n=90), all decided >=0.55 hit 63.2% (n=337) across 2023-2026.
+* Published moneyline, total, and spread labels are research PASS. The gate
+  result is stored as model_decision and is not a stake.
 
 Ratings are refit at serving time from the committed archive plus a
 same-morning workbook refresh and an ESPN scoreboard backfill for the last few
@@ -221,11 +223,35 @@ def _blend(model: float, market: float | None, weight: float) -> float:
 # training backtest's own price-capped table never cleared the break-even
 # implied by the -250 cap at any threshold. Moneyline publishes as research.
 MONEYLINE_RESEARCH_ONLY = True
-# Grid markets (total/handicap): rows the model itself priced worse than the
-# market went 24-27-1 / -24.6% while rows with non-negative model-vs-market
-# edge went 53-32-1 / +7.5% on totals, stable in both chronological halves.
-# The confidence gate stays; a negative edge is never staked.
+# Confidence gate is unchanged. A negative model-vs-devig edge is never a
+# stake inside that gate. It is recorded on model_decision only.
 GRID_MIN_EDGE_PP = 0.0
+# Graded model-cache rows through 2026-09-23, stored units and odds, P/L at
+# the posted American price: BET+LEAN source 137-120-3, -16.91u on 130.48u
+# risk, ROI -12.96% (260 rows). Totals 76-57-1 / -4.16%. Spreads 53-47-1 /
+# -15.35%. Under BET labels are 35-23 / -3.19% (59 labels, one still open).
+# Spread BET labels are 25-23-1 / -17.60%. The edge>=0 totals slice that
+# used to justify staking those labels is 58-37-1 flat +5.03% overall and
+# 26-21-1 flat -6.11% from 2026-08-23 on. Gating on the raw probability, or
+# requiring the model to beat the posted price instead of the devig, still
+# leaves most of those BET labels up. Published totals and spreads are
+# research, same as the moneyline. Thresholds above are not the switch.
+GRID_RESEARCH_ONLY = True
+GRID_RESEARCH_REASON = "research_only:totals_and_spreads_unprofitable_at_posted_prices"
+
+
+def _publish_grid_decision(model_decision: str, edge: float | None) -> tuple[str, str]:
+    """Published label for a total or spread row.
+
+    The confidence gate result is ``model_decision``. This source's graded
+    totals and spreads lose at the posted price, so the published label is
+    PASS and the stake is zero. The gate thresholds are not involved.
+    """
+    if GRID_RESEARCH_ONLY:
+        return "PASS", GRID_RESEARCH_REASON
+    if edge is not None and edge < GRID_MIN_EDGE_PP:
+        return model_decision, "negative_model_edge"
+    return model_decision, "confidence_gate"
 
 
 def _decision(
@@ -462,12 +488,13 @@ def generate_mls_picks(
             total_odds = _american_odds(_closed_market_value(odds, "total", model_side))
             priced = total_odds is not None and market_prob is not None
             total_edge = _edge_pp(model_prob, market_prob)
-            total_decision = _decision(
+            total_model_decision = _decision(
                 blended, grid_bet, grid_lean, priced,
                 implied=american_to_probability(total_odds), max_implied=max_implied,
                 edge_pp=total_edge, min_edge_pp=GRID_MIN_EDGE_PP)
             if not ratings_ready:
-                total_decision = "PASS"
+                total_model_decision = "PASS"
+            total_decision, total_reason = _publish_grid_decision(total_model_decision, total_edge)
             picks.append({
                 **common,
                 "pick": f"{model_side.title()} {total_line:g} ({matchup})",
@@ -483,10 +510,8 @@ def generate_mls_picks(
                 "push_probability": round(split["push"], 4),
                 "edge": total_edge,
                 "decision": total_decision,
-                "decision_reason": (
-                    "negative_model_edge" if total_edge is not None and total_edge < GRID_MIN_EDGE_PP
-                    else "confidence_gate"
-                ),
+                "model_decision": total_model_decision,
+                "decision_reason": total_reason,
                 "units": _units(blended, grid_lean, total_decision),
                 "reason": (
                     f"Score grid projects {lam:.2f}-{mu:.2f} ({lam + mu:.2f} total); "
@@ -529,12 +554,13 @@ def generate_mls_picks(
             spread_team = game["home_name"] if spread["side"] == "home" else game["away_name"]
             priced = spread["odds"] is not None and spread["market_prob"] is not None
             spread_edge = _edge_pp(spread["model_prob"], spread["market_prob"])
-            spread_decision = _decision(
+            spread_model_decision = _decision(
                 spread["blended"], grid_bet, grid_lean, priced,
                 implied=american_to_probability(spread["odds"]), max_implied=max_implied,
                 edge_pp=spread_edge, min_edge_pp=GRID_MIN_EDGE_PP)
             if not ratings_ready:
-                spread_decision = "PASS"
+                spread_model_decision = "PASS"
+            spread_decision, spread_reason = _publish_grid_decision(spread_model_decision, spread_edge)
             line_label = f"{spread['line']:+g}"
             picks.append({
                 **common,
@@ -551,10 +577,8 @@ def generate_mls_picks(
                 "push_probability": round(spread["push"], 4),
                 "edge": spread_edge,
                 "decision": spread_decision,
-                "decision_reason": (
-                    "negative_model_edge" if spread_edge is not None and spread_edge < GRID_MIN_EDGE_PP
-                    else "confidence_gate"
-                ),
+                "model_decision": spread_model_decision,
+                "decision_reason": spread_reason,
                 "units": _units(spread["blended"], grid_lean, spread_decision),
                 "reason": (
                     f"{spread_team} {line_label} covers {spread['blended']:.1%} blended "

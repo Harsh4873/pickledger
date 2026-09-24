@@ -336,16 +336,21 @@ def test_serving_bucket_contract(serving_fixture):
     juiced = by_game["g3"]
     assert juiced["moneyline"]["odds"] == -400
     assert juiced["moneyline"]["model_decision"] == "PASS"
-    # The same game's fairly-priced total is still allowed to decide.
+    # The same game's total is still a real posted price. The published label
+    # is research PASS; the unchanged gate is model_decision.
     assert juiced["total"]["odds"] in (-110,)
-    # Grid markets never stake a row the model itself prices worse than the market.
+    assert juiced["total"]["decision"] == "PASS" and juiced["total"]["units"] == 0.0
+    # Grid markets never stake. A negative edge still fails the unchanged gate
+    # (model_decision PASS). A cleared gate stays on model_decision only.
     for game in by_game.values():
         for market in ("total", "spread"):
             row = game.get(market)
             if row is None or row["edge"] is None:
                 continue
+            assert row["decision"] == "PASS" and row["units"] == 0.0
+            assert row["decision_reason"].startswith("research_only")
             if row["edge"] < 0:
-                assert row["decision"] == "PASS" and row["decision_reason"] == "negative_model_edge"
+                assert row["model_decision"] == "PASS"
 
     summaries = {summary["game_id"] for summary in bucket["games"]}
     assert summaries == {"g1", "g2", "g3"}
@@ -374,9 +379,15 @@ def test_serving_empty_slate(serving_fixture):
 
 
 def test_grid_decision_requires_non_negative_model_edge():
-    from MLSPredictionModel.mls_model import GRID_MIN_EDGE_PP, MONEYLINE_RESEARCH_ONLY, _decision
+    from MLSPredictionModel.mls_model import (
+        GRID_MIN_EDGE_PP,
+        GRID_RESEARCH_ONLY,
+        MONEYLINE_RESEARCH_ONLY,
+        _decision,
+    )
 
     assert MONEYLINE_RESEARCH_ONLY is True
+    assert GRID_RESEARCH_ONLY is True
     # Confidence clears both gates, but the model prices the side worse than
     # the market: live, such rows went 24-27-1 / -24.6%.
     assert _decision(0.62, 0.58, 0.545, True, implied=0.57, max_implied=0.75, edge_pp=-1.2, min_edge_pp=GRID_MIN_EDGE_PP) == "PASS"
@@ -385,6 +396,25 @@ def test_grid_decision_requires_non_negative_model_edge():
     # Without a market probability there is no edge to test; the juice cap still applies.
     assert _decision(0.62, 0.58, 0.545, False, edge_pp=None, min_edge_pp=GRID_MIN_EDGE_PP) == "LEAN"
     assert _decision(0.62, 0.58, 0.545, True, implied=0.80, max_implied=0.75, edge_pp=5.0, min_edge_pp=GRID_MIN_EDGE_PP) == "PASS"
+
+
+def test_totals_and_spreads_publish_pass_when_the_gate_says_bet(serving_fixture):
+    """Unders and spreads were still BET on a source at -12.96% over 260
+    graded staked rows. The confidence gate is unchanged and kept on
+    model_decision. The published label is PASS at 0u.
+    """
+    events = [_event("g1", STRONG, WEAK, FULL_ODDS)]
+    bucket = mls_model.generate_mls_picks("2026-07-25", client=FakeEspnClient(events))
+    grid = [pick for pick in bucket["picks"] if pick["market"] in {"total", "spread"}]
+    assert len(grid) == 2
+    gated = [pick for pick in grid if pick["model_decision"] in {"BET", "LEAN"}]
+    assert gated, "synthetic strong-vs-weak slate must still clear the unchanged gate"
+    assert any(pick["model_decision"] == "BET" for pick in gated)
+    for pick in grid:
+        assert pick["decision"] == "PASS"
+        assert pick["units"] == 0.0
+        assert pick["decision_reason"] == "research_only:totals_and_spreads_unprofitable_at_posted_prices"
+        assert pick["model_decision"] in {"BET", "LEAN", "PASS"}
 
 
 def test_mls_rows_stamp_the_espn_price_provenance(serving_fixture):
