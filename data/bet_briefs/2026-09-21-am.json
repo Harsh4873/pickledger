@@ -1,0 +1,113 @@
+{
+  "schemaVersion": 1,
+  "date": "2026-09-21",
+  "slot": "am",
+  "generatedAt": "2026-09-21T14:27:21Z",
+  "asOf": "2026-09-21T14:27:21Z",
+  "profitDesk": {
+    "date": "2026-09-21",
+    "generatedAt": "2026-09-21T12:14:35.131583Z",
+    "engineVersion": "profit_desk_v2_live",
+    "candidateCount": 1,
+    "edgeQualified": 0,
+    "valueQualified": 0,
+    "liveQualified": 0,
+    "liveRecordToDate": {
+      "avgClv": 0.020476,
+      "clvCount": 81,
+      "losses": 30,
+      "netUnits": -4.7926,
+      "pending": 5,
+      "pushes": 1,
+      "roi": -0.105333,
+      "settled": 84,
+      "sinceDate": "2026-07-11",
+      "stakedUnits": 45.5,
+      "throughDate": "2026-09-21",
+      "wins": 54
+    },
+    "notices": [
+      "Qualified picks carry real flat stakes: EDGE 1.0u, VALUE 0.5u; everything else stays 0u.",
+      "The market price is the baseline; historical residual alpha is shrunk and uncertainty-adjusted.",
+      "A 3-0 streak is still insufficient: the VALUE lane needs 150 source rows over 15 dates with stable halves.",
+      "Opposing Over/Under selections remain separate markets and receive no consensus bonus.",
+      "No candidates cleared a qualification lane on this slate; zero action is a valid result."
+    ]
+  },
+  "betThis": [],
+  "pass": [
+    {
+      "sport": "WNBA",
+      "source": "WNBAPlayerProps",
+      "pick": "Angel Reese Over 16.5 Points",
+      "game": "Atlanta Dream @ New York Liberty",
+      "line": 16.5,
+      "oddsAmerican": -117,
+      "decision": "BET",
+      "tier": "watch",
+      "reason": "Source WNBAPlayerProps is -18.4% flat ROI over 60 rows, proven negative, so no climb bet from this source. Profit Desk decision BET, tier watch (not qualified). Source WNBAPlayerProps is -18.4% flat ROI over 60 rows and 24 dates (Prob+EV 0.12). Top blockers: edge_requires_two_sided_price, edge_insufficient_source_samples, edge_insufficient_segment_samples."
+    }
+  ],
+  "ledger": {
+    "available": true,
+    "updatedAt": "2026-09-21T14:25:52Z",
+    "books": [
+      {
+        "book": "Novig",
+        "status": "active",
+        "runningBankroll": 29.91,
+        "settledProfitSinceSnapshot": -0.09,
+        "pendingRisk": 2.0,
+        "unitDollars": 1.0
+      },
+      {
+        "book": "Onyx",
+        "status": "active",
+        "runningBankroll": 5.0,
+        "settledProfitSinceSnapshot": 0.0,
+        "pendingRisk": 0.0,
+        "unitDollars": 0.5
+      },
+      {
+        "book": "ReBet",
+        "status": "active",
+        "runningBankroll": 1.0,
+        "settledProfitSinceSnapshot": 0.0,
+        "pendingRisk": 0.0,
+        "unitDollars": 0.25
+      },
+      {
+        "book": "Fliff",
+        "status": "active",
+        "runningBankroll": 2.0,
+        "settledProfitSinceSnapshot": 0.0,
+        "pendingRisk": 0.0,
+        "unitDollars": 0.5
+      }
+    ],
+    "open": [
+      {
+        "id": "pl-20260919-003",
+        "date": "2026-09-19",
+        "book": "Novig",
+        "sport": "MLS",
+        "selection": "MLS 2-leg MATCHED parlay: ORL at NE Under 3.5 RT + TOR at STL Under 3.5 RT",
+        "stakeDollars": 2.0,
+        "oddsAmerican": 221
+      }
+    ]
+  },
+  "rules": {
+    "maxBetThis": 2,
+    "singlesOnly": true,
+    "noTennis": true,
+    "juiceCap": -200,
+    "juiceException": "conservative EV above 0.05 with Prob+EV at least 0.80",
+    "bookPriority": "Novig first, Onyx backup. ReBet and Fliff daily-refresh longshot lane only."
+  },
+  "disclaimers": [
+    "Prices are quoted from Profit Desk evidence (book posted lines). Confirm the Novig ticket before betting; if the price moved, pass.",
+    "Climb singles are not Profit Desk EDGE or VALUE qualifiers unless marked qualified.",
+    "Nothing here places bets. Harsh places every ticket manually."
+  ]
+}
