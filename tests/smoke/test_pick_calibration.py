@@ -600,3 +600,177 @@ def test_excluded_team_models_still_get_an_immutable_first_publication_snapshot(
     mls["decision"] = "PASS"
     apply_calibration_to_payload(payload, active)
     assert mls["pregame_snapshot"]["decision"] == "LEAN"
+
+
+def test_mlb_new_ignores_the_cross_sport_group_shrink():
+    """A 62% MLB probability must not be rewritten into a coin flip.
+
+    The active mlb_new h2h group (intercept -0.127, slope 0.636) maps 0.62
+    to about 0.55 and then the edge floor PASSes the row. The classifier
+    probability is already isotonic-calibrated inside the MLB artifact.
+    """
+    from scripts.pick_calibration import calibration_group_key
+
+    group = calibration_group_key("mlb_new", "MLB", "h2h", "MLB Model")
+    active = {
+        "version": "test-mlb-identity",
+        "minimum_group_samples": 30,
+        "global": {"intercept": -0.15854708, "slope": 0.74287503, "samples": 838},
+        "groups": {
+            group: {"intercept": -0.12670385, "slope": 0.63598861, "samples": 98},
+        },
+    }
+    pick = _pick(
+        sport="MLB",
+        source="MLB Model",
+        pick="Yankees ML",
+        stat_key="",
+        market="h2h",
+        probability=0.62,
+        decision="LEAN",
+        edge=9.6,
+        odds=-110,
+        units=0.25,
+    )
+    payload = {"models": {"mlb_new": {"picks": [pick]}}}
+    apply_calibration_to_payload(payload, active)
+    adjusted = payload["models"]["mlb_new"]["picks"][0]
+
+    assert adjusted["calibration"]["key"] == "identity_bootstrap"
+    assert adjusted["calibration"]["bootstrap"] is True
+    assert abs(adjusted["probability"] - 0.62) < 1e-9
+    assert adjusted["decision"] == "LEAN"
+    assert adjusted["units"] > 0
+
+
+def test_priced_mlb_moneyline_keeps_the_model_number():
+    """A posted no-vig must not replace the guarded model probability.
+
+    On 1,061 priced 2026 rows that model number trails the posted no-vig
+    (Brier 0.244698 vs 0.239339). Copying the price would hide the gap and
+    force the row to PASS. The published probability stays 0.62.
+    """
+    from scripts.pick_calibration import calibration_group_key
+
+    group = calibration_group_key("mlb_new", "MLB", "h2h", "MLB Model")
+    active = {
+        "version": "test-mlb-keep-model",
+        "minimum_group_samples": 30,
+        "global": {"intercept": -0.16, "slope": 0.74, "samples": 800},
+        "groups": {
+            group: {"intercept": -0.12670385, "slope": 0.63598861, "samples": 98},
+        },
+    }
+    pick = _pick(
+        sport="MLB",
+        source="MLB Model",
+        pick="Yankees ML",
+        stat_key="",
+        market="h2h",
+        probability=0.62,
+        decision="LEAN",
+        edge=9.6,
+        odds=-110,
+        units=0.25,
+        market_no_vig_selected_probability=0.55,
+    )
+    payload = {"models": {"mlb_new": {"picks": [pick]}}}
+    apply_calibration_to_payload(payload, active)
+    adjusted = payload["models"]["mlb_new"]["picks"][0]
+
+    assert adjusted["calibration"]["key"] == "identity_bootstrap"
+    assert adjusted["raw_probability"] == 0.62
+    assert abs(adjusted["calibrated_probability"] - 0.62) < 1e-9
+    assert abs(adjusted["probability"] - 0.62) < 1e-9
+    assert adjusted["decision"] == "LEAN"
+    assert adjusted["units"] > 0
+
+
+def test_mlb_team_total_group_that_worsened_brier_stays_identity():
+    from scripts.pick_calibration import calibration_group_key
+
+    group = calibration_group_key("mlb_team_total", "MLB", "team_total", "MLB Team Total")
+    active = {
+        "version": "test-tt-identity",
+        "minimum_group_samples": 30,
+        "global": {"intercept": -0.16, "slope": 0.74, "samples": 800},
+        "groups": {
+            group: {"intercept": -0.09977159, "slope": 0.75839543, "samples": 38},
+        },
+    }
+    pick = _pick(
+        sport="MLB",
+        source="MLB Team Total",
+        pick="Yankees Team Total Over 4.5",
+        stat_key="",
+        market="team_total",
+        probability=0.58,
+        decision="LEAN",
+        edge=5.5,
+        odds=-110,
+        units=0.25,
+    )
+    payload = {"models": {"mlb_team_total": {"picks": [pick]}}}
+    apply_calibration_to_payload(payload, active)
+    adjusted = payload["models"]["mlb_team_total"]["picks"][0]
+
+    assert adjusted["calibration"]["key"] == "identity_bootstrap"
+    assert abs(adjusted["probability"] - 0.58) < 1e-9
+    assert adjusted["decision"] == "LEAN"
+
+
+def test_wnba_group_calibration_still_shrinks_overconfident_totals():
+    from scripts.pick_calibration import calibration_group_key
+
+    group = calibration_group_key("wnba", "WNBA", "totals", "WNBA Model")
+    active = {
+        "version": "test-wnba-group",
+        "minimum_group_samples": 30,
+        "global": {"intercept": 0.0, "slope": 1.0, "samples": 100},
+        "groups": {
+            group: {"intercept": -0.26821632, "slope": 0.64182909, "samples": 75},
+        },
+    }
+    pick = _pick(
+        sport="WNBA",
+        source="WNBA Model",
+        pick="Under 180.5",
+        stat_key="",
+        market="totals",
+        probability=0.66,
+        decision="LEAN",
+        edge=12.0,
+        odds=-110,
+        units=0.25,
+    )
+    payload = {"models": {"wnba": {"picks": [pick]}}}
+    apply_calibration_to_payload(payload, active)
+    adjusted = payload["models"]["wnba"]["picks"][0]
+
+    assert adjusted["calibration"]["key"] == group
+    assert adjusted["probability"] < 0.60
+
+
+def test_group_fit_does_not_inherit_the_cross_sport_intercept():
+    from scripts.pick_calibration import calibrated_probability
+    from scripts.train_pick_calibration import fit_mapping
+
+    rows = []
+    for index in range(180):
+        rows.append({
+            "raw_probability": 0.78,
+            "outcome": 1 if index % 5 == 0 else 0,
+            "calibration_group": "other_sport",
+        })
+    for index in range(40):
+        rows.append({
+            "raw_probability": 0.62,
+            "outcome": 1 if index < 25 else 0,
+            "calibration_group": "mlb_body",
+        })
+    mapping = fit_mapping(rows)
+    group = mapping["groups"]["mlb_body"]
+    published = calibrated_probability(0.62, group)
+
+    assert mapping["global"]["intercept"] < -0.05
+    assert published > 0.55

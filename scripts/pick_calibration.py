@@ -61,8 +61,24 @@ DECISION_DOWNGRADE_EXEMPT_MODEL_KEYS = {"mlb_inning"}
 # pooled fit is dominated by player props and other sports; measured on settled
 # rows it worsened Brier for mlb_new (+0.0013) and mlb_team_total (+0.0012) and
 # shifted the lone live nba row 0.691 -> 0.651 without being able to touch its
-# unpriced decision. A model earns a shift only from its own calibration group.
+# unpriced decision. A model earns a shift only from its own calibration group,
+# except mlb_new and mlb_team_total, whose earned groups are the cross-sport
+# shrink and stay on identity (see the note under the exempt set).
 GLOBAL_FALLBACK_EXEMPT_MODEL_KEYS = {"mlb_team_total", "mlb_new", "wnba", "mlb_inning", "nba", "nba_playoffs"}
+# These models already publish a probability from their own artifact.
+# mlb_new's isotonic body (raw 0.574) hit 340-226, 60.1%, across graded
+# 2026 selections. The shared group Platt was shrunk toward the cross-sport
+# global prior (intercept about -0.16) and moved that same 0.574 to about
+# 0.516, so the slate published as a coin flip and the unchanged consensus
+# gate correctly rejected it. mlb_team_total's group fit moved Brier the
+# wrong way (0.2344 raw to 0.2426 calibrated) by pulling a 0.577 mean toward
+# 0.534 while the outcomes sat at 0.658. They stay on identity even after a
+# group crosses the sample minimum. WNBA keeps its group: that fit improved
+# Brier, because the raw totals probabilities were over-confident.
+# On 1,061 priced 2026 mlb_new h2h rows the identity model number still
+# trails the posted no-vig (Brier 0.244698 vs 0.239339). That gap is recorded
+# here. The published probability stays the guarded model number. It is not
+# replaced with the posted price.
 ML_OWNED_PROBABILITY_SOURCE = "player_props_ml_v1"
 
 SNAPSHOT_EXCLUDED_FIELDS = {
@@ -226,9 +242,14 @@ def _calibration_parameters(
     group_key = calibration_group_key(model_key, sport, bet_type, source)
     groups = active.get("groups") if isinstance(active.get("groups"), dict) else {}
     group = groups.get(group_key)
+    normalized_key = str(model_key or "").strip().lower()
+    # Checked before the group lookup return. A populated mlb_new / team-total
+    # group is exactly the cross-sport shrink described above; applying it
+    # reintroduces the coin flip.
+    if normalized_key in {"mlb_new", "mlb_team_total"}:
+        return "identity_bootstrap", {}
     if isinstance(group, dict) and int(group.get("samples") or 0) >= int(active.get("minimum_group_samples") or MIN_GROUP_SAMPLES):
         return group_key, group
-    normalized_key = str(model_key or "").strip().lower()
     if normalized_key in GLOBAL_FALLBACK_EXEMPT_MODEL_KEYS or normalized_key in TEAM_PROP_MODEL_KEYS:
         # Identity parameters (intercept 0 / slope 1) leave the raw probability
         # untouched, so an in-house team model publishes on its own signal
