@@ -854,3 +854,46 @@ def test_wnba_schedule_imports_without_local_config(monkeypatch):
 
     assert module.BDL_API_KEY == ""
     assert callable(module.fetch_espn_schedule)
+
+
+def test_live_profiles_carry_last_ten_rolling_scoring(monkeypatch):
+    import WNBAPredictionModel.wnba_stats as wnba_stats
+
+    monkeypatch.setattr(wnba_stats, "scrape_bball_ref_ratings", lambda season=2026: {})
+    monkeypatch.setattr(wnba_stats, "scrape_bball_ref_four_factors", lambda season=2026: {})
+    monkeypatch.setattr(wnba_stats, "fetch_bdl_team_season_stats", lambda season=2026: {})
+    monkeypatch.setattr(wnba_stats, "_cache_is_fresh", lambda path: False)
+    monkeypatch.setattr(wnba_stats, "_write_cache", lambda path, profiles: None)
+
+    seen: list[tuple[str, int]] = []
+
+    def fake_rolling(team_abbr: str, n: int = 10, season: int = 2026) -> dict:
+        seen.append((team_abbr, n))
+        return {"pts": 84.0, "opp_pts": 80.0, "games_used": 10, "low_sample": False}
+
+    monkeypatch.setattr(wnba_stats, "get_rolling_stats", fake_rolling)
+
+    profiles = wnba_stats.get_all_team_stats(season=2026, force_refresh=True)
+    assert seen, "live profiles must request a rolling window"
+    assert all(n == 10 for _, n in seen)
+    sample = profiles["ATL"]
+    assert sample["rolling_pts"] == 84.0
+    assert sample["rolling_opp_pts"] == 80.0
+    assert sample["rolling_games_used"] == 10
+
+
+def test_scoring_rate_prefers_last_ten_over_season():
+    from WNBAPredictionModel.wnba_probability_layers import _scoring_rate
+
+    stats = {
+        "rolling_pts": 88.0,
+        "rolling_opp_pts": 82.0,
+        "rolling_games_used": 10,
+        "pts_pg": 78.0,
+        "opp_pts_pg": 78.0,
+    }
+    scored, n = _scoring_rate(stats, scored=True)
+    allowed, _ = _scoring_rate(stats, scored=False)
+    assert scored == 88.0
+    assert allowed == 82.0
+    assert n == 10

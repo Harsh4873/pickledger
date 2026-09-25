@@ -26,6 +26,7 @@ from scripts.merge_model_cache_payload import (  # noqa: E402
     demote_unpriced_team_model_picks,
     merge_payload,
     stamp_bucket_date_if_missing,
+    suppress_preseason_team_model_picks,
 )
 from scripts.mlb_team_consensus import apply_mlb_team_consensus_to_payload  # noqa: E402
 from scripts.pick_calibration import apply_calibration_to_payload  # noqa: E402
@@ -281,6 +282,8 @@ def _write_json_cache(date_iso: str, payload: dict[str, Any]) -> dict[str, Any]:
     # that just received a real posted price keeps its stake.
     demoted = demote_unpriced_team_model_picks(merged)
     print(f"[unpriced-demotion] demoted={demoted}")
+    suppressed = suppress_preseason_team_model_picks(merged)
+    print(f"[preseason-suppression] suppressed={suppressed}")
     for target in (MODEL_CACHE_DIR / f"{date_iso}.json", MODEL_CACHE_DIR / "latest.json"):
         with target.open("w", encoding="utf-8") as handle:
             json.dump(merged, handle, indent=2, sort_keys=True, default=str)

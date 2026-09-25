@@ -134,3 +134,51 @@ def test_certified_mlb_new_candidate_copies_slate_date_onto_date():
     assert candidate["slate_date"] == "2026-08-22"
     assert candidate["sport"] == "MLB"
     assert candidate["pick"] == "Yankees ML (Blue Jays vs Yankees)"
+
+
+def test_missing_or_invalid_grade_file_skips_without_blocking_run(monkeypatch, tmp_path):
+    import sys
+    from types import ModuleType
+
+    import scripts.auto_grade_picks as auto_grade_picks
+
+    for broken in (None, {"no_records": True}, {"records": "not-a-list"}):
+        ledger_module = ModuleType("scripts.team_prop_pregame_ledger")
+
+        def load_team_prop_pregame_ledger(*, repo_root, _payload=broken):
+            return _payload
+
+        def write_team_prop_pregame_ledger(payload, *, repo_root):
+            raise AssertionError("must not write when the grade file is unusable")
+
+        ledger_module.load_team_prop_pregame_ledger = load_team_prop_pregame_ledger
+        ledger_module.write_team_prop_pregame_ledger = write_team_prop_pregame_ledger
+        monkeypatch.setitem(sys.modules, "scripts.team_prop_pregame_ledger", ledger_module)
+
+        summary = auto_grade_picks.grade_certified_team_prop_snapshots(tmp_path)
+        assert summary["available"] is False
+        assert summary["graded"] == 0
+        assert summary["changed"] is False
+
+
+def test_unreadable_grade_file_skips_without_blocking_run(monkeypatch, tmp_path):
+    import sys
+    from types import ModuleType
+
+    import scripts.auto_grade_picks as auto_grade_picks
+
+    ledger_module = ModuleType("scripts.team_prop_pregame_ledger")
+
+    def load_team_prop_pregame_ledger(*, repo_root):
+        raise OSError("disk gone")
+
+    def write_team_prop_pregame_ledger(payload, *, repo_root):
+        raise AssertionError("must not write when the grade file is unusable")
+
+    ledger_module.load_team_prop_pregame_ledger = load_team_prop_pregame_ledger
+    ledger_module.write_team_prop_pregame_ledger = write_team_prop_pregame_ledger
+    monkeypatch.setitem(sys.modules, "scripts.team_prop_pregame_ledger", ledger_module)
+
+    summary = auto_grade_picks.grade_certified_team_prop_snapshots(tmp_path)
+    assert summary["available"] is False
+    assert summary["graded"] == 0

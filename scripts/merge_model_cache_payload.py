@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import sys
 from pathlib import Path
 from typing import Any
@@ -83,6 +84,8 @@ def _demote_unpriced_tennis_picks(payload: dict[str, Any]) -> tuple[dict[str, An
 
 
 # In-house team-model buckets whose staked rows must carry an executable price.
+# "nhl" has no live bucket yet; listing it keeps a future hockey model under
+# the same price discipline from its first slate.
 UNPRICED_STAKE_DEMOTION_KEYS = {
     "mlb_new",
     "mlb_inning",
@@ -96,7 +99,96 @@ UNPRICED_STAKE_DEMOTION_KEYS = {
     "mls",
     "nfl",
     "cfb",
+    "nhl",
 }
+
+PRESEASON_SEASON_TYPES = frozenset({
+    "pre",
+    "preseason",
+    "exhibition",
+    "spring_training",
+    "spring training",
+    "spring",
+})
+
+TEAM_TOTAL_MARKETS = frozenset({"team_total", "team total", "teamtotal"})
+
+_TEAM_TOTAL_MEAN_FIELDS = (
+    "model_prediction",
+    "projection",
+    "projected_total",
+    "predicted_total",
+    "mean",
+    "model_mean",
+)
+
+
+def _is_preseason_pick(pick: dict[str, Any]) -> bool:
+    for key in ("season_type", "seasonType", "game_type", "gameType"):
+        value = str(pick.get(key) or "").strip().lower()
+        if value in PRESEASON_SEASON_TYPES:
+            return True
+    return False
+
+
+def _team_total_mean(pick: dict[str, Any]) -> float | None:
+    for key in _TEAM_TOTAL_MEAN_FIELDS:
+        try:
+            value = float(pick.get(key))
+        except (TypeError, ValueError):
+            continue
+        if math.isfinite(value):
+            return value
+    return None
+
+
+def suppress_preseason_team_model_picks(payload: dict[str, Any]) -> int:
+    """Publish preseason rows with no staked side; gate team totals on price+mean.
+
+    Preseason games (e.g. an 11-game NHL exhibition slate) are not modelable
+    from regular-season features: rotations are experimental and prices are
+    thin. Any BET/LEAN row stamped with a preseason season type becomes PASS
+    research at 0u with the model's side preserved. Regular-season team-total
+    rows additionally need an executable price and a real model mean; a stake
+    with neither priced edge nor a number behind it is research.
+
+    Applies to every bucket (in-house and future models alike). Mutates the
+    payload in place and returns the number of suppressed rows.
+    """
+
+    models = payload.get("models")
+    if not isinstance(models, dict):
+        return 0
+    changed = 0
+    for bucket in models.values():
+        if not isinstance(bucket, dict):
+            continue
+        for pick in bucket.get("picks") or []:
+            if not isinstance(pick, dict):
+                continue
+            decision = str(pick.get("decision") or "").strip().upper()
+            if decision not in {"BET", "LEAN"}:
+                continue
+            reason: str | None = None
+            if _is_preseason_pick(pick):
+                reason = "preseason:no_staked_side"
+            else:
+                market = str(pick.get("market") or pick.get("market_type") or "").strip().lower()
+                if market in TEAM_TOTAL_MARKETS:
+                    if _missing_executable_odds(pick):
+                        reason = "team_total:no_executable_price"
+                    elif _team_total_mean(pick) is None:
+                        reason = "team_total:no_model_mean"
+            if reason is None:
+                continue
+            pick.setdefault("source_decision", decision)
+            pick.setdefault("source_units", pick.get("units"))
+            pick["decision"] = "PASS"
+            pick["units"] = 0
+            pick["publish_gate_suppressed"] = True
+            pick["decision_reason"] = reason
+            changed += 1
+    return changed
 
 
 def _still_assumed_price(pick: dict[str, Any]) -> bool:

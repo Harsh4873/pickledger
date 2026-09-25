@@ -356,12 +356,36 @@ def grade_certified_team_prop_snapshots(repo_root: Path = REPO_ROOT) -> dict[str
         }
 
     load, write = storage
-    payload = load(repo_root=repo_root)
+    try:
+        payload = load(repo_root=repo_root)
+    except Exception as exc:
+        print(f"[auto-grade] certified team-prop ledger unreadable ({exc}); skipping")
+        return {
+            "available": False,
+            "candidates": 0,
+            "graded": 0,
+            "start_times": 0,
+            "changed": False,
+        }
     if not isinstance(payload, dict):
-        raise RuntimeError("team-prop pregame ledger returned an invalid payload")
+        print("[auto-grade] certified team-prop ledger returned an invalid payload; skipping")
+        return {
+            "available": False,
+            "candidates": 0,
+            "graded": 0,
+            "start_times": 0,
+            "changed": False,
+        }
     records = payload.get("records")
     if not isinstance(records, list):
-        raise RuntimeError("team-prop pregame ledger is missing its records list")
+        print("[auto-grade] certified team-prop ledger is missing its records list; skipping")
+        return {
+            "available": False,
+            "candidates": 0,
+            "graded": 0,
+            "start_times": 0,
+            "changed": False,
+        }
 
     candidates: list[dict[str, Any]] = []
     records_by_id: dict[str, dict[str, Any]] = {}

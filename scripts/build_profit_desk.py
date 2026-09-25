@@ -602,23 +602,40 @@ def _timing(
     start_value = _first(record, "game_start_time", "start_time", "event_start_time")
     timestamp = _parse_timestamp(timestamp_value)
     start = _parse_timestamp(start_value)
+    # The publish clock is when this slate payload was built. A book price
+    # posted days before kickoff is fresh when the slate publishes near the
+    # stamp; measuring age against kickoff instead would kill every early
+    # line (e.g. an NFL number posted two days out).
+    publish_value: Any = None
+    for container in (bucket, payload):
+        if not isinstance(container, Mapping):
+            continue
+        publish_value = _first(container, "updatedAt", "generatedAt")
+        if publish_value not in (None, ""):
+            break
+    publish_time = _parse_timestamp(publish_value)
     blockers: list[str] = []
     age_hours: float | None = None
+    lead_hours: float | None = None
     if timestamp is None:
         blockers.append("missing_or_invalid_price_timestamp")
     if start is None:
         blockers.append("missing_or_invalid_game_start_time")
     if timestamp is not None and start is not None:
-        age_hours = (start - timestamp).total_seconds() / 3600.0
-        if age_hours < 0:
+        lead_hours = (start - timestamp).total_seconds() / 3600.0
+        if lead_hours < 0:
             blockers.append("price_not_pregame")
-        elif age_hours > MAX_PRICE_AGE_HOURS:
+    if timestamp is not None and publish_time is not None:
+        age_hours = (publish_time - timestamp).total_seconds() / 3600.0
+        if age_hours > MAX_PRICE_AGE_HOURS:
             blockers.append("stale_price")
     return {
         "timestamp": _text(timestamp_value) or None,
         "timestampField": timestamp_field or None,
         "startTime": _text(start_value) or None,
+        "publishTime": _text(publish_value) or None,
         "ageHours": round(age_hours, 3) if age_hours is not None else None,
+        "startLeadHours": round(lead_hours, 3) if lead_hours is not None else None,
         "freshPregame": not blockers,
         "maxAgeHours": MAX_PRICE_AGE_HOURS,
         "blockers": blockers,
@@ -1142,7 +1159,9 @@ def _raw_candidate(context: RecordContext, date_iso: str) -> RawCandidate:
         "timestamp": timing["timestamp"],
         "timestampField": timing["timestampField"],
         "startTime": timing["startTime"],
+        "publishTime": timing["publishTime"],
         "ageHours": timing["ageHours"],
+        "startLeadHours": timing["startLeadHours"],
         "freshPregame": timing["freshPregame"],
         "maxAgeHours": timing["maxAgeHours"],
         "noVigVerified": no_vig.verified,
@@ -1981,21 +2000,21 @@ def _sync_artifact_results(
             for row in (bucket if isinstance(bucket, list) else [])
             if isinstance(row, dict)
         ]
-        needs_sync = [
-            row
-            for row in rows
-            if _result(row.get("result")) == "pending" or "closing" not in row
-        ]
-        if not needs_sync:
-            continue
         results, closings = _grade_sync_maps(model_dir, player_dir, path.stem)
         if not results and not closings:
             continue
         updated = False
-        for row in needs_sync:
+        for row in rows:
             key = (_text(row.get("sourceKey")), _text(row.get("marketIdentity")))
             result = results.get(key)
-            if result and result != _result(row.get("result")):
+            current = _result(row.get("result"))
+            if result and result != current:
+                # The source cache is the grading authority. A settled row
+                # whose cache grade later corrects (e.g. an early win settled
+                # from a partial feed) converges here; the prior value is
+                # kept so corrections stay visible.
+                if current in {"win", "loss", "push"}:
+                    row["resultCorrectedFrom"] = current
                 row["result"] = result
                 updated = True
             # Closing attaches once, only after the pick settles, so the value

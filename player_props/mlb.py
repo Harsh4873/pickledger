@@ -417,6 +417,33 @@ def _binomial_over_probability(per_trial: float, trials: float, line: float) -> 
     return _clamp(probability, 0.01, 0.99)
 
 
+# Counting stats at low lines are Poisson-like: a normal with sigma 1.2
+# mints phantom Over edge for low means and misprices the Under side.
+POISSON_COUNT_STATS = frozenset({
+    "runs",
+    "rbis",
+    "singles",
+    "doubles",
+    "triples",
+    "home_runs",
+    "stolen_bases",
+    "hits_runs_rbis",
+})
+POISSON_MAX_LINE = 2.5
+
+
+def _poisson_over_probability(mean: float, line: float) -> float:
+    mu = max(0.02, min(12.0, mean))
+    threshold = max(1, int(math.floor(line)) + 1)
+    cumulative = 0.0
+    term = math.exp(-mu)
+    for outcome in range(threshold):
+        if outcome > 0:
+            term *= mu / outcome
+        cumulative += term
+    return _clamp(1.0 - cumulative, 0.01, 0.99)
+
+
 def _american_odds(value: Any) -> int | None:
     text = str(value or "").strip().replace("+", "")
     if not text:
@@ -1070,12 +1097,15 @@ def _hitter_props(
             if per_game <= 0:
                 continue
             projection = per_game * run_creation_adjustment
-            over_probability = normal_probability(
-                projection,
-                line,
-                max(1.20, math.sqrt(max(0.5, projection)) * 0.95),
-                "Over",
-            )
+            if stat_key in POISSON_COUNT_STATS and line <= POISSON_MAX_LINE:
+                over_probability = _poisson_over_probability(projection, line)
+            else:
+                over_probability = normal_probability(
+                    projection,
+                    line,
+                    max(1.20, math.sqrt(max(0.5, projection)) * 0.95),
+                    "Over",
+                )
             stat_label = str(market.get("stat_label") or stat_key)
             market_factors = [
                 f"Season {stat_label.lower()} per game {per_game:.2f} over {int(games_played)} games",

@@ -384,15 +384,19 @@ def _h2h_hits_over_probability(pick: dict[str, Any]) -> tuple[float | None, str 
     if at_bats < 3:
         return None, None
     average = hits / at_bats
+    # Shrink tiny H2H samples toward the league average: 0-for-3 raw would
+    # mint an 88.5% Under at a 0.5 hits line. The 25-AB prior keeps small
+    # samples near 0.245 while letting real samples (20+ AB) dominate.
+    shrunk = (hits + 0.245 * 25.0) / (at_bats + 25.0)
     expected_at_bats = 4.1
     line = safe_float(pick.get("line"))
     threshold = max(1, int(math.floor(line)) + 1)
     probability = 0.0
     trials = max(1, int(round(expected_at_bats)))
-    p = _clamp(average, 0.03, 0.62)
+    p = _clamp(shrunk, 0.03, 0.62)
     for successes in range(threshold, trials + 1):
         probability += math.comb(trials, successes) * (p ** successes) * ((1.0 - p) ** (trials - successes))
-    return _clamp(probability), f"Batter-vs-pitcher H2H {hits}-for-{at_bats} ({average:.3f})"
+    return _clamp(probability), f"Batter-vs-pitcher H2H {hits}-for-{at_bats} ({average:.3f}, shrunk {shrunk:.3f})"
 
 
 def _matchup_choice(pick: dict[str, Any]) -> tuple[str, float, int, float, list[str]] | None:

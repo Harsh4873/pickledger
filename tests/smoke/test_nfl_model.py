@@ -372,3 +372,26 @@ def test_ladder_prefers_a_validated_lean_band_under_bet_and_never_pools_directio
     assert by_tier["lean"]["min_residual"] == 1.0 and by_tier["lean"]["max_residual"] == by_tier["bet"]["min_residual"]
     assert by_tier["bet"]["units"] > by_tier["lean"]["units"]
     assert build_ladder(oof, market_key="total", direction="over", pred_key="total_pred", actual_key="total_residual", odds_keys=("over_odds", "under_odds")) == []
+
+
+def test_total_probability_is_symmetric_in_residual_sign(monkeypatch):
+    # A -1.8 and a +1.8 residual publish the same cover probability: the
+    # total head is a symmetric normal curve on |residual|. An asymmetric
+    # curve fit on the same history it was scored on made the 9/13 replay
+    # worse (Brier 0.249 -> 0.258) and must not ship.
+    rows = [
+        _game("2026-09-06", 2026, 1, "KC", "BAL", 30, 10, -3.0, 46.5),
+        _game("2026-09-13", 2026, 2, "KC", "CIN", None, None, -4.5, 48.0),
+    ]
+    now = datetime(2026, 9, 13, 12, 0, tzinfo=timezone.utc)
+    under = _serve(monkeypatch, rows, "2026-09-13", now, _artifacts(total_residual=-1.8, policy=UNDER_GATE))
+    over = _serve(monkeypatch, rows, "2026-09-13", now, _artifacts(total_residual=1.8, policy=UNDER_GATE))
+    under_total = next(pick for pick in under["picks"] if pick["market"] == "totals")
+    over_total = next(pick for pick in over["picks"] if pick["market"] == "totals")
+    assert under_total["direction"] == "under"
+    assert over_total["direction"] == "over"
+    assert under_total["probability"] == pytest.approx(over_total["probability"])
+    # The stake gate is unchanged by the shape: only the validated Under
+    # segment stakes; the Over side stays research at any residual.
+    assert under_total["decision"] == "BET" and under_total["units"] == 0.5
+    assert over_total["decision"] == "PASS" and over_total["units"] == 0

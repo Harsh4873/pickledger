@@ -887,3 +887,112 @@ def test_published_past_artifacts_are_frozen_against_reselection(tmp_path: Path)
     assert len(live_rows) == 1
     assert live_rows[0]["result"] == "win"
     assert all("Hindsight" not in str(row.get("pick")) for row in frozen["candidates"])
+
+
+def test_early_line_is_fresh_when_slate_publishes_near_the_stamp():
+    # An NFL line posted two days before kickoff must survive when the slate
+    # publishes near the stamp: staleness runs against the publish clock,
+    # while the kickoff only enforces the pregame requirement.
+    early = make_pick(
+        pick="Early NFL ML",
+        game="Early @ Bird",
+        slate_date="2026-09-11",
+        updated_at="2026-09-11T16:00:00Z",
+        start_time="2026-09-13T20:00:00Z",
+    )
+    payload = make_payload([early], slate_date="2026-09-11")
+    payload["generatedAt"] = "2026-09-11T18:00:00Z"
+    timing = desk._timing(early, payload["models"]["test"], payload)
+    assert timing["freshPregame"] is True
+    assert timing["blockers"] == []
+    assert timing["ageHours"] == pytest.approx(2.0)
+    assert timing["startLeadHours"] == pytest.approx(52.0)
+
+
+def test_republished_old_stamp_goes_stale_against_publish_clock():
+    # The same early stamp republished two days later without a refresh is
+    # genuinely stale: the book price may have moved since.
+    republished = make_pick(
+        pick="Republished NFL ML",
+        game="Early @ Bird",
+        slate_date="2026-09-13",
+        updated_at="2026-09-11T16:00:00Z",
+        start_time="2026-09-13T20:00:00Z",
+    )
+    payload = make_payload([republished], slate_date="2026-09-13")
+    payload["generatedAt"] = "2026-09-13T18:00:00Z"
+    timing = desk._timing(republished, payload["models"]["test"], payload)
+    assert timing["freshPregame"] is False
+    assert "stale_price" in timing["blockers"]
+    assert "price_not_pregame" not in timing["blockers"]
+
+
+def test_post_start_stamp_is_not_pregame_even_when_publish_is_near():
+    late = make_pick(
+        pick="Late ML",
+        game="Late @ Early",
+        slate_date="2026-09-13",
+        updated_at="2026-09-13T21:00:00Z",
+        start_time="2026-09-13T20:00:00Z",
+    )
+    payload = make_payload([late], slate_date="2026-09-13")
+    payload["generatedAt"] = "2026-09-13T21:30:00Z"
+    timing = desk._timing(late, payload["models"]["test"], payload)
+    assert timing["freshPregame"] is False
+    assert "price_not_pregame" in timing["blockers"]
+
+
+def test_settled_desk_result_converges_when_cache_grade_corrects(tmp_path):
+    # Langford Under 0.5 walks, 2026-07-22: the desk synced an early win and
+    # attached a closing, then the cache corrected to the true loss. The desk
+    # must converge to the grading authority instead of freezing the error.
+    from pathlib import Path
+
+    model_dir = tmp_path / "model_cache"
+    player_dir = tmp_path / "player_cache"
+    output_dir = tmp_path / "profit_desk"
+    model_dir.mkdir()
+    player_dir.mkdir()
+    output_dir.mkdir()
+
+    record = make_pick(
+        pick="Wyatt Langford Under 0.5 Walks",
+        game="Chicago White Sox @ Texas Rangers",
+        slate_date=DATE,
+        sport="MLB",
+        player="Wyatt Langford",
+        direction="Under",
+        line=0.5,
+        market="batter_walks",
+        result="loss",
+    )
+    (player_dir / f"{DATE}.json").write_text(
+        json.dumps(make_payload([record], slate_date=DATE)), encoding="utf-8"
+    )
+    identity = desk.canonical_market_identity(record, mode="player", sport="MLB", date_iso=DATE)
+    stale_row = {
+        "pick": "Wyatt Langford Under 0.5 Walks",
+        "sourceKey": "test",
+        "marketIdentity": identity,
+        "result": "win",
+        "decimalOdds": 1.59,
+        "closing": {"oddsAmerican": -169, "decimalOdds": 1.59},
+    }
+    (output_dir / f"{DATE}.json").write_text(
+        json.dumps(
+            {
+                "date": DATE,
+                "summary": {"liveRecord": {}, "researchRecord": {}},
+                "candidates": [dict(stale_row)],
+                "portfolio": {"live": [dict(stale_row)], "all": [dict(stale_row)]},
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    changed = desk._sync_artifact_results(output_dir, model_dir, player_dir)
+    assert changed == 1
+    synced = json.loads((output_dir / f"{DATE}.json").read_text(encoding="utf-8"))
+    for row in synced["candidates"] + synced["portfolio"]["live"] + synced["portfolio"]["all"]:
+        assert row["result"] == "loss"
+        assert row["resultCorrectedFrom"] == "win"

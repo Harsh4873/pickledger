@@ -1406,3 +1406,48 @@ def test_guard_and_publication_share_documented_abstention_rule():
     assert documented_abstention is _mlb_player_props_documented_abstention
     assert not documented_abstention({'ok': True, 'abstained': True, 'picks': []})
     assert not documented_abstention({'ok': False, 'abstained': True, 'candidate_count': 10})
+
+
+def test_count_props_use_poisson_at_low_lines():
+    from player_props.mlb import _poisson_over_probability
+
+    # Low mean, 0.5 line: Over is rare, Under clears the juice.
+    assert _poisson_over_probability(0.49, 0.5) == pytest.approx(0.387, abs=0.005)
+    assert _poisson_over_probability(0.17, 0.5) == pytest.approx(0.156, abs=0.005)
+    # HRR line: mean 0.9 stays Under-leaning without the normal overshoot.
+    assert _poisson_over_probability(0.9, 1.5) == pytest.approx(0.228, abs=0.005)
+    # A strong Over mean still clears.
+    assert _poisson_over_probability(2.2, 1.5) == pytest.approx(0.645, abs=0.005)
+
+
+def test_low_mean_over_does_not_mint_edge_but_strong_under_stays_lean():
+    from player_props.schema import american_implied_probability, decision_and_stake
+    from player_props.mlb import _poisson_over_probability
+
+    # Mean 0.49 at a 0.5 RBIs line and +165: 38.7% vs 37.7% implied is PASS.
+    over = _poisson_over_probability(0.49, 0.5)
+    decision, _, _, _, _ = decision_and_stake(over, 165)
+    assert decision == "PASS"
+
+    # Mean 0.17 Under 0.5 at -110 still clears the juice: LEAN or better.
+    under = 1.0 - _poisson_over_probability(0.17, 0.5)
+    assert under > (american_implied_probability(-110) or 0.0) + 0.03
+    decision, _, _, _, _ = decision_and_stake(under, -110)
+    assert decision in {"LEAN", "BET"}
+
+
+def test_h2h_small_sample_is_shrunk_not_extreme():
+    from player_props.variants import _h2h_hits_over_probability
+
+    pick = {"stat_key": "hits", "line": 0.5, "h2h": {"at_bats": 3, "hits": 0}}
+    over_probability, note = _h2h_hits_over_probability(pick)
+    assert over_probability is not None
+    # Raw 0-for-3 minted 88.5% Under; shrunk it sits near 37% Under (PASS).
+    assert over_probability == pytest.approx(0.628, abs=0.01)
+    assert "shrunk" in (note or "")
+
+    # A real sample still moves the needle.
+    over_big, _ = _h2h_hits_over_probability(
+        {"stat_key": "hits", "line": 0.5, "h2h": {"at_bats": 30, "hits": 3}}
+    )
+    assert over_big is not None and over_big < over_probability

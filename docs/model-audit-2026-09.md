@@ -226,3 +226,22 @@ refresh log. Retrain with the manual `NFL Model Training` / `CFB Model
 Training` workflows; both write the validated `decision_policy` into the
 artifact metadata, so a retrain that finds no qualifying segment publishes
 research only.
+
+## Addendum 2026-09-21 — MLB moneyline model-vs-market gap (no override)
+
+A follow-up audit of priced 2026 `mlb_new` moneylines found the guarded model
+still trails the posted no-vig price: Brier 0.245 (model) vs 0.239 (no-vig)
+on 1,061 rows. Replicated on the committed cache 2026-06-04 … 2026-09-21
+(decided moneyline rows with both a model and a no-vig probability):
+1,073 rows, model 0.2455 vs market 0.2403. Same gap, same direction.
+
+Policy, recorded so it is not re-litigated:
+
+- The flatten guard stays: distinct raw scores must not collapse into one
+  published number, and a home-side raw score must not publish as the away
+  side. (No such guard code exists on `main`; if one is added it must be
+  validated out of fold, never fit on the history it is scored on.)
+- The market-price override is off: priced moneylines publish the guarded
+  model number. The price is never copied over the model and the path never
+  forces PASS at 0u for having a worse Brier than the market — the gate is
+  the selector, not the model, and the gap above stays written down here.

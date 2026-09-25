@@ -597,12 +597,18 @@ def get_all_team_stats(season: int = 2026, force_refresh: bool = False) -> dict:
 
     profiles = {}
     for team_abbr in WNBA_TEAM_MAP:
+        try:
+            rolling = get_rolling_stats(team_abbr, n=10, season=season)
+        except Exception:
+            rolling = {}
+        if not isinstance(rolling, dict):
+            rolling = {}
         profiles[team_abbr] = build_team_stats_profile(
             team_abbr=team_abbr,
             ratings=ratings,
             four_factors=four_factors,
             bdl_season=bdl_season,
-            rolling={},
+            rolling=rolling,
         )
 
     _write_cache(path, profiles)

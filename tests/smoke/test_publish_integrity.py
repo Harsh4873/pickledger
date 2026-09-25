@@ -107,3 +107,40 @@ def test_refresh_pipeline_freezes_then_demotes_in_order():
     body = source.split("def _write_json_cache")[1]
     assert body.index("freeze_started_games(payload)") < body.index("merge_payload(payload")
     assert body.index("apply_market_odds_to_payload(merged)") < body.index("demote_unpriced_team_model_picks(merged)")
+
+
+def test_preseason_rows_publish_no_staked_side():
+    from scripts.merge_model_cache_payload import suppress_preseason_team_model_picks
+
+    exhibition = _pick(decision="BET", units=0.5, odds=-110, sport="NHL", season_type="Preseason",
+                       game_id="nhl-pre-1")
+    regular = _pick(decision="LEAN", units=0.25, odds=-110, sport="NHL", season_type="REG",
+                    game_id="nhl-reg-1")
+    payload = {"models": {"nhl": {"picks": [exhibition, regular]}}}
+
+    assert suppress_preseason_team_model_picks(payload) == 1
+    assert exhibition["decision"] == "PASS" and exhibition["units"] == 0
+    assert exhibition["source_decision"] == "BET"
+    assert exhibition["decision_reason"] == "preseason:no_staked_side"
+    assert exhibition["publish_gate_suppressed"] is True
+    assert regular["decision"] == "LEAN" and regular["units"] == 0.25
+
+
+def test_team_totals_need_a_price_and_a_real_mean():
+    from scripts.merge_model_cache_payload import suppress_preseason_team_model_picks
+
+    no_price = _pick(decision="LEAN", units=0.25, odds=None, market="team_total",
+                     model_prediction=4.8, game_id="tt-1")
+    no_mean = _pick(decision="LEAN", units=0.25, odds=-115, market="team_total", game_id="tt-2")
+    good = _pick(decision="LEAN", units=0.25, odds=-115, market="team_total",
+                 model_prediction=4.8, game_id="tt-3")
+    moneyline = _pick(decision="LEAN", units=0.25, odds=-115, market="h2h", game_id="ml-1")
+    payload = {"models": {"mlb_team_total": {"picks": [no_price, no_mean, good, moneyline]}}}
+
+    assert suppress_preseason_team_model_picks(payload) == 2
+    assert no_price["decision"] == "PASS"
+    assert no_price["decision_reason"] == "team_total:no_executable_price"
+    assert no_mean["decision"] == "PASS"
+    assert no_mean["decision_reason"] == "team_total:no_model_mean"
+    assert good["decision"] == "LEAN"
+    assert moneyline["decision"] == "LEAN"
