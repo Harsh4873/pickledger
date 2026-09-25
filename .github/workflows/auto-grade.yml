@@ -73,6 +73,16 @@ jobs:
           path: /tmp/model-evaluation.json
           retention-days: 30
 
+      - name: Score every in-house model
+        run: python scripts/inhouse_model_scorecard.py --output /tmp/inhouse-model-scorecard.json
+
+      - name: Save in-house model scorecard
+        uses: actions/upload-artifact@v4
+        with:
+          name: inhouse-model-scorecard
+          path: /tmp/inhouse-model-scorecard.json
+          retention-days: 30
+
       - name: Commit and Push Changes
         id: commit-grades
         run: |

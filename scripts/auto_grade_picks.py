@@ -25,11 +25,14 @@ from scripts.merge_external_feed_cache_payload import EXTERNAL_FEED_MODEL_KEYS  
 from scripts.merge_model_cache_payload import DEPLOYED_MODEL_KEYS  # noqa: E402
 from scripts.scrapers.tennis_scraper import grade_tennis_picks, is_tennis_pick  # noqa: E402
 from scripts.team_prop_pregame_ledger import FORECAST_AUDIT_MODEL_KEYS  # noqa: E402
+from scripts.merge_player_props_cache_payload import PUBLIC_PLAYER_PROP_MODEL_KEYS  # noqa: E402
 
 IN_HOUSE_GRADE_SCOPES = {
     str(key).strip().lower()
     for key in DEPLOYED_MODEL_KEYS
     if key not in EXTERNAL_FEED_MODEL_KEYS
+} | {
+    str(key).strip().lower() for key in PUBLIC_PLAYER_PROP_MODEL_KEYS
 }
 
 

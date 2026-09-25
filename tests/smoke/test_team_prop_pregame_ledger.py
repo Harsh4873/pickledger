@@ -38,6 +38,7 @@ def _payload(
         "market_priced": True,
         "pricing_type": pricing_type,
         "odds_source": "user_assumed_price" if assumed else "sportsbook_observed",
+        "market_updated_at": "2026-07-10T19:55:00Z",
         "features": {"home_starter_era": 3.2, "away_starter_era": 4.1},
     }
     return {

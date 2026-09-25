@@ -23,6 +23,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Iterable, Mapping
 
+from scripts.price_clock import observed_quote_timing
+
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 LEDGER_RELATIVE_PATH = Path("data") / "calibration" / "team_prop_pregame_ledger.json"
@@ -384,6 +386,10 @@ def _price_fields(pick: Mapping[str, Any]) -> dict[str, Any]:
         "line_source",
         "market_total_source",
         "market_priced",
+        "market_updated_at",
+        "market_retrieved_at",
+        "odds_updated_at",
+        "price_updated_at",
     )
     return {field: copy.deepcopy(pick.get(field)) for field in fields if field in pick}
 
@@ -577,6 +583,11 @@ def _snapshot_record(
     raw_probability = _raw_probability(pick, snapshot)
     displayed_probability = _displayed_probability(pick)
     financial_eligible, financial_reason, benchmark_eligible, benchmark_reason = _price_eligibility(pick, price)
+    if financial_eligible:
+        clock_reason = observed_quote_timing(pick, published_at=published_at, start_at=game_start_time)
+        if clock_reason:
+            financial_eligible = benchmark_eligible = False
+            financial_reason = benchmark_reason = clock_reason
 
     if model_key in FIFA_MODEL_KEYS:
         calibration_eligible = False

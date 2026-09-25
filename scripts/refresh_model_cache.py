@@ -21,6 +21,7 @@ sys.path.insert(0, str(REPO_ROOT))
 import pickgrader_server as server  # noqa: E402
 from scripts.cache_manifest import write_cache_manifest  # noqa: E402
 from scripts.model_versions import stamp_prediction_versions
+from scripts.model_stake_policy import apply_stake_policy  # noqa: E402
 from scripts.market_odds import apply_market_odds_to_payload  # noqa: E402
 from scripts.merge_model_cache_payload import (  # noqa: E402
     demote_unpriced_team_model_picks,
@@ -284,6 +285,24 @@ def _write_json_cache(date_iso: str, payload: dict[str, Any]) -> dict[str, Any]:
     print(f"[unpriced-demotion] demoted={demoted}")
     suppressed = suppress_preseason_team_model_picks(merged)
     print(f"[preseason-suppression] suppressed={suppressed}")
+    # Odds are attached after the generator timestamp. Record the clock at
+    # final publication so downstream freshness checks cannot use an older
+    # retained bucket's updatedAt as the publish time.
+    merged["publishedAt"] = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+    # The trusted per-pick clock must describe the final publication after
+    # price attachment, not the earlier model-generation start. Retained rows
+    # from previous publications keep their original certification clock.
+    for key, bucket in (merged.get("models") or {}).items():
+        if key not in TEAM_PROP_MODEL_KEYS or not isinstance(bucket, dict):
+            continue
+        for pick in bucket.get("picks") or []:
+            if not isinstance(pick, dict):
+                continue
+            timing = pick.get("certification_timing")
+            if isinstance(timing, dict) and timing.get("published_at") == payload.get("generatedAt"):
+                timing["published_at"] = merged["publishedAt"]
+    gated = apply_stake_policy(merged, model_keys=TEAM_PROP_MODEL_KEYS)
+    print(f"[staking-policy] demoted={gated}")
     for target in (MODEL_CACHE_DIR / f"{date_iso}.json", MODEL_CACHE_DIR / "latest.json"):
         with target.open("w", encoding="utf-8") as handle:
             json.dump(merged, handle, indent=2, sort_keys=True, default=str)

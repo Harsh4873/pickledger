@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -560,6 +561,7 @@ def _scores24_mlb_wnba_complete(payload: dict[str, Any], date_iso: str) -> bool:
 
 
 def write_merged_payload(merged: dict[str, Any], cache_dir: Path) -> bool:
+    merged["publishedAt"] = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
     date_iso = str(merged["date"])
     models = merged.get("models") if isinstance(merged.get("models"), dict) else {}
     team_ready = all(

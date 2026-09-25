@@ -396,6 +396,7 @@ def _write_json_cache(date_iso: str, payload: dict[str, Any]) -> dict[str, Any]:
     # each pick's raw probability.
     apply_market_odds_to_payload(merged)
     apply_calibration_to_payload(merged)
+    merged["publishedAt"] = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
     for target in (MODEL_CACHE_DIR / f"{date_iso}.json", MODEL_CACHE_DIR / "latest.json"):
         with target.open("w", encoding="utf-8") as handle:
             json.dump(merged, handle, indent=2, sort_keys=True, default=str)

@@ -53,6 +53,7 @@ FIRST_LIVE_DATE = "2026-07-11"
 
 VISIBLE_DECISIONS = {"BET", "LEAN"}
 MAX_PRICE_AGE_HOURS = 24.0
+MAX_PUBLISH_CLOCK_SKEW_MINUTES = 5.0
 
 # EDGE lane: strict segment-level market-alpha gates (unchanged from v1).
 MIN_SOURCE_SAMPLES = 100
@@ -602,23 +603,17 @@ def _timing(
     start_value = _first(record, "game_start_time", "start_time", "event_start_time")
     timestamp = _parse_timestamp(timestamp_value)
     start = _parse_timestamp(start_value)
-    # The publish clock is when this slate payload was built. A book price
-    # posted days before kickoff is fresh when the slate publishes near the
-    # stamp; measuring age against kickoff instead would kill every early
-    # line (e.g. an NFL number posted two days out).
-    publish_value: Any = None
-    for container in (bucket, payload):
-        if not isinstance(container, Mapping):
-            continue
-        publish_value = _first(container, "updatedAt", "generatedAt")
-        if publish_value not in (None, ""):
-            break
+    # A retained bucket can be days older than the slate that republishes it.
+    # Use the final payload clock, never the bucket clock, for quote freshness.
+    publish_value = _first(payload, "publishedAt", "generatedAt", "updatedAt") if isinstance(payload, Mapping) else None
     publish_time = _parse_timestamp(publish_value)
     blockers: list[str] = []
     age_hours: float | None = None
     lead_hours: float | None = None
     if timestamp is None:
         blockers.append("missing_or_invalid_price_timestamp")
+    if publish_time is None:
+        blockers.append("missing_or_invalid_publish_timestamp")
     if start is None:
         blockers.append("missing_or_invalid_game_start_time")
     if timestamp is not None and start is not None:
@@ -627,7 +622,9 @@ def _timing(
             blockers.append("price_not_pregame")
     if timestamp is not None and publish_time is not None:
         age_hours = (publish_time - timestamp).total_seconds() / 3600.0
-        if age_hours > MAX_PRICE_AGE_HOURS:
+        if age_hours < -MAX_PUBLISH_CLOCK_SKEW_MINUTES / 60.0:
+            blockers.append("price_after_publication")
+        elif age_hours > MAX_PRICE_AGE_HOURS:
             blockers.append("stale_price")
     return {
         "timestamp": _text(timestamp_value) or None,

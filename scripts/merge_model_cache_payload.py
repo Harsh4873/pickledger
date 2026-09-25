@@ -7,6 +7,7 @@ import argparse
 import json
 import math
 import sys
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -566,7 +567,7 @@ def merge_payload(generated: dict[str, Any], cache_dir: Path) -> dict[str, Any]:
     current = _without_retired_buckets(_current_payload(cache_dir, date_iso))
     generated = _without_retired_buckets(generated)
     merged = dict(current)
-    for key in ("date", "updatedAt", "generatedAt", "generatedBy", "errors"):
+    for key in ("date", "updatedAt", "generatedAt", "publishedAt", "generatedBy", "errors"):
         if key in generated:
             merged[key] = generated[key]
     merged["models"] = _merged_models(current, generated)
@@ -617,6 +618,7 @@ def main() -> int:
         raise SystemExit(f"Could not read generated model cache: {generated_path}")
 
     merged = merge_payload(generated, cache_dir)
+    merged["publishedAt"] = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
     date_iso = str(merged["date"])
     _write_json(cache_dir / f"{date_iso}.json", merged)
     _write_json(cache_dir / "latest.json", merged)

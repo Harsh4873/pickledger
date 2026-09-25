@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import json
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -385,6 +386,7 @@ def main() -> int:
         Path(args.snapshot_dir),
         include_current=not args.ignore_current_cache,
     )
+    merged["publishedAt"] = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
     date_iso = str(merged["date"])
     _write_json(cache_dir / f"{date_iso}.json", merged)
     _write_json(cache_dir / "latest.json", merged)

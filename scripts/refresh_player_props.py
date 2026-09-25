@@ -7,7 +7,7 @@ import argparse
 import json
 import os
 import sys
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 from pathlib import Path
 from typing import Any
 from zoneinfo import ZoneInfo
@@ -25,6 +25,7 @@ from scripts.merge_player_props_cache_payload import (  # noqa: E402
     SOFT_PLAYER_PROP_MODEL_KEYS,
 )
 from scripts.pick_calibration import apply_calibration_to_payload  # noqa: E402
+from scripts.model_stake_policy import apply_stake_policy  # noqa: E402
 
 
 def _default_central_date() -> str:
@@ -158,6 +159,9 @@ def main() -> int:
             if key in PUBLIC_PLAYER_PROP_MODEL_KEYS
         },
     }
+    payload["publishedAt"] = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+    gated = apply_stake_policy(payload, model_keys=PUBLIC_PLAYER_PROP_MODEL_KEYS, prop=True)
+    print(f"[staking-policy] player-prop rows demoted={gated}")
     output_dir = args.output_dir.resolve()
     _write_json(output_dir / f"{target_date}.json", payload)
     _write_json(output_dir / "latest.json", payload)

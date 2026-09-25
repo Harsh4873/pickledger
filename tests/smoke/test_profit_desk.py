@@ -83,6 +83,7 @@ def test_retired_covers_sources_never_enter_profit_desk_candidates_or_evidence()
     prior_date = (date.fromisoformat(DATE) - timedelta(days=1)).isoformat()
     current = {
         "date": DATE,
+        "publishedAt": f"{DATE}T12:00:00Z",
         "models": {
             "test": {"ok": True, "picks": [make_pick(pick="Keep ML", slate_date=DATE)]},
             "covers_experts_mlb": {
@@ -93,6 +94,7 @@ def test_retired_covers_sources_never_enter_profit_desk_candidates_or_evidence()
     }
     history = {
         "date": prior_date,
+        "publishedAt": f"{prior_date}T12:00:00Z",
         "models": {
             "test": {
                 "ok": True,
@@ -925,6 +927,31 @@ def test_republished_old_stamp_goes_stale_against_publish_clock():
     assert timing["freshPregame"] is False
     assert "stale_price" in timing["blockers"]
     assert "price_not_pregame" not in timing["blockers"]
+
+
+def test_retained_bucket_clock_cannot_hide_stale_price():
+    old = make_pick(
+        pick="Retained NFL ML", game="Early @ Bird", slate_date="2026-09-13",
+        updated_at="2026-09-11T16:00:00Z", start_time="2026-09-13T20:00:00Z",
+    )
+    bucket = {"updatedAt": "2026-09-11T17:00:00Z", "picks": [old]}
+    payload = {"generatedAt": "2026-09-13T17:00:00Z", "publishedAt": "2026-09-13T18:00:00Z"}
+    timing = desk._timing(old, bucket, payload)
+    assert timing["publishTime"] == "2026-09-13T18:00:00Z"
+    assert timing["ageHours"] == pytest.approx(50.0)
+    assert "stale_price" in timing["blockers"]
+
+
+def test_missing_or_future_publication_clock_blocks_price():
+    pick = make_pick(
+        updated_at="2026-09-13T18:00:00Z", start_time="2026-09-13T20:00:00Z",
+    )
+    missing = desk._timing(pick, {"updatedAt": "2026-09-13T18:00:00Z"}, {})
+    assert "missing_or_invalid_publish_timestamp" in missing["blockers"]
+    assert missing["freshPregame"] is False
+    future = desk._timing(pick, {}, {"publishedAt": "2026-09-13T17:00:00Z"})
+    assert "price_after_publication" in future["blockers"]
+    assert future["freshPregame"] is False
 
 
 def test_post_start_stamp_is_not_pregame_even_when_publish_is_near():

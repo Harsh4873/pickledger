@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from datetime import datetime, timedelta, timezone
 
 
 def test_all_model_exact_prices_and_fresh_holdout_are_separate():
@@ -67,6 +68,10 @@ def _record(**overrides) -> dict:
         "market_total_line": 2.5,
     }
     record.update(overrides)
+    when = datetime.fromisoformat(str(record["snapshot_at"]).replace("Z", "+00:00"))
+    record.setdefault("published_at", when.isoformat().replace("+00:00", "Z"))
+    record.setdefault("game_start_time", (when + timedelta(hours=4)).isoformat().replace("+00:00", "Z"))
+    record.setdefault("market_updated_at", (when - timedelta(minutes=5)).isoformat().replace("+00:00", "Z"))
     return record
 
 

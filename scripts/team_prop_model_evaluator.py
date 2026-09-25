@@ -20,17 +20,22 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Iterable, Mapping
 
-
 REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT))
 
+from scripts.model_scorecard_stats import clustered_roi_interval  # noqa: E402
+from scripts.price_clock import observed_quote_timing  # noqa: E402
+
 SCHEMA_VERSION = 1
 SUPPORTED_MODEL_KEYS = (
+    "mlb_old",
     "mlb_new",
     "mlb_first_five",
     "mlb_inning",
     "fifa_world_cup",
     "nba_summer",
+    "nba_old",
+    "nba_props",
     "cfb",
     "nfl",
     "mls", "wnba", "mlb_team_total", "nba", "nba_playoffs", "tennis", "ipl",
@@ -386,6 +391,16 @@ def _american_odds(record: Mapping[str, Any]) -> float | None:
 def _market_probability(record: Mapping[str, Any]) -> tuple[float | None, str | None]:
     if not _market_benchmark_eligible(record) or _price_provenance_is_disallowed(record):
         return None, None
+    if observed_quote_timing(
+        record.get("pregame_snapshot") if isinstance(record.get("pregame_snapshot"), Mapping) else record,
+        published_at=record.get("published_at"), start_at=record.get("game_start_time"),
+    ):
+        return None, None
+    # Use the paired, observed no-vig quote when publication retained it.
+    # A single offered side is a vigged break-even, not a fair benchmark.
+    no_vig = _normalise_probability(_value_from_contexts(record, "market_no_vig_selected_probability"))
+    if no_vig is not None:
+        return no_vig, "observed_no_vig"
     odds = _american_odds(record)
     if odds is not None:
         implied = 100.0 / (odds + 100.0) if odds > 0 else abs(odds) / (abs(odds) + 100.0)
@@ -479,26 +494,40 @@ def _calibration_bins(rows: Iterable[dict[str, Any]], bins: int) -> dict[str, An
     return {"bins": rendered, "expected_calibration_error": _round(calibration_error) if items else None}
 
 
-def _roi(rows: Iterable[dict[str, Any]]) -> dict[str, Any]:
+def _roi(rows: Iterable[dict[str, Any]], *, shadow: bool = False) -> dict[str, Any]:
     eligible: list[dict[str, Any]] = []
     excluded = Counter()
     for item in rows:
         record = item["record"]
-        if not _decision_is_actionable(record):
+        decision = (
+            str(_value_from_contexts(record, "shadow_decision") or "").upper()
+            if shadow else str(_value_from_contexts(record, "decision") or "").upper()
+        )
+        if decision not in {"BET", "LEAN"}:
             excluded["not_actionable"] += 1
             continue
         if not _financial_eligible(record):
-            excluded["not_explicitly_financial_eligible"] += 1
+            excluded[str(record.get("financial_eligibility_reason") or "not_explicitly_financial_eligible")] += 1
             continue
         if _price_provenance_is_disallowed(record):
             excluded["assumed_or_proxy_price"] += 1
+            continue
+        price_clock = observed_quote_timing(
+            record.get("pregame_snapshot") if isinstance(record.get("pregame_snapshot"), Mapping) else record,
+            published_at=record.get("published_at"), start_at=record.get("game_start_time"),
+        )
+        if price_clock:
+            excluded[price_clock] += 1
             continue
         odds = _american_odds(record)
         if odds is None:
             excluded["missing_verified_american_price"] += 1
             continue
-        stake = _stake(record)
-        if stake is None:
+        stake = (
+            _as_number(_value_from_contexts(record, "shadow_units"))
+            if shadow else _stake(record)
+        )
+        if stake is None or stake <= 0:
             excluded["missing_positive_stake"] += 1
             continue
         result = _result_label(record)
@@ -508,7 +537,10 @@ def _roi(rows: Iterable[dict[str, Any]]) -> dict[str, Any]:
         profit = 0.0 if result == "push" else (stake * (odds / 100.0) if odds > 0 else stake * (100.0 / abs(odds)))
         if result == "loss":
             profit = -stake
-        eligible.append({"stake": stake, "profit": profit, "result": result})
+        event = str(_value_from_contexts(record, "game_id", "event_id") or "").strip()
+        if not event:
+            event = str(_value_from_contexts(record, "slate_date", "date") or "") + ":" + str(_value_from_contexts(record, "matchup", "game") or "")
+        eligible.append({"stake": stake, "profit": profit, "result": result, "event": event})
     stake_total = sum(item["stake"] for item in eligible)
     profit_total = sum(item["profit"] for item in eligible)
     return {
@@ -516,6 +548,10 @@ def _roi(rows: Iterable[dict[str, Any]]) -> dict[str, Any]:
         "stake_units": _round(stake_total),
         "profit_units": _round(profit_total),
         "roi": _round(profit_total / stake_total) if stake_total else None,
+        "roi_interval": clustered_roi_interval(
+            (str(item["event"]), float(item["stake"]), float(item["profit"]))
+            for item in eligible
+        ),
         "excluded": dict(sorted(excluded.items())),
         "note": "ROI uses only explicitly certified observed American prices and explicit positive stakes.",
     }
@@ -580,6 +616,7 @@ def _group_report(records: list[dict[str, Any]], bins: int) -> dict[str, Any]:
             "note": "Benchmark excludes assumed, proxy, synthetic, and unpriced market data.",
         },
         "real_price_roi": _roi(records),
+        "shadow_real_price_roi": _roi(records, shadow=True),
         "model_on_same_priced_sample": _binary_metrics(market_binary, "probability"),
     }
 

@@ -804,6 +804,11 @@ def main() -> int:
         action="store_true",
         help="Train and evaluate the candidate without replacing published artifacts.",
     )
+    parser.add_argument(
+        "--verify-only",
+        action="store_true",
+        help="Evaluate a candidate for routine refresh without replacing published artifacts.",
+    )
     args = parser.parse_args()
     market_rows = _read_jsonl(args.markets.resolve())
     evaluation_windows: dict[str, tuple[tuple[str, str, str], tuple[str, str, str]]] = {}
@@ -1281,9 +1286,9 @@ def main() -> int:
             existing_metadata = json.loads(CONSENSUS_METADATA_PATH.read_text(encoding="utf-8"))
         except json.JSONDecodeError:
             existing_metadata = None
-    if args.dry_run:
+    if args.dry_run or args.verify_only:
         print(json.dumps(metadata, indent=2, sort_keys=True))
-        return 0 if metadata.get("active") is True else 2
+        return 0 if args.verify_only or metadata.get("active") is True else 2
     publication_metadata, publish_artifacts_for = _publication_plan(metadata, existing_metadata)
     if not publish_artifacts_for:
         if isinstance(existing_metadata, dict) and existing_metadata.get("active") is True:

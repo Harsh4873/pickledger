@@ -8,6 +8,20 @@ swap, the per-inning starter blend, and the park-factor adjustment.
 """
 from __future__ import annotations
 
+import json
+from concurrent.futures import ThreadPoolExecutor
+
+
+def test_team_history_cache_writers_use_unique_atomic_temps(monkeypatch, tmp_path):
+    from models.mlb_inning import mlb_inning_fetcher as fetcher
+
+    monkeypatch.setattr(fetcher, "CACHE_DIR", tmp_path)
+    monkeypatch.setattr(fetcher.time, "time_ns", lambda: 1)
+    with ThreadPoolExecutor(max_workers=8) as pool:
+        list(pool.map(lambda value: fetcher.cache_set("same-team", {"value": value}), range(32)))
+    assert json.loads((tmp_path / "same-team.json").read_text())["value"] in range(32)
+    assert list(tmp_path.glob("*.tmp")) == []
+
 
 def _stub_threats(value: float = 0.27) -> dict:
     inn = {}

@@ -2,7 +2,9 @@ from __future__ import annotations
 
 import json
 import math
+import os
 import re
+import tempfile
 import time
 from datetime import date, datetime, timedelta
 from pathlib import Path
@@ -94,10 +96,22 @@ def cache_get(key: str, ttl_seconds: int = STATS_TTL_SECONDS) -> Any | None:
 def cache_set(key: str, data: Any) -> None:
     CACHE_DIR.mkdir(parents=True, exist_ok=True)
     path = CACHE_DIR / f"{_safe_cache_key(key)}.json"
-    tmp_path = path.with_suffix(f".{path.suffix}.{time.time_ns()}.tmp")
-    with tmp_path.open("w", encoding="utf-8") as handle:
-        json.dump(data, handle)
-    tmp_path.replace(path)
+    # Several game workers can fetch the same team history at once. A clock
+    # reading is not a unique temporary filename across those workers.
+    with tempfile.NamedTemporaryFile(
+        mode="w", encoding="utf-8", dir=CACHE_DIR,
+        prefix=f"{path.name}.", suffix=".tmp", delete=False,
+    ) as handle:
+        tmp_path = Path(handle.name)
+        try:
+            json.dump(data, handle)
+        except BaseException:
+            tmp_path.unlink(missing_ok=True)
+            raise
+    try:
+        os.replace(tmp_path, path)
+    finally:
+        tmp_path.unlink(missing_ok=True)
 
 
 def api_get_json(url: str, params: dict[str, Any] | None = None, cache_key: str | None = None, ttl_seconds: int = STATS_TTL_SECONDS) -> dict[str, Any]:
