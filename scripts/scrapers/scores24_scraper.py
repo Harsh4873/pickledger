@@ -110,6 +110,15 @@ SPORT_CONFIG = {
         "label": "NFL",
         "cache_keys": ("nfl",),
     },
+    "nhl": {
+        "espn_sport": "hockey",
+        "espn_league": "nhl",
+        "scores24_sport": "ice-hockey",
+        "listing_url": f"{BASE_URL}/en/ice-hockey/l-usa-nhl/predictions",
+        "source": "Scores24NHL",
+        "label": "NHL",
+        "cache_keys": ("nhl",),
+    },
 }
 CLOUDFLARE_SIGNALS = (
     "attention required",
@@ -1632,6 +1641,10 @@ def run_scores24_cfb(date_iso: str, _sports: list[str] | None = None) -> dict[st
 
 def run_scores24_nfl(date_iso: str, _sports: list[str] | None = None) -> dict[str, Any]:
     return scrape_scores24("nfl", date_iso)
+
+
+def run_scores24_nhl(date_iso: str, _sports: list[str] | None = None) -> dict[str, Any]:
+    return scrape_scores24("nhl", date_iso)
 
 
 def main() -> int:

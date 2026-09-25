@@ -49,6 +49,7 @@ TEAM_PROP_MODEL_KEYS = {
     "mls",
     "nfl",
     "cfb",
+    "nhl",
     "tennis",
     "ipl",
 }

@@ -257,6 +257,7 @@ EXTERNAL_FEED_MODEL_KEYS = {
     "sportytrader_fifa_world_cup",
     "sportytrader_cfb",
     "sportytrader_nfl",
+    "sportytrader_nhl",
     "sportsgambler",
     "sportsgambler_nba",
     "sportsgambler_nba_summer",
@@ -265,15 +266,18 @@ EXTERNAL_FEED_MODEL_KEYS = {
     "sportsgambler_fifa_world_cup",
     "sportsgambler_cfb",
     "sportsgambler_nfl",
+    "sportsgambler_nhl",
     "scores24_nba_summer",
     "scores24_wnba",
     "scores24_mlb",
     "scores24_fifa_world_cup",
     "scores24_cfb",
     "scores24_nfl",
+    "scores24_nhl",
     "forebet_mls",
     "forebet_mlb",
     "forebet_wnba",
+    "forebet_nhl",
     "tennistonic_tennis",
     "scores24_tennis",
 }
@@ -300,6 +304,7 @@ DEPLOYED_MODEL_KEYS = {
     "mls",
     "nfl",
     "cfb",
+    "nhl",
     "tennis",
     *EXTERNAL_FEED_MODEL_KEYS,
 }
@@ -321,6 +326,7 @@ MODEL_ALIAS_KEYS = {
     "mls",
     "nfl",
     "cfb",
+    "nhl",
 }
 MODEL_ALIAS_TO_MODEL_KEY = {
     "mlb": "mlb_old",

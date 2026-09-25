@@ -45,6 +45,7 @@ SPORT_LEAGUES: dict[str, tuple[str, str]] = {
     "MLS": ("soccer", "usa.1"),
     "NFL": ("football", "nfl"),
     "CFB": ("football", "college-football"),
+    "NHL": ("hockey", "nhl"),
 }
 
 # In-house model buckets whose assumed prices may be replaced with a real
@@ -62,6 +63,7 @@ TEAM_MODEL_BUCKET_KEYS = {
     "mls",
     "nfl",
     "cfb",
+    "nhl",
 }
 
 F5_BUCKET_KEYS = {"mlb_first_five"}

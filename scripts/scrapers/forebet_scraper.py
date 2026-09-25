@@ -102,6 +102,15 @@ SPORT_CONFIG = {
         "cache_keys": ("nfl",),
         "market": "two_way",
     },
+    "nhl": {
+        "espn_sport": "hockey",
+        "espn_league": "nhl",
+        "listing_url": f"{BASE_URL}/en/hockey/usa",
+        "source": "ForebetNHL",
+        "label": "NHL",
+        "cache_keys": ("nhl",),
+        "market": "two_way",
+    },
 }
 SIGN_INDEX = {"1": 0, "X": 1, "2": 2}
 TWO_WAY_SIGN_INDEX = {"1": 0, "2": 1}
@@ -398,6 +407,10 @@ def run_forebet_cfb(date_iso: str, _sports: list[str] | None = None) -> dict[str
 
 def run_forebet_nfl(date_iso: str, _sports: list[str] | None = None) -> dict[str, Any]:
     return scrape_forebet("nfl", date_iso)
+
+
+def run_forebet_nhl(date_iso: str, _sports: list[str] | None = None) -> dict[str, Any]:
+    return scrape_forebet("nhl", date_iso)
 
 
 def main() -> int:

@@ -2,7 +2,7 @@
 """
 SportyTrader Scraper
 ====================
-    Scrapes NBA, NBA Summer League, WNBA, MLB, FIFA World Cup, CFB, and NFL picks from
+    Scrapes NBA, NBA Summer League, WNBA, MLB, FIFA World Cup, CFB, NFL, and NHL picks from
 SportyTrader and prints structured pick blocks for the backend parser.
 """
 
@@ -119,6 +119,22 @@ SPORT_CONFIG = {
         "fallback_urls": (
             "https://www.sportytrader.com/en/betting-tips/american-football/usa/nfl-598/",
             "https://www.sportytrader.com/en/betting-tips/american-football/",
+        ),
+        "allow_partial_listings": True,
+    },
+    "nhl": {
+        "aliases": {"nhl", "hockey", "ice_hockey"},
+        "league": "USA - NHL",
+        "league_aliases": {
+            "USA - NHL",
+            "NHL",
+            "USA - Hockey",
+        },
+        "title": "NHL",
+        "url": "https://www.sportytrader.com/us/picks/hockey/usa/nhl-596/",
+        "fallback_urls": (
+            "https://www.sportytrader.com/us/picks/hockey/",
+            "https://www.sportytrader.com/en/betting-tips/ice-hockey/",
         ),
         "allow_partial_listings": True,
     },

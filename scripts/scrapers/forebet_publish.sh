@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Publish Forebet MLB/WNBA/MLS/CFB/NFL feeds from a non-GitHub-Actions IP.
+# Publish Forebet MLB/WNBA/MLS/CFB/NFL/NHL feeds from a non-GitHub-Actions IP.
 # GitHub-hosted runners get Cloudflare-challenged on Forebet listings;
 # local IPs usually do not — same pattern as Scores24.
 set -euo pipefail
@@ -23,7 +23,7 @@ if [[ -z "${GH_BIN}" ]]; then
 fi
 
 DATE_ISO="${FOREBET_DATE:-$(TZ=America/Chicago date +%F)}"
-PUBLISH_FEEDS="${FOREBET_PUBLISH_FEEDS:-forebet_mlb,forebet_wnba,forebet_mls,forebet_cfb,forebet_nfl}"
+PUBLISH_FEEDS="${FOREBET_PUBLISH_FEEDS:-forebet_mlb,forebet_wnba,forebet_mls,forebet_cfb,forebet_nfl,forebet_nhl}"
 FEED_COOLDOWN="${FOREBET_PUBLISH_FEED_COOLDOWN_SECONDS:-5}"
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -86,10 +86,10 @@ for raw_feed_key in "${FEED_KEYS[@]}"; do
   if ! "${PYTHON_BIN}" "${TEMP_REPO}/scripts/refresh_external_feeds.py" \
     --date "${DATE_ISO}" \
     --feeds "${feed_key}" \
-    --sports "mlb,wnba,mls,cfb,nfl" \
+    --sports "mlb,wnba,mls,cfb,nfl,nhl" \
     --skip-firestore; then
     case "${feed_key}" in
-      forebet_cfb|forebet_nfl)
+      forebet_cfb|forebet_nfl|forebet_nhl)
         echo "Optional ${feed_key} failed; publishing diagnostics with the other feeds." >&2
         ;;
       *) exit 1 ;;
@@ -119,7 +119,7 @@ required = tuple(
     feed.strip()
     for feed in os.environ.get(
         "PUBLISH_FEEDS",
-        "forebet_mlb,forebet_wnba,forebet_mls,forebet_cfb,forebet_nfl",
+        "forebet_mlb,forebet_wnba,forebet_mls,forebet_cfb,forebet_nfl,forebet_nhl",
     ).split(",")
     if feed.strip()
 )
@@ -136,7 +136,7 @@ for key in required:
     blocked = int(meta.get("blockedUrls") or 0)
     bucket_date = str(bucket.get("date") or meta.get("date") or "").strip()
     error = str(bucket.get("error") or "")
-    if key in {"forebet_cfb", "forebet_nfl"} and bucket.get("ok") is not True:
+    if key in {"forebet_cfb", "forebet_nfl", "forebet_nhl"} and bucket.get("ok") is not True:
         print(f"Optional {key}: {error or 'no successful refresh'}", file=sys.stderr)
         continue
     if bucket.get("ok") is not True:

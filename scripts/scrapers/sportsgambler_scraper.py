@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""SportsGambler scraper for NBA, NBA Summer, WNBA, MLB, FIFA, CFB, and NFL picks."""
+"""SportsGambler scraper for NBA, NBA Summer, WNBA, MLB, FIFA, CFB, NFL, and NHL picks."""
 from __future__ import annotations
 import argparse, json, re, sys, unicodedata
 from datetime import date, datetime
@@ -39,6 +39,11 @@ NFL_URLS = (
     "https://www.sportsgambler.com/betting-tips/american-football/",
 )
 NFL_DETAIL_PATH = "/nfl/"
+NHL_URLS = (
+    "https://www.sportsgambler.com/betting-tips/ice-hockey/nhl-predictions/",
+    "https://www.sportsgambler.com/betting-tips/nhl/",
+)
+NHL_DETAIL_PATH = "/nhl/"
 BLOCK_SIGNALS = (
     "attention required",
     "just a moment",
@@ -256,6 +261,17 @@ def scrape_nfl(target: date | None, expected_matchups: list[str] | None = None) 
         require_complete_listings=False,
     )
 
+def scrape_nhl(target: date | None, expected_matchups: list[str] | None = None) -> list[dict]:
+    """NHL tip cards from the dedicated hockey listing."""
+    return scrape_basketball(
+        target,
+        NHL_URLS,
+        "NHL",
+        expected_matchups,
+        href_contains=NHL_DETAIL_PATH,
+        require_complete_listings=False,
+    )
+
 def scrape_mlb(target: date | None, expected_matchups: list[str] | None = None) -> list[dict]:
     expected = _expected_matchup_whitelist(expected_matchups)
     html = requests.get(MLB_URL, headers=HEADERS, timeout=30).text
@@ -316,10 +332,12 @@ def main() -> None:
             rows = scrape_cfb(target, expected_matchups)
         elif sport == "nfl":
             rows = scrape_nfl(target, expected_matchups)
+        elif sport in ("nhl", "hockey", "ice_hockey"):
+            rows = scrape_nhl(target, expected_matchups)
         else:
             raise ValueError(
                 "supported sports: nba/basketball, nba_summer, wnba, mlb/baseball, "
-                "fifa_world_cup/soccer, cfb/ncaaf/college_football, nfl"
+                "fifa_world_cup/soccer, cfb/ncaaf/college_football, nfl, nhl"
             )
     except Exception as exc:
         print(f"Error: {exc}", file=sys.stderr)

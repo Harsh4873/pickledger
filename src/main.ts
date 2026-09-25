@@ -189,7 +189,7 @@ let latestPicksUpdatedAt = '';
 const HOME_SCORE_TTL_MS = 45_000;
 const DISPLAY_TIME_ZONE = 'America/Chicago';
 const AUTO_REFRESH_MS = 5 * 60_000;
-const PRIMARY_FILTERS = ['ALL', 'NFL', 'CFB', 'MLB', 'WNBA', 'MLS', 'TENNIS'];
+const PRIMARY_FILTERS = ['ALL', 'NFL', 'CFB', 'MLB', 'WNBA', 'MLS', 'NHL', 'TENNIS'];
 let lastCentralDate = '';
 
 function escapeHtml(value: unknown): string {
