@@ -11,6 +11,8 @@ import json
 from pathlib import Path
 from typing import Any, Mapping
 
+from scripts.price_clock import aware_time
+
 
 ROOT = Path(__file__).resolve().parents[1]
 POLICY_PATH = ROOT / "data" / "calibration" / "staking_approvals.json"
@@ -39,6 +41,26 @@ def _approved(approval: Mapping[str, Any]) -> bool:
     )
 
 
+def _start_time(pick: Mapping[str, Any], bucket: Mapping[str, Any]):
+    for field in ("game_start_time", "start_time", "event_start_time", "scheduled_start_time"):
+        found = aware_time(pick.get(field))
+        if found is not None:
+            return found
+    game_id = str(pick.get("game_id") or pick.get("gamePk") or pick.get("event_id") or "")
+    matchup = str(pick.get("matchup") or pick.get("game") or "").lower()
+    for game in bucket.get("games") or []:
+        if not isinstance(game, Mapping):
+            continue
+        if not ((game_id and game_id == str(game.get("game_id") or game.get("gamePk") or game.get("event_id") or ""))
+                or (matchup and matchup == str(game.get("matchup") or game.get("game") or "").lower())):
+            continue
+        for field in ("game_start_time", "start_time", "event_start_time", "scheduled_start_time"):
+            found = aware_time(game.get(field))
+            if found is not None:
+                return found
+    return None
+
+
 def apply_stake_policy(
     payload: dict[str, Any], *, approvals: Mapping[str, Any] | None = None,
     model_keys: set[str], prop: bool = False,
@@ -57,6 +79,7 @@ def apply_stake_policy(
     models = payload.get("models")
     if not isinstance(models, dict):
         return 0
+    publication = aware_time(payload.get("publishedAt"))
     demoted = 0
     for model_key, bucket in models.items():
         if model_key not in model_keys or not isinstance(bucket, dict):
@@ -67,6 +90,16 @@ def apply_stake_policy(
             decision = str(pick.get("decision") or "").upper()
             if decision not in {"BET", "LEAN"}:
                 continue
+            # Team cache merges retain earlier pregame publications after
+            # kickoff. Their original wagers are history, not new decisions.
+            # A newly generated post-start row has no earlier trusted clock
+            # and still goes through the gate.
+            if not prop and publication is not None:
+                start = _start_time(pick, bucket)
+                timing = pick.get("certification_timing")
+                prior = aware_time(timing.get("published_at")) if isinstance(timing, Mapping) else None
+                if start is not None and start <= publication and prior is not None and prior < start:
+                    continue
             version = str(
                 pick.get("ml_model_version") or pick.get("prediction_model_version")
                 or pick.get("model_version") or bucket.get("prediction_model_version")

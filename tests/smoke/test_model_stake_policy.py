@@ -37,6 +37,20 @@ def test_policy_requires_exact_version_market_and_valid_holdout():
     assert pick["decision"] == "LEAN" and pick["units"] == 0.25
 
 
+def test_policy_preserves_retained_pregame_bet_after_start():
+    pick = {
+        "decision": "BET", "units": 0.5, "market": "totals",
+        "game_start_time": "2026-09-25T19:00:00Z",
+        "certification_timing": {"published_at": "2026-09-25T18:00:00Z"},
+    }
+    payload = {"publishedAt": "2026-09-25T20:00:00Z", "models": {"mlb_new": {"picks": [pick]}}}
+    assert apply_stake_policy(payload, approvals={"approvals": []}, model_keys={"mlb_new"}) == 0
+    assert pick["decision"] == "BET" and pick["units"] == 0.5
+    pick["certification_timing"]["published_at"] = "2026-09-25T20:00:00Z"
+    assert apply_stake_policy(payload, approvals={"approvals": []}, model_keys={"mlb_new"}) == 1
+    assert pick["decision"] == "PASS" and pick["units"] == 0
+
+
 def test_price_clock_rejects_missing_late_stale_and_post_start_quotes():
     published = "2026-09-24T20:00:00Z"
     start = "2026-09-24T22:00:00Z"
