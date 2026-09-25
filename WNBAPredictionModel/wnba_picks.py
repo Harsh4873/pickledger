@@ -22,6 +22,7 @@ try:
         get_todays_wnba_games,
     )
     from .wnba_stats import (
+        apply_rolling_scoring,
         get_all_team_stats,
         get_h2h_history,
         get_rolling_stats,
@@ -50,6 +51,7 @@ except ImportError:
         get_todays_wnba_games,
     )
     from wnba_stats import (
+        apply_rolling_scoring,
         get_all_team_stats,
         get_h2h_history,
         get_rolling_stats,
@@ -85,7 +87,7 @@ _SCHEDULE_DATE_CACHE: dict[str, list[WNBAGame]] = {}
 # Totals v2 model identity — stamped on every totals market row so the
 # frontend and any future record reset can tell v2 picks from the retired
 # v1 (24-44) run without relying on dates alone.
-WNBA_TOTALS_MODEL_VERSION = "wnba_total_v2_2026-07-26"
+WNBA_TOTALS_MODEL_VERSION = "wnba_total_v2_2026-09-24"
 
 # Statuses that describe tonight's availability question rather than a
 # long-running absence. Players listed plain "Out" are excluded from the
@@ -192,6 +194,22 @@ def _rest_days_for_team(team_abbr: str, game_date: str) -> int | None:
             if team_abbr in (g.home_abbr, g.away_abbr):
                 return days_back
     return None
+
+
+def _with_recent_scoring(team_abbr: str, stats: dict | None, *, as_of: str | None = None) -> dict:
+    """Merge last-10 points scored and allowed onto a season profile.
+
+    The totals blend is rolling-first, but ``get_team_stats`` returns the
+    season cache, whose rolling fields are null. A scoring surge otherwise
+    never reaches ``compute_projected_total``.
+    """
+    try:
+        rolling = get_rolling_stats(team_abbr, n=10, as_of=as_of)
+    except Exception:
+        rolling = {}
+    if not isinstance(rolling, dict):
+        rolling = {}
+    return apply_rolling_scoring(stats or {}, rolling)
 
 
 def _last5_nrtg(team_abbr: str) -> float | None:
@@ -878,8 +896,8 @@ def generate_wnba_picks(
         home_name = _team_full_name(home_abbr)
         away_name = _team_full_name(away_abbr)
 
-        home_stats = get_team_stats(home_abbr) or {}
-        away_stats = get_team_stats(away_abbr) or {}
+        home_stats = _with_recent_scoring(home_abbr, get_team_stats(home_abbr) or {}, as_of=game.date_str)
+        away_stats = _with_recent_scoring(away_abbr, get_team_stats(away_abbr) or {}, as_of=game.date_str)
 
         if not _has_usable_stats(home_stats) and not _has_usable_stats(away_stats):
             if echo:

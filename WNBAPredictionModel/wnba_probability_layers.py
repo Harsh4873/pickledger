@@ -77,9 +77,9 @@ WNBA_TOTAL_CEIL  = 205.0           # reject projections above this as data error
 # on 2026 (197 games): w=0.65 cut the validation Under-bias from -8.6 to
 # -5.0 in the trailing-window harness and re-centered the June-July
 # projection-vs-market-line gap from v1's -7.9 to about -1.2, while keeping
-# a third of the weight on the ratings structure the score-only backtest
-# cannot evaluate. Heavier weights kept improving the harness only because
-# its possession fallback makes every backtest ORtg 105 by construction.
+# a third of the weight on the ratings structure. The weight stays at the
+# value fit before the score-only harness stopped inventing ORtg=105; it
+# is not refit on the games that exposed that bug.
 WNBA_TOTAL_SCORING_WEIGHT = 0.65   # weight on scoring estimate at full sample
 WNBA_TOTAL_SCORING_FULL_SAMPLE = 10.0  # games needed for the full blend weight
 # Away-B2B shave, re-fit on the same grid: 0.75 edged out the old 1.5 and
@@ -692,23 +692,31 @@ def compute_projected_total(
         home_stats.get("Pace"), away_stats.get("Pace"), league_avg_pace=league_pace
     )
 
+    ratings_based = False
+    projected = None
     if None not in (home_ortg, away_ortg, home_drtg, away_drtg):
         home_pts_per100 = (home_ortg + away_drtg) / 2.0
         away_pts_per100 = (away_ortg + home_drtg) / 2.0
         projected = (home_pts_per100 + away_pts_per100) * blended_pace / 100.0
+        ratings_based = True
     elif home_ortg is not None and away_ortg is not None:
         projected = (home_ortg + away_ortg) * blended_pace / 100.0
-    else:
-        # PPG fallback path — keeps a usable total when ORtg is missing
-        # (early WNBA season, partial data, etc.).
-        home_pts = _ppg_fallback(home_stats)
-        away_pts = _ppg_fallback(away_stats)
-        if home_pts is None or away_pts is None:
-            return None
-        projected = home_pts + away_pts
+        ratings_based = True
 
     scoring_est, scoring_sample = _scoring_total_estimate(home_stats, away_stats)
-    if scoring_est is not None and scoring_sample > 0:
+    if projected is None:
+        if scoring_est is not None:
+            # No usable ratings. The symmetric points-for / points-against
+            # estimate is the total. Do not mix in an offense-only sum.
+            projected = scoring_est
+        else:
+            # Last resort when even the four scoring rates are missing.
+            home_pts = _ppg_fallback(home_stats)
+            away_pts = _ppg_fallback(away_stats)
+            if home_pts is None or away_pts is None:
+                return None
+            projected = home_pts + away_pts
+    elif ratings_based and scoring_est is not None and scoring_sample > 0:
         sample_ramp = min(1.0, scoring_sample / WNBA_TOTAL_SCORING_FULL_SAMPLE)
         weight = WNBA_TOTAL_SCORING_WEIGHT * sample_ramp
         projected = (1.0 - weight) * projected + weight * scoring_est

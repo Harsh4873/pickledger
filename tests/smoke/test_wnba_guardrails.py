@@ -260,6 +260,136 @@ def test_wnba_total_scoring_blend_tracks_hot_environment():
     assert hot > cold
 
 
+def test_recent_scoring_window_lifts_a_lagging_season_total():
+    """A last-10 window above the season rate must raise the projected total.
+
+    Live season profiles ship with rolling fields null, so the totals blend
+    stayed on pts_pg. A scoring surge then sat several points under the
+    market and the unchanged 6-point gap gate published almost only Unders.
+    """
+    from WNBAPredictionModel.wnba_probability_layers import compute_projected_total
+    from WNBAPredictionModel.wnba_stats import apply_rolling_scoring
+
+    season = {
+        "ORtg": 105.0,
+        "DRtg": 105.0,
+        "Pace": 79.0,
+        "pts_pg": 82.0,
+        "opp_pts_pg": 82.0,
+        "W": 20,
+        "L": 10,
+        "rolling_pts": None,
+        "rolling_opp_pts": None,
+        "rolling_games_used": None,
+    }
+    league = {"ORtg": 108.0, "Pace": 80.0}
+    cold = compute_projected_total(season, dict(season), league_averages=league)
+    hot_home = apply_rolling_scoring(season, {"pts": 94.0, "opp_pts": 91.0, "games_used": 10})
+    hot_away = apply_rolling_scoring(dict(season), {"pts": 93.0, "opp_pts": 90.0, "games_used": 10})
+    hot = compute_projected_total(hot_home, hot_away, league_averages=league)
+    short = apply_rolling_scoring(season, {"pts": 110.0, "opp_pts": 110.0, "games_used": 3})
+
+    assert cold is not None and hot is not None
+    assert hot > cold + 4.0
+    assert short.get("rolling_pts") is None
+    assert compute_projected_total(short, dict(season), league_averages=league) == cold
+
+
+def test_live_publish_fills_a_null_rolling_window_without_balldontlie(monkeypatch):
+    """generate_wnba_picks merges rolling through _with_recent_scoring.
+
+    The committed season cache has rolling_pts null on every team, and
+    BallDontLie logs are empty when the key is unset. The publish helper
+    still has to attach a real last-10 window from scored games. It must
+    not write offensive rating to 105 to do that.
+    """
+    from WNBAPredictionModel import wnba_picks, wnba_stats
+    from WNBAPredictionModel.wnba_probability_layers import compute_projected_total
+
+    monkeypatch.setattr(wnba_stats, "fetch_bdl_team_game_logs", lambda *_args, **_kwargs: [])
+    season = {
+        "ORtg": 112.6,
+        "DRtg": 107.6,
+        "Pace": 79.4,
+        "pts_pg": 89.9,
+        "opp_pts_pg": 85.9,
+        "W": 17,
+        "L": 7,
+        "rolling_pts": None,
+        "rolling_opp_pts": None,
+        "rolling_games_used": None,
+    }
+    merged = wnba_picks._with_recent_scoring("LV", season)
+    assert merged["rolling_games_used"] >= 5
+    assert merged["rolling_pts"] != season["pts_pg"]
+    assert merged["ORtg"] == 112.6
+    cold = compute_projected_total(season, dict(season), league_averages={"ORtg": 108.0, "Pace": 80.0})
+    hot = compute_projected_total(merged, dict(merged), league_averages={"ORtg": 108.0, "Pace": 80.0})
+    assert cold is not None and hot is not None
+    assert hot != cold
+    early = wnba_picks._with_recent_scoring("LV", dict(season), as_of="2026-05-16")
+    assert early.get("rolling_pts") != merged["rolling_pts"]
+
+
+def test_inactive_wnba_prop_model_stays_on_the_price():
+    """A coin-flip points baseline must not be published near 0.80.
+
+    The graded WNBAPlayerProps book lost about 16% ROI while an active
+    logistic model was allowed to move a ~0.52 baseline to ~0.81. That
+    model is inactive. The fallback may only move a fraction of the
+    projection-versus-price gap, and that cap stays in place.
+    """
+    from player_props.ml import _score_probability_details
+
+    pick = {
+        "sport": "WNBA",
+        "stat_key": "points",
+        "selection": "Over",
+        "line": 24.5,
+        "odds": 117,
+        "market_priced": True,
+    }
+    probability, _version, _fingerprint, active, mode, _raw = _score_probability_details(
+        pick,
+        baseline_probability=0.522,
+        baseline_projection=25.03,
+        market_family="points",
+    )
+
+    assert active is False
+    assert mode == "market_anchor_validation_gate"
+    assert probability < 0.60
+
+
+def test_score_only_profile_does_not_pin_offensive_rating():
+    """Score-only history must not invent ORtg=105 via points/1.05.
+
+    That fallback made every backtest offensive rating the 2024 prior, so
+    the ratings half of the total could not see a higher-scoring season.
+    """
+    from WNBAPredictionModel.wnba_backtest import build_rolling_stats_as_of
+
+    games = []
+    for day in range(1, 9):
+        games.append({
+            "date": f"2026-06-{day:02d}",
+            "home_team": "IND",
+            "visitor_team": "MIN",
+            "home_team_score": 95.0,
+            "visitor_team_score": 90.0,
+            "status": "Final",
+        })
+    profile = build_rolling_stats_as_of(games, "IND", "2026-06-20")
+
+    assert "ORtg" not in profile
+    assert "DRtg" not in profile
+    assert "Pace" not in profile
+    assert profile["pts_pg"] == 95.0
+    assert profile["opp_pts_pg"] == 90.0
+    assert profile["NRtg"] > 0
+    assert profile["rolling_games_used"] >= 5
+
+
 def test_wnba_gameday_injury_filter_drops_out_players():
     """The totals injury input must exclude "Out" listings (already priced
     into season ratings) while keeping true game-day uncertainty."""

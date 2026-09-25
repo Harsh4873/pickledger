@@ -29,10 +29,10 @@ if ROOT_DIR not in sys.path:
     sys.path.insert(0, ROOT_DIR)
 
 try:
-    from .wnba_probability_layers import calculate_wnba_matchup
+    from .wnba_probability_layers import WNBA_LEAGUE_AVG_PACE, calculate_wnba_matchup
     from .wnba_teams import WNBA_TEAM_MAP  # noqa: F401 — imported for parity with rest of module
 except ImportError:
-    from wnba_probability_layers import calculate_wnba_matchup
+    from wnba_probability_layers import WNBA_LEAGUE_AVG_PACE, calculate_wnba_matchup
     from wnba_teams import WNBA_TEAM_MAP  # noqa: F401 — imported for parity with rest of module
 
 try:
@@ -406,24 +406,28 @@ def build_rolling_stats_as_of(
     opp_pts_pg = sum(opp_pts_vals) / len(opp_pts_vals)
 
     have_box = all(vals for vals in (fga_vals, fta_vals, orb_vals, tov_vals))
+    ortg = None
+    drtg = None
+    possessions = None
     if have_box:
         fga_pg = sum(fga_vals) / len(fga_vals)
         fta_pg = sum(fta_vals) / len(fta_vals)
         orb_pg = sum(orb_vals) / len(orb_vals)
         tov_pg = sum(tov_vals) / len(tov_vals)
         possessions = 0.96 * (fga_pg - orb_pg + tov_pg + 0.44 * fta_pg)
+        if possessions is None or possessions <= 0:
+            return {}
+        nrtg = 100.0 * (pts_pg - opp_pts_pg) / possessions
+        ortg = 100.0 * pts_pg / possessions
+        drtg = 100.0 * opp_pts_pg / possessions
     else:
-        # Fallback: approximate possessions from points when no box-score
-        # fields are available. BDL's /games feed is score-only, so in
-        # practice this is the branch we hit for almost every game.
-        possessions = pts_pg / 1.05
-
-    if possessions is None or possessions <= 0:
-        return {}
-
-    nrtg = 100.0 * (pts_pg - opp_pts_pg) / possessions
-    ortg = 100.0 * pts_pg / possessions
-    drtg = 100.0 * opp_pts_pg / possessions
+        # Score-only feed (the committed historical file, and BDL /games).
+        # possessions = pts / 1.05 forces ORtg = 100 * 1.05 = 105 for every
+        # team, so the ratings half of every total is the 2024 prior no
+        # matter what the game actually scored. Leave ORtg, DRtg, and Pace
+        # unset and convert the point differential at league pace. The
+        # totals model then uses points scored and allowed.
+        nrtg = 100.0 * (pts_pg - opp_pts_pg) / WNBA_LEAGUE_AVG_PACE
 
     # Last-10 rolling scoring (same no-lookahead window) so the totals
     # model's scoring blend sees the recent-form fields the live profiles
@@ -446,14 +450,15 @@ def build_rolling_stats_as_of(
 
     profile = {
         "NRtg": nrtg,
-        "ORtg": ortg,
-        "DRtg": drtg,
-        "Pace": possessions,
         "pts_pg": pts_pg,
         "opp_pts_pg": opp_pts_pg,
         "games_used": len(window),
         "low_sample": len(window) < n,
     }
+    if ortg is not None and drtg is not None and possessions is not None:
+        profile["ORtg"] = ortg
+        profile["DRtg"] = drtg
+        profile["Pace"] = possessions
     if recent_pts and recent_opp:
         profile["rolling_pts"] = sum(recent_pts) / len(recent_pts)
         profile["rolling_opp_pts"] = sum(recent_opp) / len(recent_opp)
