@@ -6,7 +6,7 @@ ROOT = Path(__file__).resolve().parents[1]
 MODEL_DIRECTORIES = {
     "mlb_new": "MLBPredictionModel", "mlb_inning": "models/mlb_inning",
     "mlb_first_five": "models/mlb_first_five", "mlb_team_total": "models/mlb_team_total",
-    "nfl": "NFLPredictionModel", "cfb": "CFBPredictionModel", "wnba": "WNBAPredictionModel",
+    "nfl": "NFLPredictionModel", "nhl": "NHLPredictionModel", "cfb": "CFBPredictionModel", "wnba": "WNBAPredictionModel",
     "nba": "NBAPredictionModel", "nba_playoffs": "NBAPlayoffsPredictionModel",
     "nba_summer": "NBASummerPredictionModel", "mls": "MLSPredictionModel",
     "tennis": "TennisPredictionModel", "fifa_world_cup": "FIFAWorldCupPredictionModel", "ipl": "ipl",

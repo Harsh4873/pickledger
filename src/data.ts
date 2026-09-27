@@ -419,6 +419,7 @@ const SOURCE_LABELS: Record<string, string> = {
   mlb_team_total: 'MLB Team Total',
   mls: 'MLS Model',
   nfl: 'NFL Model',
+  nhl: 'NHL Model',
   cfb: 'CFB Model',
   wnba: 'WNBA Model',
   nba: 'NBA New',
@@ -509,6 +510,7 @@ const MARKET_SOURCE_LABELS: Record<string, Record<string, string>> = {
   nba_summer: { h2h: 'NBA Summer ML', moneyline: 'NBA Summer ML', '': 'NBA Summer ML' },
   mls: { moneyline: 'MLS ML', total: 'MLS Total', totals: 'MLS Total', spread: 'MLS Spread' },
   nfl: { h2h: 'NFL ML', moneyline: 'NFL ML', totals: 'NFL Total', total: 'NFL Total', spread: 'NFL Spread' },
+  nhl: { h2h: 'NHL ML', moneyline: 'NHL ML', totals: 'NHL Total', total: 'NHL Total', spread: 'NHL Spread', team_total: 'NHL Team Total', player_props: 'NHL Player Prop' },
   cfb: { h2h: 'CFB ML', moneyline: 'CFB ML', totals: 'CFB Total', total: 'CFB Total', spread: 'CFB Spread' },
 };
 
@@ -1311,7 +1313,7 @@ export function getResearchPicks(date?: string): Pick[] {
 function bucketSport(key: string, bucket: ModelBucket = {}): string {
   if (/(?:^|_)nba(?:_|$)/.test(key)) return 'NBA';
   if (key.includes('fifa')) return 'FIFA WC';
-  for (const sport of ['cfb', 'nfl', 'mlb', 'wnba', 'mls', 'tennis', 'ipl']) {
+  for (const sport of ['cfb', 'nfl', 'nhl', 'mlb', 'wnba', 'mls', 'tennis', 'ipl']) {
     if (key === sport || key.startsWith(`${sport}_`) || key.endsWith(`_${sport}`)) return sport.toUpperCase();
   }
   const row = Array.isArray(bucket.picks) ? recordValue(bucket.picks[0]) : {};
@@ -1328,7 +1330,7 @@ function sourceErrorText(payload: ModelCachePayload, key: string, bucket: ModelB
   const sport = bucketSport(key).toLowerCase();
   const belongsToSource = (error: unknown): boolean => {
     const prefix = String(error || '').split(':', 1)[0].trim().toLowerCase();
-    if (['cfb', 'nfl', 'mlb', 'wnba', 'mls', 'tennis', 'nba', 'nba_summer', 'fifa_world_cup', 'ipl'].includes(prefix)) {
+    if (['cfb', 'nfl', 'nhl', 'mlb', 'wnba', 'mls', 'tennis', 'nba', 'nba_summer', 'fifa_world_cup', 'ipl'].includes(prefix)) {
       return prefix === sport;
     }
     if (isScrapedBucket(prefix)) return prefix === key;

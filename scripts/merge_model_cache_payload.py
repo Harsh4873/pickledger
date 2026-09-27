@@ -85,8 +85,6 @@ def _demote_unpriced_tennis_picks(payload: dict[str, Any]) -> tuple[dict[str, An
 
 
 # In-house team-model buckets whose staked rows must carry an executable price.
-# "nhl" has no live bucket yet; listing it keeps a future hockey model under
-# the same price discipline from its first slate.
 UNPRICED_STAKE_DEMOTION_KEYS = {
     "mlb_new",
     "mlb_inning",
@@ -301,6 +299,7 @@ DEPLOYED_MODEL_KEYS = {
     "mls",
     "nfl",
     "cfb",
+    "nhl",
     "tennis",
     *EXTERNAL_FEED_MODEL_KEYS,
 }
@@ -322,6 +321,7 @@ MODEL_ALIAS_KEYS = {
     "mls",
     "nfl",
     "cfb",
+    "nhl",
 }
 MODEL_ALIAS_TO_MODEL_KEY = {
     "mlb": "mlb_old",

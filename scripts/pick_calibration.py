@@ -32,7 +32,7 @@ MIN_GROUP_SAMPLES = 30
 # shifting NFL probabilities ~3-4 points and re-deciding rows (LEAN at 0u with
 # negative edge on 2026-09-13); the model owns its decisions via
 # metadata.decision_policy and stamps calibration_excluded on every row.
-CALIBRATION_EXCLUDED_MODEL_KEYS = {"fifa_world_cup", "mls", "forebet_mls", "tennis", "cfb", "nfl"}
+CALIBRATION_EXCLUDED_MODEL_KEYS = {"fifa_world_cup", "mls", "forebet_mls", "tennis", "cfb", "nfl", "nhl"}
 # Research models with no real market (settlement at an assumed price only)
 # keep their calibrated probabilities for display, but the model's own
 # decision and stake publish untouched — there is no executable price for

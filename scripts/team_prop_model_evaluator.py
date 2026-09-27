@@ -38,6 +38,7 @@ SUPPORTED_MODEL_KEYS = (
     "nba_props",
     "cfb",
     "nfl",
+    "nhl",
     "mls", "wnba", "mlb_team_total", "nba", "nba_playoffs", "tennis", "ipl",
 )
 UNVERSIONED = "unversioned"
@@ -57,6 +58,15 @@ FEATURE_CONTRACTS: dict[str, dict[str, Any]] = {
             ("rest", ("home_rest_days", "away_rest_days", "rest_diff")),
             ("game_context", ("neutral_site", "conference_game", "week")),
             ("market_anchor", ("market_home_line", "market_total_line")),
+        ),
+    },
+    "nhl": {
+        "contract_version": "nhl_v1_poisson_prior_serving_groups",
+        "groups": (
+            ("offense", ("features.home_gf_per_game", "features.away_gf_per_game")),
+            ("defense", ("features.home_ga_per_game", "features.away_ga_per_game")),
+            ("projection", ("features.lambda_home", "features.lambda_away", "features.expected_total_with_ot_goal")),
+            ("sample", ("features.home_games", "features.away_games")),
         ),
     },
     "nfl": {
