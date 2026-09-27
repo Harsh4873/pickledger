@@ -61,6 +61,17 @@ def _start_time(pick: Mapping[str, Any], bucket: Mapping[str, Any]):
     return None
 
 
+def _policy_version(pick: Mapping[str, Any], bucket: Mapping[str, Any]) -> str:
+    fitted = str(pick.get("model_version") or bucket.get("model_version") or "").strip()
+    if fitted.startswith("nfl_v"):
+        return fitted
+    return str(
+        pick.get("ml_model_version") or pick.get("prediction_model_version")
+        or pick.get("model_version") or bucket.get("prediction_model_version")
+        or bucket.get("model_version") or "unversioned"
+    )
+
+
 def apply_stake_policy(
     payload: dict[str, Any], *, approvals: Mapping[str, Any] | None = None,
     model_keys: set[str], prop: bool = False,
@@ -100,11 +111,7 @@ def apply_stake_policy(
                 prior = aware_time(timing.get("published_at")) if isinstance(timing, Mapping) else None
                 if start is not None and start <= publication and prior is not None and prior < start:
                     continue
-            version = str(
-                pick.get("ml_model_version") or pick.get("prediction_model_version")
-                or pick.get("model_version") or bucket.get("prediction_model_version")
-                or bucket.get("model_version") or "unversioned"
-            )
+            version = _policy_version(pick, bucket)
             if prop:
                 fingerprint = str(pick.get("ml_training_fingerprint") or pick.get("training_fingerprint") or "")
                 if fingerprint:

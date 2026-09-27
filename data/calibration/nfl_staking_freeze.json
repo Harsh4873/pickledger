@@ -1,0 +1,22 @@
+{
+  "schema_version": 1,
+  "model_key": "nfl",
+  "fitted_version": "nfl_v1_epa_elo_market_anchored",
+  "market": "totals",
+  "variant": "base",
+  "frozen_at": "2026-09-27T00:00:00Z",
+  "frozen_rule": "nfl_v1 totals: Under residual magnitude >= 1.5 is BET at 0.5u; Under residual in [1.0, 1.5) is LEAN at 0.25u; juice cap -125; observed pregame American odds only. Moneyline and spread remain research PASS.",
+  "selection_window": {
+    "walk_forward_seasons": [2012, 2025],
+    "live_inspection_through": "2026-09-26T23:59:59Z",
+    "unused_during_selection": false,
+    "note": "Residual bands in NFLPredictionModel/artifacts/metadata.json were searched on 2012-2025 closing prices. The 2026-09-25 evidence review inspected live certified rows. Neither window is an unused holdout."
+  },
+  "holdout": {
+    "starts_at": "2026-09-27T00:00:00Z",
+    "unused_during_selection": true,
+    "evaluation": "Certified independently priced settled BET/LEAN (including shadow_decision after the publication gate) of the frozen rule, scored at the first pregame observed quote.",
+    "minimum_independently_priced_settled": 100
+  },
+  "challenger_comparison": "Incumbent is unapproved PASS at 0u. Challenger is the frozen totals rule on identical games and quotes. Do not pool hashed serving fingerprints or mined walk-forward bands into this holdout."
+}

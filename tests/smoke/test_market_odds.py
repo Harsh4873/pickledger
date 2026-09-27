@@ -17,6 +17,8 @@ def scoreboard_event(
     away: str = "Milwaukee Brewers",
     home_id: str = "23",
     away_id: str = "8",
+    home_abbr: str | None = None,
+    away_abbr: str | None = None,
     home_ml: str = "+109",
     away_ml: str = "-132",
     draw_ml: str | None = None,
@@ -42,11 +44,19 @@ def scoreboard_event(
                 "competitors": [
                     {
                         "homeAway": "home",
-                        "team": {"id": home_id, "displayName": home, "abbreviation": home[:3].upper()},
+                        "team": {
+                            "id": home_id,
+                            "displayName": home,
+                            "abbreviation": home_abbr or home[:3].upper(),
+                        },
                     },
                     {
                         "homeAway": "away",
-                        "team": {"id": away_id, "displayName": away, "abbreviation": away[:3].upper()},
+                        "team": {
+                            "id": away_id,
+                            "displayName": away,
+                            "abbreviation": away_abbr or away[:3].upper(),
+                        },
                     },
                 ],
                 "odds": [
@@ -512,3 +522,64 @@ def test_prices_are_not_captured_once_the_wall_clock_passes_kickoff():
     assert [game["eventId"] for game in book["MLB"]] == ["late"]
     before = datetime(2026, 7, 11, 19, 0, tzinfo=timezone.utc)
     assert [g["eventId"] for g in market_odds.fetch_market_odds_for_date(DATE, ["MLB"], make_fetch(events), now=before)["MLB"]] == ["early", "late"]
+
+
+def test_nfl_nflverse_odds_are_replaced_with_live_pregame_quotes():
+    from datetime import datetime, timezone
+
+    event = scoreboard_event(
+        home="Kansas City Chiefs",
+        away="Cincinnati Bengals",
+        home_abbr="KC",
+        away_abbr="CIN",
+        total_line=48.0,
+        under="-108",
+        over="-112",
+    )
+    book = market_odds.fetch_market_odds_for_date(
+        DATE, ["NFL"], make_fetch([event]), now=datetime(2026, 7, 11, 12, 0, tzinfo=timezone.utc)
+    )
+    payload = payload_with(
+        "nfl",
+        [{
+            "date": DATE,
+            "sport": "NFL",
+            "matchup": "CIN @ KC",
+            "away_team": "CIN",
+            "home_team": "KC",
+            "market": "totals",
+            "direction": "under",
+            "pick": "Under 48 (CIN @ KC)",
+            "line": 48.0,
+            "odds": -115,
+            "pricing_type": "market",
+            "odds_source": "nflverse_posted_lines",
+            "market_priced": True,
+            "market_retrieved_at": "2026-07-11T11:00:00Z",
+            "game_start_time": f"{DATE}T17:00:00Z",
+            "decision": "BET",
+            "units": 0.5,
+        }],
+    )
+    summary = market_odds.apply_market_odds_to_payload(
+        payload, book, now=datetime(2026, 7, 11, 12, 0, tzinfo=timezone.utc)
+    )
+    pick = payload["models"]["nfl"]["picks"][0]
+    assert summary["attached"] == 1
+    assert pick["odds"] == -108
+    assert pick["odds_source"] == "posted_market"
+    assert pick["assumed_odds_replaced"] is True
+    assert pick["market_updated_at"]
+
+    started = dict(payload["models"]["nfl"]["picks"][0])
+    started["odds"] = -115
+    started["odds_source"] = "nflverse_posted_lines"
+    started.pop("assumed_odds_replaced", None)
+    started["game_start_time"] = f"{DATE}T11:00:00Z"
+    late = payload_with("nfl", [started])
+    late_summary = market_odds.apply_market_odds_to_payload(
+        late, book, now=datetime(2026, 7, 11, 12, 0, tzinfo=timezone.utc)
+    )
+    assert late_summary["attached"] == 0
+    assert late["models"]["nfl"]["picks"][0]["odds"] == -115
+    assert late["models"]["nfl"]["picks"][0]["odds_source"] == "nflverse_posted_lines"

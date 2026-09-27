@@ -183,6 +183,11 @@ def stamp_team_prop_pregame_timing(
         for pick in picks:
             if not isinstance(pick, dict):
                 continue
+            existing = pick.get(TIMING_FIELD)
+            if isinstance(existing, dict) and existing.get("trusted") is True:
+                # NFL (and any other generator) may stamp at forecast time so a
+                # later multi-model write cannot move the clock past kickoff.
+                continue
             pick[TIMING_FIELD] = {
                 "trusted": True,
                 "published_at": published,
@@ -191,6 +196,58 @@ def stamp_team_prop_pregame_timing(
             }
             stamped += 1
     return stamped
+
+
+def refresh_trusted_publication_clock(
+    payload: dict[str, Any],
+    *,
+    now: datetime | None = None,
+    this_run_generated_at: str | None = None,
+) -> int:
+    """Advance published_at to this pregame write after odds attach.
+
+    Games that have already started keep their generation clock. Advancing
+    those timestamps would un-certify forecasts that were produced before
+    kickoff while a slower sibling model was still running.
+
+    NFL generate-time stamps are advanced while the game is still pregame so
+    the quote-to-publication window matches the live DraftKings overlay.
+    Other in-house buckets only move clocks that were stamped with this run's
+    generatedAt (retained rows keep their original publication).
+    """
+
+    clock = now or datetime.now(timezone.utc)
+    if clock.tzinfo is None:
+        clock = clock.replace(tzinfo=timezone.utc)
+    else:
+        clock = clock.astimezone(timezone.utc)
+    clock_iso = clock.isoformat().replace("+00:00", "Z")
+    this_run = str(this_run_generated_at or "").strip()
+    models = payload.get("models") if isinstance(payload.get("models"), dict) else {}
+    advanced = 0
+    for model_key, bucket in models.items():
+        if str(model_key) not in TEAM_PROP_MODEL_KEYS or not isinstance(bucket, dict):
+            continue
+        picks = bucket.get("picks") if isinstance(bucket.get("picks"), list) else []
+        for pick in picks:
+            if not isinstance(pick, dict):
+                continue
+            timing = pick.get(TIMING_FIELD)
+            if not isinstance(timing, dict) or timing.get("trusted") is not True:
+                continue
+            game = _game_lookup(bucket, pick)
+            start = _parse_timestamp(_game_start_time(pick, game))
+            if start is None or start <= clock:
+                continue
+            if str(model_key) != "nfl":
+                if not this_run or str(timing.get("published_at") or "") != this_run:
+                    continue
+            timing["published_at"] = clock_iso
+            as_of = _parse_timestamp(timing.get("data_as_of"))
+            if as_of is not None and as_of > clock:
+                timing["data_as_of"] = clock_iso
+            advanced += 1
+    return advanced
 
 
 def _number(value: Any) -> float | None:
@@ -356,7 +413,27 @@ def _displayed_probability(pick: Mapping[str, Any]) -> float | None:
     return None
 
 
+def _fitted_artifact_version(model_key: str, bucket: Mapping[str, Any], pick: Mapping[str, Any]) -> str:
+    """Stable fitted artifact label, when the pick still carries one.
+
+    NFL serving also stamps a content hash of pickgrader_server.py onto
+    ``prediction_model_version``. That hash is useful for audit but fragments
+    the staking scorecard whenever unrelated server code changes.
+    """
+
+    if str(model_key) != "nfl":
+        return ""
+    for source in (pick, bucket):
+        value = _text(source.get("model_version"))
+        if value.startswith("nfl_v"):
+            return value
+    return ""
+
+
 def _model_version(model_key: str, bucket: Mapping[str, Any], pick: Mapping[str, Any]) -> str:
+    fitted = _fitted_artifact_version(model_key, bucket, pick)
+    if fitted:
+        return fitted
     value = _first_value(
         pick.get("prediction_model_version"),
         pick.get("model_version"),
@@ -583,6 +660,17 @@ def _snapshot_record(
     certification, published_at, data_as_of = _certification(pick, bucket, payload, game_start_time)
     raw_probability = _raw_probability(pick, snapshot)
     displayed_probability = _displayed_probability(pick)
+    raw_decision = _text(
+        _first_value(
+            snapshot.get("shadow_decision"),
+            pick.get("shadow_decision"),
+            snapshot.get("source_decision"),
+            pick.get("source_decision"),
+            snapshot.get("decision"),
+        )
+    ) or None
+    shadow_decision = _text(_first_value(snapshot.get("shadow_decision"), pick.get("shadow_decision"))) or None
+    shadow_units = _number(_first_value(snapshot.get("shadow_units"), pick.get("shadow_units")))
     financial_eligible, financial_reason, benchmark_eligible, benchmark_reason = _price_eligibility(pick, price)
     if financial_eligible:
         clock_reason = observed_quote_timing(pick, published_at=published_at, start_at=game_start_time)
@@ -649,10 +737,12 @@ def _snapshot_record(
         "data_as_of": data_as_of,
         "raw_probability": raw_probability,
         "displayed_probability": displayed_probability,
-        "raw_decision": _text(snapshot.get("decision")) or None,
+        "raw_decision": raw_decision,
         "decision": immutable["decision"] or None,
-        "raw_stake": _number(snapshot.get("units")),
+        "raw_stake": _number(_first_value(snapshot.get("shadow_units"), snapshot.get("source_units"), snapshot.get("units"))),
         "stake": immutable["stake"],
+        "shadow_decision": shadow_decision,
+        "shadow_units": shadow_units,
         "market": market,
         "selection": selection,
         "pick": _text(snapshot.get("pick") or pick.get("pick")),
@@ -741,10 +831,54 @@ def capture_team_prop_pregame_snapshots(
     return {"added": added, "unchanged": unchanged, "team_picks": team_picks}
 
 
+def backfill_team_prop_pregame_from_cache(
+    cache_dir: Path | None = None,
+    *,
+    repo_root: Path | str | None = None,
+    model_keys: set[str] | None = None,
+) -> dict[str, int]:
+    """Capture missing snapshots from dated model-cache files.
+
+    Timestamps are taken from each cache payload as published. This never
+    invents a pregame clock for a row that was first written after kickoff.
+    """
+
+    root = Path(repo_root or REPO_ROOT)
+    cache = Path(cache_dir) if cache_dir is not None else root / "data" / "model_cache"
+    wanted = set(model_keys or TEAM_PROP_MODEL_KEYS)
+    added = unchanged = team_picks = files = 0
+    for path in sorted(cache.glob("20??-??-??.json")):
+        try:
+            payload = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            continue
+        if not isinstance(payload, dict):
+            continue
+        models = payload.get("models") if isinstance(payload.get("models"), dict) else {}
+        filtered = {
+            key: bucket
+            for key, bucket in models.items()
+            if str(key) in wanted and isinstance(bucket, dict)
+        }
+        if not filtered:
+            continue
+        summary = capture_team_prop_pregame_snapshots(
+            {**payload, "models": filtered},
+            repo_root=root,
+        )
+        added += int(summary.get("added") or 0)
+        unchanged += int(summary.get("unchanged") or 0)
+        team_picks += int(summary.get("team_picks") or 0)
+        files += 1
+    return {"files": files, "added": added, "unchanged": unchanged, "team_picks": team_picks}
+
+
 __all__ = [
     "TEAM_PROP_MODEL_KEYS",
+    "backfill_team_prop_pregame_from_cache",
     "capture_team_prop_pregame_snapshots",
     "load_team_prop_pregame_ledger",
+    "refresh_trusted_publication_clock",
     "stamp_team_prop_pregame_timing",
     "write_team_prop_pregame_ledger",
 ]
