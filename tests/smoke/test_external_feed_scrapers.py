@@ -2690,6 +2690,27 @@ def test_scores24_client_can_disable_inner_attempt_sleep(monkeypatch):
     assert slept == []
 
 
+def test_scores24_missing_camoufox_binary_uses_impersonated_http(monkeypatch):
+    module = _load_module(
+        "scores24_missing_camoufox_test",
+        ROOT / "scripts" / "scrapers" / "scores24_scraper.py",
+    )
+    monkeypatch.setenv("SCORES24_CAMOUFOX_FALLBACK", "true")
+    monkeypatch.setattr(module, "camoufox_binary", lambda: (None, "browser missing"))
+    client = module.Scores24Client(browser_fallback=False, interval_seconds=0)
+    called = []
+    monkeypatch.setattr(
+        client, "_impersonated_html",
+        lambda url: (called.append(url) or "<html>ready</html>", 200),
+    )
+
+    url = "https://scores24.live/en/predictions/american-football"
+    html, status, blocked = client.get_html(url)
+    assert (html, status, blocked) == ("<html>ready</html>", 200, False)
+    assert called == [url]
+    assert client._camoufox_failed is True
+
+
 def test_scores24_checkpoint_resumes_without_refetching_resolved(monkeypatch, tmp_path):
     module = _load_module(
         "scores24_checkpoint_test",
@@ -2751,6 +2772,120 @@ def test_scores24_checkpoint_resumes_without_refetching_resolved(monkeypatch, tm
     assert second["meta"]["matchedPicks"] == 2
     assert second["meta"]["checkpointedPicks"] == 1
     assert all("tampa-bay-rays" not in url for url in second_client.urls)
+
+
+def test_scores24_football_keeps_unmatched_slate_incomplete_until_resume(monkeypatch, tmp_path):
+    module = _load_module(
+        "scores24_football_resume_test",
+        ROOT / "scripts" / "scrapers" / "scores24_scraper.py",
+    )
+    monkeypatch.setenv("SCORES24_CHECKPOINT_DIR", str(tmp_path / "state"))
+    monkeypatch.setenv("SCORES24_MAX_CANDIDATES_PER_MATCHUP", "2")
+    monkeypatch.setenv("SCORES24_BLOCK_RETRY_ROUNDS", "0")
+    monkeypatch.setattr(module, "MODEL_CACHE_DIR", tmp_path / "cache")
+    matchups = [
+        {"away": "Alpha Bears", "home": "Beta Wolves", "start_time": ""},
+        {"away": "Gamma Hawks", "home": "Delta Lions", "start_time": ""},
+    ]
+
+    for sport in ("cfb", "nfl"):
+        first_url = f"https://scores24.live/en/american-football/m-20-09-2026-beta-wolves-alpha-bears-prediction"
+        second_url = f"https://scores24.live/en/american-football/m-20-09-2026-delta-lions-gamma-hawks-prediction"
+        details = {
+            first_url: (
+                "<html><head><title>Alpha Bears vs Beta Wolves Prediction</title></head>"
+                "<body><div>Our choice</div><div>Beta Wolves Win at odds of +110*</div></body></html>"
+            ),
+            second_url: (
+                "<html><head><title>Gamma Hawks vs Delta Lions Prediction</title></head>"
+                "<body><div>Our choice</div><div>Delta Lions Win at odds of +110*</div></body></html>"
+            ),
+        }
+        listing_urls = set(module.SPORT_CONFIG[sport]["listing_urls"])
+
+        class Client:
+            def __init__(self, available):
+                self.available = available
+                self.urls = []
+
+            def get_html(self, url: str, attempts: int = 3):
+                self.urls.append(url)
+                if url in listing_urls:
+                    links = "".join(
+                        f'<a href="{detail_url}">Prediction</a>'
+                        for detail_url in self.available
+                    )
+                    return links, 200, False
+                if url in self.available:
+                    return details[url], 200, False
+                return "", 404, False
+
+        first = module.scrape_scores24(
+            sport, "2026-09-20", client=Client({first_url}), matchups=matchups,
+        )
+        assert first["ok"] is False
+        assert first["meta"]["expectedMatchups"] == 2
+        assert first["meta"]["matchedPicks"] == 1
+        assert len(first["meta"]["missingMatchups"]) == 1
+
+        second_client = Client({second_url})
+        second = module.scrape_scores24(
+            sport, "2026-09-20", client=second_client, matchups=matchups,
+        )
+        assert second["ok"] is True
+        assert second["meta"]["checkpointedPicks"] == 1
+        assert second["meta"]["matchedPicks"] == 2
+        assert first_url not in second_client.urls
+
+
+def test_scores24_football_recovers_same_day_cache_without_local_checkpoint(monkeypatch, tmp_path):
+    module = _load_module(
+        "scores24_football_cache_resume_test",
+        ROOT / "scripts" / "scrapers" / "scores24_scraper.py",
+    )
+    monkeypatch.setenv("SCORES24_CHECKPOINT_DIR", str(tmp_path / "state"))
+    monkeypatch.setenv("SCORES24_BLOCK_RETRY_ROUNDS", "0")
+    cache_dir = tmp_path / "cache"
+    cache_dir.mkdir()
+    monkeypatch.setattr(module, "MODEL_CACHE_DIR", cache_dir)
+    date_iso = "2026-09-20"
+    first = {"away": "Alpha Bears", "home": "Beta Wolves", "start_time": ""}
+    second = {"away": "Gamma Hawks", "home": "Delta Lions", "start_time": ""}
+    first_pick = module._pick_payload(
+        module.SPORT_CONFIG["nfl"], date_iso, first,
+        "https://scores24.live/en/american-football/first-prediction", "Beta Wolves Win", 110,
+    )
+    (cache_dir / f"{date_iso}.json").write_text(json.dumps({
+        "date": date_iso,
+        "external_feeds": {"scores24_nfl": {
+            "ok": False, "date": date_iso, "picks": [first_pick],
+        }},
+    }))
+    second_url = "https://scores24.live/en/american-football/m-20-09-2026-delta-lions-gamma-hawks-prediction"
+
+    class Client:
+        def __init__(self):
+            self.urls = []
+
+        def get_html(self, url: str, attempts: int = 3):
+            self.urls.append(url)
+            if url in module.SPORT_CONFIG["nfl"]["listing_urls"]:
+                return f'<a href="{second_url}">Gamma Hawks Delta Lions</a>', 200, False
+            if url == second_url:
+                return (
+                    "<html><head><title>Gamma Hawks vs Delta Lions Prediction</title></head>"
+                    "<body><div>Our choice</div><div>Delta Lions Win at odds of +110*</div></body></html>",
+                    200, False,
+                )
+            raise AssertionError(f"resolved first matchup was fetched: {url}")
+
+    client = Client()
+    result = module.scrape_scores24("nfl", date_iso, client=client, matchups=[first, second])
+    assert result["ok"] is True
+    assert result["meta"]["checkpointedPicks"] == 1
+    assert len(result["picks"]) == 2
+    assert first_pick in result["picks"]
+    assert len(module.load_checkpoint_picks("nfl", date_iso)) == 2
 
 
 def test_scores24_scrape_timeout_returns_todays_partial_picks(monkeypatch, tmp_path):
@@ -2969,7 +3104,8 @@ def test_local_scores24_publisher_registers_separate_models():
     assert "scores24_nfl" not in workflow
     assert 'GH_BIN="$(command -v gh || true)"' in publisher
     assert "SCORES24_BROWSER_FALLBACK=true" in publisher
-    assert "SCORES24_CAMOUFOX_FALLBACK=true" in publisher
+    assert 'SCORES24_CAMOUFOX_FALLBACK="${CAMOUFOX_FALLBACK}"' in publisher
+    assert 'scores24_camoufox.py" warmup' in publisher
     assert 'PUBLISH_FEEDS="${SCORES24_PUBLISH_FEEDS:-scores24_mlb,scores24_wnba}"' in publisher
     assert 'OPTIONAL_FEEDS="${SCORES24_OPTIONAL_FEEDS:-scores24_cfb,scores24_nfl}"' in publisher
     assert 'SCORES24_REQUEST_INTERVAL_SECONDS="${REQUEST_INTERVAL}"' in publisher

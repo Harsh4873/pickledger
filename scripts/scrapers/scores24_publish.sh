@@ -48,9 +48,11 @@ FEED_COOLDOWN="${SCORES24_PUBLISH_FEED_COOLDOWN_SECONDS:-90}"
 # Same-day resume state: verified picks checkpoint + persistent browser
 # profile so reruns only fight for still-missing matchups instead of
 # re-requesting the whole slate from zero after every block.
-SCORES24_STATE_ROOT="${SCORES24_STATE_ROOT:-${HOME}/.cache/pickledger-scores24}"
+export SCORES24_STATE_ROOT="${SCORES24_STATE_ROOT:-${HOME}/.cache/pickledger-scores24}"
 export SCORES24_CHECKPOINT_DIR="${SCORES24_CHECKPOINT_DIR:-${SCORES24_STATE_ROOT}}"
 export SCORES24_CAMOUFOX_PROFILE_DIR="${SCORES24_CAMOUFOX_PROFILE_DIR:-${SCORES24_STATE_ROOT}/camoufox-profile}"
+export SCORES24_CAMOUFOX_FALLBACK="${SCORES24_CAMOUFOX_FALLBACK:-true}"
+CAMOUFOX_FALLBACK="${SCORES24_CAMOUFOX_FALLBACK}"
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --date)
@@ -103,21 +105,9 @@ git -C "${TEMP_REPO}" config user.email "${GIT_EMAIL}"
   --remote --dispatch --date "${DATE_ISO}" \
   || echo "Model recovery check failed; continuing Scores24 publish." >&2
 
-"${PYTHON_BIN}" - <<'PY'
-import os
-os.environ.setdefault("SCORES24_CAMOUFOX_FALLBACK", "true")
-if os.environ.get("SCORES24_CAMOUFOX_FALLBACK", "true").lower() in {"1", "true", "yes", "on"}:
-    try:
-        from camoufox.sync_api import Camoufox
-
-        with Camoufox(headless=True, humanize=True) as browser:
-            page = browser.new_page()
-            page.goto("about:blank", timeout=15000)
-            page.close()
-        print("Scores24 Camoufox warmup complete.")
-    except Exception as exc:
-        print(f"Scores24 Camoufox warmup skipped: {exc}")
-PY
+if ! "${PYTHON_BIN}" "${REPO_ROOT}/scripts/scrapers/scores24_camoufox.py" warmup; then
+  CAMOUFOX_FALLBACK=false
+fi
 
 IFS=',' read -r -a FEED_KEYS <<< "${PUBLISH_FEEDS}"
 feed_index=0
@@ -131,7 +121,7 @@ for raw_feed_key in "${FEED_KEYS[@]}"; do
   fi
   echo "Refreshing ${feed_key} for ${DATE_ISO}."
   SCORES24_BROWSER_FALLBACK=true \
-  SCORES24_CAMOUFOX_FALLBACK=true \
+  SCORES24_CAMOUFOX_FALLBACK="${CAMOUFOX_FALLBACK}" \
   SCORES24_REQUEST_INTERVAL_SECONDS="${REQUEST_INTERVAL}" \
   SCORES24_REQUEST_ATTEMPTS="${REQUEST_ATTEMPTS}" \
   SCORES24_ATTEMPT_RETRY_DELAY_SECONDS="${ATTEMPT_RETRY_DELAY}" \
@@ -215,7 +205,7 @@ for raw_feed_key in "${OPTIONAL_KEYS[@]}"; do
   echo "Refreshing optional ${feed_key} for ${DATE_ISO} (soft-fail; will not block MLB+WNBA publish)."
   set +e
   SCORES24_BROWSER_FALLBACK=true \
-  SCORES24_CAMOUFOX_FALLBACK=true \
+  SCORES24_CAMOUFOX_FALLBACK="${CAMOUFOX_FALLBACK}" \
   SCORES24_REQUEST_INTERVAL_SECONDS="${REQUEST_INTERVAL}" \
   SCORES24_REQUEST_ATTEMPTS="${REQUEST_ATTEMPTS}" \
   SCORES24_ATTEMPT_RETRY_DELAY_SECONDS="${ATTEMPT_RETRY_DELAY}" \

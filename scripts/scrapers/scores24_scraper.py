@@ -25,6 +25,7 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 from scripts.scrapers.espn_scoreboard import fetch_scoreboard_json
+from scripts.scrapers.scores24_camoufox import camoufox_binary, camoufox_profile_path
 
 MODEL_CACHE_DIR = REPO_ROOT / "data" / "model_cache"
 HEADERS = {
@@ -211,6 +212,8 @@ def _capped_timeout_ms(default_ms: int) -> int:
 
 def sport_key_for_feed(feed_key: str) -> str | None:
     key = str(feed_key or "").strip().lower()
+    if key == "scores24_tennis":
+        return "tennis"
     if key.startswith("scores24_"):
         sport = key.removeprefix("scores24_")
         if sport in SPORT_CONFIG:
@@ -484,35 +487,58 @@ def _load_checkpoint(
     Scores24 blocks tend to hit late-slate matchups after the request budget
     is spent, so partial progress must survive across publisher runs instead
     of every retry starting from zero. Entries whose matchup is no longer on
-    the official slate are dropped. Enabled only when SCORES24_CHECKPOINT_DIR
-    is set (the local publisher sets it).
+    the official slate are dropped. Football can also resume from a published
+    same-day bucket when the host's checkpoint is unavailable. Enabled only
+    when SCORES24_CHECKPOINT_DIR is set (the local publisher sets it).
     """
-    path = _checkpoint_path(sport_key, date_iso)
-    if path is None or not path.exists():
-        return {}
-    try:
-        payload = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError):
-        return {}
-    if (
-        not isinstance(payload, dict)
-        or payload.get("date") != date_iso
-        or payload.get("sport") != sport_key
-    ):
-        return {}
     expected_keys: set[tuple[str, str]] = set()
     for matchup in expected:
         key = _matchup_key(matchup.get("away", ""), matchup.get("home", ""))
         if key:
             expected_keys.add(key)
     resolved: dict[tuple[str, str], dict[str, Any]] = {}
-    rows = payload.get("picks") if isinstance(payload.get("picks"), list) else []
-    for row in rows:
-        if not isinstance(row, dict) or not row.get("pick") or not row.get("source"):
-            continue
-        key = _matchup_key(row.get("away_team", ""), row.get("home_team", ""))
-        if key and key in expected_keys:
-            resolved.setdefault(key, row)
+
+    def collect(rows: Any) -> None:
+        for row in rows if isinstance(rows, list) else []:
+            if not isinstance(row, dict) or not row.get("pick"):
+                continue
+            if row.get("source") != SPORT_CONFIG[sport_key]["source"]:
+                continue
+            if str(row.get("date") or date_iso) != date_iso:
+                continue
+            key = _matchup_key(row.get("away_team", ""), row.get("home_team", ""))
+            if key and key in expected_keys:
+                resolved.setdefault(key, row)
+
+    path = _checkpoint_path(sport_key, date_iso)
+    if path is not None:
+        try:
+            checkpoint = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            checkpoint = None
+        if (
+            isinstance(checkpoint, dict)
+            and checkpoint.get("date") == date_iso
+            and checkpoint.get("sport") == sport_key
+        ):
+            collect(checkpoint.get("picks"))
+
+    # A partial football bucket may have been published from another host, or
+    # before the local checkpoint directory existed. Recover its verified
+    # same-day rows so a later run still spends its budget on missing games.
+    if path is not None and sport_key in {"cfb", "nfl"}:
+        feed_key = f"scores24_{sport_key}"
+        for cache_path in (MODEL_CACHE_DIR / f"{date_iso}.json", MODEL_CACHE_DIR / "latest.json"):
+            try:
+                cached = json.loads(cache_path.read_text(encoding="utf-8"))
+            except (OSError, json.JSONDecodeError):
+                continue
+            if not isinstance(cached, dict) or cached.get("date") != date_iso:
+                continue
+            feeds = cached.get("external_feeds") if isinstance(cached.get("external_feeds"), dict) else {}
+            bucket = feeds.get(feed_key) if isinstance(feeds.get(feed_key), dict) else {}
+            if bucket.get("date") == date_iso:
+                collect(bucket.get("picks"))
     return resolved
 
 
@@ -748,38 +774,41 @@ class Scores24Client:
         if not _env_flag("SCORES24_CAMOUFOX_FALLBACK", True) or self._camoufox_failed:
             return "", 0
         try:
-            from camoufox.sync_api import Camoufox
-
             if self._camoufox_manager is None:
+                binary, reason = camoufox_binary()
+                if binary is None:
+                    self._camoufox_failed = True
+                    print(f"Scores24 Camoufox skipped: {reason}; using curl_cffi.", file=sys.stderr)
+                    return "", 0
+                from camoufox.sync_api import Camoufox
+
                 launch_options: dict[str, Any] = {
                     "headless": True,
                     "humanize": True,
+                    "executable_path": binary,
                 }
                 proxy_server = os.environ.get("PLAYWRIGHT_PROXY_SERVER", "").strip()
                 if proxy_server:
                     launch_options["proxy"] = {"server": proxy_server}
-                profile_dir = os.environ.get("SCORES24_CAMOUFOX_PROFILE_DIR", "").strip()
-                if profile_dir:
-                    # A persistent profile lets one cleared challenge cover the
-                    # rest of the slate and same-day reruns instead of every
-                    # fresh launch facing the challenge again.
-                    try:
-                        profile_path = Path(profile_dir).expanduser()
-                        profile_path.mkdir(parents=True, exist_ok=True)
-                        self._camoufox_manager = Camoufox(
-                            persistent_context=True,
-                            user_data_dir=str(profile_path),
-                            **launch_options,
-                        )
-                        self._camoufox_context = self._camoufox_manager.__enter__()
-                    except Exception:
-                        if self._camoufox_manager is not None:
-                            try:
-                                self._camoufox_manager.__exit__(None, None, None)
-                            except Exception:
-                                pass
-                        self._camoufox_manager = None
-                        self._camoufox_context = None
+                # A persistent profile lets one cleared challenge cover the
+                # rest of the slate and same-day reruns.
+                try:
+                    profile_path = camoufox_profile_path()
+                    profile_path.mkdir(parents=True, exist_ok=True)
+                    self._camoufox_manager = Camoufox(
+                        persistent_context=True,
+                        user_data_dir=str(profile_path),
+                        **launch_options,
+                    )
+                    self._camoufox_context = self._camoufox_manager.__enter__()
+                except Exception:
+                    if self._camoufox_manager is not None:
+                        try:
+                            self._camoufox_manager.__exit__(None, None, None)
+                        except Exception:
+                            pass
+                    self._camoufox_manager = None
+                    self._camoufox_context = None
                 if self._camoufox_manager is None:
                     self._camoufox_manager = Camoufox(**launch_options)
                     browser = self._camoufox_manager.__enter__()
@@ -819,8 +848,9 @@ class Scores24Client:
                 return html, status
             finally:
                 page.close()
-        except Exception:
+        except Exception as exc:
             self._camoufox_failed = True
+            print(f"Scores24 Camoufox failed: {exc}; using curl_cffi.", file=sys.stderr)
             return "", 0
 
     def _impersonated_html(self, url: str) -> tuple[str, int]:
@@ -1328,6 +1358,8 @@ def scrape_scores24(
     detail_matchup_keys: set[tuple[str, str]] = set()
     checkpointed = _load_checkpoint(sport_key, date_iso, expected)
     picks: list[dict[str, Any]] = list(checkpointed.values())
+    if picks and sport_key in {"cfb", "nfl"}:
+        _save_checkpoint(sport_key, date_iso, picks)
     remaining = [
         matchup
         for matchup in expected
@@ -1577,6 +1609,29 @@ def scrape_scores24(
                     for matchup in unresolved_matchups
                     if matchup not in unverifiable_missing
                 ],
+                "attemptedUrls": attempted_urls,
+                "blockedUrls": len(set(blocked_urls)),
+                "blockRetryRounds": block_retry_rounds,
+                "checkpointedPicks": len(checkpointed),
+                "listingResolved": listing_resolved,
+                "listingUrlsAttempted": listing_urls_attempted,
+            },
+        }
+    if sport_key in {"cfb", "nfl"} and timeout_missing:
+        return {
+            "ok": False,
+            "date": date_iso,
+            "picks": picks,
+            "error": (
+                f"{config['source']} has {len(timeout_missing)} unmatched official "
+                f"{date_iso} matchup(s); retry will resume the same-day checkpoint"
+            ),
+            "meta": {
+                "officialMatchups": len(expected),
+                "expectedMatchups": len(expected),
+                "matchedPicks": len(picks),
+                "missingMatchups": timeout_missing,
+                "unpublishedMatchups": [],
                 "attemptedUrls": attempted_urls,
                 "blockedUrls": len(set(blocked_urls)),
                 "blockRetryRounds": block_retry_rounds,

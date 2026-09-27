@@ -1,10 +1,9 @@
 #!/usr/bin/env python3
 """Run a soft-fail Scores24 feed with a hard timeout and checkpoint salvage.
 
-Used by scripts/scrapers/scores24_publish.sh after the MLB+WNBA completeness
-gate. CFB/NFL may hang in Camoufox; this wrapper kills the process group,
-promotes any same-day checkpointed picks, and always returns 0 so required
-feeds can still publish.
+Used by the Scores24 and tennis publishers for optional feeds. A Camoufox
+request may hang; this wrapper kills the process group and promotes any
+same-day checkpointed picks without delaying other feeds beyond the timeout.
 """
 
 from __future__ import annotations
@@ -27,6 +26,7 @@ from scripts.merge_external_feed_cache_payload import _demote_scraped_feed_picks
 from scripts.refresh_external_feeds import (  # noqa: E402
     _previous_feed_bucket,
     _record_feed_attempt,
+    _today_result_picks,
 )
 from scripts.scrapers.scores24_scraper import (  # noqa: E402
     load_checkpoint_picks,
@@ -52,8 +52,6 @@ def _write_json_atomic(path: Path, payload: dict[str, Any]) -> None:
 
 
 def _kill_process_group(proc: subprocess.Popen[Any]) -> None:
-    if proc.poll() is not None:
-        return
     try:
         os.killpg(proc.pid, signal.SIGKILL)
     except (ProcessLookupError, PermissionError, OSError):
@@ -73,34 +71,49 @@ def timeout_result(
     timeout_seconds: float,
     picks: list[dict[str, Any]],
 ) -> dict[str, Any]:
+    return failure_result(
+        feed_key,
+        date_iso,
+        f"Optional source refresh timed out after {timeout_seconds:.0f}s with {len(picks)} matched pick(s)",
+        picks,
+        timed_out=True,
+    )
+
+
+def failure_result(
+    feed_key: str,
+    date_iso: str,
+    error: str,
+    picks: list[dict[str, Any]],
+    *,
+    timed_out: bool = False,
+) -> dict[str, Any]:
     return {
         "ok": False,
         "date": date_iso,
         "picks": picks,
-        "error": (
-            f"Optional source refresh timed out after {timeout_seconds:.0f}s "
-            f"with {len(picks)} matched pick(s)"
-        ),
+        "error": error,
         "meta": {
             "date": date_iso,
             "feed": feed_key,
             "matchedPicks": len(picks),
             "checkpointedPicks": len(picks),
-            "timedOut": True,
+            **({"timedOut": True} if timed_out else {}),
         },
     }
 
 
-def apply_optional_timeout_to_cache(
+def apply_optional_failure_to_cache(
     cache_path: Path,
     feed_key: str,
     date_iso: str,
-    timeout_seconds: float,
+    error: str,
     *,
     checkpoint_dir: str | None = None,
     now_iso: str | None = None,
+    timed_out: bool = False,
 ) -> dict[str, Any]:
-    """Stamp a timed-out optional feed without redatestamping yesterday's rows.
+    """Record an optional failure without redatestamping yesterday's rows.
 
     If a same-day checkpoint has matched picks, those become today's (incomplete)
     bucket. Otherwise lastAttemptDate moves to today and the previous snapshot
@@ -114,7 +127,25 @@ def apply_optional_timeout_to_cache(
         if sport_key
         else []
     )
-    result = timeout_result(feed_key, date_iso, timeout_seconds, checkpoint_picks)
+    previous_picks = (
+        _today_result_picks(previous, date_iso)
+        if isinstance(previous, dict) and previous.get("date") == date_iso
+        else []
+    )
+    matched_count = max(len(checkpoint_picks), len(previous_picks))
+    if timed_out:
+        error = f"{error} with {matched_count} matched pick(s)"
+    if (
+        isinstance(previous, dict)
+        and previous.get("date") == date_iso
+        and len(previous_picks) >= len(checkpoint_picks)
+    ):
+        # The child may already have written a richer partial result. Keep its
+        # official-slate metadata while recording this outer failure.
+        checkpoint_picks = []
+    result = failure_result(
+        feed_key, date_iso, error, checkpoint_picks, timed_out=timed_out,
+    )
     now = now_iso or datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
     bucket = _record_feed_attempt(previous, result, date_iso, now)
     feeds = payload.get("external_feeds") if isinstance(payload.get("external_feeds"), dict) else {}
@@ -136,6 +167,26 @@ def apply_optional_timeout_to_cache(
         models = payload.get("models") if isinstance(payload.get("models"), dict) else models
     _write_json_atomic(cache_path, payload)
     return bucket
+
+
+def apply_optional_timeout_to_cache(
+    cache_path: Path,
+    feed_key: str,
+    date_iso: str,
+    timeout_seconds: float,
+    *,
+    checkpoint_dir: str | None = None,
+    now_iso: str | None = None,
+) -> dict[str, Any]:
+    return apply_optional_failure_to_cache(
+        cache_path,
+        feed_key,
+        date_iso,
+        f"Optional source refresh timed out after {timeout_seconds:.0f}s",
+        checkpoint_dir=checkpoint_dir,
+        now_iso=now_iso,
+        timed_out=True,
+    )
 
 
 def run_optional_scores24_feed(
@@ -171,7 +222,19 @@ def run_optional_scores24_feed(
     if extra_env:
         env.update(extra_env)
 
-    proc = subprocess.Popen(cmd, env=env, start_new_session=True)
+    try:
+        proc = subprocess.Popen(cmd, env=env, start_new_session=True)
+    except OSError as exc:
+        try:
+            apply_optional_failure_to_cache(
+                Path(cache_path), feed_key, date_iso,
+                f"Optional source refresh could not start: {exc}",
+                checkpoint_dir=checkpoint_dir,
+            )
+        except (OSError, ValueError) as cache_exc:
+            print(f"Could not record optional launch failure: {cache_exc}", file=sys.stderr)
+        print(f"Optional {feed_key} scrape could not start: {exc}", file=sys.stderr)
+        return 1
     try:
         returncode = proc.wait(timeout=timeout)
     except subprocess.TimeoutExpired:
@@ -188,10 +251,19 @@ def run_optional_scores24_feed(
             print(f"Could not record optional timeout diagnostics: {exc}", file=sys.stderr)
         print(
             f"Optional {feed_key} scrape timed out after {timeout:.0f}s; "
-            "continuing with MLB+WNBA publish.",
+            "continuing with other feeds.",
             file=sys.stderr,
         )
         return 0
+    if returncode:
+        try:
+            apply_optional_failure_to_cache(
+                Path(cache_path), feed_key, date_iso,
+                f"Optional source refresh exited with code {returncode}",
+                checkpoint_dir=checkpoint_dir,
+            )
+        except (OSError, ValueError) as exc:
+            print(f"Could not record optional failure diagnostics: {exc}", file=sys.stderr)
     return int(returncode or 0)
 
 

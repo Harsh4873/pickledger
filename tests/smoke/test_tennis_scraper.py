@@ -74,9 +74,11 @@ class _FakeScores24Client:
         # the tennis predictions page.
         self.responses = responses
         self.closed = False
+        self.urls = []
 
     def get_html(self, url, attempts=None):
-        if "/tennis/predictions" in url:
+        self.urls.append(url)
+        if "/predictions/tennis" in url:
             return self.responses.get("listing", ("", 200, False))
         return self.responses.get(url, ("", 404, False))
 
@@ -96,7 +98,7 @@ def test_tennis_config():
     assert cfg["label"] == "Tennis"
     assert cfg["scores24_source"] == "Scores24Tennis"
     assert cfg["tennistonic_source"] == "TennisTonic"
-    assert "tennis/predictions" in cfg["scores24_listing_url"]
+    assert cfg["scores24_listing_url"] == "https://scores24.live/en/predictions/tennis"
 
 
 def test_espn_slate_parses_singles_and_skips_doubles_tbd_and_offdate():
@@ -292,6 +294,70 @@ def test_scrape_scores24_tennis_moneyline_only():
     assert pick["pick"] == "Andrey Rublev ML (Andrey Rublev vs Timofey Skatov)"
     assert pick["odds"] == -160
     assert pick["calibration_excluded"] is True
+
+
+def test_scores24_tennis_uses_listing_instead_of_guessing_every_match():
+    matches = [
+        {"away": "Andrey Rublev", "home": "Timofey Skatov"},
+        {"away": "Carlos Alcaraz", "home": "Jannik Sinner"},
+    ]
+    rublev_url = tn.scores24_tennis_candidate_urls("2026-07-22", matches[0])[0]
+    listing = f'<a href="{rublev_url}">Andrey Rublev - Timofey Skatov</a>'
+    client = _FakeScores24Client({
+        "listing": (listing, 200, False),
+        rublev_url: (_scores24_html("Rublev Skatov", "Andrey Rublev Win", "-160"), 200, False),
+    })
+    result = tn.scrape_scores24_tennis("2026-07-22", client=client, matches=matches)
+    assert result["ok"] is True
+    assert len(result["picks"]) == 1
+    assert client.urls == [tn.SPORT_CONFIG["tennis"]["scores24_listing_url"], rublev_url]
+
+
+def test_scores24_tennis_failed_listing_is_incomplete_even_without_picks():
+    match = {"away": "Andrey Rublev", "home": "Timofey Skatov"}
+    client = _FakeScores24Client({"listing": ("", 404, False)})
+    result = tn.scrape_scores24_tennis(
+        "2026-07-22", client=client, matches=[match],
+    )
+    assert result["ok"] is False
+    assert result["picks"] == []
+    assert result["meta"]["listingResolved"] is False
+
+
+def test_scores24_tennis_resumes_same_day_checkpoint_after_timeout(tmp_path, monkeypatch):
+    monkeypatch.setenv("SCORES24_CHECKPOINT_DIR", str(tmp_path))
+    matches = [
+        {"away": "Andrey Rublev", "home": "Timofey Skatov"},
+        {"away": "Carlos Alcaraz", "home": "Jannik Sinner"},
+    ]
+    rublev_url = tn.scores24_tennis_candidate_urls("2026-07-22", matches[0])[0]
+    alcaraz_url = tn.scores24_tennis_candidate_urls("2026-07-22", matches[1])[0]
+    responses = {
+        "listing": ("<html></html>", 200, False),
+        rublev_url: (_scores24_html("Rublev Skatov", "Andrey Rublev Win", "-160"), 200, False),
+        alcaraz_url: (_scores24_html("Alcaraz Sinner", "Carlos Alcaraz Win", "-120"), 200, False),
+    }
+
+    checkpoint = tmp_path / "scores24-tennis-2026-07-22.json"
+    first_client = _FakeScores24Client(responses)
+    monkeypatch.setattr(tn, "scrape_timed_out", lambda: checkpoint.is_file())
+    first = tn.scrape_scores24_tennis("2026-07-22", client=first_client, matches=matches)
+    assert first["ok"] is False
+    assert first["meta"]["timedOut"] is True
+    assert first["meta"]["checkpointedPicks"] == 1
+
+    assert checkpoint.is_file()
+    second_client = _FakeScores24Client(responses)
+    monkeypatch.setattr(tn, "scrape_timed_out", lambda: False)
+    second = tn.scrape_scores24_tennis("2026-07-22", client=second_client, matches=matches)
+    assert second["ok"] is True
+    assert second["meta"]["resumedPicks"] == 1
+    assert second["meta"]["matchedPicks"] == 2
+    assert rublev_url not in second_client.urls
+
+    next_day_client = _FakeScores24Client(responses)
+    next_day = tn.scrape_scores24_tennis("2026-07-23", client=next_day_client, matches=matches)
+    assert next_day["meta"]["resumedPicks"] == 0
 
 
 # --------------------------------------------------------------------------- #

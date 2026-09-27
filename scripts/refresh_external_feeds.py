@@ -289,6 +289,25 @@ def _today_result_picks(result: dict[str, Any], date_iso: str) -> list[dict[str,
     return picks
 
 
+def _incomplete_scores24_football_bucket(bucket: Any, date_iso: str) -> bool:
+    if not isinstance(bucket, dict) or str(bucket.get("date") or "") != date_iso:
+        return False
+    meta = bucket.get("meta") if isinstance(bucket.get("meta"), dict) else {}
+    picks = _today_result_picks(bucket, date_iso)
+    if meta.get("feed") not in {"scores24_cfb", "scores24_nfl"} and not any(
+        pick.get("source") in {"Scores24CFB", "Scores24NFL"} for pick in picks
+    ):
+        return False
+    official = meta.get("officialMatchups")
+    expected = meta.get("expectedMatchups")
+    missing = meta.get("missingMatchups")
+    return (
+        isinstance(official, int) and official > len(picks)
+        or isinstance(expected, int) and expected > len(picks)
+        or isinstance(missing, list) and bool(missing)
+    )
+
+
 def _record_feed_attempt(
     previous: Any,
     result: dict[str, Any],
@@ -297,10 +316,10 @@ def _record_feed_attempt(
 ) -> dict[str, Any]:
     """Retain the last successful snapshot without hiding a later failure.
 
-    Same-day failed retries keep the last good same-day rows. A newer day's
-    partial scrape (matched picks for date_iso, even when ok=False) replaces
-    yesterday's successful snapshot so an optional CFB hang cannot leave
-    yesterday's bucket as the live research feed.
+    Same-day failed retries keep the larger same-day partial snapshot. A newer
+    day's partial scrape (matched picks for date_iso, even when ok=False)
+    replaces yesterday's successful snapshot so an optional CFB hang cannot
+    leave yesterday's bucket as the live research feed.
     """
     if result.get("ok"):
         bucket = dict(result)
@@ -314,9 +333,18 @@ def _record_feed_attempt(
     today_picks = _today_result_picks(result, date_iso)
     previous_date = str((previous or {}).get("date") or "").strip() if isinstance(previous, dict) else ""
     previous_picks = previous.get("picks") if isinstance(previous, dict) else []
+    previous_today_picks = (
+        _today_result_picks(previous, date_iso)
+        if isinstance(previous, dict) and previous_date == date_iso
+        else []
+    )
+    previous_incomplete = _incomplete_scores24_football_bucket(previous, date_iso)
+    result_incomplete = _incomplete_scores24_football_bucket(result, date_iso)
     previous_same_day_ok = (
         isinstance(previous, dict)
         and previous.get("ok")
+        and not previous_incomplete
+        and not result_incomplete
         and previous_date == date_iso
         and isinstance(previous_picks, list)
         and len(previous_picks) >= len(today_picks)
@@ -325,11 +353,20 @@ def _record_feed_attempt(
         str(result.get("date") or date_iso).strip() == date_iso
         and today_picks
         and not previous_same_day_ok
+        and len(today_picks) >= len(previous_today_picks)
     ):
         bucket = dict(result)
         bucket["picks"] = today_picks
         bucket["date"] = date_iso
         bucket["ok"] = False
+        if previous_incomplete:
+            prior_meta = previous.get("meta") if isinstance(previous.get("meta"), dict) else {}
+            result_meta = bucket.get("meta") if isinstance(bucket.get("meta"), dict) else {}
+            meta = {**prior_meta, **result_meta}
+            if isinstance(meta.get("officialMatchups"), int):
+                meta["expectedMatchups"] = meta["officialMatchups"]
+                meta["matchedPicks"] = len(today_picks)
+            bucket["meta"] = meta
         bucket["refreshStatus"] = "error"
         bucket["lastError"] = str(result.get("error") or "Source refresh incomplete")
         bucket["lastAttemptAt"] = now_iso
@@ -339,10 +376,24 @@ def _record_feed_attempt(
     # A failed fetch must not erase already published picks, or redatestamp
     # yesterday's rows as today's. Attempt freshness is separate from the
     # date and time of the last successfully collected source snapshot.
-    has_previous = isinstance(previous, dict) and previous.get("ok")
+    has_previous = isinstance(previous, dict) and (
+        previous.get("ok") or bool(previous_today_picks)
+    )
     bucket = dict(previous if has_previous else result)
-    if has_previous:
+    if has_previous and previous.get("ok") and not previous_incomplete:
         bucket.setdefault("lastSuccessAt", previous.get("updatedAt") or previous.get("generatedAt"))
+    if previous_today_picks and (not previous.get("ok") or previous_incomplete or result_incomplete):
+        bucket["ok"] = False
+        if previous_incomplete or result_incomplete:
+            bucket.pop("lastSuccessAt", None)
+            previous_meta = bucket.get("meta") if isinstance(bucket.get("meta"), dict) else {}
+            result_meta = result.get("meta") if isinstance(result.get("meta"), dict) else {}
+            meta = {**previous_meta, **result_meta}
+            official = meta.get("officialMatchups")
+            if isinstance(official, int):
+                meta["expectedMatchups"] = official
+                meta["matchedPicks"] = len(previous_today_picks)
+            bucket["meta"] = meta
     bucket["refreshStatus"] = "error"
     bucket["lastError"] = str(result.get("error") or "Source refresh failed")
     bucket["lastAttemptAt"] = now_iso

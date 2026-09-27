@@ -32,6 +32,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
 import sys
 import unicodedata
@@ -54,8 +55,10 @@ from scripts.scrapers.scores24_scraper import (  # noqa: E402
     Scores24Client,
     _norm_space,
     _normalize_team,
+    begin_scrape_timer,
     extract_listing_links,
     extract_our_choice,
+    scrape_timed_out,
 )
 
 CENTRAL = ZoneInfo("America/Chicago")
@@ -81,7 +84,7 @@ SPORT_CONFIG: dict[str, dict[str, Any]] = {
         "label": "Tennis",
         "scores24_source": "Scores24Tennis",
         "tennistonic_source": "TennisTonic",
-        "scores24_listing_url": f"{SCORES24_BASE}/en/tennis/predictions",
+        "scores24_listing_url": f"{SCORES24_BASE}/en/predictions/tennis",
     },
 }
 TOUR_LABELS = {"atp": "ATP", "wta": "WTA"}
@@ -555,6 +558,75 @@ def _scores24_tip_winner(tip: str, match: dict[str, Any]) -> str | None:
     return _resolve_named_player(tokens, match)
 
 
+def _scores24_tennis_checkpoint_path(date_iso: str) -> Path | None:
+    root = os.environ.get("SCORES24_CHECKPOINT_DIR", "").strip()
+    if not root:
+        return None
+    directory = Path(root).expanduser()
+    try:
+        directory.mkdir(parents=True, exist_ok=True)
+    except OSError:
+        return None
+    return directory / f"scores24-tennis-{date_iso}.json"
+
+
+def _load_scores24_tennis_checkpoint(
+    date_iso: str, matches: list[dict[str, Any]],
+) -> tuple[dict[tuple[str, str], dict[str, Any]], tuple[str, str] | None]:
+    path = _scores24_tennis_checkpoint_path(date_iso)
+    if path is None:
+        return {}, None
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return {}, None
+    if not isinstance(payload, dict) or payload.get("sport") != "tennis" or payload.get("date") != date_iso:
+        return {}, None
+    slate_keys = {_match_key(match["away"], match["home"]) for match in matches}
+    picks: dict[tuple[str, str], dict[str, Any]] = {}
+    rows = payload.get("picks") if isinstance(payload.get("picks"), list) else []
+    for row in rows:
+        if not isinstance(row, dict) or row.get("source") != "Scores24Tennis" or row.get("date") != date_iso:
+            continue
+        if not row.get("pick"):
+            continue
+        key = _match_key(row.get("away_team", ""), row.get("home_team", ""))
+        if key and key in slate_keys:
+            picks.setdefault(key, row)
+    cursor = payload.get("lastAttemptedMatchup")
+    cursor_key = (
+        _match_key(cursor.get("away", ""), cursor.get("home", ""))
+        if isinstance(cursor, dict) else None
+    )
+    return picks, cursor_key if cursor_key in slate_keys else None
+
+
+def _save_scores24_tennis_checkpoint(
+    date_iso: str,
+    picks: dict[tuple[str, str], dict[str, Any]],
+    last_attempted: dict[str, Any] | None,
+) -> None:
+    path = _scores24_tennis_checkpoint_path(date_iso)
+    if path is None:
+        return
+    payload = {
+        "sport": "tennis",
+        "date": date_iso,
+        "updated_at": datetime.now(timezone.utc).isoformat(),
+        "picks": list(picks.values()),
+        "lastAttemptedMatchup": (
+            {"away": last_attempted["away"], "home": last_attempted["home"]}
+            if last_attempted else None
+        ),
+    }
+    try:
+        staged = path.with_name(path.name + ".tmp")
+        staged.write_text(json.dumps(payload, indent=2, default=str), encoding="utf-8")
+        staged.replace(path)
+    except OSError:
+        return
+
+
 def scrape_scores24_tennis(
     date_iso: str,
     *,
@@ -585,11 +657,26 @@ def scrape_scores24_tennis(
     owns_client = client is None
     scores_client = client or Scores24Client()
     listing_url = SPORT_CONFIG["tennis"]["scores24_listing_url"]
-    picks: list[dict[str, Any]] = []
+    checkpoint_picks, cursor_key = _load_scores24_tennis_checkpoint(date_iso, matches)
+    resumed_picks = len(checkpoint_picks)
+    match_order = list(matches)
+    if cursor_key:
+        cursor_index = next(
+            (index for index, match in enumerate(match_order)
+             if _match_key(match["away"], match["home"]) == cursor_key),
+            None,
+        )
+        if cursor_index is not None:
+            match_order = match_order[cursor_index + 1:] + match_order[:cursor_index + 1]
     unpublished: list[str] = []
     attempted = 0
     blocked_urls: set[str] = set()
     listing_resolved = False
+    timed_out = False
+    interrupted = False
+    last_attempted: dict[str, Any] | None = None
+    processed_keys: set[tuple[str, str]] = set(checkpoint_picks)
+    begin_scrape_timer()
     try:
         listing_links: list[dict[str, str]] = []
         listing_html, listing_status, listing_blocked = scores_client.get_html(listing_url)
@@ -599,19 +686,39 @@ def scrape_scores24_tennis(
             listing_resolved = True
             listing_links = extract_listing_links(listing_html)
 
-        for match in matches:
+        for match in match_order:
+            if scrape_timed_out():
+                timed_out = True
+                break
+            key = _match_key(match["away"], match["home"])
+            if key in checkpoint_picks:
+                continue
             label = f"{match['away']} vs {match['home']}"
             listed = _matching_listing_urls(listing_links, match)
-            # Only chase detail pages Scores24 actually lists for today plus the
-            # exact-slug guesses; the tennis slate is far too large to brute the
-            # full URL grid past a blocked host.
-            candidates = list(dict.fromkeys([*listed, *scores24_tennis_candidate_urls(date_iso, match)]))
+            # A resolved listing with prediction links is the current source
+            # inventory. Guess detail slugs only if the listing has no links;
+            # the tennis slate is too large to try six guesses per match.
+            candidates = (
+                listed if listing_resolved and listing_links
+                else scores24_tennis_candidate_urls(date_iso, match)
+            )
             pick = None
+            detail_resolved = False
             for url in candidates[:6]:
+                if scrape_timed_out():
+                    timed_out = True
+                    break
                 attempted += 1
                 html, status, blocked = scores_client.get_html(url)
+                if scrape_timed_out():
+                    timed_out = True
+                    break
                 if blocked:
                     blocked_urls.add(url)
+                    interrupted = True
+                    break
+                if status == 0 or status >= 500:
+                    interrupted = True
                     break
                 if status != 200 or not html:
                     continue
@@ -619,9 +726,10 @@ def scrape_scores24_tennis(
                 blob = _normalize_team(f"{title} {url.replace('-', ' ')}")
                 if not (_name_tokens(match["away"])[-1] in blob and _name_tokens(match["home"])[-1] in blob):
                     continue
+                detail_resolved = True
                 tip, odds = extract_our_choice(html, matchup=match)
                 if not tip:
-                    continue
+                    break
                 winner = _scores24_tip_winner(tip, match)
                 if winner is None:
                     break
@@ -635,15 +743,27 @@ def scrape_scores24_tennis(
                     source_url=url,
                 )
                 break
+            if timed_out or interrupted:
+                break
             if pick is not None:
-                picks.append(pick)
+                if key:
+                    checkpoint_picks[key] = pick
             else:
                 unpublished.append(label)
+            if key:
+                processed_keys.add(key)
+            # Advance the cursor even for a valid page with no moneyline pick,
+            # or after exhausted 404 guesses. A later run starts at the next
+            # matchup while still revisiting unresolved rows on a full pass.
+            if detail_resolved or candidates or (listing_resolved and listing_links):
+                last_attempted = match
+                _save_scores24_tennis_checkpoint(date_iso, checkpoint_picks, last_attempted)
     finally:
         if owns_client:
             scores_client.close()
 
-    return _result_envelope(
+    picks = list(checkpoint_picks.values())
+    result = _result_envelope(
         source,
         date_iso,
         matches,
@@ -651,8 +771,30 @@ def scrape_scores24_tennis(
         unpublished,
         attempted=attempted,
         blocked=len(blocked_urls),
-        extra_meta={"listingResolved": listing_resolved},
+        extra_meta={
+            "listingResolved": listing_resolved,
+            "resumedPicks": resumed_picks,
+            "checkpointedPicks": len(picks),
+            "timedOut": timed_out,
+            "interrupted": interrupted,
+            "unattemptedMatchups": [
+                f"{match['away']} vs {match['home']}"
+                for match in matches
+                if _match_key(match["away"], match["home"]) not in processed_keys
+            ] if timed_out or interrupted else [],
+        },
     )
+    if timed_out or interrupted:
+        result["ok"] = False
+        result["error"] = (
+            f"{source} stopped before finishing the {date_iso} slate "
+            f"({'timeout' if timed_out else 'blocked or failed request'}); "
+            f"{len(picks)} pick(s) checkpointed."
+        )
+    elif not listing_resolved:
+        result["ok"] = False
+        result["error"] = f"{source} could not reach a {date_iso} editorial listing"
+    return result
 
 
 def _matching_listing_urls(links: list[dict[str, str]], match: dict[str, Any]) -> list[str]:

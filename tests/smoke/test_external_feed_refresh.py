@@ -99,6 +99,99 @@ def test_refresh_publishes_todays_partial_scores24_cfb_instead_of_yesterday(monk
     assert "timed out" in bucket["lastError"]
 
 
+def test_failed_same_day_retry_keeps_larger_partial_until_completion():
+    date_iso = "2026-09-11"
+    first = {
+        "ok": False,
+        "date": date_iso,
+        "picks": [
+            {"pick": "Louisville ML", "date": date_iso, "source": "Scores24CFB"},
+            {"pick": "Stanford ML", "date": date_iso, "source": "Scores24CFB"},
+        ],
+        "error": "first run timed out",
+    }
+    partial = refresh._record_feed_attempt(None, first, date_iso, "2026-09-11T12:00:00Z")
+    smaller = refresh._record_feed_attempt(
+        partial,
+        {
+            "ok": False,
+            "date": date_iso,
+            "picks": [{"pick": "Louisville ML", "date": date_iso, "source": "Scores24CFB"}],
+            "error": "second run was blocked",
+        },
+        date_iso,
+        "2026-09-11T17:00:00Z",
+    )
+    assert smaller["ok"] is False
+    assert len(smaller["picks"]) == 2
+    assert smaller["lastError"] == "second run was blocked"
+    assert smaller["lastAttemptAt"] == "2026-09-11T17:00:00Z"
+
+    completed = refresh._record_feed_attempt(
+        smaller,
+        {"ok": True, "date": date_iso, "picks": [*first["picks"], {"pick": "Alabama ML", "date": date_iso}]},
+        date_iso,
+        "2026-09-11T18:00:00Z",
+    )
+    assert completed["ok"] is True
+    assert completed["refreshStatus"] == "ok"
+    assert len(completed["picks"]) == 3
+    assert "lastError" not in completed
+
+
+def test_retry_demotes_legacy_ok_football_bucket_with_missing_official_games():
+    date_iso = "2026-09-11"
+    old_partial = {
+        "ok": True,
+        "date": date_iso,
+        "picks": [
+            {"pick": "Louisville ML", "date": date_iso, "source": "Scores24CFB"},
+            {"pick": "Stanford ML", "date": date_iso, "source": "Scores24CFB"},
+        ],
+        "meta": {"feed": "scores24_cfb", "officialMatchups": 3,
+                 "expectedMatchups": 2, "matchedPicks": 2, "missingMatchups": []},
+    }
+    retried = refresh._record_feed_attempt(
+        old_partial,
+        {"ok": False, "date": date_iso, "picks": [], "error": "later run timed out"},
+        date_iso,
+        "2026-09-11T17:00:00Z",
+    )
+    assert retried["ok"] is False
+    assert len(retried["picks"]) == 2
+    assert retried["meta"]["expectedMatchups"] == 3
+    assert retried["meta"]["matchedPicks"] == 2
+    assert retried["lastError"] == "later run timed out"
+    checkpoint_retry = refresh._record_feed_attempt(
+        old_partial,
+        {"ok": False, "date": date_iso, "picks": old_partial["picks"],
+         "meta": {"checkpointedPicks": 2}, "error": "hard timeout"},
+        date_iso,
+        "2026-09-11T17:30:00Z",
+    )
+    assert checkpoint_retry["ok"] is False
+    assert checkpoint_retry["meta"]["expectedMatchups"] == 3
+    assert checkpoint_retry["meta"]["matchedPicks"] == 2
+    prior_without_official_count = {
+        **old_partial,
+        "meta": {"feed": "scores24_cfb", "expectedMatchups": 2,
+                 "matchedPicks": 2, "missingMatchups": []},
+    }
+    explicit_failure = refresh._record_feed_attempt(
+        prior_without_official_count,
+        {"ok": False, "date": date_iso, "picks": [], "error": "slate incomplete",
+         "meta": {"feed": "scores24_cfb", "officialMatchups": 3,
+                  "expectedMatchups": 3, "matchedPicks": 0,
+                  "missingMatchups": ["Alabama @ Auburn"]}},
+        date_iso,
+        "2026-09-11T18:00:00Z",
+    )
+    assert explicit_failure["ok"] is False
+    assert len(explicit_failure["picks"]) == 2
+    assert explicit_failure["meta"]["expectedMatchups"] == 3
+    assert explicit_failure["meta"]["matchedPicks"] == 2
+
+
 def test_optional_timeout_salvages_checkpoint_instead_of_redating_yesterday(tmp_path):
     from scripts.scrapers import scores24_optional_publish as optional
 
@@ -236,6 +329,70 @@ def test_optional_feed_hard_timeout_kills_child_and_returns_soft_fail(tmp_path):
     assert bucket["lastAttemptDate"] == "2026-09-11"
     assert bucket["ok"] is False
     assert "timed out" in bucket["lastError"]
+
+
+def test_optional_nonzero_exit_salvages_same_day_checkpoint(tmp_path):
+    from scripts.scrapers import scores24_optional_publish as optional
+
+    repo = tmp_path / "repo"
+    (repo / "scripts").mkdir(parents=True)
+    (repo / "scripts" / "refresh_external_feeds.py").write_text("raise SystemExit(1)\n")
+    state = tmp_path / "state"
+    state.mkdir()
+    (state / "scores24-nfl-2026-09-11.json").write_text(json.dumps({
+        "sport": "nfl", "date": "2026-09-11",
+        "picks": [{"source": "Scores24NFL", "date": "2026-09-11", "pick": "Bears ML"}],
+    }))
+    cache_path = tmp_path / "2026-09-11.json"
+    cache_path.write_text(json.dumps({
+        "date": "2026-09-11", "models": {},
+        "external_feeds": {"scores24_nfl": {
+            "ok": False, "date": "2026-09-10",
+            "picks": [{"source": "Scores24NFL", "date": "2026-09-10", "pick": "Chiefs ML"}],
+        }},
+    }))
+
+    rc = optional.run_optional_scores24_feed(
+        python_bin=sys.executable, repo=str(repo), date_iso="2026-09-11",
+        feed_key="scores24_nfl", sports="nfl", timeout_seconds=2,
+        cache_path=str(cache_path), checkpoint_dir=str(state),
+    )
+    bucket = json.loads(cache_path.read_text())["external_feeds"]["scores24_nfl"]
+    assert rc == 1
+    assert bucket["ok"] is False
+    assert bucket["date"] == "2026-09-11"
+    assert bucket["picks"][0]["pick"] == "Bears ML"
+    assert bucket["lastAttemptDate"] == "2026-09-11"
+
+
+def test_optional_hard_timeout_kills_descendant_process_group(tmp_path):
+    from scripts.scrapers import scores24_optional_publish as optional
+
+    repo = tmp_path / "repo"
+    (repo / "scripts").mkdir(parents=True)
+    marker = tmp_path / "orphan-wrote.txt"
+    spawned = tmp_path / "spawned.txt"
+    child_code = (
+        "import pathlib,time; time.sleep(1.5); "
+        f"pathlib.Path({str(marker)!r}).write_text('orphan')"
+    )
+    (repo / "scripts" / "refresh_external_feeds.py").write_text(
+        "import subprocess, sys, time\n"
+        f"subprocess.Popen([sys.executable, '-c', {child_code!r}])\n"
+        f"open({str(spawned)!r}, 'w').write('yes')\n"
+        "time.sleep(30)\n"
+    )
+    cache_path = tmp_path / "2026-09-11.json"
+    cache_path.write_text(json.dumps({"date": "2026-09-11", "models": {}, "external_feeds": {}}))
+
+    assert optional.run_optional_scores24_feed(
+        python_bin=sys.executable, repo=str(repo), date_iso="2026-09-11",
+        feed_key="scores24_cfb", sports="cfb", timeout_seconds=0.8,
+        cache_path=str(cache_path), checkpoint_dir=str(tmp_path / "state"),
+    ) == 0
+    assert spawned.exists()
+    time.sleep(1.6)
+    assert not marker.exists()
 
 
 def test_optional_timeout_salvage_does_not_leak_checkpoint_env(monkeypatch, tmp_path):

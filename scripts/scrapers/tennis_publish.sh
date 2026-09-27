@@ -32,15 +32,19 @@ fi
 DATE_ISO="${TENNIS_DATE:-$(TZ=America/Chicago date +%F)}"
 PUBLISH_FEEDS="${TENNIS_PUBLISH_FEEDS:-tennistonic_tennis,scores24_tennis}"
 FEED_COOLDOWN="${TENNIS_PUBLISH_FEED_COOLDOWN_SECONDS:-30}"
+TENNISTONIC_TIMEOUT="${TENNIS_TENNISTONIC_TIMEOUT_SECONDS:-300}"
+SCORES24_TIMEOUT="${TENNIS_SCORES24_TIMEOUT_SECONDS:-180}"
 REQUEST_INTERVAL="${SCORES24_REQUEST_INTERVAL_SECONDS:-12}"
 REQUEST_ATTEMPTS="${SCORES24_REQUEST_ATTEMPTS:-1}"
-BLOCK_RETRY_ROUNDS="${SCORES24_BLOCK_RETRY_ROUNDS:-2}"
+BLOCK_RETRY_ROUNDS="${TENNIS_SCORES24_BLOCK_RETRY_ROUNDS:-0}"
 HOST_BLOCK_COOLDOWN="${SCORES24_HOST_BLOCK_COOLDOWN_SECONDS:-90}"
 # Same-day resume state shared with the other Scores24 publishers so a cleared
 # challenge covers tennis reruns too.
-SCORES24_STATE_ROOT="${SCORES24_STATE_ROOT:-${HOME}/.cache/pickledger-scores24}"
+export SCORES24_STATE_ROOT="${SCORES24_STATE_ROOT:-${HOME}/.cache/pickledger-scores24}"
 export SCORES24_CHECKPOINT_DIR="${SCORES24_CHECKPOINT_DIR:-${SCORES24_STATE_ROOT}}"
 export SCORES24_CAMOUFOX_PROFILE_DIR="${SCORES24_CAMOUFOX_PROFILE_DIR:-${SCORES24_STATE_ROOT}/camoufox-profile}"
+export SCORES24_CAMOUFOX_FALLBACK="${SCORES24_CAMOUFOX_FALLBACK:-true}"
+CAMOUFOX_FALLBACK="${SCORES24_CAMOUFOX_FALLBACK}"
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -89,25 +93,14 @@ git clone --quiet --depth 1 "${REMOTE_URL}" "${TEMP_REPO}"
 git -C "${TEMP_REPO}" config user.name "${GIT_NAME}"
 git -C "${TEMP_REPO}" config user.email "${GIT_EMAIL}"
 
-# Warm a Camoufox session so the Scores24 tennis feed can clear a challenge once
-# and reuse it. Harmless (and skipped) when Camoufox is unavailable.
-"${PYTHON_BIN}" - <<'PY'
-import os
-os.environ.setdefault("SCORES24_CAMOUFOX_FALLBACK", "true")
-if os.environ.get("SCORES24_CAMOUFOX_FALLBACK", "true").lower() in {"1", "true", "yes", "on"}:
-    try:
-        from camoufox.sync_api import Camoufox
-
-        with Camoufox(headless=True, humanize=True) as browser:
-            page = browser.new_page()
-            page.goto("about:blank", timeout=15000)
-            page.close()
-        print("Tennis Camoufox warmup complete.")
-    except Exception as exc:
-        print(f"Tennis Camoufox warmup skipped: {exc}")
-PY
+# Warm the same persistent profile as the scraper. A launch stall is bounded,
+# and an unavailable browser leaves the feed on curl_cffi.
+if ! "${PYTHON_BIN}" "${REPO_ROOT}/scripts/scrapers/scores24_camoufox.py" warmup; then
+  CAMOUFOX_FALLBACK=false
+fi
 
 IFS=',' read -r -a FEED_KEYS <<< "${PUBLISH_FEEDS}"
+TENNIS_CACHE_FILE="${TEMP_REPO}/data/model_cache/${DATE_ISO}.json"
 feed_index=0
 for raw_feed_key in "${FEED_KEYS[@]}"; do
   feed_key="$(printf '%s' "${raw_feed_key}" | tr -d '[:space:]')"
@@ -117,18 +110,32 @@ for raw_feed_key in "${FEED_KEYS[@]}"; do
   if [[ "${feed_index}" -gt 0 ]]; then
     sleep "${FEED_COOLDOWN}"
   fi
-  echo "Refreshing ${feed_key} for ${DATE_ISO}."
+  if [[ "${feed_key}" == "tennistonic_tennis" ]]; then
+    feed_timeout="${TENNISTONIC_TIMEOUT}"
+  else
+    feed_timeout="${SCORES24_TIMEOUT}"
+  fi
+  echo "Refreshing optional ${feed_key} for ${DATE_ISO} (hard timeout ${feed_timeout}s)."
+  set +e
   SCORES24_BROWSER_FALLBACK=true \
-  SCORES24_CAMOUFOX_FALLBACK=true \
+  SCORES24_CAMOUFOX_FALLBACK="${CAMOUFOX_FALLBACK}" \
   SCORES24_REQUEST_INTERVAL_SECONDS="${REQUEST_INTERVAL}" \
   SCORES24_REQUEST_ATTEMPTS="${REQUEST_ATTEMPTS}" \
   SCORES24_BLOCK_RETRY_ROUNDS="${BLOCK_RETRY_ROUNDS}" \
   SCORES24_HOST_BLOCK_COOLDOWN_SECONDS="${HOST_BLOCK_COOLDOWN}" \
-  "${PYTHON_BIN}" "${TEMP_REPO}/scripts/refresh_external_feeds.py" \
-    --date "${DATE_ISO}" \
-    --feeds "${feed_key}" \
-    --sports "tennis" \
-    --skip-firestore || echo "Tennis feed ${feed_key} refresh returned non-zero; continuing (soft-launch)."
+  OPTIONAL_FEED_KEY="${feed_key}" \
+  OPTIONAL_FEED_TIMEOUT="${feed_timeout}" \
+  DATE_ISO="${DATE_ISO}" \
+  PUBLISH_SPORTS="tennis" \
+  TEMP_REPO="${TEMP_REPO}" \
+  PYTHON_BIN="${PYTHON_BIN}" \
+  SCORES24_CACHE_FILE="${TENNIS_CACHE_FILE}" \
+  "${PYTHON_BIN}" "${REPO_ROOT}/scripts/scrapers/scores24_optional_publish.py"
+  feed_rc=$?
+  set -e
+  if [[ "${feed_rc}" -ne 0 ]]; then
+    echo "Tennis feed ${feed_key} refresh failed (rc=${feed_rc}); continuing (soft-fail)."
+  fi
   feed_index=$((feed_index + 1))
 done
 
@@ -137,14 +144,12 @@ if [[ "${feed_index}" -eq 0 ]]; then
   exit 2
 fi
 
-TENNIS_CACHE_FILE="${TEMP_REPO}/data/model_cache/${DATE_ISO}.json"
 if [[ ! -f "${TENNIS_CACHE_FILE}" ]]; then
   TENNIS_CACHE_FILE="${TEMP_REPO}/data/model_cache/latest.json"
 fi
 
-# Lenient gate: tennis is best-effort/soft-launch, so partial coverage never
-# fails the publish. Only require that at least one requested feed produced an
-# ok bucket dated for today; otherwise there is simply nothing to publish.
+# Publish today's successful bucket or failed attempt diagnostics. Partial
+# same-day checkpoint picks remain incomplete until a later run finishes.
 if ! DATE_ISO="${DATE_ISO}" PUBLISH_FEEDS="${PUBLISH_FEEDS}" "${PYTHON_BIN}" - "${TENNIS_CACHE_FILE}" <<'PY'
 import json
 import os
@@ -157,10 +162,15 @@ required = tuple(
     for feed in os.environ.get("PUBLISH_FEEDS", "").split(",")
     if feed.strip()
 )
-payload = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
+path = Path(sys.argv[1])
+if not path.is_file():
+    print("No tennis cache was written for this run")
+    sys.exit(1)
+payload = json.loads(path.read_text(encoding="utf-8"))
 models = payload.get("models") if isinstance(payload.get("models"), dict) else {}
 external = payload.get("external_feeds") if isinstance(payload.get("external_feeds"), dict) else {}
 ok_feeds = []
+attempted_feeds = []
 for key in required:
     bucket = models.get(key) if isinstance(models.get(key), dict) else external.get(key)
     if not isinstance(bucket, dict):
@@ -169,11 +179,14 @@ for key in required:
     bucket_date = str(bucket.get("date") or meta.get("date") or "").strip()
     if bucket.get("ok") is True and bucket_date == date_iso:
         ok_feeds.append(key)
+    if str(bucket.get("lastAttemptDate") or "") == date_iso:
+        attempted_feeds.append(key)
 print("ok tennis feeds:", ",".join(ok_feeds) or "(none)")
-sys.exit(0 if ok_feeds else 1)
+print("attempted tennis feeds:", ",".join(attempted_feeds) or "(none)")
+sys.exit(0 if attempted_feeds else 1)
 PY
 then
-  echo "No ok Tennis feed for ${DATE_ISO}; nothing to publish."
+  echo "No Tennis feed attempted for ${DATE_ISO}; nothing to publish."
   exit 0
 fi
 
