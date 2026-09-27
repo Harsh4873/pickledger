@@ -203,7 +203,29 @@ def kickoff_utc(game: dict[str, Any]) -> datetime | None:
 
 def kickoff_iso(game: dict[str, Any]) -> str:
     kickoff = kickoff_utc(game)
-    return kickoff.strftime("%Y-%m-%dT%H:%MZ") if kickoff else ""
+    if kickoff is None:
+        return ""
+    # Seconds plus an explicit Z are required: naive ``YYYY-MM-DDTHH:MM``
+    # strings fail certification (tzinfo is missing) and were dropping NFL
+    # Sunday rows from the priced ledger.
+    return kickoff.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+def games_retrieved_at() -> str | None:
+    """UTC timestamp of the last successful nflverse games.csv fetch."""
+
+    stamp = GAMES_CSV_PATH.with_suffix(".stamp")
+    if not stamp.exists():
+        return None
+    try:
+        raw = stamp.read_text(encoding="utf-8").strip()
+        ts = float(raw)
+    except (OSError, ValueError):
+        try:
+            ts = stamp.stat().st_mtime
+        except OSError:
+            return None
+    return datetime.fromtimestamp(ts, tz=timezone.utc).isoformat().replace("+00:00", "Z")
 
 
 class TeamState:
@@ -487,6 +509,7 @@ __all__ = [
     "ensure_utc",
     "feature_values",
     "features_for_date",
+    "games_retrieved_at",
     "kickoff_iso",
     "kickoff_utc",
     "load_games",

@@ -207,3 +207,47 @@ def test_frozen_legacy_pick_never_inherits_fresh_bucket_fingerprint():
     assert _model_version('nfl', bucket, {'model_version': 'legacy-pick'}) == 'legacy-pick'
     assert _model_version('nfl', bucket, {'prediction_model_version': 'nfl:old-artifact'}) == 'nfl:old-artifact'
     assert _model_version('nfl', bucket, {}) != 'nfl:new-artifact'
+    assert _model_version(
+        'nfl',
+        {'prediction_model_version': 'nfl:new-artifact', 'model_version': 'nfl_v1_epa_elo_market_anchored'},
+        {'prediction_model_version': 'nfl:churn', 'model_version': 'nfl_v1_epa_elo_market_anchored'},
+    ) == 'nfl_v1_epa_elo_market_anchored'
+
+
+def test_stamp_does_not_overwrite_trusted_generation_clock():
+    payload = _payload()
+    pick = payload["models"]["mlb_new"]["picks"][0]
+    pick["certification_timing"] = {
+        "trusted": True,
+        "published_at": "2026-07-10T18:00:00Z",
+        "data_as_of": "2026-07-10T18:00:00Z",
+        "source": "nfl-model-generate",
+    }
+    assert stamp_team_prop_pregame_timing(payload, published_at="2026-07-10T20:42:00Z") == 0
+    assert pick["certification_timing"]["published_at"] == "2026-07-10T18:00:00Z"
+
+
+def test_shadow_decision_is_stored_for_demoted_nfl_rows(tmp_path):
+    payload = _payload(decision="PASS")
+    nfl_pick = {
+        **payload["models"]["mlb_new"]["picks"][0],
+        "sport": "NFL",
+        "market": "totals",
+        "decision": "PASS",
+        "units": 0,
+        "shadow_decision": "BET",
+        "shadow_units": 0.5,
+        "source_decision": "BET",
+        "model_version": "nfl_v1_epa_elo_market_anchored",
+        "prediction_model_version": "nfl:deadbeefdeadbeef",
+    }
+    payload["models"] = {"nfl": {"picks": [nfl_pick]}}
+    stamp_team_prop_pregame_timing(payload)
+    capture_team_prop_pregame_snapshots(payload, repo_root=tmp_path)
+    record = load_team_prop_pregame_ledger(tmp_path)["records"][0]
+    assert record["model_key"] == "nfl"
+    assert record["model_version"] == "nfl_v1_epa_elo_market_anchored"
+    assert record["decision"] == "PASS"
+    assert record["raw_decision"] == "BET"
+    assert record["shadow_decision"] == "BET"
+    assert record["shadow_units"] == 0.5

@@ -5,6 +5,7 @@ The active production automation uses GitHub Actions plus local Codex morning an
 | Script | Purpose |
 | --- | --- |
 | `refresh_model_cache.py` | Runs selected model directories, including NBA Summer League during the summer slate, and writes dated model-cache JSON. |
+| `nfl_staking_approval.py` | NFL freeze/holdout status. Writes `staking_approvals.json` only when the unused holdout clears `_approved()`. |
 | `refresh_external_feeds.py` | Refreshes sport-specific SportyTrader, SportsGambler, Scores24NBASummer, Scores24WNBA, Scores24MLB, Scores24FIFAWorldCup, and Scores24CFB cache buckets. |
 | `merge_model_cache_payload.py` | Merges model output while preserving other buckets and grades. |
 | `merge_external_feed_cache_payload.py` | Merges feed output while preserving model buckets and grades. |
@@ -28,5 +29,6 @@ Useful local checks:
 python3 scripts/auto_grade_picks.py
 python3 scripts/rebuild_pick_outcome_ledger.py
 python3 scripts/train_pick_calibration.py
+python3 scripts/nfl_staking_approval.py --output /tmp/nfl-staking-status.json
 python3 -m pytest tests/smoke/test_static_viewer.py -q
 ```

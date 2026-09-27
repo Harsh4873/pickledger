@@ -102,11 +102,65 @@ def test_house_assumed_prices_that_were_never_replaced_are_research():
     assert model_total["decision"] == "PASS"
 
 
+def test_freeze_keeps_forecasts_stamped_before_kickoff():
+    from scripts.refresh_model_cache import freeze_started_games
+
+    early = _pick(
+        sport="NFL",
+        start_time="2026-09-20T17:00:00Z",
+        game_start_time="2026-09-20T17:00:00Z",
+        certification_timing={
+            "trusted": True,
+            "published_at": "2026-09-20T16:05:00Z",
+            "data_as_of": "2026-09-20T16:05:00Z",
+            "source": "nfl-model-generate",
+        },
+    )
+    late = _pick(
+        game_id="g2",
+        matchup="Team D @ Team C",
+        start_time="2026-09-20T17:00:00Z",
+        game_start_time="2026-09-20T17:00:00Z",
+        certification_timing={
+            "trusted": True,
+            "published_at": "2026-09-20T18:10:00Z",
+            "data_as_of": "2026-09-20T18:10:00Z",
+        },
+    )
+    payload = {"models": {"nfl": {"picks": [early, late]}}}
+    summary = freeze_started_games(payload, now=datetime(2026, 9, 20, 20, 43, tzinfo=timezone.utc))
+    assert summary["frozen"] == 1
+    assert [pick["game_id"] for pick in payload["models"]["nfl"]["picks"]] == ["g1"]
+
+
+def test_nba_started_games_are_still_dropped_even_with_an_early_stamp():
+    from scripts.refresh_model_cache import freeze_started_games
+
+    early = _pick(
+        sport="NBA",
+        start_time="2026-09-20T17:00:00Z",
+        game_start_time="2026-09-20T17:00:00Z",
+        certification_timing={
+            "trusted": True,
+            "published_at": "2026-09-20T16:05:00Z",
+            "data_as_of": "2026-09-20T16:05:00Z",
+        },
+    )
+    payload = {"models": {"nba": {"picks": [early]}, "nba_playoffs": {"picks": [dict(early, game_id="g-playoffs")]}}}
+    summary = freeze_started_games(payload, now=datetime(2026, 9, 20, 20, 43, tzinfo=timezone.utc))
+    assert summary["frozen"] == 2
+    assert payload["models"]["nba"]["picks"] == []
+    assert payload["models"]["nba_playoffs"]["picks"] == []
+
+
 def test_refresh_pipeline_freezes_then_demotes_in_order():
     source = (__import__("pathlib").Path(__file__).resolve().parents[2] / "scripts" / "refresh_model_cache.py").read_text(encoding="utf-8")
     body = source.split("def _write_json_cache")[1]
     assert body.index("freeze_started_games(payload)") < body.index("merge_payload(payload")
     assert body.index("apply_market_odds_to_payload(merged)") < body.index("demote_unpriced_team_model_picks(merged)")
+    assert body.index("refresh_trusted_publication_clock(") < body.index("apply_stake_policy(merged")
+    assert "this_run_generated_at" in body
+    assert "backfill_team_prop_pregame_from_cache" not in body
 
 
 def test_preseason_rows_publish_no_staked_side():

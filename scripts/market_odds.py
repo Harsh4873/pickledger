@@ -587,9 +587,12 @@ def _attach_pick(
         return False
     direction = _pick_direction(pick)
     # Replace assumed model prices, and keep refreshing an already replaced
-    # price while the game remains pregame.
+    # price while the game remains pregame. NFL already carries nflverse
+    # posted odds (so it does not look assumed) but those rows still need
+    # the live DraftKings overlay for a sportsbook quote timestamp.
     replace = bucket_key in TEAM_MODEL_BUCKET_KEYS and (
         _looks_assumed(pick) or pick.get("assumed_odds_replaced") is True
+        or str(bucket_key) == "nfl"
     )
     provider = f"espn_scoreboard:{game.get('provider') or 'unknown'}"
     is_f5 = bucket_key in F5_BUCKET_KEYS
@@ -749,6 +752,11 @@ def apply_market_odds_to_payload(
             games = book.get(sport) or []
             if not games:
                 continue
+            if str(bucket_key) == "nfl":
+                start = _parse_start(pick.get("game_start_time") or pick.get("start_time"))
+                captured_dt = _parse_start(captured_at)
+                if start is not None and captured_dt is not None and start <= captured_dt:
+                    continue
             seen += 1
             game = _match_game(pick, games)
             if game is None:

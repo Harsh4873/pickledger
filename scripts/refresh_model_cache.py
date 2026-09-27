@@ -34,6 +34,7 @@ from scripts.pick_calibration import apply_calibration_to_payload  # noqa: E402
 from scripts.team_prop_pregame_ledger import (  # noqa: E402
     TEAM_PROP_MODEL_KEYS,
     capture_team_prop_pregame_snapshots,
+    refresh_trusted_publication_clock,
     stamp_team_prop_pregame_timing,
 )
 
@@ -85,7 +86,11 @@ def freeze_started_games(payload: dict[str, Any], *, now: datetime | None = None
     letting a late refresh re-decide a live game (98 MLB rows and 32 WNBA rows
     were first published or re-published after the start; the WNBA
     post-tip upgrades went 17-1, which is a certification hole, not skill).
-    Rows without a parseable aware start time are kept and counted.
+    NFL rows stamped at generate time (before kickoff) are kept even if this
+    write is late. Other in-house buckets still drop started games so a late
+    sibling job cannot re-decide them; the cache merge retains the earlier
+    pre-kickoff publication. Rows without a parseable aware start time are
+    kept and counted.
     """
 
     clock = (now or datetime.now(timezone.utc)).astimezone(timezone.utc)
@@ -109,10 +114,24 @@ def freeze_started_games(payload: dict[str, Any], *, now: datetime | None = None
             if start is None:
                 summary["unknown_start"] += 1
                 kept.append(pick)
-            elif start <= clock:
-                frozen += 1
-            else:
+                continue
+            if start > clock:
                 kept.append(pick)
+                continue
+            # Game has started. NFL stamps certification_timing at generate,
+            # so a slow MLB job must not drop a forecast that already existed
+            # before kickoff. NBA / other buckets do not stamp at generate;
+            # drop them here and let merge keep the earlier publication.
+            timing = pick.get("certification_timing") if isinstance(pick.get("certification_timing"), dict) else {}
+            generated_at = None
+            if str(key) == "nfl" and timing.get("trusted") is True:
+                generated_at = _parse_start_time(timing.get("data_as_of")) or _parse_start_time(
+                    timing.get("published_at")
+                )
+            if generated_at is not None and generated_at < start:
+                kept.append(pick)
+                continue
+            frozen += 1
         if frozen:
             picks[:] = kept
             bucket["frozen_started_games"] = frozen
@@ -289,18 +308,13 @@ def _write_json_cache(date_iso: str, payload: dict[str, Any]) -> dict[str, Any]:
     # final publication so downstream freshness checks cannot use an older
     # retained bucket's updatedAt as the publish time.
     merged["publishedAt"] = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
-    # The trusted per-pick clock must describe the final publication after
-    # price attachment, not the earlier model-generation start. Retained rows
-    # from previous publications keep their original certification clock.
-    for key, bucket in (merged.get("models") or {}).items():
-        if key not in TEAM_PROP_MODEL_KEYS or not isinstance(bucket, dict):
-            continue
-        for pick in bucket.get("picks") or []:
-            if not isinstance(pick, dict):
-                continue
-            timing = pick.get("certification_timing")
-            if isinstance(timing, dict) and timing.get("published_at") == payload.get("generatedAt"):
-                timing["published_at"] = merged["publishedAt"]
+    published_dt = datetime.fromisoformat(merged["publishedAt"].replace("Z", "+00:00"))
+    advanced = refresh_trusted_publication_clock(
+        merged,
+        now=published_dt,
+        this_run_generated_at=str(payload.get("generatedAt") or merged.get("generatedAt") or ""),
+    )
+    print(f"[pregame-clock] advanced={advanced}")
     gated = apply_stake_policy(merged, model_keys=TEAM_PROP_MODEL_KEYS)
     print(f"[staking-policy] demoted={gated}")
     for target in (MODEL_CACHE_DIR / f"{date_iso}.json", MODEL_CACHE_DIR / "latest.json"):

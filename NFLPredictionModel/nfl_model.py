@@ -24,7 +24,7 @@ from __future__ import annotations
 
 import json
 import math
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -33,6 +33,7 @@ try:
         FEATURE_NAMES,
         ensure_utc,
         features_for_date,
+        games_retrieved_at,
         kickoff_iso,
         kickoff_utc,
         load_games,
@@ -44,6 +45,7 @@ except ImportError:
         FEATURE_NAMES,
         ensure_utc,
         features_for_date,
+        games_retrieved_at,
         kickoff_iso,
         kickoff_utc,
         load_games,
@@ -112,11 +114,22 @@ def _vector(features: dict[str, Any], names: list[str]) -> list[list[float]]:
     return [[float(features[name]) for name in names]]
 
 
-def _row_base(game: dict[str, Any], date_iso: str, model_version: str) -> dict[str, Any]:
+def _iso(clock: datetime) -> str:
+    return clock.astimezone(timezone.utc).isoformat().replace("+00:00", "Z")
+
+
+def _row_base(
+    game: dict[str, Any],
+    date_iso: str,
+    model_version: str,
+    *,
+    clock: datetime,
+) -> dict[str, Any]:
     home = str(game.get("home_team") or "")
     away = str(game.get("away_team") or "")
     matchup = f"{away} @ {home}"
     start = kickoff_iso(game)
+    clock_iso = _iso(clock)
     return {
         "source": "NFL Model",
         "sport": "NFL",
@@ -138,13 +151,33 @@ def _row_base(game: dict[str, Any], date_iso: str, model_version: str) -> dict[s
         # them or re-decide rows.
         "calibration_excluded": True,
         "grade_supported": True,
+        # Stamp at generate time, not at the end of a multi-model refresh.
+        # A slow MLB job must not rewrite this clock to after kickoff.
+        "certification_timing": {
+            "trusted": True,
+            "published_at": clock_iso,
+            "data_as_of": clock_iso,
+            "source": "nfl-model-generate",
+        },
     }
 
 
-def _price_fields(odds: int | None) -> dict[str, Any]:
+def _price_fields(odds: int | None, *, quote_at: str | None = None) -> dict[str, Any]:
     if odds is None:
         return {"odds": None, "pricing_type": "unpriced", "odds_source": None, "market_priced": False}
-    return {"odds": odds, "pricing_type": "market", "odds_source": ODDS_SOURCE, "market_priced": True}
+    fields: dict[str, Any] = {
+        "odds": odds,
+        "pricing_type": "market",
+        "odds_source": ODDS_SOURCE,
+        "market_priced": True,
+    }
+    if quote_at:
+        # nflverse lines are observed market prices as-of the games.csv fetch.
+        # Live DraftKings overlay may later replace odds and market_updated_at
+        # when that attach still happens before kickoff.
+        fields["market_retrieved_at"] = quote_at
+        fields["odds_updated_at"] = quote_at
+    return fields
 
 
 def _segment_decision(
@@ -227,6 +260,7 @@ def generate_nfl_picks(date_iso: str, *, now: datetime | None = None) -> dict[st
     evidence_ok = seasons[-2] in loaded_seasons or seasons[-1] in loaded_seasons
 
     clock = ensure_utc(now)
+    quote_at = games_retrieved_at() or _iso(clock)
     slate = features_for_date(rows, date_iso, team_stats)
     coverage = {
         "official_games": len(slate),
@@ -253,7 +287,7 @@ def generate_nfl_picks(date_iso: str, *, now: datetime | None = None) -> dict[st
             coverage["unpriced_games"] += 1
         coverage["forecast_games"] += 1
 
-        base = _row_base(game, date_iso, model_version)
+        base = _row_base(game, date_iso, model_version, clock=clock)
         rounded_features = {name: round(float(features[name]), 4) for name in FEATURE_NAMES}
 
         # --- Moneyline (research) -------------------------------------------
@@ -287,7 +321,7 @@ def generate_nfl_picks(date_iso: str, *, now: datetime | None = None) -> dict[st
             "team": team,
             "selection": team,
             "side": "home" if pick_home else "away",
-            **_price_fields(side_odds),
+            **_price_fields(side_odds, quote_at=quote_at),
             "opposite_odds": opposite_odds,
             "probability": round(side_prob, 4),
             "raw_probability": round(side_prob, 4),
@@ -335,7 +369,7 @@ def generate_nfl_picks(date_iso: str, *, now: datetime | None = None) -> dict[st
                 "side": "home" if pick_home_spread else "away",
                 "line": team_line,
                 "market_line": team_line,
-                **_price_fields(spread_odds),
+                **_price_fields(spread_odds, quote_at=quote_at),
                 "opposite_odds": spread_opposite,
                 "probability": round(cover_prob, 4),
                 "raw_probability": round(cover_prob, 4),
@@ -381,7 +415,7 @@ def generate_nfl_picks(date_iso: str, *, now: datetime | None = None) -> dict[st
                 "selection": direction.title(),
                 "line": total_line,
                 "market_line": total_line,
-                **_price_fields(total_odds),
+                **_price_fields(total_odds, quote_at=quote_at),
                 "opposite_odds": total_opposite,
                 "probability": round(total_prob, 4),
                 "raw_probability": round(total_prob, 4),

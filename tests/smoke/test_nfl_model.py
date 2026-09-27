@@ -73,7 +73,7 @@ def test_kickoff_is_converted_from_eastern_wall_clock():
     from NFLPredictionModel.nfl_core import kickoff_iso, kickoff_utc
 
     game = _game("2026-09-13", 2026, 1, "KC", "BAL", None, None, -3.0, 46.5, gametime="16:25")
-    assert kickoff_iso(game) == "2026-09-13T20:25Z"
+    assert kickoff_iso(game) == "2026-09-13T20:25:00Z"
     assert kickoff_utc(_game("2026-12-13", 2026, 14, "KC", "BAL", None, None, -3.0, 46.5)).hour == 18
 
 
@@ -138,13 +138,17 @@ def test_slate_publishes_research_rows_and_stakes_only_validated_segments(monkey
     for pick in payload["picks"]:
         assert pick["calibration_excluded"] is True
         assert pick["shadow_mode"] is False
-        assert pick["start_time"] == "2026-09-13T17:00Z"
+        assert pick["start_time"] == "2026-09-13T17:00:00Z"
         assert pick["model_version"].startswith("nfl_")
     ml = by_market["h2h"]
     assert ml["team"] == "KC" and ml["odds"] == -150 and ml["opposite_odds"] == 130
     assert ml["decision"] == "PASS" and ml["units"] == 0
     assert ml["decision_reason"].startswith("research_only")
     assert ml["market_priced"] is True and ml["odds_source"] == "nflverse_posted_lines"
+    assert ml["market_retrieved_at"]
+    assert ml["certification_timing"]["trusted"] is True
+    assert ml["certification_timing"]["source"] == "nfl-model-generate"
+    assert ml["certification_timing"]["published_at"].startswith("2026-09-13T12:00")
     spread = by_market["spread"]
     assert spread["pick"].startswith("KC +4.5") and spread["odds"] == -108
     assert spread["decision"] == "PASS" and spread["units"] == 0

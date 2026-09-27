@@ -51,6 +51,27 @@ def test_policy_preserves_retained_pregame_bet_after_start():
     assert pick["decision"] == "PASS" and pick["units"] == 0
 
 
+def test_policy_matches_nfl_fitted_artifact_not_serving_hash():
+    pick = {
+        "decision": "BET", "units": 0.5, "market": "totals",
+        "model_version": "nfl_v1_epa_elo_market_anchored",
+        "prediction_model_version": "nfl:deadbeefdeadbeef",
+    }
+    payload = {"models": {"nfl": {"picks": [pick]}}}
+    approval = _approval(
+        model_key="nfl",
+        model_version="nfl_v1_epa_elo_market_anchored",
+        market="totals",
+        frozen_rule="nfl_v1 totals under bands",
+    )
+    assert apply_stake_policy(payload, approvals={"approvals": [approval]}, model_keys={"nfl"}) == 0
+    assert pick["decision"] == "BET" and pick["units"] == 0.5
+    hashed = _approval(model_key="nfl", model_version="nfl:deadbeefdeadbeef", market="totals")
+    pick.update(decision="BET", units=0.5)
+    assert apply_stake_policy(payload, approvals={"approvals": [hashed]}, model_keys={"nfl"}) == 1
+    assert pick["decision"] == "PASS" and pick["shadow_decision"] == "BET"
+
+
 def test_price_clock_rejects_missing_late_stale_and_post_start_quotes():
     published = "2026-09-24T20:00:00Z"
     start = "2026-09-24T22:00:00Z"
