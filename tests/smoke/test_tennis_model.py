@@ -126,6 +126,63 @@ def test_repair_date_fixes_typo_years() -> None:
     assert _repair_date("", 2026) == ""
 
 
+def test_archive_refresh_persists_workbook_matches_without_result_fallback(monkeypatch, tmp_path) -> None:
+    from datetime import date, timedelta
+
+    from TennisPredictionModel import tennis_archive, tennis_model, tennis_results
+
+    target = date.today()
+    previous = (target - timedelta(days=12)).isoformat()
+    latest = (target - timedelta(days=2)).isoformat()
+    walkover_day = (target - timedelta(days=1)).isoformat()
+    ratings = tmp_path / "ratings.json.gz"
+    engine = RatingEngine()
+    engine.update(make_match(date=previous))
+    engine.save(ratings)
+    workbook = tmp_path / "season.xlsx"
+    workbook.write_bytes(b"workbook fixture")
+    match = make_match(date=latest, winner="Charlie C.", loser="Delta D.")
+    walkover = make_match(date=walkover_day, winner="Echo E.", loser="Foxtrot F.", status="walkover")
+    wta_match = make_match(date=latest, winner="Gamma G.", loser="Hotel H.", tour="WTA")
+    published_wta = []
+    monkeypatch.setattr(tennis_model, "ensure_season", lambda *args, **kwargs: workbook)
+    monkeypatch.setattr(
+        tennis_model, "parse_workbook",
+        lambda path, tour, season: (
+            [match, walkover] if tour == "ATP" and season == target.year
+            else published_wta if tour == "WTA" and season == target.year else []
+        ),
+    )
+
+    # One tour's new workbook cannot move the common snapshot past the other.
+    incomplete = tennis_archive.refresh_archive_snapshot(target.isoformat(), path=ratings)
+    assert incomplete["updated"] is False
+    assert incomplete["archiveThrough"] == previous
+    assert RatingEngine.load(ratings).last_date == previous
+
+    requested_tours = []
+    def fallback(*args, **kwargs):
+        requested_tours.append(kwargs["tours"])
+        return [wta_match], []
+
+    monkeypatch.setattr(tennis_results, "fetch_completed_matches", fallback)
+    serving = RatingEngine.load(ratings)
+    catch_up = tennis_model.catch_up_ratings(serving, previous, before=target.isoformat())
+    assert requested_tours == [("WTA",)]
+    assert catch_up["fallback_matches"] == 1
+    assert catch_up["archive_through_by_tour"]["WTA"] == previous
+    assert serving.last_date == latest
+
+    published_wta.append(wta_match)
+    result = tennis_archive.refresh_archive_snapshot(target.isoformat(), path=ratings)
+    assert result["updated"] is True
+    assert result["workbookMatches"] == 2
+    assert result["archiveThrough"] == latest
+    assert result["snapshotThrough"] == latest
+    assert RatingEngine.load(ratings).last_date == latest
+    assert tennis_archive.refresh_archive_snapshot(target.isoformat(), path=ratings)["updated"] is False
+
+
 def test_normalise_series_folds_tier_typos() -> None:
     assert _normalise_series("WTA253") == "WTA250"
     assert _normalise_series("WTA1000") == "WTA1000"

@@ -150,7 +150,8 @@ fi
 
 # Publish today's successful bucket or failed attempt diagnostics. Partial
 # same-day checkpoint picks remain incomplete until a later run finishes.
-if ! DATE_ISO="${DATE_ISO}" PUBLISH_FEEDS="${PUBLISH_FEEDS}" "${PYTHON_BIN}" - "${TENNIS_CACHE_FILE}" <<'PY'
+PUBLISH_CACHE=false
+if DATE_ISO="${DATE_ISO}" PUBLISH_FEEDS="${PUBLISH_FEEDS}" "${PYTHON_BIN}" - "${TENNIS_CACHE_FILE}" <<'PY'
 import json
 import os
 import sys
@@ -186,24 +187,36 @@ print("attempted tennis feeds:", ",".join(attempted_feeds) or "(none)")
 sys.exit(0 if attempted_feeds else 1)
 PY
 then
-  echo "No Tennis feed attempted for ${DATE_ISO}; nothing to publish."
-  exit 0
+  cp "${TENNIS_CACHE_FILE}" "${GENERATED_CACHE}"
+  PUBLISH_CACHE=true
+else
+  echo "No Tennis feed attempted for ${DATE_ISO}; checking the ratings archive."
 fi
-
-cp "${TENNIS_CACHE_FILE}" "${GENERATED_CACHE}"
 
 for attempt in 1 2 3; do
   git -C "${TEMP_REPO}" fetch --quiet origin main
   git -C "${TEMP_REPO}" reset --hard --quiet origin/main
-  MERGE_RESULT="$(
+  DEPLOYABLE=false
+  if [[ "${PUBLISH_CACHE}" == true ]]; then
+    MERGE_RESULT="$(
+      cd "${TEMP_REPO}"
+      "${PYTHON_BIN}" scripts/merge_external_feed_cache_payload.py "${GENERATED_CACHE}"
+    )"
+    echo "${MERGE_RESULT}"
+    DEPLOYABLE="$("${PYTHON_BIN}" -c 'import json,sys; print(str(json.load(sys.stdin)["latestUpdated"]).lower())' <<< "${MERGE_RESULT}")"
+    git -C "${TEMP_REPO}" add data/model_cache
+  fi
+  # Rebase workbook-only ratings on the latest artifact on every push retry.
+  # A missing or stale upstream workbook leaves the current snapshot intact.
+  if ! (
     cd "${TEMP_REPO}"
-    "${PYTHON_BIN}" scripts/merge_external_feed_cache_payload.py "${GENERATED_CACHE}"
-  )"
-  echo "${MERGE_RESULT}"
-  DEPLOYABLE="$("${PYTHON_BIN}" -c 'import json,sys; print(str(json.load(sys.stdin)["latestUpdated"]).lower())' <<< "${MERGE_RESULT}")"
-  git -C "${TEMP_REPO}" add data/model_cache
+    "${PYTHON_BIN}" -m TennisPredictionModel.tennis_archive --date "${DATE_ISO}"
+  ); then
+    echo "Tennis archive refresh failed; continuing with feed publication."
+  fi
+  git -C "${TEMP_REPO}" add TennisPredictionModel/artifacts/tennis_ratings.json.gz
   if git -C "${TEMP_REPO}" diff --cached --quiet; then
-    echo "Tennis cache already current for ${DATE_ISO}."
+    echo "Tennis cache and ratings archive already current for ${DATE_ISO}."
     exit 0
   fi
   if [[ "${DEPLOYABLE}" == "true" ]]; then
@@ -213,7 +226,7 @@ for attempt in 1 2 3; do
     )
     git -C "${TEMP_REPO}" add data/parlay_cards
   fi
-  git -C "${TEMP_REPO}" commit -m "chore(feeds): refresh Tennis feeds for ${DATE_ISO}"
+  git -C "${TEMP_REPO}" commit -m "chore(tennis): refresh feeds and ratings archive for ${DATE_ISO}"
   if git -C "${TEMP_REPO}" push origin HEAD:main; then
     if [[ "${DEPLOYABLE}" == "true" ]]; then
       "${GH_BIN}" workflow run deploy-pages.yml --repo Harsh4873/pickledger --ref main

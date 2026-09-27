@@ -275,6 +275,25 @@ def test_unpriced_football_slate_is_fail_closed_empty_not_synthetic():
     assert "posted" in str(model.get("note") or "").lower() or "market" in str(model.get("note") or "").lower()
 
 
+def test_nfl_unpriced_source_rows_are_not_reported_as_posted_markets():
+    class UnpricedRowsClient(ScheduledUnpricedClient):
+        def football_espn_prop_bets(self, league, event_id, provider_id="100"):
+            return {"items": [
+                {"type": {"name": "Passing Yards"}, "odds": {"american": {}},
+                 "current": {"target": {"value": 249.5}}},
+                {"type": {"name": "Rushing Yards"}, "odds": {},
+                 "current": {"target": {"value": 64.5}}},
+            ]}
+
+    model = generate_football_candidate_model(UnpricedRowsClient(), "nfl", "NFL", DATE)
+    diagnostic = model["diagnostics"][0]
+    assert model["picks"] == []
+    assert diagnostic["source_market_rows"] == 2
+    assert diagnostic["posted_market_rows"] == 0
+    assert diagnostic["unpriced_market_rows"] == 2
+    assert diagnostic["status"] == "no_priced_markets"
+
+
 def test_football_scoreboard_outage_soft_fails_and_does_not_block_mlb(monkeypatch):
     monkeypatch.setenv("PICKLEDGER_DISABLE_PRECISION_MODEL", "true")
     boom = generate_football_candidate_model(BoomFootballClient(), "nfl", "NFL", DATE)

@@ -6,8 +6,8 @@ already use, so every pick this emits grades through the existing
 
 Ratings are not recomputed from scratch at 6am. A pruned Elo/WElo snapshot is
 committed with the model; serving reloads it and replays only the matches that
-finished since — one small current-season workbook per tour — so a daily run
-costs two HTTP requests instead of twenty-seven years of history.
+finished since. Published current-season workbooks are preferred, with ESPN
+results bridging a delayed archive release.
 
 What is published is the *market-free* model probability. Tennis moneylines are
 not carried by the shared market-odds attachment (its scoreboard parser is
@@ -260,7 +260,14 @@ def _round_order(round_name: str) -> int:
     return 2
 
 
-def catch_up_ratings(engine: RatingEngine, through_date: str, *, download: bool = True, before: str | None = None) -> dict[str, Any]:
+def catch_up_ratings(
+    engine: RatingEngine,
+    through_date: str,
+    *,
+    download: bool = True,
+    before: str | None = None,
+    include_fallback: bool = True,
+) -> dict[str, Any]:
     """Replay results that landed after the snapshot was taken.
 
     Only the current (and, across a new year boundary, the previous) season is
@@ -289,24 +296,39 @@ def catch_up_ratings(engine: RatingEngine, through_date: str, *, download: bool 
             except Exception as exc:  # a stale snapshot beats a crashed slate
                 print(f"[tennis] catch-up parse failed for {tour} {season}: {exc}")
     cutoff = before or date.today().isoformat()
-    archive_through = max((m.date for m in fresh if m.date < cutoff), default=through_date)
+    # Rows without played tennis cannot advance the archive watermark; doing
+    # so would skip official completed results on the same or earlier date.
+    rated = [m for m in fresh if m.status not in {"walkover", "disqualified", "other"}]
+    archive_by_tour = {
+        tour: max((m.date for m in rated if m.tour == tour and m.date < cutoff), default=through_date)
+        for tour in ("ATP", "WTA")
+    }
+    archive_through = min(archive_by_tour.values())
     errors = []
     fallback_count = 0
-    if download and (date.fromisoformat(cutoff) - date.fromisoformat(archive_through)).days > 2:
+    stale_tours = tuple(
+        tour for tour, latest in archive_by_tour.items()
+        if (date.fromisoformat(cutoff) - date.fromisoformat(latest)).days > 2
+    )
+    if download and include_fallback and stale_tours:
         from .tennis_results import fetch_completed_matches
         index = load_tournament_index()
         extra, errors = fetch_completed_matches(archive_through, cutoff,
-            lambda tour, tournament, day, venue: _tournament_meta(index, tour, tournament, day, venue), _round_order)
+            lambda tour, tournament, day, venue: _tournament_meta(index, tour, tournament, day, venue),
+            _round_order, tours=stale_tours)
+        extra = [m for m in extra if m.date > archive_by_tour[m.tour]]
         fresh.extend(extra)
         fallback_count = len(extra)
     pending = sorted(
-        (match for match in fresh if through_date < match.date < cutoff),
+        (match for match in fresh if through_date < match.date < cutoff
+         and match.status not in {"walkover", "disqualified", "other"}
+         and (include_fallback or match.date <= archive_through)),
         key=Match.sort_key,
     )
     for match in pending:
         engine.update(match)
     return {"applied": len(pending), "through": engine.last_date, "fallback_matches": fallback_count, "errors": errors,
-            "archive_through": archive_through}
+            "archive_through": archive_through, "archive_through_by_tour": archive_by_tour}
 
 
 def _decision(probability: float) -> str:
@@ -508,6 +530,7 @@ def generate_tennis_picks(
             "fallbackMatches": catch_up.get("fallback_matches", 0),
             "featureAgeDays": (target - date.fromisoformat(engine.last_date)).days if engine.last_date else None,
             "archiveThrough": catch_up.get("archive_through"),
+            "archiveThroughByTour": catch_up.get("archive_through_by_tour"),
             "catchUpErrors": catch_up.get("errors", []),
             "betThreshold": BET_PROBABILITY,
             "leanThreshold": LEAN_PROBABILITY,

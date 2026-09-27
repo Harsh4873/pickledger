@@ -198,11 +198,13 @@ def _football_market_index(
         return {}
 
     if diagnostics is not None:
-        diagnostics["posted_market_rows"] = len(payload.get("items") or [])
+        rows = payload.get("items") or []
+        diagnostics["source_market_rows"] = len(rows)
         diagnostics["unpriced_market_rows"] = sum(
             _american_odds((((row.get("odds") or {}).get("american") or {}).get("value"))) is None
-            for row in payload.get("items") or []
+            for row in rows
         )
+        diagnostics["posted_market_rows"] = len(rows) - diagnostics["unpriced_market_rows"]
     grouped: dict[tuple[str, str, float, str], list[dict[str, Any]]] = defaultdict(list)
     markets: dict[str, dict[str, list[dict[str, Any]]]] = defaultdict(lambda: defaultdict(list))
     for row in payload.get("items") or []:
@@ -746,7 +748,12 @@ def generate_football_candidate_model(
             diagnostic["status"] = "source_error"
             errors.append(f"{event.get('id')}: {diagnostic['error']}")
         elif not diagnostic.get("players_with_markets"):
-            diagnostic["status"] = "no_posted_markets"
+            if diagnostic.get("source_market_rows") and not diagnostic.get("posted_market_rows"):
+                diagnostic["status"] = "no_priced_markets"
+            elif diagnostic.get("posted_market_rows"):
+                diagnostic["status"] = "no_usable_markets"
+            else:
+                diagnostic["status"] = "no_posted_markets"
     if sport == "NFL" and not picks and callable(getattr(client, "cfb_market_json", None)):
         from .cfb import generate_cfb_candidate_model
         baseline = generate_cfb_candidate_model(client, date_iso, max_workers=max_workers, sport=sport, league=league)

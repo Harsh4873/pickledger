@@ -1,12 +1,44 @@
 """Official completed singles results when the workbook archive is unavailable."""
 import json
 from concurrent.futures import ThreadPoolExecutor
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 import requests
 
 from .tennis_data import Match, player_key, RAW_DIR
+
+
+CENTRAL = ZoneInfo("America/Chicago")
+TERMINAL_STATUSES = {"STATUS_FINAL", "STATUS_CANCELED", "STATUS_POSTPONED", "STATUS_FORFEIT"}
+
+
+def _competition_day(comp):
+    try:
+        stamped = datetime.fromisoformat(str(comp.get("date", "")).replace("Z", "+00:00"))
+        if stamped.tzinfo is None:
+            stamped = stamped.replace(tzinfo=timezone.utc)
+        return stamped.astimezone(CENTRAL).date().isoformat()
+    except ValueError:
+        return ""
+
+
+def _complete_scoreboard(payload, day):
+    """Cache a day only after its singles results can no longer be provisional."""
+    seen = False
+    for event in payload.get("events", []):
+        for group in event.get("groupings", []):
+            if "singles" not in str(group.get("grouping", {}).get("slug", "")):
+                continue
+            for comp in group.get("competitions", []):
+                if _competition_day(comp) != day:
+                    continue
+                seen = True
+                status = comp.get("status", {}).get("type", {})
+                if status.get("completed") is not True and status.get("name") not in TERMINAL_STATUSES:
+                    return False
+    return seen
 
 
 def completed_matches(payload, tour, after, before, resolve_meta, round_order):
@@ -16,7 +48,7 @@ def completed_matches(payload, tour, after, before, resolve_meta, round_order):
             if "singles" not in str(group.get("grouping", {}).get("slug", "")):
                 continue
             for comp in group.get("competitions", []):
-                day = str(comp.get("date", ""))[:10]
+                day = _competition_day(comp)
                 status = comp.get("status", {}).get("type", {})
                 if not after < day < before or status.get("name") != "STATUS_FINAL":
                     continue
@@ -46,29 +78,37 @@ def completed_matches(payload, tour, after, before, resolve_meta, round_order):
     return matches
 
 
-def fetch_completed_matches(after, before, resolve_meta, round_order, *, fetch=None, cache_dir=None):
+def fetch_completed_matches(after, before, resolve_meta, round_order, *, fetch=None, cache_dir=None, tours=("ATP", "WTA")):
     cache = Path(cache_dir) if cache_dir is not None else RAW_DIR / "espn_results"
     days = []
     day = date.fromisoformat(after) + timedelta(days=1)
     while day < date.fromisoformat(before):
-        days.extend((tour, day.isoformat()) for tour in ("ATP", "WTA"))
+        days.extend((tour, day.isoformat()) for tour in tours)
         day += timedelta(days=1)
     def load(item):
         tour, day = item
         path = cache / f"{tour}-{day}.json"
         try:
-            if path.exists():
-                payload = json.loads(path.read_text())
+            try:
+                cached = json.loads(path.read_text()) if path.exists() else None
+            except (OSError, ValueError):
+                cached = None
+            if cached is not None and _complete_scoreboard(cached, day):
+                payload = cached
             else:
                 url = f"https://site.api.espn.com/apis/site/v2/sports/tennis/{tour.lower()}/scoreboard?dates={day.replace('-', '')}"
-                if fetch:
-                    payload = fetch(url)
-                else:
-                    response = requests.get(url, timeout=25); response.raise_for_status(); payload = response.json()
-                if not isinstance(payload.get("events"), list):
-                    raise ValueError("invalid scoreboard")
-                # Empty answers may be a transient source gap; do not cache them.
-                if payload["events"]:
+                try:
+                    if fetch:
+                        payload = fetch(url)
+                    else:
+                        response = requests.get(url, timeout=25); response.raise_for_status(); payload = response.json()
+                    if not isinstance(payload, dict) or not isinstance(payload.get("events"), list):
+                        raise ValueError("invalid scoreboard")
+                except Exception as exc:
+                    if cached is None:
+                        raise
+                    return completed_matches(cached, tour, after, before, resolve_meta, round_order), f"{tour} {day}: refresh failed: {exc}"
+                if _complete_scoreboard(payload, day):
                     cache.mkdir(parents=True, exist_ok=True)
                     path.write_text(json.dumps(payload))
             return completed_matches(payload, tour, after, before, resolve_meta, round_order), None

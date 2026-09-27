@@ -243,6 +243,26 @@ def test_scrape_forebet_rejects_rows_outside_the_kickoff_window(monkeypatch):
     assert result["meta"]["unpublishedMatchups"] == ["Baltimore Orioles @ Boston Red Sox"]
 
 
+def test_wnba_historical_listing_rows_do_not_match_the_current_slate(monkeypatch):
+    module = _module()
+    slate = [
+        {"away": "New York Liberty", "home": "Minnesota Lynx", "start_time": "2026-09-27T19:00Z"},
+        {"away": "Indiana Fever", "home": "Las Vegas Aces", "start_time": "2026-09-27T21:00Z"},
+        {"away": "Washington Mystics", "home": "Atlanta Dream", "start_time": "2026-09-27T23:00Z"},
+        {"away": "Dallas Wings", "home": "Golden State Valkyries", "start_time": "2026-09-27T23:00Z"},
+    ]
+    monkeypatch.setattr(module, "fetch_daily_matchups", lambda *args, **kwargs: (slate, True))
+    html = _forebet_row(
+        "Minnesota Lynx W", "New York Liberty W", "1", "69 31",
+        ("-150", "+130"), kickoff="19/09/2026 01:30", two_way=True,
+    )
+    result = module.scrape_forebet("wnba", "2026-09-27", html=html)
+    assert result["meta"]["listedRows"] == 1
+    assert result["meta"]["officialMatchups"] == 4
+    assert result["meta"]["matchedPicks"] == 0
+    assert len(result["meta"]["unpublishedMatchups"]) == 4
+
+
 def test_forebet_feeds_are_registered_across_the_pipeline():
     refresh = _load_module("refresh_external_feeds_test", ROOT / "scripts" / "refresh_external_feeds.py")
     for key in ("forebet_mls", "forebet_mlb", "forebet_wnba"):

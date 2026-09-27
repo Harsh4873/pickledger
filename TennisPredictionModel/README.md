@@ -224,9 +224,14 @@ daily cron). Rewrites four artifacts:
 | `tennis_tournaments.json` | Tournament → surface/tier/best-of, for classifying a live slate |
 | `metrics.json`, `backtest.json` | Held-out evaluation |
 
-The daily job does **not** retrain. It loads the snapshot and replays only the
-matches that finished since — one current-season workbook per tour — so a
-retrain is needed when the model changes or the snapshot drifts a season behind.
+The daily job does **not** retrain. It loads the snapshot and replays matches
+that finished since. When the snapshot lags by more than three days, the local
+tennis publisher refreshes the current-season workbooks and advances the
+committed ratings artifact through the latest date covered by both tours.
+Official ESPN results bridge a delayed workbook during serving but are not
+written into that artifact: they lack some ranking and points inputs and would
+otherwise make a later workbook release look already applied. Retraining is
+still needed when the model itself changes.
 
 ## Serving
 
