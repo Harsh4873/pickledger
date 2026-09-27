@@ -63,7 +63,7 @@ def _start_time(pick: Mapping[str, Any], bucket: Mapping[str, Any]):
 
 def _policy_version(pick: Mapping[str, Any], bucket: Mapping[str, Any]) -> str:
     fitted = str(pick.get("model_version") or bucket.get("model_version") or "").strip()
-    if fitted.startswith("nfl_v"):
+    if fitted.startswith("nfl_v") or fitted.startswith("nhl_poisson_v"):
         return fitted
     return str(
         pick.get("ml_model_version") or pick.get("prediction_model_version")

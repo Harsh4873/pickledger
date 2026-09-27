@@ -8,11 +8,38 @@ any price.
 from __future__ import annotations
 
 import json
+from datetime import date
 from pathlib import Path
 from urllib.request import Request, urlopen
 
 STANDINGS_URL = "https://api-web.nhle.com/v1/standings/now"
 ARTIFACT_PATH = Path(__file__).resolve().parent / "artifacts" / "nhl_ratings.json"
+MODEL_FAMILY = "nhl_poisson_v2"
+SHADOW_CANDIDATE_VERSION = "v1"
+
+
+def model_version(prior_season: str) -> str:
+    """A new season of fitted ratings must never inherit an older approval."""
+    return f"{MODEL_FAMILY}_{prior_season}_shadow_ev_{SHADOW_CANDIDATE_VERSION}"
+
+
+def decision_policy() -> dict:
+    """Prospective research rule; no priced NHL results have qualified it."""
+    return {
+        "mode": "research_only",
+        "reason": "no_as_of_priced_walk_forward_or_unused_holdout",
+        "shadow_candidate": {
+            "version": f"nhl_shadow_ev_{SHADOW_CANDIDATE_VERSION}",
+            "markets": ["h2h", "spread", "totals"],
+            "rule": "higher two-way expected value, observed pregame quote, complete price pair",
+            "max_juice": -125,
+            "lean_min_expected_value": 0.05,
+            "bet_min_expected_value": 0.10,
+            "lean_units": 0.25,
+            "bet_units": 0.5,
+            "validated": False,
+        },
+    }
 
 
 def _text(value: object) -> str:
@@ -67,6 +94,13 @@ def train(payload: dict | None = None) -> dict:
         home_ot_losses = _required_number(row, "homeOtLosses")
         if home_wins < home_regulation_wins:
             raise RuntimeError(f"{abbrev} home wins are below regulation wins")
+        if abbrev in teams:
+            raise RuntimeError(f"duplicate standings team {abbrev}")
+        row_date = str(row.get("date") or "")
+        if standings_date and row_date != standings_date:
+            raise RuntimeError("standings rows have different dates")
+        if game_type is not None and row.get("gameTypeId") != game_type:
+            raise RuntimeError("standings rows have different game types")
         teams[abbrev] = {
             "abbrev": abbrev,
             "name": name,
@@ -83,7 +117,7 @@ def train(payload: dict | None = None) -> dict:
         totals["home_goals_against"] += home_goals_against
         totals["home_ot_wins"] += home_wins - home_regulation_wins
         totals["home_ot_losses"] += home_ot_losses
-        standings_date = standings_date or str(row.get("date") or "")
+        standings_date = standings_date or row_date
         game_type = row.get("gameTypeId")
     if int(game_type or 0) != 2:
         raise RuntimeError(f"standings gameTypeId={game_type}, expected regular season (2)")
@@ -97,21 +131,23 @@ def train(payload: dict | None = None) -> dict:
     ot_decisions = totals["home_ot_wins"] + totals["home_ot_losses"]
     if ot_decisions <= 0:
         raise RuntimeError("no home overtime or shootout decisions in the standings")
-    # April standings close the prior season. 2026-04-17 is 2025-26.
-    prior_season = "20252026" if standings_date.startswith("2026-") else ""
-    if not prior_season:
-        raise RuntimeError(f"could not map standings date {standings_date} to a season id")
+    try:
+        as_of = date.fromisoformat(standings_date)
+    except ValueError as exc:
+        raise RuntimeError(f"invalid standings date {standings_date}") from exc
+    # A completed NHL regular season ends in spring. Refuse a stale or
+    # future-looking standings date instead of assigning the wrong season.
+    if as_of.month not in {4, 5, 6}:
+        raise RuntimeError(f"completed standings date {standings_date} is outside spring")
+    prior_season = f"{as_of.year - 1}{as_of.year}"
     artifact = {
-        "model_version": "nhl_poisson_v1",
+        "model_version": model_version(prior_season),
         "source": STANDINGS_URL,
         "prior_season": prior_season,
         "standings_date": standings_date,
         "game_type_id": 2,
         "teams_count": len(teams),
-        "decision_policy": {
-            "mode": "research_only",
-            "reason": "no_validated_staking_segment",
-        },
+        "decision_policy": decision_policy(),
         "league": {
             "goals_per_game": round(totals["goals_for"] / totals["games"], 6),
             "home_goals_per_game": round(home_gpg, 6),

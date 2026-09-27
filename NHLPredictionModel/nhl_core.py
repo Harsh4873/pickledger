@@ -58,11 +58,11 @@ def _poisson(lam: float, limit: int = MAX_GOALS) -> list[float]:
     return values
 
 
-def over_probability(lambda_home: float, lambda_away: float, line: float) -> float:
-    """P(regulation goals, plus one overtime goal on a tie, exceed the line)."""
+def total_outcomes(lambda_home: float, lambda_away: float, line: float) -> tuple[float, float, float]:
+    """Game-total (over, under, push), including the final OT/SO goal."""
     home_pmf = _poisson(lambda_home)
     away_pmf = _poisson(lambda_away)
-    probability = 0.0
+    over = under = push = 0.0
     mass = 0.0
     for home_goals, home_probability in enumerate(home_pmf):
         for away_goals, away_probability in enumerate(away_pmf):
@@ -70,16 +70,31 @@ def over_probability(lambda_home: float, lambda_away: float, line: float) -> flo
             mass += weight
             goals = home_goals + away_goals + (1 if home_goals == away_goals else 0)
             if goals > line:
-                probability += weight
-    return probability / mass if mass else 0.5
+                over += weight
+            elif goals < line:
+                under += weight
+            else:
+                push += weight
+    return (over / mass, under / mass, push / mass) if mass else (0.5, 0.5, 0.0)
+
+
+def over_probability(lambda_home: float, lambda_away: float, line: float) -> float:
+    return total_outcomes(lambda_home, lambda_away, line)[0]
+
+
+def counting_outcomes(mean: float, line: float) -> tuple[float, float, float]:
+    """Poisson (over, under, push) at a posted counting line."""
+    pmf = _poisson(mean)
+    mass = sum(pmf)
+    if not mass:
+        return 0.5, 0.5, 0.0
+    over = sum(weight for count, weight in enumerate(pmf) if count > line) / mass
+    under = sum(weight for count, weight in enumerate(pmf) if count < line) / mass
+    return over, under, max(0.0, 1.0 - over - under)
 
 
 def counting_over_probability(mean: float, line: float) -> float:
-    """P(a Poisson counting stat exceeds a posted line). The mean must be observed."""
-    pmf = _poisson(mean)
-    mass = sum(pmf)
-    probability = sum(weight for count, weight in enumerate(pmf) if count > line)
-    return probability / mass if mass else 0.5
+    return counting_outcomes(mean, line)[0]
 
 
 def team_total_over_probability(
