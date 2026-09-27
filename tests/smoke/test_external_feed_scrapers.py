@@ -417,6 +417,56 @@ Detail
     assert rows[0]["league"] == "USA - NFL"
 
 
+def test_sportytrader_nfl_us_football_picks_cards_keep_official_nfl_only():
+    module = _load_module(
+        "sportytrader_nfl_us_listing_test",
+        ROOT / "scripts" / "scrapers" / "sportytrader_scraper.py",
+    )
+    # The US football listing uses "Picks" headings and a dash-separated
+    # matchup; the nfl-598 league pages may contain no editorial cards.
+    listing_url = "https://www.sportytrader.com/us/picks/football/"
+    assert listing_url in module.SPORT_CONFIG["nfl"]["fallback_urls"]
+    body_text = """
+Sep 27, 2026, 4:25 PM
+USA
+- NFL
+Dallas Cowboys - Baltimore Ravens
+Dallas Cowboys Baltimore Ravens Picks
+Baltimore Ravens -4.5
+Odds
+-110
+Detail
+Sep 27, 2026, 3:30 PM
+USA - NCAA
+Tennessee Volunteers - Texas Longhorns
+Tennessee Volunteers Texas Longhorns Picks
+Tennessee Volunteers +4.5
+Detail
+Sep 28, 2026, 1:00 PM
+USA - NFL
+Tennessee Titans - New York Giants
+Tennessee Titans New York Giants Picks
+New York Giants ML
+Detail
+"""
+    matchups = [
+        "Baltimore Ravens @ Dallas Cowboys",
+        "Tennessee Volunteers @ Texas Longhorns",
+        "Tennessee Titans @ New York Giants",
+    ]
+    cards = module._extract_nfl_us_text_cards(body_text, listing_url, matchups)
+    rows = module._extract_rows(
+        cards,
+        module._parse_target_date("2026-09-27"),
+        "nfl",
+        matchups,
+    )
+    assert len(rows) == 1
+    assert rows[0]["tip"] == "Baltimore Ravens -4.5"
+    assert rows[0]["odds"] == "-110"
+    assert rows[0]["league"] == "USA - NFL"
+
+
 def test_sportytrader_fifa_world_cup_config_and_known_matchup_alias():
     module = _load_module(
         "sportytrader_fifa_scraper_test",
@@ -2534,6 +2584,9 @@ def test_scores24_nfl_is_wired_soft_fail_across_the_pipeline():
     assert 'PUBLISH_FEEDS="${SCORES24_PUBLISH_FEEDS:-scores24_mlb,scores24_wnba}"' in publisher
     assert "will not block MLB+WNBA publish" in publisher
     assert "scores24_optional_publish.py" in publisher
+    assert 'NFL_OPTIONAL_FEED_TIMEOUT="${SCORES24_NFL_OPTIONAL_FEED_TIMEOUT_SECONDS:-420}"' in publisher
+    assert 'if [[ "${feed_key}" == "scores24_nfl" ]]; then' in publisher
+    assert 'OPTIONAL_FEED_TIMEOUT="${feed_timeout}"' in publisher
 
 
 def test_scores24_retries_blocked_matchup_without_hammering_candidates(monkeypatch):

@@ -28,13 +28,15 @@ DATE_ISO="${SCORES24_DATE:-$(TZ=America/Chicago date +%F)}"
 # CFB and NFL ride the same weekday morning/afternoon Scores24 run as soft-fail
 # optional feeds: scrape when the slate exists, but incomplete/blocked/hung
 # CFB or NFL must not prevent publishing a complete MLB+WNBA slate, and must
-# not gate latestUpdated. Optional feeds get a hard timeout (default 180s) and
-# no block-retry sleep budget so a Camoufox hang cannot delay MLB+WNBA publish
-# for 900s. Afternoon reruns resume from SCORES24_CHECKPOINT_DIR.
+# not gate latestUpdated. Optional feeds get a hard timeout and no block-retry
+# sleep budget so a Camoufox hang cannot delay the remaining feeds indefinitely.
+# NFL gets a larger cap for a 14-game Sunday slate. Afternoon reruns resume
+# from SCORES24_CHECKPOINT_DIR.
 PUBLISH_FEEDS="${SCORES24_PUBLISH_FEEDS:-scores24_mlb,scores24_wnba}"
 OPTIONAL_FEEDS="${SCORES24_OPTIONAL_FEEDS:-scores24_cfb,scores24_nfl}"
 PUBLISH_SPORTS="${SCORES24_PUBLISH_SPORTS:-mlb,wnba,cfb,nfl}"
 OPTIONAL_FEED_TIMEOUT="${SCORES24_OPTIONAL_FEED_TIMEOUT_SECONDS:-180}"
+NFL_OPTIONAL_FEED_TIMEOUT="${SCORES24_NFL_OPTIONAL_FEED_TIMEOUT_SECONDS:-420}"
 REQUEST_INTERVAL="${SCORES24_REQUEST_INTERVAL_SECONDS:-12}"
 REQUEST_ATTEMPTS="${SCORES24_REQUEST_ATTEMPTS:-1}"
 ATTEMPT_RETRY_DELAY="${SCORES24_ATTEMPT_RETRY_DELAY_SECONDS:-0}"
@@ -202,6 +204,10 @@ for raw_feed_key in "${OPTIONAL_KEYS[@]}"; do
   if [[ "${feed_index}" -gt 0 ]]; then
     sleep "${FEED_COOLDOWN}"
   fi
+  feed_timeout="${OPTIONAL_FEED_TIMEOUT}"
+  if [[ "${feed_key}" == "scores24_nfl" ]]; then
+    feed_timeout="${NFL_OPTIONAL_FEED_TIMEOUT}"
+  fi
   echo "Refreshing optional ${feed_key} for ${DATE_ISO} (soft-fail; will not block MLB+WNBA publish)."
   set +e
   SCORES24_BROWSER_FALLBACK=true \
@@ -215,7 +221,7 @@ for raw_feed_key in "${OPTIONAL_KEYS[@]}"; do
   SCORES24_HOST_BLOCK_COOLDOWN_SECONDS="${HOST_BLOCK_COOLDOWN}" \
   SCORES24_CURL_SESSION_MAX_REQUESTS="${CURL_SESSION_MAX_REQUESTS}" \
   OPTIONAL_FEED_KEY="${feed_key}" \
-  OPTIONAL_FEED_TIMEOUT="${OPTIONAL_FEED_TIMEOUT}" \
+  OPTIONAL_FEED_TIMEOUT="${feed_timeout}" \
   DATE_ISO="${DATE_ISO}" \
   PUBLISH_SPORTS="${PUBLISH_SPORTS}" \
   TEMP_REPO="${TEMP_REPO}" \

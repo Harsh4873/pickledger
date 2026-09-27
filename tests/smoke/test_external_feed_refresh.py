@@ -331,6 +331,38 @@ def test_optional_feed_hard_timeout_kills_child_and_returns_soft_fail(tmp_path):
     assert "timed out" in bucket["lastError"]
 
 
+def test_optional_nfl_budget_keeps_checkpoint_resume_and_outer_kill_switch(monkeypatch, tmp_path):
+    from scripts.scrapers import scores24_optional_publish as optional
+
+    observed = {}
+
+    class FinishedProcess:
+        def wait(self, timeout):
+            observed["outer_timeout"] = timeout
+            return 0
+
+    def start(_cmd, *, env, start_new_session):
+        observed["env"] = env
+        observed["new_session"] = start_new_session
+        return FinishedProcess()
+
+    monkeypatch.setattr(optional.subprocess, "Popen", start)
+    assert optional.run_optional_scores24_feed(
+        python_bin=sys.executable,
+        repo=str(tmp_path),
+        date_iso="2026-09-27",
+        feed_key="scores24_nfl",
+        sports="nfl",
+        timeout_seconds=420,
+        cache_path=str(tmp_path / "cache.json"),
+        checkpoint_dir=str(tmp_path / "state"),
+    ) == 0
+    assert observed["outer_timeout"] == 420
+    assert observed["new_session"] is True
+    assert observed["env"]["SCORES24_SCRAPE_TIMEOUT_SECONDS"] == "400.0"
+    assert observed["env"]["SCORES24_CHECKPOINT_DIR"] == str(tmp_path / "state")
+
+
 def test_optional_nonzero_exit_salvages_same_day_checkpoint(tmp_path):
     from scripts.scrapers import scores24_optional_publish as optional
 

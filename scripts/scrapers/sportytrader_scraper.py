@@ -118,6 +118,7 @@ SPORT_CONFIG = {
         "url": "https://www.sportytrader.com/us/picks/football/usa/nfl-598/",
         "fallback_urls": (
             "https://www.sportytrader.com/en/betting-tips/american-football/usa/nfl-598/",
+            "https://www.sportytrader.com/us/picks/football/",
             "https://www.sportytrader.com/en/betting-tips/american-football/",
         ),
         "allow_partial_listings": True,
@@ -419,6 +420,99 @@ def _extract_text_cards(
     return rows
 
 
+def _extract_nfl_us_text_cards(
+    body_text: str,
+    listing_url: str,
+    expected_matchups: list[str],
+) -> list[dict[str, str]]:
+    """Read the US football listing's ``Team Team Picks`` editorial cards."""
+    raw_lines = [_normalize_line(line) for line in body_text.splitlines()]
+    lines: list[str] = []
+    for line in raw_lines:
+        if not line:
+            continue
+        if lines and lines[-1] == "USA" and line.startswith("- "):
+            lines[-1] += f" {line}"
+        elif lines and lines[-1] == "Odds" and re.fullmatch(r"[+-]?\d+(?:\.\d+)?", line):
+            lines[-1] += f" {line}"
+        else:
+            lines.append(line)
+    matchups: list[tuple[str, str]] = []
+    for matchup in expected_matchups:
+        teams = re.split(r"\s+(?:vs\.?|@)\s+", matchup, maxsplit=1, flags=re.IGNORECASE)
+        if len(teams) == 2 and _matchup_key(matchup):
+            matchups.append((_normalize_line(teams[0]), _normalize_line(teams[1])))
+
+    rows: list[dict[str, str]] = []
+    for index, heading in enumerate(lines):
+        if not heading.casefold().endswith(" picks"):
+            continue
+        matched_teams = next(
+            (
+                (first, second)
+                for first, second in matchups
+                if heading.casefold() in {
+                    f"{first} {second} Picks".casefold(),
+                    f"{second} {first} Picks".casefold(),
+                }
+            ),
+            None,
+        )
+        if matched_teams is None:
+            continue
+        first, second = matched_teams
+        display_teams = (
+            (first, second)
+            if heading.casefold() == f"{first} {second} Picks".casefold()
+            else (second, first)
+        )
+        preceding = lines[max(0, index - 12):index]
+        league_index = next(
+            (i for i in range(len(preceding) - 1, -1, -1) if preceding[i].startswith("USA - ")),
+            None,
+        )
+        if league_index is None or preceding[league_index] != "USA - NFL":
+            continue
+        date_text = preceding[league_index - 1] if league_index > 0 else ""
+        if not _parse_english_datetime(date_text):
+            continue
+        tip = ""
+        for candidate in lines[index + 1:index + 4]:
+            if (
+                re.fullmatch(r"(?:Detail|BET NOW!?|Exclusive Offer)", candidate, flags=re.IGNORECASE)
+                or candidate.startswith("USA - ")
+                or candidate.startswith("Odds ")
+                or _parse_english_datetime(candidate)
+            ):
+                break
+            if candidate.lower().startswith("probability of "):
+                break
+            tip = candidate
+            break
+        if not tip:
+            continue
+        odds = next(
+            (
+                match.group(1)
+                for candidate in lines[index + 2:index + 4]
+                if (match := re.fullmatch(
+                    r"Odds\s+([+-]?\d+(?:\.\d+)?)", candidate, flags=re.IGNORECASE,
+                ))
+            ),
+            "",
+        )
+        rows.append({
+            "datetime": date_text,
+            "league": "USA - NFL",
+            "home": display_teams[0],
+            "away": display_teams[1],
+            "tip": tip,
+            "odds": odds,
+            "href": listing_url,
+        })
+    return rows
+
+
 def _extract_rows(
     cards: list[dict[str, str]],
     target_date: datetime | None,
@@ -537,6 +631,10 @@ def main() -> None:
                 cards.extend(
                     _extract_text_cards(page_text, target_url, expected_matchups)
                 )
+                if sport_key == "nfl":
+                    cards.extend(
+                        _extract_nfl_us_text_cards(page_text, target_url, expected_matchups)
+                    )
                 page_texts.append(page_text)
         finally:
             page.close()
