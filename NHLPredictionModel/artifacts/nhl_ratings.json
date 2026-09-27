@@ -1,7 +1,22 @@
 {
   "decision_policy": {
     "mode": "research_only",
-    "reason": "no_validated_staking_segment"
+    "reason": "no_as_of_priced_walk_forward_or_unused_holdout",
+    "shadow_candidate": {
+      "bet_min_expected_value": 0.1,
+      "bet_units": 0.5,
+      "lean_min_expected_value": 0.05,
+      "lean_units": 0.25,
+      "markets": [
+        "h2h",
+        "spread",
+        "totals"
+      ],
+      "max_juice": -125,
+      "rule": "higher two-way expected value, observed pregame quote, complete price pair",
+      "validated": false,
+      "version": "nhl_shadow_ev_v1"
+    }
   },
   "game_type_id": 2,
   "league": {
@@ -13,7 +28,7 @@
     "home_ot_decisions": 326,
     "ot_home_win_rate": 0.490798
   },
-  "model_version": "nhl_poisson_v1",
+  "model_version": "nhl_poisson_v2_20252026_shadow_ev_v1",
   "prior_season": "20252026",
   "source": "https://api-web.nhle.com/v1/standings/now",
   "standings_date": "2026-04-17",

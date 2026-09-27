@@ -416,16 +416,18 @@ def _displayed_probability(pick: Mapping[str, Any]) -> float | None:
 def _fitted_artifact_version(model_key: str, bucket: Mapping[str, Any], pick: Mapping[str, Any]) -> str:
     """Stable fitted artifact label, when the pick still carries one.
 
-    NFL serving also stamps a content hash of pickgrader_server.py onto
-    ``prediction_model_version``. That hash is useful for audit but fragments
-    the staking scorecard whenever unrelated server code changes.
+    NFL and NHL serving also stamp content hashes onto
+    ``prediction_model_version``. Those hashes are useful for audit but split
+    staking scorecards when unrelated server code changes.
     """
 
-    if str(model_key) != "nfl":
+    if str(model_key) not in {"nfl", "nhl"}:
         return ""
     for source in (pick, bucket):
         value = _text(source.get("model_version"))
-        if value.startswith("nfl_v"):
+        if (str(model_key) == "nfl" and value.startswith("nfl_v")) or (
+            str(model_key) == "nhl" and value.startswith("nhl_poisson_v")
+        ):
             return value
     return ""
 

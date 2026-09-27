@@ -8,6 +8,7 @@ price, or a player mean.
 from __future__ import annotations
 
 import json
+import math
 from datetime import datetime, timedelta, timezone
 from typing import Any, Callable
 from urllib.request import Request, urlopen
@@ -157,6 +158,9 @@ def _empty_quote(event_id: str, status: str) -> dict[str, Any]:
 
 def _apply_game_lines(quote: dict[str, Any], markets: list[dict[str, Any]], selections: list[dict[str, Any]]) -> None:
     by_id = {str(market.get("id") or ""): market for market in markets}
+    moneyline: dict[str, set[int]] = {"home": set(), "away": set()}
+    spreads: dict[tuple[str, float], set[int]] = {}
+    totals: dict[tuple[str, float], set[int]] = {}
     for selection in selections:
         if not isinstance(selection, dict):
             continue
@@ -169,21 +173,54 @@ def _apply_game_lines(quote: dict[str, Any], markets: list[dict[str, Any]], sele
         if price is None:
             continue
         if name == "Moneyline" and side in {"home", "away"}:
-            quote[f"{side}_moneyline"] = price
+            moneyline[side].add(price)
         elif name == "Puck Line" and side in {"home", "away"}:
             try:
                 points = float(selection.get("points"))
             except (TypeError, ValueError):
                 continue
-            quote[f"{side}_spread_line"] = points
-            quote[f"{side}_spread_odds"] = price
+            if math.isfinite(points):
+                spreads.setdefault((side, points), set()).add(price)
         elif name == "Total" and side in {"over", "under"}:
             try:
                 points = float(selection.get("points"))
             except (TypeError, ValueError):
                 continue
-            quote["total_line"] = points
-            quote[f"{side}_odds"] = price
+            if math.isfinite(points) and points > 0:
+                totals.setdefault((side, points), set()).add(price)
+    if all(len(moneyline[side]) == 1 for side in ("home", "away")):
+        quote["home_moneyline"] = next(iter(moneyline["home"]))
+        quote["away_moneyline"] = next(iter(moneyline["away"]))
+    puck_pairs = []
+    for (side, home_line), home_prices in spreads.items():
+        if side != "home" or abs(abs(home_line) - 1.5) > 1e-9:
+            continue
+        away_prices = spreads.get(("away", -home_line), set())
+        if len(home_prices) == len(away_prices) == 1:
+            puck_pairs.append((home_line, next(iter(home_prices)), next(iter(away_prices))))
+    if len(puck_pairs) == 1:
+        line, home_odds, away_odds = puck_pairs[0]
+        quote.update({
+            "home_spread_line": line,
+            "away_spread_line": -line,
+            "home_spread_odds": home_odds,
+            "away_spread_odds": away_odds,
+        })
+    complete_totals = []
+    for direction, line in totals:
+        if direction != "over":
+            continue
+        over_prices = totals[("over", line)]
+        under_prices = totals.get(("under", line), set())
+        if len(over_prices) == len(under_prices) == 1:
+            complete_totals.append({
+                "line": line,
+                "over_odds": next(iter(over_prices)),
+                "under_odds": next(iter(under_prices)),
+            })
+    chosen = choose_balanced_line(complete_totals)
+    if chosen is not None:
+        quote.update({"total_line": chosen["line"], "over_odds": chosen["over_odds"], "under_odds": chosen["under_odds"]})
 
 
 def favorite_magnitude(over_odds: int, under_odds: int) -> int | None:
@@ -435,7 +472,10 @@ def fetch_pregame_quotes(
         if not isinstance(payload, dict):
             continue
         feeds_read += 1
+        observed_at = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
         for key, rows in _quotes_from_payload(payload).items():
+            for row in rows:
+                row["market_retrieved_at"] = observed_at
             quotes.setdefault(key, []).extend(rows)
     matched = 0
     team_total_games = 0
@@ -457,6 +497,7 @@ def fetch_pregame_quotes(
                 quote["category_check"] = status
             else:
                 quote["category_check"] = status
+                quote["prop_market_retrieved_at"] = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
         for field in (
             "home_moneyline",
             "away_moneyline",
@@ -468,6 +509,8 @@ def fetch_pregame_quotes(
             "under_odds",
             "odds_source",
             "book_event_id",
+            "market_retrieved_at",
+            "prop_market_retrieved_at",
         ):
             if quote.get(field) is not None:
                 game[field] = quote[field]

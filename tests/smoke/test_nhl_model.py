@@ -2,7 +2,10 @@
 from __future__ import annotations
 
 import json
+from datetime import datetime, timezone
 from pathlib import Path
+
+import pytest
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -24,11 +27,13 @@ def _game(**overrides):
 
 def test_ratings_are_a_full_regular_season_and_contain_no_prices():
     artifact = json.loads((ROOT / "NHLPredictionModel" / "artifacts" / "nhl_ratings.json").read_text(encoding="utf-8"))
-    assert artifact["model_version"] == "nhl_poisson_v1"
+    assert artifact["model_version"] == "nhl_poisson_v2_20252026_shadow_ev_v1"
     assert artifact["prior_season"] == "20252026"
     assert artifact["standings_date"] == "2026-04-17"
     assert artifact["game_type_id"] == 2
     assert artifact["decision_policy"]["mode"] == "research_only"
+    assert artifact["decision_policy"]["shadow_candidate"]["validated"] is False
+    assert artifact["decision_policy"]["shadow_candidate"]["markets"] == ["h2h", "spread", "totals"]
     assert len(artifact["teams"]) == 32
     assert all(team["games_played"] == 82 for team in artifact["teams"].values())
     blob = json.dumps(artifact).lower()
@@ -113,7 +118,7 @@ def test_lines_are_used_only_when_observed():
     markets = {pick["market"]: pick for pick in quoted["picks"]}
     assert set(markets) == {"h2h", "spread", "totals"}
     assert markets["h2h"]["odds"] in {-140, 120}
-    assert markets["spread"]["market_line"] == -1.5
+    assert markets["spread"]["market_line"] == markets["spread"]["line"] == 1.5
     assert markets["spread"]["odds"] == -110
     assert markets["totals"]["line"] == 6.5
     assert markets["totals"]["decision"] == "PASS"
@@ -127,6 +132,96 @@ def test_lines_are_used_only_when_observed():
         away_moneyline=120,
     )])
     assert {pick["market"] for pick in other_line["picks"]} == {"h2h"}
+
+
+def test_priced_regular_season_candidates_are_shadow_only_and_certifiable(tmp_path):
+    from NHLPredictionModel import nhl_model
+    from scripts.model_stake_policy import _policy_version
+    from scripts.team_prop_pregame_ledger import capture_team_prop_pregame_snapshots, load_team_prop_pregame_ledger
+
+    clock = datetime(2026, 10, 10, 18, tzinfo=timezone.utc)
+    game = _game(
+        season_type="REG", start_time="2026-10-10T23:00:00Z",
+        odds_source="draftkings", market_retrieved_at="2026-10-10T18:00:00Z",
+        home_moneyline=-140, away_moneyline=120,
+        spread_line=-1.5, home_spread_odds=-110, away_spread_odds=-110,
+        total_line=6.5, over_odds=-105, under_odds=-115,
+    )
+    result = nhl_model.generate_nhl_picks("2026-10-10", games=[game], now=clock)
+    rows = {row["market"]: row for row in result["picks"]}
+    assert set(rows) == {"h2h", "spread", "totals"}
+    assert rows["h2h"]["side"] == "away"  # price value can favor the model's lower-probability side
+    assert rows["h2h"]["model_home_win_probability"] > 0.5
+    assert rows["spread"]["shadow_decision"] == "BET"
+    assert rows["spread"]["shadow_units"] == 0.5
+    assert rows["spread"]["source_decision"] == "BET"
+    assert rows["spread"]["source_units"] == 0.5
+    assert rows["spread"]["staking_policy"] == "awaiting_approved_holdout"
+    assert rows["spread"]["market_retrieved_at"] == "2026-10-10T18:00:00Z"
+    assert rows["spread"]["expected_value"] > 0.1
+    assert rows["spread"]["market_implied_probability"] == 0.5
+    assert all(row["decision"] == "PASS" and row["units"] == 0 for row in rows.values())
+    assert result["coverage"]["staked_rows"] == 0
+    assert result["shadow_candidate_rows"] >= 1
+
+    rows["spread"]["prediction_model_version"] = "nhl:unrelated-serving-hash"
+    assert _policy_version(rows["spread"], result) == result["model_version"]
+    payload = {"date": "2026-10-10", "generatedAt": clock.isoformat(), "models": {"nhl": result}}
+    captured = capture_team_prop_pregame_snapshots(payload, repo_root=tmp_path)
+    assert captured["added"] == 3
+    records = load_team_prop_pregame_ledger(tmp_path)["records"]
+    spread = next(record for record in records if record["market"] == "spread")
+    assert spread["model_version"] == result["model_version"]
+    assert spread["certification"]["status"] == "certified"
+    assert spread["financial_eligible"] is True
+    assert spread["shadow_decision"] == "BET"
+    assert spread["shadow_units"] == 0.5
+
+
+def test_shadow_rule_needs_a_complete_fresh_quote_and_team_rating():
+    from NHLPredictionModel import nhl_model
+
+    clock = datetime(2026, 10, 10, 18, tzinfo=timezone.utc)
+    game = _game(
+        season_type="REG", start_time="2026-10-10T23:00:00Z",
+        odds_source="draftkings", market_retrieved_at="2026-10-10T18:00:00Z",
+        spread_line=-1.5, home_spread_odds=-110, away_spread_odds=-110,
+    )
+    stale = nhl_model.generate_nhl_picks(
+        "2026-10-10", games=[{**game, "market_retrieved_at": "2026-10-08T18:00:00Z"}], now=clock,
+    )["picks"][0]
+    assert stale["decision_reason"] == "research_only:stale_quote"
+    assert "shadow_decision" not in stale
+    one_sided = nhl_model.generate_nhl_picks(
+        "2026-10-10", games=[{**game, "home_spread_odds": None}], now=clock,
+    )["picks"][0]
+    assert one_sided["decision_reason"] == "research_only:incomplete_two_sided_quote"
+    assert "shadow_decision" not in one_sided
+    unknown = nhl_model.generate_nhl_picks(
+        "2026-10-10", games=[{**game, "away_abbrev": "UNKNOWN"}], now=clock,
+    )["picks"][0]
+    assert unknown["decision_reason"] == "research_only:team_ratings_unavailable"
+    assert "shadow_decision" not in unknown
+    preseason = nhl_model.generate_nhl_picks(
+        "2026-10-10", games=[{**game, "season_type": "PRE"}], now=clock,
+    )
+    assert preseason["picks"] == []
+
+
+def test_integer_totals_keep_push_mass_out_of_the_under_probability():
+    from NHLPredictionModel import nhl_model
+    from NHLPredictionModel.nhl_core import load_ratings, project_game, total_outcomes
+
+    projection = project_game(load_ratings(), "BOS", "PHI")
+    over, under, push = total_outcomes(projection["lambda_home"], projection["lambda_away"], 6.0)
+    assert push > 0.0
+    assert abs(over + under + push - 1.0) < 1e-10
+    row = next(pick for pick in nhl_model.generate_nhl_picks(
+        "2026-10-10", games=[_game(season_type="REG", total_line=6.0, over_odds=-110, under_odds=-110)],
+    )["picks"] if pick["market"] == "totals")
+    expected = over if row["direction"] == "over" else under
+    assert abs(row["probability"] - expected) < 0.0001
+    assert abs(row["push_probability"] - push) < 0.0001
 
 
 def test_team_total_and_player_props_publish_only_with_price_and_observed_mean():
@@ -327,9 +422,65 @@ def test_draftkings_board_attaches_only_posted_prices():
     assert games[0]["spread_line"] == -1.5
     assert games[0]["total_line"] == 5.5
     assert games[0]["over_odds"] == -115
+    assert datetime.fromisoformat(games[0]["market_retrieved_at"].replace("Z", "+00:00")).tzinfo is not None
     assert "team_totals" not in games[0]
     assert "player_props" not in games[0]
     assert "home_moneyline" not in games[1]
+
+
+def test_draftkings_does_not_pair_lines_from_different_numbers():
+    from NHLPredictionModel.nhl_markets import fetch_pregame_quotes
+
+    def fetch(url: str):
+        if not url.endswith("/leagues/42133"):
+            return {"markets": [], "selections": []}
+        return {
+            "events": [{
+                "id": "game", "status": "NOT_STARTED", "startEventDate": "2026-10-10T23:00:00Z",
+                "participants": [
+                    {"venueRole": "Home", "metadata": {"shortName": "BOS"}},
+                    {"venueRole": "Away", "metadata": {"shortName": "PHI"}},
+                ],
+            }],
+            "markets": [
+                {"id": "ml", "eventId": "game", "name": "Moneyline"},
+                {"id": "pl", "eventId": "game", "name": "Puck Line"},
+                {"id": "total", "eventId": "game", "name": "Total"},
+            ],
+            "selections": [
+                {"marketId": "ml", "outcomeType": "Home", "displayOdds": {"american": "-140"}},
+                {"marketId": "ml", "outcomeType": "Away", "displayOdds": {"american": "+120"}},
+                {"marketId": "pl", "outcomeType": "Home", "points": -1.5, "displayOdds": {"american": "+110"}},
+                {"marketId": "pl", "outcomeType": "Away", "points": 2.5, "displayOdds": {"american": "-135"}},
+                {"marketId": "total", "outcomeType": "Over", "points": 5.5, "displayOdds": {"american": "-110"}},
+                {"marketId": "total", "outcomeType": "Under", "points": 6.5, "displayOdds": {"american": "-110"}},
+            ],
+        }
+
+    games = [_game(season_type="REG", start_time="2026-10-10T23:00:00Z")]
+    fetch_pregame_quotes(games, fetch_json=fetch)
+    assert games[0]["home_moneyline"] == -140
+    assert "spread_line" not in games[0]
+    assert "total_line" not in games[0]
+
+
+def test_training_maps_next_completed_spring_and_rejects_duplicate_teams():
+    from NHLPredictionModel.nhl_train import train
+
+    rows = [{
+        "teamAbbrev": {"default": f"T{index:02d}"},
+        "teamName": {"default": f"Team {index}"},
+        "date": "2027-04-17", "gameTypeId": 2,
+        "gamesPlayed": 82, "goalFor": 250, "goalAgainst": 250,
+        "homeGamesPlayed": 41, "homeGoalsFor": 130, "homeGoalsAgainst": 120,
+        "homeWins": 25, "homeRegulationWins": 20, "homeOtLosses": 5,
+    } for index in range(32)]
+    artifact = train({"standings": rows})
+    assert artifact["prior_season"] == "20262027"
+    assert artifact["model_version"] == "nhl_poisson_v2_20262027_shadow_ev_v1"
+    rows[1]["teamAbbrev"] = rows[0]["teamAbbrev"]
+    with pytest.raises(RuntimeError, match="duplicate standings team"):
+        train({"standings": rows})
 
 
 def test_stronger_offense_raises_home_win_probability():
