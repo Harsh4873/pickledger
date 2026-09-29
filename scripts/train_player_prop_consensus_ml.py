@@ -460,6 +460,7 @@ def _classifier_views(
             "season_probability": empty,
             "history_probability": empty,
             "selected_implied": empty,
+            "fair_probability": empty,
             "season_rate": empty,
             "history_rate": empty,
             "agreement": empty.astype(bool),

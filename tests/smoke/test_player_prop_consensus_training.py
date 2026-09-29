@@ -1,4 +1,11 @@
-from scripts.train_player_prop_consensus_ml import POLICIES, _publication_plan, _windows
+from scripts.train_player_prop_consensus_ml import (
+    POLICIES,
+    _apply_view_policy,
+    _classifier_views,
+    _publication_plan,
+    _search_classifier_policy,
+    _windows,
+)
 
 
 def test_consensus_windows_roll_forward_to_latest_sport_market_date():
@@ -58,3 +65,62 @@ def test_consensus_policies_register_nfl_and_cfb_volume_markets():
     assert set(POLICIES) >= {"MLB", "WNBA", "NFL", "CFB"}
     assert set(POLICIES["NFL"]) == {"passing_yards", "rushing_yards", "receiving_yards", "receptions"}
     assert set(POLICIES["CFB"]) == set(POLICIES["NFL"])
+
+
+def test_empty_classifier_windows_can_be_searched_for_every_selection():
+    import pandas as pd
+
+    views = _classifier_views(pd.DataFrame(), season_model=None, history_model=None)
+    for mode in ("dynamic", "Over", "Under"):
+        view = views[mode]
+        assert view["fair_probability"].dtype.kind == "f"
+        assert view["fair_probability"].shape == view["selected_implied"].shape == (0,)
+        assert _apply_view_policy(view, POLICIES["MLB"]["hits"])["samples"] == 0
+
+    selected, near_miss = _search_classifier_policy([views, views], POLICIES["MLB"]["hits"])
+    assert selected is None
+    assert near_miss is None
+
+
+def test_classifier_fair_probability_tracks_selected_side_and_edge():
+    import numpy as np
+    import pandas as pd
+
+    from player_props.consensus import OUTCOME_FEATURES
+    from player_props.precision import NUMERIC_FEATURES
+
+    class FixedProbabilities:
+        def predict_proba(self, rows):
+            assert len(rows) == 2
+            over = np.array([0.60, 0.40])
+            return np.column_stack((1.0 - over, over))
+
+    frame = pd.DataFrame({name: [0.0, 0.0] for name in {*NUMERIC_FEATURES, *OUTCOME_FEATURES}})
+    frame["over_implied"] = [0.52, 0.38]
+    frame["under_implied"] = [0.38, 0.52]
+    frame["over_rate"] = [0.70, 0.30]
+    frame["over_outcome"] = [1, 0]
+    frame["event_id"] = ["game-1", "game-2"]
+    views = _classifier_views(
+        frame,
+        season_model=FixedProbabilities(),
+        history_model=FixedProbabilities(),
+        hrr_history=True,
+    )
+
+    for mode, implied in {
+        "Over": [0.52, 0.38],
+        "Under": [0.38, 0.52],
+        "dynamic": [0.52, 0.52],
+    }.items():
+        np.testing.assert_allclose(views[mode]["selected_implied"], implied)
+        np.testing.assert_allclose(views[mode]["fair_probability"], np.array(implied) / 0.90)
+
+    policy = {
+        "minimum_season_probability": 0.50,
+        "minimum_history_probability": 0.50,
+        "minimum_season_rate": 0.50,
+        "minimum_history_rate": 0.50,
+        "minimum_implied": 0.50,
+    }
+    assert _apply_view_policy(views["dynamic"], policy)["samples"] == 0
