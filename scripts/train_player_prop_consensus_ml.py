@@ -680,7 +680,11 @@ def _count_prediction_frame(rows: Any, *, season_model: Any, history_model: Any)
     return frame
 
 
-def _fit_count_gate(frame: Any) -> Any:
+def _fit_count_gate(frame: Any) -> Any | None:
+    # An empty or single-class validation window cannot produce a two-sided gate.
+    if frame.empty or frame["over_outcome"].nunique(dropna=True) < 2:
+        return None
+
     from sklearn.ensemble import ExtraTreesClassifier  # type: ignore
     from sklearn.impute import SimpleImputer  # type: ignore
     from sklearn.pipeline import Pipeline  # type: ignore
@@ -700,11 +704,17 @@ def _fit_count_gate(frame: Any) -> Any:
             ),
         ),
     ])
-    gate.fit(frame[COUNT_GATE_FEATURES], frame["over_outcome"].astype(int))
+    try:
+        gate.fit(frame[COUNT_GATE_FEATURES], frame["over_outcome"].astype(int))
+    except ValueError as exc:
+        print(f"[player-prop-consensus] count gate could not fit: {exc}", file=sys.stderr)
+        return None
     return gate
 
 
-def _evaluate_count_gate(frame: Any, gate: Any, threshold: float) -> dict[str, Any]:
+def _evaluate_count_gate(frame: Any, gate: Any | None, threshold: float) -> dict[str, Any]:
+    if gate is None or frame.empty:
+        return _metrics(frame.iloc[0:0])
     selected = frame.copy()
     selected["consensus_score"] = gate.predict_proba(selected[COUNT_GATE_FEATURES])[:, 1]
     selected = selected[(selected["consensus_score"] >= threshold) & (selected["season_count"] >= 5)]
@@ -901,7 +911,14 @@ def main() -> int:
                             )
                         )
                     gate = _fit_count_gate(prediction_frames[0])
-                    count_gate_models[stat_key] = gate
+                    if gate is not None:
+                        count_gate_models[stat_key] = gate
+                    else:
+                        print(
+                            f"[player-prop-consensus] skipped {sport} {stat_key} count gate "
+                            f"({len(prediction_frames[0])} validation rows)",
+                            file=sys.stderr,
+                        )
                     base_threshold = safe_float(policy.get("meta_gate_threshold"), 0.60)
                     thresholds = sorted({base_threshold, *COUNT_GATE_GRID})
                     threshold = base_threshold

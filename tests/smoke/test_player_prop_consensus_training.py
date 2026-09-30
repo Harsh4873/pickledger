@@ -1,7 +1,10 @@
 from scripts.train_player_prop_consensus_ml import (
+    COUNT_GATE_FEATURES,
     POLICIES,
     _apply_view_policy,
     _classifier_views,
+    _evaluate_count_gate,
+    _fit_count_gate,
     _publication_plan,
     _search_classifier_policy,
     _windows,
@@ -80,6 +83,40 @@ def test_empty_classifier_windows_can_be_searched_for_every_selection():
     selected, near_miss = _search_classifier_policy([views, views], POLICIES["MLB"]["hits"])
     assert selected is None
     assert near_miss is None
+
+
+def test_count_gate_abstains_when_validation_window_is_empty():
+    import pandas as pd
+
+    empty = pd.DataFrame(columns=[*COUNT_GATE_FEATURES, "over_outcome"])
+    holdout = pd.DataFrame([{**{name: 1.0 for name in COUNT_GATE_FEATURES}, "over_outcome": 1}])
+
+    gate = _fit_count_gate(empty)
+
+    assert gate is None
+    assert _fit_count_gate(holdout) is None
+    assert _evaluate_count_gate(empty, gate, 0.60) == {
+        "samples": 0, "wins": 0, "losses": 0, "accuracy": None,
+    }
+    assert _evaluate_count_gate(holdout, gate, 0.60)["samples"] == 0
+
+
+def test_count_gate_scores_populated_windows_and_empty_holdout():
+    import pandas as pd
+
+    frame = pd.DataFrame({name: [float(i) for i in range(20)] for name in COUNT_GATE_FEATURES})
+    frame["season_count"] = 10
+    frame["over_outcome"] = [i % 2 for i in range(20)]
+    frame["selected_outcome"] = frame["over_outcome"]
+    frame["event_id"] = [f"game-{i}" for i in range(20)]
+
+    gate = _fit_count_gate(frame)
+
+    assert gate is not None
+    assert _evaluate_count_gate(frame, gate, 0.0) == {
+        "samples": 20, "wins": 10, "losses": 10, "accuracy": 0.5,
+    }
+    assert _evaluate_count_gate(frame.iloc[0:0], gate, 0.60)["samples"] == 0
 
 
 def test_classifier_fair_probability_tracks_selected_side_and_edge():
