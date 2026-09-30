@@ -589,12 +589,16 @@ def generate_nhl_picks(
             "side_published": bool(published_markets),
             "side_block": None,
         })
+    from scripts.frozen_staking_candidate import stamp_candidate
+    from scripts.model_stake_policy import apply_stake_policy
+    stamp_candidate(picks, "nhl")
+    apply_stake_policy({"models": {"nhl": {"picks": picks}}}, model_keys={"nhl"})
     if not slate:
         note = f"NHL active slate: 0 game(s), 0 row(s). No NHL games scheduled for {date_iso}."
     else:
         note = (
             f"NHL active slate: {len(games_out)} pregame game(s), {len(picks)} priced row(s). "
-            "No approved NHL staking holdout; priced rows are PASS at 0 units and qualified EV candidates are shadow-only."
+            "Only exact approved candidates stake; unapproved candidates remain shadow PASS at 0 units."
         )
         if started:
             note += f" {started} started game(s) skipped."
@@ -621,7 +625,7 @@ def generate_nhl_picks(
         "model_version": model_version,
         "decision_policy": policy,
         "shadow_mode": False,
-        "actionability": "research",
+        "actionability": "approved" if any(p["decision"] in {"BET", "LEAN"} for p in picks) else "research",
         "slate_source": slate_source,
         "prior_season": loaded.get("prior_season"),
         "standings_date": loaded.get("standings_date"),
@@ -638,7 +642,7 @@ def generate_nhl_picks(
             "official_games": len(slate),
             "pregame_games": len(games_out),
             "started_games": started,
-            "staked_rows": 0,
+            "staked_rows": sum(pick["decision"] in {"BET", "LEAN"} for pick in picks),
             "shadow_candidate_rows": sum(pick.get("shadow_decision") in {"BET", "LEAN"} for pick in picks),
             "priced_rows": len(picks),
             "preseason_blocked": preseason_blocked,

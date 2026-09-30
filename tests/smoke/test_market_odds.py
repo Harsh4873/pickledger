@@ -583,3 +583,59 @@ def test_nfl_nflverse_odds_are_replaced_with_live_pregame_quotes():
     assert late_summary["attached"] == 0
     assert late["models"]["nfl"]["picks"][0]["odds"] == -115
     assert late["models"]["nfl"]["picks"][0]["odds_source"] == "nflverse_posted_lines"
+
+
+def inning_quote(name="1st Inning Total Runs", selection="Under", price=-115, line=.5):
+    return {"type": {"name": name}, "selection": selection,
+            "odds": {"american": {"value": str(price)}, "total": {"value": line}}}
+
+
+def test_inning_price_attaches_exact_period_and_restores_candidate():
+    from datetime import datetime, timezone
+    from scripts.merge_model_cache_payload import demote_unpriced_team_model_picks
+    items = [inning_quote(), inning_quote(selection="Over", price=-105)]
+    book = build_book([scoreboard_event()], items)
+    pick = {"sport": "MLB", "game": "Milwaukee Brewers @ Pittsburgh Pirates", "market": "no_run_inning",
+            "inning": 1, "odds": None, "assumed_odds": -120, "pricing_type": "assumed",
+            "probability": .6, "source_decision": "LEAN", "decision": "PASS", "units": 0}
+    other = {**pick, "inning": 2}
+    payload = payload_with("mlb_inning", [pick, other])
+    market_odds.apply_market_odds_to_payload(payload, book, now=datetime(2026, 7, 11, 12, tzinfo=timezone.utc))
+    assert pick["odds"] == -115 and pick["opposite_odds"] == -105
+    assert pick["assumed_odds_replaced"] and pick["market_priced"]
+    assert pick["decision"] == "LEAN" and pick["units"] > 0
+    assert other["odds"] is None and other["decision"] == "PASS"
+    assert demote_unpriced_team_model_picks(payload) == 0
+    # Real but prohibitively expensive prices must not stake.
+    book["MLB"][0]["markets"]["inning_totals"][1]["under"] = -400
+    market_odds.apply_market_odds_to_payload(payload, book)
+    assert pick["decision"] == "PASS" and pick["units"] == 0
+    assert pick["source_decision"] == "LEAN"
+
+
+@pytest.mark.parametrize("items", [
+    [inning_quote(name="1st 5 Innings Total Runs")],
+    [inning_quote(line=1.5)],
+    [inning_quote(selection="")],
+    [{**inning_quote(), "team": {"$ref": "team"}}],
+    [inning_quote(), inning_quote(price=-150)],
+])
+def test_inning_parser_rejects_ambiguous_or_wrong_scope_quotes(items):
+    game = {}
+    market_odds._parse_inning_prop_items(game, items)
+    assert not game["markets"]["inning_totals"]
+
+
+def test_nrfi_yes_no_selection_and_one_sided_quotes():
+    game = {}
+    market_odds._parse_inning_prop_items(game, [inning_quote(name="First Inning Run Scored", selection="No")])
+    assert game["markets"]["inning_totals"] == {1: {"under": -115}}
+
+
+@pytest.mark.parametrize("model", ["nhl", "mls"])
+def test_frozen_candidate_keeps_the_quote_used_to_select_it(model):
+    pick = {"staking_candidate_fingerprint": "frozen", "market_priced": True,
+            "market_retrieved_at": "2026-07-11T10:00:00Z", "odds": -110}
+    assert not market_odds._attach_pick(pick, {"markets": {}}, bucket_key=model, captured_at="2026-07-11T12:00:00Z")
+    assert pick["market_retrieved_at"] == "2026-07-11T10:00:00Z"
+    assert "market_updated_at" not in pick

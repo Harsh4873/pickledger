@@ -55,7 +55,7 @@ TEAM_PROP_MODEL_KEYS = {
     "tennis",
     "ipl",
 }
-FIFA_MODEL_KEYS = {"fifa_world_cup", "mls"}  # soccer models share the evaluation exclusion
+FIFA_MODEL_KEYS = {"fifa_world_cup"}
 TRACKED_TEAM_DECISIONS = {"BET", "LEAN"}
 FORECAST_AUDIT_MODEL_KEYS = TEAM_PROP_MODEL_KEYS
 
@@ -421,12 +421,14 @@ def _fitted_artifact_version(model_key: str, bucket: Mapping[str, Any], pick: Ma
     staking scorecards when unrelated server code changes.
     """
 
-    if str(model_key) not in {"nfl", "nhl"}:
+    if str(model_key) not in {"nfl", "nhl", "mls"}:
         return ""
     for source in (pick, bucket):
         value = _text(source.get("model_version"))
         if (str(model_key) == "nfl" and value.startswith("nfl_v")) or (
             str(model_key) == "nhl" and value.startswith("nhl_poisson_v")
+        ) or (
+            str(model_key) == "mls" and value.startswith("mls_dixon_coles_v")
         ):
             return value
     return ""
@@ -683,6 +685,9 @@ def _snapshot_record(
     if model_key in FIFA_MODEL_KEYS:
         calibration_eligible = False
         calibration_reason = "fifa_evaluation_excluded"
+    elif model_key == "mls" and pick.get("calibration_excluded", True):
+        calibration_eligible = False
+        calibration_reason = "awaiting_approved_holdout"
     elif certification["status"] != "certified":
         calibration_eligible = False
         calibration_reason = f"uncertified:{certification['reason']}"

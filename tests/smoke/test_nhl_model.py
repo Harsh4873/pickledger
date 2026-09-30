@@ -530,3 +530,29 @@ def test_registration_across_model_cache_feeds_and_board():
     refresh = (ROOT / "scripts" / "refresh_model_cache.py").read_text(encoding="utf-8")
     assert "nhl" in refresh
     assert "run_nhl_model" in refresh
+
+
+def test_nhl_generator_promotes_only_the_approved_market(monkeypatch):
+    from NHLPredictionModel import nhl_model
+    from scripts import model_stake_policy
+    from scripts.frozen_staking_candidate import load_freeze
+    freeze = load_freeze("nhl")
+    # Synthetic approval fixture, isolated from the production approval file.
+    approval = {"model_key": "nhl", "model_version": freeze["fitted_version"],
+                "market": "spread", "variant": "base", "approved": True,
+                "frozen_rule": freeze["frozen_rule"],
+                "holdout": {"unused_during_selection": True, "independently_priced_settled": 100,
+                            "roi": .1, "clustered_lower_95": .01, "calibration_no_material_regression": True}}
+    monkeypatch.setattr(model_stake_policy, "load_approvals", lambda: {"approvals": [approval]})
+    game = _game(season_type="REG", start_time="2026-10-10T23:00:00Z",
+                 odds_source="draftkings", market_retrieved_at="2026-10-10T18:00:00Z",
+                 home_moneyline=-140, away_moneyline=120,
+                 spread_line=-1.5, home_spread_odds=-110, away_spread_odds=-110,
+                 total_line=6.5, over_odds=-105, under_odds=-115)
+    result = nhl_model.generate_nhl_picks("2026-10-10", games=[game], now=datetime(2026, 10, 10, 18, tzinfo=timezone.utc))
+    rows = {row["market"]: row for row in result["picks"]}
+    assert rows["spread"]["decision"] == "BET" and rows["spread"]["units"] == .5
+    assert rows["spread"]["actionability"] == "approved"
+    assert rows["spread"]["decision_reason"] == "approved_holdout"
+    assert rows["h2h"]["decision"] == rows["totals"]["decision"] == "PASS"
+    assert result["coverage"]["staked_rows"] == 1

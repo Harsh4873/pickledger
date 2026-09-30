@@ -58,6 +58,10 @@ class MarketOdds:
     source: str = "SportsLine"
     spread_odds: Optional[int] = None
     total_odds: Optional[int] = None
+    spread_home_odds: Optional[int] = None
+    spread_away_odds: Optional[int] = None
+    over_odds: Optional[int] = None
+    under_odds: Optional[int] = None
 
 
 def _db_path() -> Optional[Path]:
@@ -191,17 +195,6 @@ def _lookup_espn_market_odds(
                 spread_home = spread
                 spread_away = -spread
 
-        spread_odds = (
-            _coerce_american(home_team_odds.get("spreadOdds"))
-            or _coerce_american(away_team_odds.get("spreadOdds"))
-            or (-110 if spread is not None else None)
-        )
-        total_odds = (
-            _coerce_american(odds.get("overOdds"))
-            or _coerce_american(odds.get("underOdds"))
-            or (-110 if total is not None else None)
-        )
-
         provider = odds.get("provider") or {}
         provider_name = str(provider.get("displayName") or provider.get("name") or "ESPN odds").strip()
         return MarketOdds(
@@ -212,24 +205,31 @@ def _lookup_espn_market_odds(
             spread_home=spread_home,
             spread_away=spread_away,
             total_line=total,
-            fetched_at=None,
+            fetched_at=datetime.datetime.now(datetime.timezone.utc).isoformat(),
             source=f"{provider_name} via ESPN",
-            spread_odds=spread_odds,
-            total_odds=total_odds,
+            spread_odds=None,
+            total_odds=None,
+            spread_home_odds=_moneyline_from_side((odds.get("pointSpread") or {}).get("home")) or _coerce_american(home_team_odds.get("spreadOdds")),
+            spread_away_odds=_moneyline_from_side((odds.get("pointSpread") or {}).get("away")) or _coerce_american(away_team_odds.get("spreadOdds")),
+            over_odds=_moneyline_from_side((odds.get("total") or {}).get("over")) or _coerce_american(odds.get("overOdds")),
+            under_odds=_moneyline_from_side((odds.get("total") or {}).get("under")) or _coerce_american(odds.get("underOdds")),
         )
     return None
 
 
 def lookup_market_odds(home_abbr: str, away_abbr: str, date_str: str | None = None) -> Optional[MarketOdds]:
-    """Find the most recent SportsLine WNBA row for this matchup.
+    """Read the dated ESPN board, then same-date SportsLine moneylines.
 
-    Returns None if no SportsLine row matches. Doesn't raise on DB issues.
+    An old same-matchup database row is not today's executable market.
     """
+    observed = _lookup_espn_market_odds(home_abbr, away_abbr, date_str)
+    if observed is not None:
+        return observed
     home_terms = _abbr_to_nickname_terms(home_abbr)
     away_terms = _abbr_to_nickname_terms(away_abbr)
     db_path = _db_path()
     if not db_path:
-        return _lookup_espn_market_odds(home_abbr, away_abbr, date_str)
+        return None
 
     try:
         conn = sqlite3.connect(str(db_path))
@@ -246,10 +246,11 @@ def lookup_market_odds(home_abbr: str, away_abbr: str, date_str: str | None = No
                          WHERE league = 'WNBA'
                            AND home_team LIKE ?
                            AND away_team LIKE ?
+                           AND substr(fetched_at, 1, 10) = ?
                          ORDER BY fetched_at DESC
                          LIMIT 1
                         """,
-                        (f"%{home_term}%", f"%{away_term}%"),
+                        (f"%{home_term}%", f"%{away_term}%", datetime.datetime.strptime(_espn_date_key(date_str), "%Y%m%d").date().isoformat()),
                     )
                     row = cursor.fetchone()
                     if row:
@@ -262,14 +263,17 @@ def lookup_market_odds(home_abbr: str, away_abbr: str, date_str: str | None = No
                             spread_away=float(row[5]) if row[5] is not None else None,
                             total_line=float(row[6]) if row[6] is not None else None,
                             fetched_at=str(row[7] or ""),
-                            spread_odds=int(row[8]) if row[8] is not None else None,
-                            total_odds=int(row[9]) if row[9] is not None else None,
+                            # The legacy DB stores one generic spread/total
+                            # price without its selection. It cannot price a
+                            # particular side safely; wait for the dated board.
+                            spread_odds=None,
+                            total_odds=None,
                         )
         finally:
             conn.close()
     except sqlite3.Error:
         pass
-    return _lookup_espn_market_odds(home_abbr, away_abbr, date_str)
+    return None
 
 
 def american_to_implied(odds: int) -> float:

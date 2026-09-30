@@ -32,7 +32,7 @@ MIN_GROUP_SAMPLES = 30
 # shifting NFL probabilities ~3-4 points and re-deciding rows (LEAN at 0u with
 # negative edge on 2026-09-13); the model owns its decisions via
 # metadata.decision_policy and stamps calibration_excluded on every row.
-CALIBRATION_EXCLUDED_MODEL_KEYS = {"fifa_world_cup", "mls", "forebet_mls", "tennis", "cfb", "nfl", "nhl"}
+CALIBRATION_EXCLUDED_MODEL_KEYS = {"fifa_world_cup", "forebet_mls", "tennis", "cfb", "nfl", "nhl"}
 # Research models with no real market (settlement at an assumed price only)
 # keep their calibrated probabilities for display, but the model's own
 # decision and stake publish untouched — there is no executable price for
@@ -277,6 +277,11 @@ def apply_calibration_to_pick(
     if raw_units is None:
         raw_units = _number(snapshot.get("units"))
     implied = market_probability(pick)
+    if model_key == "wnba":
+        from scripts.devig import no_vig_selected_probability
+        fair = no_vig_selected_probability(pick)
+        implied = fair if fair is not None else implied
+        pick["edge_baseline"] = "no_vig" if fair is not None else "one_sided_or_legacy"
     if implied is None:
         implied = market_probability(snapshot)
     if implied is not None:
@@ -345,7 +350,9 @@ def apply_calibration_to_payload(
         for model_key, bucket in models.items():
             if not isinstance(bucket, dict) or not isinstance(bucket.get("picks"), list):
                 continue
-            if str(model_key) in CALIBRATION_EXCLUDED_MODEL_KEYS:
+            if str(model_key) in CALIBRATION_EXCLUDED_MODEL_KEYS or str(model_key) == "mls":
+                # MLS owns its fitted vector/total calibration. Approval
+                # enables ledger eligibility, not a second pooled transform.
                 # Excluded in-house team models still get the immutable
                 # first-publication snapshot; without it MLS/CFB/NFL rows had no
                 # in-cache audit trail while decisions changed through the day.
@@ -366,7 +373,7 @@ def apply_calibration_to_payload(
                 elif str(model_key) in TEAM_PROP_MODEL_KEYS:
                     pick["pregame_snapshot"] = make_pregame_snapshot(pick)
     elif isinstance(payload.get("picks"), list):
-        if str(payload.get("model_key") or "") in CALIBRATION_EXCLUDED_MODEL_KEYS:
+        if str(payload.get("model_key") or "") in CALIBRATION_EXCLUDED_MODEL_KEYS or payload.get("model_key") == "mls":
             return payload
         for pick in payload["picks"]:
             if (
@@ -507,6 +514,8 @@ def _certified_team_record(record: dict[str, Any]) -> dict[str, Any] | None:
     contract, so legacy/assumed/proxy prices cannot promote a calibration.
     """
 
+    if record.get("model_key") == "mls" and (record.get("pregame_snapshot") or {}).get("calibration_excluded", True):
+        return None
     if record.get("calibration_eligible") is not True:
         return None
     certification = record.get("certification")

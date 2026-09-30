@@ -31,7 +31,7 @@ days — the exact fit the validation walk scored, not an approximation of it.
 from __future__ import annotations
 
 import math
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, timedelta, timezone
 from typing import Any
 
 import requests
@@ -309,6 +309,7 @@ def generate_mls_picks(
     fit = fit_ratings(matches, target, config)
 
     scoreboard = api.scoreboard(date_iso)
+    quote_at = datetime.now(timezone.utc).isoformat()
     games = _parse_games(scoreboard)
     model_meta = {
         "model_version": str(artifact.get("model_version") or "mls_dixon_coles_v2"),
@@ -362,7 +363,7 @@ def generate_mls_picks(
             # unpriced-stake demotion treated real handicap prices as assumed.
             if price is None:
                 return {"pricing_type": "unpriced", "odds_source": None, "market_priced": False}
-            return {"pricing_type": "market", "odds_source": f"espn_scoreboard:{provider_name}", "market_priced": True}
+            return {"pricing_type": "market", "odds_source": f"espn_scoreboard:{provider_name}", "market_priced": True, "market_retrieved_at": quote_at}
 
         market_1x2_raw = [
             american_to_probability(_number(_closed_market_value(odds, "moneyline", side)))
@@ -390,6 +391,8 @@ def generate_mls_picks(
             "game_id": game["game_id"],
             "start_time": game["start_time"],
             "game_start_time": game["start_time"],
+            "certification_timing": {"trusted": True, "published_at": quote_at,
+                                     "data_as_of": quote_at, "source": "mls-model-generate"},
             "venue": game["venue"],
             "calibration_excluded": True,
             "model_basis": model_basis,
@@ -593,6 +596,10 @@ def generate_mls_picks(
     for rank, rating in enumerate(team_ratings, start=1):
         rating["slate_rank"] = rank
 
+    from scripts.frozen_staking_candidate import stamp_candidate
+    from scripts.model_stake_policy import apply_stake_policy
+    stamp_candidate(picks, "mls")
+    apply_stake_policy({"models": {"mls": {"picks": picks}}}, model_keys={"mls"})
     decided = sum(1 for pick in picks if pick["decision"] in {"BET", "LEAN"})
     return {
         "ok": True,
@@ -601,7 +608,7 @@ def generate_mls_picks(
         "picks": picks,
         "games": game_summaries,
         "team_ratings": team_ratings,
-        "calibration_excluded": True,
+        "calibration_excluded": all(p.get("calibration_excluded", True) for p in picks),
         "meta": model_meta,
         "schedule_source": "ESPN MLS scoreboard",
         "note": (

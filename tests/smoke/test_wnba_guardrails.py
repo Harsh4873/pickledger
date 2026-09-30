@@ -404,9 +404,11 @@ def test_wnba_espn_market_normalizes_favorite_spread_sign(monkeypatch):
     assert market is not None
     assert market.spread_home == -10.5
     assert market.spread_away == 10.5
-    assert market.spread_odds == -108
+    assert market.spread_home_odds == -108
+    assert market.spread_away_odds == -112
+    assert market.total_odds is None
     assert market.total_line == 172.5
-    assert market.total_odds == -110
+    assert market.over_odds is None and market.under_odds is None
 
 
 def test_wnba_spread_market_selects_cover_side_without_changing_moneyline():
@@ -897,3 +899,53 @@ def test_scoring_rate_prefers_last_ten_over_season():
     assert scored == 88.0
     assert allowed == 82.0
     assert n == 10
+
+
+def test_wnba_calibration_edge_uses_current_no_vig_without_erasing_fit():
+    import pytest
+    from scripts.pick_calibration import apply_calibration_to_pick, load_active_calibration
+    # Actual 9/30 Dallas spread example: the fitted .5163 forecast has a
+    # small positive edge over .510834 fair, despite the old -.75pp display.
+    pick = {"sport": "WNBA", "source": "WNBA Model", "market_type": "spread",
+            "probability": .5854, "decision": "LEAN", "units": .25,
+            "market_pick_prob": .5238, "market_no_vig_selected_probability": .510834}
+    apply_calibration_to_pick(pick, "wnba", load_active_calibration())
+    assert pick["calibrated_probability"] < pick["raw_probability"]
+    assert pick["edge"] == pytest.approx((pick["calibrated_probability"] - .510834) * 100, abs=.01)
+    assert pick["edge"] > 0
+    # Correcting the baseline is not permission to waive decision thresholds.
+    assert pick["decision"] == "PASS" and pick["units"] == 0
+
+
+def test_wnba_side_specific_prices_and_no_invented_total():
+    import pytest
+    from WNBAPredictionModel.wnba_market import MarketOdds, remove_vig
+    from WNBAPredictionModel.wnba_picks import assess_wnba_total_market, assess_wnba_spread_market
+    market = MarketOdds("home", "away", -150, 130, -3.5, 3.5, 165.5, None,
+                        spread_home_odds=-120, spread_away_odds=100, over_odds=105, under_odds=-125)
+    stats = {"NRtg": 4, "W": 10, "L": 10}
+    total = assess_wnba_total_market({"projected_total": 150}, market, stats, stats, {})
+    assert total["odds"] == -125
+    assert total["market_no_vig_selected_probability"] == pytest.approx(remove_vig(-125, 105)[0])
+    spread = assess_wnba_spread_market({"adjusted_margin": -5}, market, stats, stats, {})
+    assert spread["odds"] == 100 and spread["opposite_odds"] == -120
+    market.over_odds = market.under_odds = None
+    missing = assess_wnba_total_market({"projected_total": 150}, market, stats, stats, {})
+    assert missing["decision"] == "PASS" and missing["units"] == 0
+
+
+def test_wnba_database_fallback_rejects_old_matchup_prices(monkeypatch, tmp_path):
+    import sqlite3
+    from WNBAPredictionModel import wnba_market
+    path = tmp_path / "prices.db"
+    with sqlite3.connect(path) as conn:
+        conn.execute("CREATE TABLE cbs_odds (league, home_team, away_team, ml_home, ml_away, spread_home, spread_away, total_line, fetched_at, spread_odds, total_odds)")
+        conn.execute("INSERT INTO cbs_odds VALUES ('WNBA','Liberty','Wings',-150,130,-3.5,3.5,165.5,'2026-09-29T12:00:00Z',-110,-110)")
+    monkeypatch.setattr(wnba_market, "_db_path", lambda: path)
+    monkeypatch.setattr(wnba_market, "_lookup_espn_market_odds", lambda *args: None)
+    assert wnba_market.lookup_market_odds("NY", "DAL", "2026-09-30") is None
+    with sqlite3.connect(path) as conn:
+        conn.execute("UPDATE cbs_odds SET fetched_at='2026-09-30T12:00:00Z'")
+    observed = wnba_market.lookup_market_odds("NY", "DAL", "2026-09-30")
+    assert observed.home_ml == -150
+    assert observed.spread_odds is None and observed.total_odds is None

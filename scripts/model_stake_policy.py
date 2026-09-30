@@ -63,7 +63,7 @@ def _start_time(pick: Mapping[str, Any], bucket: Mapping[str, Any]):
 
 def _policy_version(pick: Mapping[str, Any], bucket: Mapping[str, Any]) -> str:
     fitted = str(pick.get("model_version") or bucket.get("model_version") or "").strip()
-    if fitted.startswith("nfl_v") or fitted.startswith("nhl_poisson_v"):
+    if fitted.startswith("nfl_v") or fitted.startswith("nhl_poisson_v") or fitted.startswith("mls_dixon_coles_v"):
         return fitted
     return str(
         pick.get("ml_model_version") or pick.get("prediction_model_version")
@@ -99,8 +99,6 @@ def apply_stake_policy(
             if not isinstance(pick, dict):
                 continue
             decision = str(pick.get("decision") or "").upper()
-            if decision not in {"BET", "LEAN"}:
-                continue
             # Team cache merges retain earlier pregame publications after
             # kickoff. Their original wagers are history, not new decisions.
             # A newly generated post-start row has no earlier trusted clock
@@ -111,6 +109,46 @@ def apply_stake_policy(
                 prior = aware_time(timing.get("published_at")) if isinstance(timing, Mapping) else None
                 if start is not None and start <= publication and prior is not None and prior < start:
                     continue
+            frozen_candidate = model_key in {"nhl", "mls"}
+            if frozen_candidate:
+                from scripts.frozen_staking_candidate import candidate_matches, load_freeze
+                freeze = load_freeze(model_key)
+                version = _policy_version(pick, bucket)
+                market = str(pick.get("market") or pick.get("market_type") or "").lower()
+                approved_candidate = candidate_matches(pick, model_key) and any(
+                    isinstance(a, Mapping) and _approved(a)
+                    and (a.get("model_key"), a.get("model_version"), a.get("market"), a.get("variant", "base"))
+                    == (model_key, version, market, "base")
+                    and a.get("frozen_rule") == freeze["frozen_rule"]
+                    for a in entries
+                )
+                if approved_candidate:
+                    from scripts.merge_model_cache_payload import _still_assumed_price
+                    from scripts.price_clock import observed_quote_timing
+                    from datetime import datetime, timezone
+                    timing = pick.get("certification_timing") or {}
+                    price_clock = observed_quote_timing(
+                        pick, published_at=payload.get("publishedAt") or timing.get("published_at") or datetime.now(timezone.utc).isoformat(),
+                        start_at=pick.get("game_start_time") or pick.get("start_time"),
+                    )
+                    approved_candidate = not _still_assumed_price(pick) and price_clock is None
+                pick["calibration_excluded"] = not approved_candidate
+                # Restore only actions deliberately shadowed by this gate.
+                # Unpriced/model PASS rows never become actions here.
+                if decision == "PASS" and pick.get("staking_policy") == "awaiting_approved_holdout":
+                    decision = str(pick.get("shadow_decision") or "PASS")
+                    if approved_candidate and decision in {"BET", "LEAN"}:
+                        pick["decision"] = decision
+                        pick["units"] = pick.get("shadow_units", 0)
+                if approved_candidate:
+                    pick["staking_policy"] = "approved_holdout"
+                    if pick.get("decision") in {"BET", "LEAN"}:
+                        pick.setdefault("source_decision_reason", pick.get("decision_reason"))
+                        pick["decision_reason"] = "approved_holdout"
+                        pick["actionability"] = "approved"
+                    continue
+            if decision not in {"BET", "LEAN"}:
+                continue
             version = _policy_version(pick, bucket)
             if prop:
                 fingerprint = str(pick.get("ml_training_fingerprint") or pick.get("training_fingerprint") or "")
@@ -121,14 +159,18 @@ def apply_stake_policy(
                 or pick.get("market") or pick.get("market_type") or "unknown"
             ).strip().lower()
             variant = str(pick.get("model_variant") or "base") if prop else "base"
-            if (model_key, version, market, variant) in allowed:
+            if not frozen_candidate and (model_key, version, market, variant) in allowed:
                 continue
             pick.setdefault("source_decision", decision)
             pick.setdefault("source_units", pick.get("units"))
             pick["shadow_decision"] = decision
-            pick["shadow_units"] = pick.get("units")
+            pick["shadow_units"] = pick.get("shadow_units") if pick.get("decision") == "PASS" else pick.get("units")
             pick["decision"] = "PASS"
             pick["units"] = 0
             pick["staking_policy"] = "awaiting_approved_holdout"
+            if frozen_candidate:
+                pick.setdefault("source_decision_reason", pick.get("decision_reason"))
+                pick["decision_reason"] = "awaiting_approved_holdout"
+                pick["actionability"] = "research"
             demoted += 1
     return demoted

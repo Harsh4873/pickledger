@@ -1,0 +1,23 @@
+name: NHL and MLS prospective staking status
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '45 12 * * *'
+permissions:
+  contents: read
+jobs:
+  status:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Evaluate immutable prospective evidence
+        run: |
+          python scripts/frozen_staking_approval.py nhl --output /tmp/nhl-staking-status.json
+          python scripts/frozen_staking_approval.py mls --output /tmp/mls-staking-status.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: prospective-staking-status
+          path: /tmp/*-staking-status.json

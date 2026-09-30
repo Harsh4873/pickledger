@@ -294,7 +294,12 @@ def test_serving_bucket_contract(serving_fixture):
         assert pick["sport"] == "MLS"
         assert pick["market_type"] in {"soccer_moneyline", "soccer_total", "soccer_handicap"}
         assert 0.0 < pick["probability"] < 1.0
-        assert pick["decision"] in {"BET", "LEAN", "PASS"}
+        assert pick["decision"] == "PASS"
+        assert pick["calibration_excluded"] is True
+        assert pick["staking_candidate_fingerprint"]
+        if pick.get("shadow_decision") in {"BET", "LEAN"}:
+            assert pick["shadow_units"] > 0
+            assert pick["staking_policy"] == "awaiting_approved_holdout"
         assert (pick["units"] > 0) == (pick["decision"] != "PASS")
         assert pick["date"] == "2026-07-25"
         assert pick["matchup"] == pick["game"]

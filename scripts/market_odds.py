@@ -255,6 +255,44 @@ def _parse_scoreboard_event(event: Mapping[str, Any]) -> dict[str, Any] | None:
     return game
 
 
+def _parse_inning_prop_items(game: dict[str, Any], items: Iterable[Mapping[str, Any]]) -> None:
+    """Accept explicitly labeled full-inning O/U 0.5 or Yes/No quotes.
+
+    Never infer direction from row order, nor map F5/team/half-inning
+    markets to a full inning. Current ESPN boards often omit these markets.
+    """
+    quotes: dict[int, dict[str, int]] = {}
+    ambiguous: set[tuple[int, str]] = set()
+    for item in items:
+        name = _text((item.get("type") or {}).get("name")).lower()
+        match = re.fullmatch(r"(1st|2nd|3rd|[4-9]th|first) inning (total runs|runs|run scored)", name)
+        if not match or item.get("team") or item.get("athlete"):
+            continue
+        inning = 1 if match[1] == "first" else int(match[1][0])
+        odds = item.get("odds") or {}
+        price = _american((odds.get("american") or {}).get("value"))
+        selection = item.get("selection") or item.get("outcome") or ""
+        if isinstance(selection, Mapping):
+            selection = selection.get("name") or selection.get("displayName") or ""
+        label = _text(selection).lower()
+        line = _number((odds.get("total") or {}).get("value"))
+        side = None
+        if match[2] == "run scored":
+            side = {"yes": "over", "no": "under"}.get(label)
+        elif line == 0.5:
+            side = {"over": "over", "under": "under", "over 0.5": "over", "under 0.5": "under"}.get(label)
+        if price is None or side is None:
+            continue
+        pair = quotes.setdefault(inning, {})
+        if side in pair and pair[side] != price:
+            ambiguous.add((inning, side))
+        pair[side] = price
+    game.setdefault("markets", {})["inning_totals"] = {
+        inning: pair for inning, pair in quotes.items()
+        if not any(key[0] == inning for key in ambiguous)
+    }
+
+
 def _parse_f5_prop_items(game: dict[str, Any], items: Iterable[Mapping[str, Any]]) -> None:
     """Attach MLB first-5-innings and team-total markets from the propBets feed."""
 
@@ -390,6 +428,7 @@ def fetch_market_odds_for_date(
                 items = [row for row in (props or {}).get("items") or [] if isinstance(row, Mapping)]
                 if items:
                     _parse_f5_prop_items(game, items)
+                    _parse_inning_prop_items(game, items)
             games.append(game)
         if games:
             book[sport] = games
@@ -582,6 +621,12 @@ def _attach_pick(
     captured_at: str,
 ) -> bool:
     markets = game.get("markets") or {}
+    if (bucket_key in {"nhl", "mls"} and pick.get("staking_candidate_fingerprint")
+            and pick.get("market_priced") is True and pick.get("market_retrieved_at")):
+        # These candidates were selected at their generator's observed quote.
+        # An overlay cannot change the pair/clock without rerunning that rule.
+        # The next generator refresh obtains a new quote and new decision.
+        return False
     if _text(pick.get("scope")).lower() == "player":
         # Player props never take game-market prices: a strikeout/outs line
         # that happens to equal the game-total line must not inherit its
@@ -594,11 +639,48 @@ def _attach_pick(
     # the live DraftKings overlay for a sportsbook quote timestamp.
     replace = bucket_key in TEAM_MODEL_BUCKET_KEYS and (
         _looks_assumed(pick) or pick.get("assumed_odds_replaced") is True
-        or str(bucket_key) == "nfl"
+        or str(bucket_key) in {"nfl", "wnba"}
     )
     provider = f"espn_scoreboard:{game.get('provider') or 'unknown'}"
     is_f5 = bucket_key in F5_BUCKET_KEYS
     is_team_total = _text(pick.get("market") or pick.get("market_type")).lower() == "team_total"
+
+    if bucket_key == "mlb_inning":
+        # A full-inning scoreless pick must never fall through to game/F5 odds.
+        if pick.get("market") != "no_run_inning":
+            return False
+        inning = _number(pick.get("inning"))
+        if inning is None or inning != int(inning):
+            return False
+        pair = (markets.get("inning_totals") or {}).get(int(inning)) or {}
+        selected, opposite = _american(pair.get("under")), _american(pair.get("over"))
+        if selected is None:
+            return False
+        _attach_common(pick, game, captured_at)
+        _replace_assumed_price(pick, selected, provider)
+        pick.update(selected_odds=selected, opposite_odds=opposite, market_line=0.5,
+                    market_under_odds=selected, market_over_odds=opposite)
+        pick.pop("market_no_vig_selected_probability", None)
+        _stamp_two_sided_no_vig(pick, selected, opposite)
+        probability = _number(pick.get("probability"))
+        breakeven = _implied(selected)
+        fair = pick.get("market_no_vig_selected_probability")
+        pick["market_implied_probability"] = breakeven
+        pick["edge"] = round(100 * (probability - (fair if fair is not None else breakeven)), 2) if probability is not None else None
+        source = str(pick.get("source_decision") or pick.get("decision") or "PASS").upper()
+        # Keep the model's research signal, but recheck profitability at the
+        # actual quote. A high-probability -400 bet can still lose money.
+        if source in {"BET", "LEAN"} and probability is not None and probability > breakeven:
+            pick.update(decision=source, units=0.5 if source == "BET" else 0.25,
+                        decision_reason="priced:positive_expected_value", actionability="priced_candidate")
+            pick.pop("unpriced_demoted", None)
+        else:
+            pick.update(decision="PASS", units=0, decision_reason="priced:no_positive_expected_value")
+        if "raw_units" in pick:
+            pick["raw_units"] = pick["units"]
+        if "raw_decision" in pick:
+            pick["raw_decision"] = pick["decision"]
+        return True
 
     if is_team_total and direction in {"over", "under"}:
         # Per-team run totals: the market is keyed by which team the total
@@ -766,6 +848,11 @@ def apply_market_odds_to_payload(
             was_assumed = _looks_assumed(pick)
             if _attach_pick(pick, game, bucket_key=str(bucket_key), captured_at=captured_at):
                 attached += 1
+                if str(bucket_key) == "wnba":
+                    fair = pick.get("market_no_vig_selected_probability")
+                    if fair is not None:
+                        pick["market_pick_prob"] = fair
+                    pick["market_break_even_probability"] = _implied(_american(pick.get("odds")))
                 if was_assumed and pick.get("assumed_odds_replaced") is True:
                     replaced += 1
     summary = {"attached": attached, "replacedAssumed": replaced, "picksSeen": seen}

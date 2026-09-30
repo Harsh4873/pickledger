@@ -649,9 +649,16 @@ def assess_wnba_spread_market(
     pick_team_is_home = home_cover_margin >= away_cover_margin
     cover_margin = home_cover_margin if pick_team_is_home else away_cover_margin
     market_line = float(market.spread_home if pick_team_is_home else market.spread_away)
-    odds = int(market.spread_odds or -110)
+    selected = market.spread_home_odds if pick_team_is_home else market.spread_away_odds
+    opposite = market.spread_away_odds if pick_team_is_home else market.spread_home_odds
+    selected = selected if selected is not None else market.spread_odds
+    if selected is None:
+        return {"available": False, "decision": "PASS", "units": 0.0, "reasons": ["spread price unavailable"]}
+    odds = int(selected)
     probability = _normal_cdf(cover_margin / WNBA_SPREAD_RMSE)
-    implied = american_to_implied(odds)
+    from scripts.devig import two_sided_no_vig
+    fair = two_sided_no_vig(odds, opposite)
+    implied = fair if fair is not None else american_to_implied(odds)
     edge = probability - implied
 
     has_full_baseline = _has_rating_baseline(home_stats) and _has_rating_baseline(away_stats)
@@ -696,6 +703,8 @@ def assess_wnba_spread_market(
         "cover_margin": round(cover_margin, 2),
         "probability": round(probability, 4),
         "market_implied_probability": round(implied, 4),
+        "market_no_vig_selected_probability": fair,
+        "opposite_odds": opposite,
         "edge": round(edge, 4),
         "model_team_margin": round(home_margin if pick_team_is_home else -home_margin, 2),
         "starters_out": starters_out,
@@ -724,9 +733,16 @@ def assess_wnba_total_market(
     difference = projected_total - market_line
     direction = "Over" if difference >= 0 else "Under"
     gap = abs(difference)
-    odds = int(market.total_odds or -110)
+    selected = market.over_odds if direction == "Over" else market.under_odds
+    opposite = market.under_odds if direction == "Over" else market.over_odds
+    selected = selected if selected is not None else market.total_odds
+    if selected is None:
+        return {"available": False, "decision": "PASS", "units": 0.0, "reasons": ["total price unavailable"]}
+    odds = int(selected)
     probability = _normal_cdf(gap / WNBA_TOTAL_RMSE)
-    implied = american_to_implied(odds)
+    from scripts.devig import two_sided_no_vig
+    fair = two_sided_no_vig(odds, opposite)
+    implied = fair if fair is not None else american_to_implied(odds)
     edge = probability - implied
     has_full_baseline = _has_rating_baseline(home_stats) and _has_rating_baseline(away_stats)
     min_games = min(_games_sample(home_stats), _games_sample(away_stats))
@@ -767,6 +783,8 @@ def assess_wnba_total_market(
         "gap": round(gap, 2),
         "probability": round(probability, 4),
         "market_implied_probability": round(implied, 4),
+        "market_no_vig_selected_probability": fair,
+        "opposite_odds": opposite,
         "edge": round(edge, 4),
         "projected_total": round(projected_total, 1),
         "model_version": WNBA_TOTALS_MODEL_VERSION,
@@ -980,6 +998,9 @@ def generate_wnba_picks(
                 "edge": round(float(spread_market["edge"]) * 100.0, 2),
                 "market_edge": spread_market["edge"],
                 "market_pick_prob": spread_market["market_implied_probability"],
+                "market_no_vig_selected_probability": spread_market["market_no_vig_selected_probability"],
+                "selected_odds": spread_market["odds"],
+                "opposite_odds": spread_market["opposite_odds"],
                 "decision": spread_market["decision"],
                 "units": spread_market["units"],
                 "market_source": market_odds.source if market_odds else None,
@@ -1004,6 +1025,9 @@ def generate_wnba_picks(
                 "edge": round(float(total_market["edge"]) * 100.0, 2),
                 "market_edge": total_market["edge"],
                 "market_pick_prob": total_market["market_implied_probability"],
+                "market_no_vig_selected_probability": total_market["market_no_vig_selected_probability"],
+                "selected_odds": total_market["odds"],
+                "opposite_odds": total_market["opposite_odds"],
                 "decision": total_market["decision"],
                 "units": total_market["units"],
                 "market_source": market_odds.source if market_odds else None,

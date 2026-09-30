@@ -1,0 +1,33 @@
+{
+  "schema_version": 1,
+  "model_key": "nhl",
+  "fitted_version": "nhl_poisson_v2_20252026_shadow_ev_v1",
+  "markets": [
+    "h2h",
+    "spread",
+    "totals"
+  ],
+  "variant": "base",
+  "candidate_files": [
+    "NHLPredictionModel/nhl_model.py",
+    "NHLPredictionModel/nhl_core.py",
+    "NHLPredictionModel/nhl_policy.py",
+    "NHLPredictionModel/artifacts/nhl_ratings.json",
+    "scripts/frozen_staking_candidate.py",
+    "NHLPredictionModel/nhl_markets.py",
+    "NHLPredictionModel/nhl_data.py",
+    "NHLPredictionModel/nhl_observed.py"
+  ],
+  "frozen_at": "2026-09-30T19:33:29.127882+00:00",
+  "selection_window": {
+    "through": "2026-09-30",
+    "unused_during_selection": false
+  },
+  "holdout": {
+    "starts_at": "2026-10-01T00:00:00Z",
+    "unused_during_selection": true
+  },
+  "rule_description": "Complete observed pregame two-sided quote; higher EV side; both ratings; regular season; juice >= -125; EV >= .10 BET .5u, EV >= .05 LEAN .25u.",
+  "candidate_fingerprint": "c08c1da2232fa429e27b917681e4f9d2361117e632ce037bd33feb07053dee7a",
+  "frozen_rule": "nhl_prospective_v1:c08c1da2232fa429e27b917681e4f9d2361117e632ce037bd33feb07053dee7a"
+}

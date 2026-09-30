@@ -1,6 +1,6 @@
 # NHL in-house staking path
 
-Status: **research only**. The NHL artifact has no as-of, independently priced NHL game history or unused holdout. There is no NHL entry in `data/calibration/staking_approvals.json`. Every published NHL pick remains **PASS at 0 units**.
+Status: **research only**. The NHL artifact has no as-of, independently priced NHL game history or unused holdout. There is no NHL entry in `data/calibration/staking_approvals.json`. Without an earned exact approval, every published NHL pick remains **PASS at 0 units**.
 
 ## Frozen research candidate
 
@@ -20,4 +20,38 @@ The DraftKings board is the live quote source. It only attaches a game total or 
 
 Start an unused chronological holdout only after this candidate is deployed. Do not treat inspected or training-window games as unused. Grade certified independently priced settled rows from the immutable pregame ledger, grouped by game, market, and `nhl_poisson_v2_20252026_shadow_ev_v1`. Compare ROI and a game-clustered lower 95% bound to zero and check calibration against the observed market. The existing publication gate requires at least 100 such actions, positive ROI and clustered lower bound, and no material calibration regression before an exact fitted-version/market approval could allow live stakes. An approval must be written from actual reviewed evidence; this change writes none.
 
-Run the audit report with `python3 scripts/team_prop_model_evaluator.py --forward-since <prospectively fixed UTC timestamp>`. A future NHL-specific approval workflow should review the frozen rule and holdout before proposing any approval row. Changing ratings, thresholds, or selection logic starts a new fitted candidate and a new unused holdout.
+## Prospective approval workflow
+
+The implemented freeze is `data/calibration/nhl_staking_freeze.json`. It fixes
+this candidate's source/artifact fingerprint and a holdout start of
+`2026-10-01T00:00:00Z`, after all inspected September dates. Deploy before that
+start; if deployment misses it, prospectively move the freeze/start before
+collecting evidence. Never label an already inspected window unused.
+
+```bash
+python3 scripts/frozen_staking_approval.py nhl --output /tmp/nhl-status.json
+# Optional recovery of actual cache publications, never synthetic prices:
+python3 scripts/frozen_staking_approval.py nhl --backfill
+# After reviewing the report and unused-window attestation:
+python3 scripts/frozen_staking_approval.py nhl --write
+```
+
+The scheduled `frozen-staking-status.yml` workflow uploads reports only. It
+cannot write approvals. The explicit writer reuses the NFL gate/statistics
+without changing NFL behavior. Each market qualifies separately: at least
+100 certified independently priced settled actions, ROI > 0, game-clustered
+lower 95% > 0, and at least 20 paired observations with model Brier no more
+than 0.01 worse than market. Only first qualifying event/market observations
+count; repeated refreshes cannot multiply the sample. NHL binary calibration
+uses probability conditional on no push; financial grading retains pushes.
+
+The current refresh and auto-grader capture and settle immutable ledger rows.
+The report rejects missing fingerprints, unpriced/uncertified rows, invalid
+quote clocks, earlier dates and wrong fitted versions. Missing history is
+reported as zero observations and null ROI, never reconstructed at today's
+prices. Source/artifact changes require a new freeze and unused window.
+
+Publication retains shadow decisions/stakes until an exact fitted-version,
+market and frozen-rule approval clears. Promotion also requires a valid
+current pregame price. Team totals and player props remain outside this rule.
+No approval is supplied by this implementation; holdout evidence must accrue.
