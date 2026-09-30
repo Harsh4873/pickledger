@@ -786,6 +786,17 @@ def scrape_scores24_tennis(
     )
     if timed_out or interrupted:
         result["ok"] = False
+        # Soft-timeout/interrupt must not claim expected==matched. Keep the full
+        # official slate size so afternoon resume and source health see the gap
+        # instead of a truncated 2/2 "complete" bucket with unattempted rows.
+        meta = result.get("meta") if isinstance(result.get("meta"), dict) else {}
+        meta = dict(meta)
+        meta["expectedMatchups"] = len(matches)
+        meta["matchedPicks"] = len(picks)
+        meta["checkpointedPicks"] = len(picks)
+        meta["timedOut"] = bool(timed_out)
+        meta["interrupted"] = bool(interrupted)
+        result["meta"] = meta
         result["error"] = (
             f"{source} stopped before finishing the {date_iso} slate "
             f"({'timeout' if timed_out else 'blocked or failed request'}); "

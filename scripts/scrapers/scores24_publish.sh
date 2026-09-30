@@ -33,7 +33,10 @@ DATE_ISO="${SCORES24_DATE:-$(TZ=America/Chicago date +%F)}"
 # NFL gets a larger cap for a 14-game Sunday slate. Afternoon reruns resume
 # from SCORES24_CHECKPOINT_DIR.
 PUBLISH_FEEDS="${SCORES24_PUBLISH_FEEDS:-scores24_mlb,scores24_wnba}"
-OPTIONAL_FEEDS="${SCORES24_OPTIONAL_FEEDS:-scores24_cfb,scores24_nfl}"
+# Canonical: SCORES24_OPTIONAL_FEEDS. Legacy OPTIONAL_FEEDS is accepted when the
+# SCORES24_ var is unset so morning soft-refresh callers that export OPTIONAL_FEEDS
+# still refresh CFB/NFL. Singles research stays on its own isolated publisher.
+OPTIONAL_FEEDS="${SCORES24_OPTIONAL_FEEDS:-${OPTIONAL_FEEDS:-scores24_cfb,scores24_nfl}}"
 PUBLISH_SPORTS="${SCORES24_PUBLISH_SPORTS:-mlb,wnba,cfb,nfl}"
 OPTIONAL_FEED_TIMEOUT="${SCORES24_OPTIONAL_FEED_TIMEOUT_SECONDS:-180}"
 NFL_OPTIONAL_FEED_TIMEOUT="${SCORES24_NFL_OPTIONAL_FEED_TIMEOUT_SECONDS:-420}"

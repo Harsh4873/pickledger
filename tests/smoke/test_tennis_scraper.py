@@ -345,6 +345,10 @@ def test_scores24_tennis_resumes_same_day_checkpoint_after_timeout(tmp_path, mon
     assert first["ok"] is False
     assert first["meta"]["timedOut"] is True
     assert first["meta"]["checkpointedPicks"] == 1
+    # Soft-timeout must not truncate expectedMatchups down to matched picks.
+    assert first["meta"]["expectedMatchups"] == len(matches)
+    assert first["meta"]["matchedPicks"] == 1
+    assert first["meta"]["officialMatchups"] == len(matches)
 
     assert checkpoint.is_file()
     second_client = _FakeScores24Client(responses)
@@ -468,6 +472,9 @@ def test_tennis_feeds_are_registered_across_the_pipeline():
     tennis_publish = (ROOT / "scripts" / "scrapers" / "tennis_publish.sh").read_text(encoding="utf-8")
     assert "tennistonic_tennis" in tennis_publish
     assert "scores24_tennis" in tennis_publish
+    assert "TENNIS_SCORES24_TIMEOUT_SECONDS:-${SCORES24_OPTIONAL_FEED_TIMEOUT_SECONDS:-600}" in tennis_publish
+    assert "SCORES24_CAMOUFOX_CHALLENGE_WAITS" in tennis_publish
+    assert 'SCORES24_CHECKPOINT_DIR="${SCORES24_CHECKPOINT_DIR}"' in tennis_publish
 
     # Soft-launch: never a hard-required feed.
     site_upcheck = _load_module("site_upcheck_tennis_test", ROOT / "scripts" / "site_upcheck.py")

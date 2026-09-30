@@ -34,6 +34,34 @@ from scripts.scrapers.scores24_scraper import (  # noqa: E402
 )
 
 
+
+def _same_day_attempt_already_recorded(
+    cache_path: Path,
+    feed_key: str,
+    date_iso: str,
+) -> bool:
+    """True when the child already wrote today's attempt (incl. soft-timeout).
+
+    Optional publishers must not clobber that bucket with a generic
+    "exited with code N" salvage — that truncates timeout diagnostics and can
+    wipe richer meta (officialMatchups / unattempted) down to matched-only.
+    """
+    payload = _read_json(cache_path)
+    if not isinstance(payload, dict):
+        return False
+    previous = _previous_feed_bucket(payload, feed_key)
+    if not isinstance(previous, dict):
+        return False
+    if str(previous.get("lastAttemptDate") or "") != date_iso and str(previous.get("date") or "") != date_iso:
+        return False
+    meta = previous.get("meta") if isinstance(previous.get("meta"), dict) else {}
+    if meta.get("timedOut") or meta.get("interrupted"):
+        return True
+    if previous.get("ok") is False and str(previous.get("lastAttemptDate") or "") == date_iso:
+        return True
+    return False
+
+
 def _read_json(path: Path) -> dict[str, Any] | None:
     try:
         payload = json.loads(path.read_text(encoding="utf-8"))
@@ -256,15 +284,25 @@ def run_optional_scores24_feed(
         )
         return 0
     if returncode:
-        try:
-            apply_optional_failure_to_cache(
-                Path(cache_path), feed_key, date_iso,
-                f"Optional source refresh exited with code {returncode}",
-                checkpoint_dir=checkpoint_dir,
+        cache = Path(cache_path)
+        if _same_day_attempt_already_recorded(cache, feed_key, date_iso):
+            print(
+                f"Optional {feed_key} scrape exited {returncode}; "
+                "keeping child-written same-day attempt (no salvage clobber).",
+                file=sys.stderr,
             )
-        except (OSError, ValueError) as exc:
-            print(f"Could not record optional failure diagnostics: {exc}", file=sys.stderr)
-    return int(returncode or 0)
+        else:
+            try:
+                apply_optional_failure_to_cache(
+                    cache, feed_key, date_iso,
+                    f"Optional source refresh exited with code {returncode}",
+                    checkpoint_dir=checkpoint_dir,
+                )
+            except (OSError, ValueError) as exc:
+                print(f"Could not record optional failure diagnostics: {exc}", file=sys.stderr)
+        # Soft-fail: never fail the publisher on an optional feed exit code.
+        return 0
+    return 0
 
 
 def main() -> int:

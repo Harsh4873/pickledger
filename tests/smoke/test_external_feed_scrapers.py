@@ -2448,7 +2448,7 @@ def test_scores24_cfb_is_wired_soft_fail_across_the_pipeline():
     assert "scores24_nfl" not in workflow
 
     publisher = (ROOT / "scripts" / "scrapers" / "scores24_publish.sh").read_text(encoding="utf-8")
-    assert 'OPTIONAL_FEEDS="${SCORES24_OPTIONAL_FEEDS:-scores24_cfb,scores24_nfl}"' in publisher
+    assert 'OPTIONAL_FEEDS="${SCORES24_OPTIONAL_FEEDS:-${OPTIONAL_FEEDS:-scores24_cfb,scores24_nfl}}"' in publisher
     assert 'PUBLISH_FEEDS="${SCORES24_PUBLISH_FEEDS:-scores24_mlb,scores24_wnba}"' in publisher
     assert "will not block MLB+WNBA publish" in publisher
     assert "OPTIONAL_FEED_TIMEOUT" in publisher
@@ -2580,7 +2580,7 @@ def test_scores24_nfl_is_wired_soft_fail_across_the_pipeline():
 
     publisher = (ROOT / "scripts" / "scrapers" / "scores24_publish.sh").read_text(encoding="utf-8")
     assert "scores24_nfl" in publisher
-    assert 'OPTIONAL_FEEDS="${SCORES24_OPTIONAL_FEEDS:-scores24_cfb,scores24_nfl}"' in publisher
+    assert 'OPTIONAL_FEEDS="${SCORES24_OPTIONAL_FEEDS:-${OPTIONAL_FEEDS:-scores24_cfb,scores24_nfl}}"' in publisher
     assert 'PUBLISH_FEEDS="${SCORES24_PUBLISH_FEEDS:-scores24_mlb,scores24_wnba}"' in publisher
     assert "will not block MLB+WNBA publish" in publisher
     assert "scores24_optional_publish.py" in publisher
@@ -3160,7 +3160,7 @@ def test_local_scores24_publisher_registers_separate_models():
     assert 'SCORES24_CAMOUFOX_FALLBACK="${CAMOUFOX_FALLBACK}"' in publisher
     assert 'scores24_camoufox.py" warmup' in publisher
     assert 'PUBLISH_FEEDS="${SCORES24_PUBLISH_FEEDS:-scores24_mlb,scores24_wnba}"' in publisher
-    assert 'OPTIONAL_FEEDS="${SCORES24_OPTIONAL_FEEDS:-scores24_cfb,scores24_nfl}"' in publisher
+    assert 'OPTIONAL_FEEDS="${SCORES24_OPTIONAL_FEEDS:-${OPTIONAL_FEEDS:-scores24_cfb,scores24_nfl}}"' in publisher
     assert 'SCORES24_REQUEST_INTERVAL_SECONDS="${REQUEST_INTERVAL}"' in publisher
     assert 'SCORES24_REQUEST_ATTEMPTS="${REQUEST_ATTEMPTS}"' in publisher
     assert 'SCORES24_ATTEMPT_RETRY_DELAY_SECONDS="${ATTEMPT_RETRY_DELAY}"' in publisher

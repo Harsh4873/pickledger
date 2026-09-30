@@ -290,14 +290,30 @@ def _today_result_picks(result: dict[str, Any], date_iso: str) -> list[dict[str,
 
 
 def _incomplete_scores24_football_bucket(bucket: Any, date_iso: str) -> bool:
+    """True for same-day optional Scores24 CFB/NFL/tennis buckets still filling.
+
+    Tennis soft-timeouts used to set expectedMatchups=len(picks), which hid the
+    gap versus officialMatchups and let salvage treat a 2-pick checkpoint as
+    complete. Count tennis (and CFB/NFL) incomplete whenever the official slate
+    outruns matched picks, missing rows remain, or timedOut/interrupted is set.
+    """
     if not isinstance(bucket, dict) or str(bucket.get("date") or "") != date_iso:
         return False
     meta = bucket.get("meta") if isinstance(bucket.get("meta"), dict) else {}
     picks = _today_result_picks(bucket, date_iso)
-    if meta.get("feed") not in {"scores24_cfb", "scores24_nfl"} and not any(
-        pick.get("source") in {"Scores24CFB", "Scores24NFL"} for pick in picks
-    ):
+    feed = str(meta.get("feed") or "")
+    sources = {str(pick.get("source") or "") for pick in picks}
+    is_optional = (
+        feed in {"scores24_cfb", "scores24_nfl", "scores24_tennis"}
+        or bool(sources & {"Scores24CFB", "Scores24NFL", "Scores24Tennis"})
+    )
+    if not is_optional:
         return False
+    if meta.get("timedOut") or meta.get("interrupted"):
+        return True
+    unattempted = meta.get("unattemptedMatchups")
+    if isinstance(unattempted, list) and unattempted:
+        return True
     official = meta.get("officialMatchups")
     expected = meta.get("expectedMatchups")
     missing = meta.get("missingMatchups")

@@ -390,11 +390,65 @@ def test_optional_nonzero_exit_salvages_same_day_checkpoint(tmp_path):
         cache_path=str(cache_path), checkpoint_dir=str(state),
     )
     bucket = json.loads(cache_path.read_text())["external_feeds"]["scores24_nfl"]
-    assert rc == 1
+    # Optional feeds soft-fail: nonzero child exit still returns 0 after salvage.
+    assert rc == 0
     assert bucket["ok"] is False
     assert bucket["date"] == "2026-09-11"
     assert bucket["picks"][0]["pick"] == "Bears ML"
     assert bucket["lastAttemptDate"] == "2026-09-11"
+
+
+def test_optional_nonzero_exit_keeps_child_written_timeout_bucket(tmp_path):
+    """Child soft-timeout already wrote today; outer salvage must not clobber it."""
+    from scripts.scrapers import scores24_optional_publish as optional
+
+    repo = tmp_path / "repo"
+    (repo / "scripts").mkdir(parents=True)
+    (repo / "scripts" / "refresh_external_feeds.py").write_text("raise SystemExit(1)\n")
+    cache_path = tmp_path / "2026-09-30.json"
+    child_bucket = {
+        "ok": False,
+        "date": "2026-09-30",
+        "error": "Scores24Tennis stopped before finishing the 2026-09-30 slate (timeout); 2 pick(s) checkpointed.",
+        "lastAttemptDate": "2026-09-30",
+        "lastError": "Scores24Tennis stopped before finishing the 2026-09-30 slate (timeout); 2 pick(s) checkpointed.",
+        "picks": [
+            {"source": "Scores24Tennis", "date": "2026-09-30", "pick": "Rune ML",
+             "away_team": "A", "home_team": "B"},
+            {"source": "Scores24Tennis", "date": "2026-09-30", "pick": "Cerundolo ML",
+             "away_team": "C", "home_team": "D"},
+        ],
+        "meta": {
+            "feed": "scores24_tennis",
+            "officialMatchups": 45,
+            "expectedMatchups": 45,
+            "matchedPicks": 2,
+            "checkpointedPicks": 2,
+            "timedOut": True,
+            "unattemptedMatchups": ["X vs Y"],
+        },
+        "refreshStatus": "error",
+    }
+    cache_path.write_text(json.dumps({
+        "date": "2026-09-30",
+        "models": {"scores24_tennis": child_bucket},
+        "external_feeds": {"scores24_tennis": child_bucket},
+    }))
+
+    rc = optional.run_optional_scores24_feed(
+        python_bin=sys.executable, repo=str(repo), date_iso="2026-09-30",
+        feed_key="scores24_tennis", sports="tennis", timeout_seconds=2,
+        cache_path=str(cache_path), checkpoint_dir=str(tmp_path / "state"),
+    )
+    bucket = json.loads(cache_path.read_text())["external_feeds"]["scores24_tennis"]
+    assert rc == 0
+    assert bucket["ok"] is False
+    assert len(bucket["picks"]) == 2
+    assert bucket["meta"]["officialMatchups"] == 45
+    assert bucket["meta"]["expectedMatchups"] == 45
+    assert bucket["meta"]["timedOut"] is True
+    assert "exited with code" not in str(bucket.get("lastError") or "")
+    assert "timeout" in str(bucket.get("lastError") or "").lower() or "timeout" in str(bucket.get("error") or "").lower()
 
 
 def test_optional_hard_timeout_kills_descendant_process_group(tmp_path):
