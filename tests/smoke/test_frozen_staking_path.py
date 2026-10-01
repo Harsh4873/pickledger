@@ -94,6 +94,29 @@ def test_first_graded_shadow_publication_starts_accruing(model, monkeypatch, tmp
 
 
 @pytest.mark.parametrize("model", ["nhl", "mls"])
+def test_frozen_holdout_uses_the_ledger_price_clock_and_odds(model):
+    freeze = load_freeze(model)
+    row = record(freeze)
+    row["pregame_snapshot"]["market_updated_at"] = "2026-09-30T12:00:00Z"
+    row["price"] = {
+        "odds": -125, "pricing_type": "market", "odds_source": "posted_market",
+        "market_updated_at": "2026-10-02T15:50:00Z",
+        "market_no_vig_selected_probability": 0.53,
+    }
+    row["observed_american_odds"] = -125
+    row["market_probability"] = 0.53
+    report = evaluate({"records": [row]}, freeze)["markets"][0]
+    assert report["independently_priced_settled"] == 1
+    assert report["profit_units"] == 0.4
+    assert report["observed_market"]["brier"] == 0.2209
+
+    row["price"]["market_updated_at"] = "2026-10-02T21:00:00Z"
+    late = evaluate({"records": [row]}, freeze)["markets"][0]
+    assert late["independently_priced_settled"] == 0
+    assert late["candidate_exclusions"] == {"invalid_quote_clock": 1}
+
+
+@pytest.mark.parametrize("model", ["nhl", "mls"])
 def test_evidence_and_exact_approval_lifecycle(model, tmp_path):
     freeze = load_freeze(model)
     report = evaluate({"records": [record(freeze, i) for i in range(100)]}, freeze)

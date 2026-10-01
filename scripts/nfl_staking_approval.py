@@ -95,6 +95,49 @@ def _candidate_action(record: Mapping[str, Any]) -> tuple[str, float | None]:
     return decision, stake
 
 
+def _holdout_price_context(record: Mapping[str, Any]) -> Mapping[str, Any]:
+    """Use the captured ledger price; old records fall back to their snapshot."""
+
+    price = record.get("price")
+    if isinstance(price, Mapping) and price:
+        return price
+    snapshot = record.get("pregame_snapshot")
+    return snapshot if isinstance(snapshot, Mapping) else record
+
+
+def _holdout_price_provenance_is_disallowed(record: Mapping[str, Any]) -> bool:
+    # A model's earlier pregame image may still contain an assumed price after
+    # an observed sportsbook quote was attached to the immutable ledger row.
+    return _price_provenance_is_disallowed({"price": _holdout_price_context(record)})
+
+
+def _holdout_american_odds(record: Mapping[str, Any]) -> float | None:
+    price = record.get("price")
+    if isinstance(price, Mapping) and price:
+        odds = _number(price.get("odds"))
+        captured = _number(record.get("observed_american_odds"))
+        if (odds is None or odds == 0 or abs(odds) < 100
+                or (captured is not None and captured != odds)):
+            return None
+        return odds
+    return _american_odds(record)
+
+
+def _holdout_market_probability(record: Mapping[str, Any]) -> float | None:
+    price = record.get("price")
+    if isinstance(price, Mapping) and price:
+        for field in ("market_no_vig_selected_probability", "market_pick_prob",
+                      "market_probability", "market_implied_probability"):
+            probability = _number(price.get(field))
+            if probability is not None:
+                return probability
+        return None
+    return _number(_value_from_contexts(
+        record, "market_no_vig_selected_probability", "market_probability",
+        "market_implied_probability",
+    ))
+
+
 def _in_holdout(record: Mapping[str, Any], starts_at: datetime) -> bool:
     published = _timestamp(record.get("published_at") or record.get("data_as_of"))
     return published is not None and published >= starts_at
@@ -145,41 +188,45 @@ def evaluate_frozen_holdout(
         probability = _number(
             _value_from_contexts(raw, "raw_probability", "displayed_probability", "probability")
         )
-        result = _result_label(raw)
-        if result in {"win", "loss"} and probability is not None and 0 <= probability <= 1:
-            outcome = int(result == "win")
-            model_binary.append((probability, outcome))
-            market_p = _number(_value_from_contexts(
-                raw, "market_no_vig_selected_probability", "market_probability",
-                "market_implied_probability",
-            ))
-            if market_p is not None and 0 < market_p < 1:
-                paired_model.append((probability, outcome))
-                paired_market.append((market_p, outcome))
+        # The grader attaches the outcome to the ledger row after publication;
+        # a retained pregame image can still carry a pending result.
+        result = str(raw.get("result") or _result_label(raw)).strip().lower()
+        binary_outcome = (
+            int(result == "win") if result in {"win", "loss"}
+            and probability is not None and 0 <= probability <= 1 else None
+        )
+        if binary_outcome is not None:
+            model_binary.append((probability, binary_outcome))
         action, stake = _candidate_action(raw)
         if action not in {"BET", "LEAN"}:
             exclusions["not_actionable"] = exclusions.get("not_actionable", 0) + 1
             continue
-        if not _financial_eligible(raw) or _price_provenance_is_disallowed(raw):
+        if not _financial_eligible(raw) or _holdout_price_provenance_is_disallowed(raw):
             exclusions[str(raw.get("financial_eligibility_reason") or "not_financial")] = (
                 exclusions.get(str(raw.get("financial_eligibility_reason") or "not_financial"), 0) + 1
             )
             continue
         price_clock = observed_quote_timing(
-            raw.get("pregame_snapshot") if isinstance(raw.get("pregame_snapshot"), dict) else raw,
-            published_at=raw.get("published_at"),
+            _holdout_price_context(raw), published_at=raw.get("published_at"),
             start_at=raw.get("game_start_time"),
         )
         if price_clock:
             exclusions[price_clock] = exclusions.get(price_clock, 0) + 1
             continue
-        odds = _american_odds(raw)
+        odds = _holdout_american_odds(raw)
         if odds is None:
             exclusions["missing_verified_american_price"] = exclusions.get("missing_verified_american_price", 0) + 1
             continue
         if stake is None or stake <= 0:
             exclusions["missing_positive_stake"] = exclusions.get("missing_positive_stake", 0) + 1
             continue
+        # A paired market score needs the same observed, timely, verified
+        # stake and quote as ROI. Forecast calibration can use an unpriced row.
+        if binary_outcome is not None:
+            market_p = _holdout_market_probability(raw)
+            if market_p is not None and 0 < market_p < 1:
+                paired_model.append((probability, binary_outcome))
+                paired_market.append((market_p, binary_outcome))
         if result not in {"win", "loss", "push"}:
             pending += 1
             exclusions["unsettled"] = exclusions.get("unsettled", 0) + 1

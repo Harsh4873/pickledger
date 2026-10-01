@@ -18,9 +18,10 @@ sys.path.insert(0, str(ROOT))
 from scripts.frozen_staking_candidate import load_freeze, candidate_fingerprint
 from scripts.nfl_staking_approval import (
     evaluate_frozen_holdout as evaluate_market, maybe_write_approval,
-    _candidate_action, _timestamp,
+    _candidate_action, _holdout_price_context,
+    _holdout_price_provenance_is_disallowed, _timestamp,
 )
-from scripts.team_prop_model_evaluator import _financial_eligible, _price_provenance_is_disallowed, certification_status
+from scripts.team_prop_model_evaluator import _financial_eligible, certification_status
 from scripts.price_clock import observed_quote_timing, aware_time
 from scripts.team_prop_pregame_ledger import load_team_prop_pregame_ledger, backfill_team_prop_pregame_from_cache
 from scripts.model_stake_policy import POLICY_PATH
@@ -57,12 +58,15 @@ def evaluate(ledger: dict, freeze: dict) -> dict:
             reason = "uncertified"
         else:
             reason = settlement_exclusion_reason(raw)
-        if reason is None and observed_quote_timing(snapshot, published_at=raw.get("published_at"), start_at=raw.get("game_start_time")):
+        if reason is None and observed_quote_timing(
+            _holdout_price_context(raw), published_at=raw.get("published_at"),
+            start_at=raw.get("game_start_time"),
+        ):
             reason = "invalid_quote_clock"
         if reason is None:
             if snapshot.get("staking_candidate_fingerprint") != freeze["candidate_fingerprint"]:
                 reason = "candidate_fingerprint_mismatch"
-            elif not _financial_eligible(raw) or _price_provenance_is_disallowed(raw):
+            elif not _financial_eligible(raw) or _holdout_price_provenance_is_disallowed(raw):
                 reason = "not_independently_priced"
             elif _candidate_action(raw)[0] not in {"BET", "LEAN"}:
                 reason = "not_candidate_action"

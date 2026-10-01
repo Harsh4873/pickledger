@@ -85,6 +85,69 @@ def test_holdout_below_100_does_not_write_an_approval(tmp_path):
     assert json.loads(policy.read_text())["approvals"] == []
 
 
+def test_holdout_uses_the_captured_price_and_quote_clock():
+    row = _record(1)
+    # The first publication snapshot precedes the market overlay. The ledger
+    # price is the quote that was actually attached to this publication.
+    row["pregame_snapshot"].update(
+        odds=-110, market_updated_at="2026-09-27T12:00:00Z",
+        market_probability=0.40,
+    )
+    row["price"] = {
+        "odds": -125, "pricing_type": "market", "odds_source": "posted_market",
+        "market_updated_at": "2026-09-27T15:50:00Z",
+        "market_no_vig_selected_probability": 0.53,
+    }
+    row["observed_american_odds"] = -125
+    report = evaluate_frozen_holdout({"records": [row]}, _freeze())
+    assert report["independently_priced_settled"] == 1
+    assert report["profit_units"] == 0.4
+    assert report["observed_market"]["samples"] == 1
+    assert report["observed_market"]["brier"] == 0.2209
+
+    row["pregame_snapshot"].update(pricing_type="user_assumed", odds_source="user_assumed")
+    replaced = evaluate_frozen_holdout({"records": [row]}, _freeze())
+    assert replaced["independently_priced_settled"] == 1
+    assert replaced["profit_units"] == 0.4
+
+    # A valid old snapshot cannot certify a newer price with no quote clock.
+    row["price"].pop("market_updated_at")
+    missing = evaluate_frozen_holdout({"records": [row]}, _freeze())
+    assert missing["independently_priced_settled"] == 0
+    assert missing["exclusions"] == {"missing_quote_timestamp": 1}
+
+
+def test_holdout_uses_the_ledger_settlement_when_snapshot_is_pending():
+    row = _record(1)
+    row["pregame_snapshot"]["result"] = "pending"
+    report = evaluate_frozen_holdout({"records": [row]}, _freeze())
+    assert report["independently_priced_settled"] == 1
+    assert report["pending_actionable"] == 0
+
+
+def test_stale_or_post_start_price_cannot_supply_paired_calibration():
+    row = _record(1)
+    row["price"] = {
+        "odds": -125, "pricing_type": "market", "odds_source": "posted_market",
+        "market_updated_at": "2026-09-27T21:00:00Z",
+        "market_no_vig_selected_probability": 0.53,
+    }
+    row["observed_american_odds"] = -125
+    report = evaluate_frozen_holdout({"records": [row]}, _freeze())
+    assert report["independently_priced_settled"] == 0
+    assert report["model"]["samples"] == 1
+    assert report["paired_model"]["samples"] == 0
+    assert report["observed_market"]["samples"] == 0
+    assert report["exclusions"] == {"post_start": 1}
+
+    row["price"]["market_updated_at"] = "2026-09-27T15:50:00Z"
+    row["price"]["odds"] = 0
+    row["observed_american_odds"] = 0
+    invalid_odds = evaluate_frozen_holdout({"records": [row]}, _freeze())
+    assert invalid_odds["paired_model"]["samples"] == 0
+    assert invalid_odds["exclusions"] == {"missing_verified_american_price": 1}
+
+
 def test_holdout_clears_only_with_real_gate_fields(tmp_path):
     freeze = _freeze()
     records = [_record(i) for i in range(100)]
