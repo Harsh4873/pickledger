@@ -79,12 +79,23 @@ def _prop_market(pick: Mapping[str, Any]) -> str:
 
 def _slot_id(pick: Mapping[str, Any]) -> str:
     supplied = str(pick.get("id") or "").strip()
-    if supplied:
-        return supplied
-    values = [_first(pick, key) for key in (
+    # One published id can be reused for both sides of the same player market.
+    # Preserve each side (and line) as a separate forecast/action slot.
+    values = [supplied, *(_identity_value(pick, key) for key in (
         "date", "game_id", "player_id", "stat_key", "selection", "line",
-    )]
+    ))]
     return hashlib.sha256(json.dumps(values, default=str).encode()).hexdigest()[:24]
+
+
+def _identity_value(pick: Mapping[str, Any], key: str) -> str:
+    value = pick.get(key)
+    if value in (None, ""):
+        return ""
+    if key == "line":
+        number = _number(value)
+        if number is not None:
+            return str(number)
+    return str(value).strip().casefold()
 
 
 def _prop_price(
@@ -114,8 +125,8 @@ def _prop_price(
     return odds, None
 
 
-def _prop_outcomes(outcome_ledger: Mapping[str, Any]) -> dict[str, str]:
-    results: dict[str, str] = {}
+def _prop_outcomes(outcome_ledger: Mapping[str, Any]) -> dict[str, list[tuple[str, Mapping[str, Any], str]]]:
+    results: dict[str, list[tuple[str, Mapping[str, Any], str]]] = defaultdict(list)
     for record in outcome_ledger.get("records") or []:
         if not isinstance(record, dict) or record.get("cache_type") != "player_props_cache":
             continue
@@ -125,8 +136,34 @@ def _prop_outcomes(outcome_ledger: Mapping[str, Any]) -> dict[str, str]:
         pick_id = str(snapshot.get("id") or "").strip()
         result = str(record.get("result") or "").lower()
         if pick_id and result in {"win", "loss", "push"}:
-            results[pick_id] = result
+            results[pick_id].append((str(record.get("model_key") or ""), snapshot, result))
     return results
+
+
+def _prop_result(
+    pick: Mapping[str, Any], model_key: str,
+    outcomes: Mapping[str, list[tuple[str, Mapping[str, Any], str]]],
+    ambiguous_ids: set[tuple[str, str]],
+) -> str:
+    """Join a final ledger result only when its market identity is unambiguous."""
+    pick_id = str(pick.get("id") or "").strip()
+    matches = []
+    for outcome_model, snapshot, result in outcomes.get(pick_id, []):
+        if outcome_model and outcome_model != model_key:
+            continue
+        if (model_key, pick_id) in ambiguous_ids and any(
+            not _identity_value(pick, key) or not _identity_value(snapshot, key)
+            for key in ("date", "game_id", "player_id", "stat_key", "selection", "line")
+        ):
+            continue
+        if any(
+            _identity_value(pick, key) and _identity_value(snapshot, key)
+            and _identity_value(pick, key) != _identity_value(snapshot, key)
+            for key in ("date", "game_id", "player_id", "stat_key", "selection", "line")
+        ):
+            continue
+        matches.append(result)
+    return matches[0] if matches and len(set(matches)) == 1 else "pending"
 
 
 def _prop_slots(snapshot_dir: Path) -> tuple[dict[tuple[str, str, str, str, str], dict[str, Any]], Counter]:
@@ -171,7 +208,11 @@ def _prop_slots(snapshot_dir: Path) -> tuple[dict[tuple[str, str, str, str, str]
     return slots, exclusions
 
 
-def _prop_group_report(slots: list[dict[str, Any]], outcomes: Mapping[str, str]) -> dict[str, Any]:
+def _prop_group_report(
+    slots: list[dict[str, Any]], model_key: str,
+    outcomes: Mapping[str, list[tuple[str, Mapping[str, Any], str]]],
+    ambiguous_ids: set[tuple[str, str]],
+) -> dict[str, Any]:
     model_binary: list[tuple[float, int]] = []
     paired_model: list[tuple[float, int]] = []
     paired_market: list[tuple[float, int]] = []
@@ -184,7 +225,7 @@ def _prop_group_report(slots: list[dict[str, Any]], outcomes: Mapping[str, str])
         if forecast is None:
             continue
         pick = forecast["pick"]
-        result = outcomes.get(_slot_id(pick), str(pick.get("result") or "pending").lower())
+        result = _prop_result(pick, model_key, outcomes, ambiguous_ids)
         results[result] += 1
         probability = _number(pick.get("probability"))
         if result in {"win", "loss"} and probability is not None and 0 <= probability <= 1:
@@ -201,7 +242,7 @@ def _prop_group_report(slots: list[dict[str, Any]], outcomes: Mapping[str, str])
             continue
         action = forecast if is_shadow else action
         bet = action["pick"]
-        bet_result = outcomes.get(_slot_id(bet), str(bet.get("result") or "pending").lower())
+        bet_result = _prop_result(bet, model_key, outcomes, ambiguous_ids)
         odds, reason = _prop_price(bet, action["published"], action["start"])
         if reason:
             excluded[reason] += 1
@@ -291,6 +332,12 @@ def build_scorecard(
     cards = [_team_card(segment) for segment in team["segments"]]
     forward_cards = [_team_card(segment) for segment in team["forward_holdout"]]
     slots, prop_exclusions = _prop_slots(snapshot_dir)
+    ids_to_slots: dict[tuple[str, str], set[str]] = defaultdict(set)
+    for (model_key, _, _, _, slot_id), slot in slots.items():
+        pick_id = str(slot["forecast"]["pick"].get("id") or "").strip()
+        if pick_id:
+            ids_to_slots[(model_key, pick_id)].add(slot_id)
+    ambiguous_ids = {key for key, market_slots in ids_to_slots.items() if len(market_slots) > 1}
     grouped: dict[tuple[str, str, str, str], list[dict[str, Any]]] = defaultdict(list)
     forward_grouped: dict[tuple[str, str, str, str], list[dict[str, Any]]] = defaultdict(list)
     for (model_key, version, market, variant, _), slot in slots.items():
@@ -306,7 +353,7 @@ def build_scorecard(
                 "source": "immutable_player_prop_snapshots",
                 "model_key": model_key, "model_version": version,
                 "market": market, "variant": variant,
-                **_prop_group_report(members, outcomes),
+                **_prop_group_report(members, model_key, outcomes, ambiguous_ids),
             })
     observed = {card["model_key"] for card in cards}
     for model_key in sorted((set(SUPPORTED_MODEL_KEYS) | set(PROP_MODEL_KEYS)) - observed):

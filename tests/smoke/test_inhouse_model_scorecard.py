@@ -96,3 +96,97 @@ def test_shadow_pass_is_graded_without_becoming_a_staked_bet(tmp_path):
     assert card["shadow_priced_settled"] == 1
     assert card["shadow_stake_units"] == 0.5
     assert card["shadow_profit_units"] == 0.454545
+
+
+def test_team_scorecard_uses_captured_ledger_quote_instead_of_snapshot_price(tmp_path):
+    record = {
+        "model_key": "nfl", "model_version": "nfl-v1", "market": "h2h",
+        "probability": 0.6, "result": "win", "decision": "BET", "units": 1,
+        "snapshot_at": "2026-09-24T20:00:00Z",
+        "published_at": "2026-09-24T20:00:00Z",
+        "game_start_time": "2026-09-24T22:00:00Z",
+        "certification": {"certified": True, "immutable": True, "pregame": True,
+                          "financial_eligible": True, "market_benchmark_eligible": True},
+        "observed_american_odds": 140,
+        "pregame_snapshot": {
+            "odds": -110, "pricing_type": "user_assumed",
+            "market_updated_at": "2026-09-24T19:00:00Z",
+            "market_no_vig_selected_probability": 0.8,
+        },
+        "price": {
+            "odds": 140, "pricing_type": "market", "odds_source": "sportsbook_observed",
+            "market_updated_at": "2026-09-24T19:58:00Z",
+            "market_no_vig_selected_probability": 0.42,
+        },
+    }
+
+    report = build_scorecard({"records": [record]}, {"records": []}, tmp_path / "snapshots")
+    card = next(c for c in report["scorecards"] if c.get("model_key") == "nfl" and c.get("market") == "h2h")
+
+    assert card["profit_units"] == 1.4
+    assert card["market_comparison"]["observed_market_brier"] == 0.3364
+    assert card["market_comparison"]["probability_sources"] == {"observed_no_vig": 1}
+
+
+def test_prop_scorecard_matches_reused_id_by_market_side(tmp_path):
+    snapshots = tmp_path / "snapshots" / "2026-09-24"
+    snapshots.mkdir(parents=True)
+    base = {
+        "id": "same-player-market-id", "date": "2026-09-24", "game_id": "game-1",
+        "player_id": "player-1", "stat_key": "hits", "line": 0.5,
+        "start_time": "2026-09-24T22:00:00Z", "probability": 0.6,
+        "market_priced": True, "pricing_type": "market", "odds_source": "posted_market",
+        "market_updated_at": "2026-09-24T19:00:00Z", "odds": -110,
+        "ml_model_version": "prop-v1", "result": "pending",
+    }
+    over = {**base, "selection": "Over", "decision": "BET", "units": 1}
+    under = {**base, "selection": "Under", "decision": "PASS", "units": 0}
+    (snapshots / "a.json").write_text(json.dumps({
+        "generatedAt": "2026-09-24T20:00:00Z",
+        "models": {"mlb_player_props": {"picks": [over, under]}},
+    }))
+    outcomes = {"records": [
+        {"cache_type": "player_props_cache", "model_key": "mlb_player_props",
+         "result": result, "pregame_snapshot": pick}
+        for pick, result in ((over, "loss"), (under, "win"))
+    ]}
+
+    report = build_scorecard({"records": []}, outcomes, tmp_path / "snapshots")
+    card = next(c for c in report["scorecards"] if c.get("model_version") == "prop-v1")
+
+    assert card["forecasts"] == 2
+    assert card["result_counts"] == {"loss": 1, "win": 1}
+    assert card["priced_settled_bets"] == 1
+    assert card["profit_units"] == -1
+
+    # An older outcome row with only the reused id cannot identify a side.
+    ambiguous = {"records": [{"cache_type": "player_props_cache", "result": "win",
+                               "pregame_snapshot": {"id": "same-player-market-id"}}]}
+    report = build_scorecard({"records": []}, ambiguous, tmp_path / "snapshots")
+    card = next(c for c in report["scorecards"] if c.get("model_version") == "prop-v1")
+    assert card["result_counts"] == {"pending": 2}
+    assert card["priced_settled_bets"] == 0
+
+
+def test_prop_scorecard_keeps_unjoined_snapshot_result_pending(tmp_path):
+    snapshots = tmp_path / "snapshots" / "2026-09-24"
+    snapshots.mkdir(parents=True)
+    pick = {
+        "id": "unjoined-prop", "date": "2026-09-24", "game_id": "game-1",
+        "stat_key": "hits", "selection": "Over", "line": 0.5,
+        "start_time": "2026-09-24T22:00:00Z", "probability": 0.6,
+        "market_priced": True, "pricing_type": "market", "odds_source": "posted_market",
+        "market_updated_at": "2026-09-24T19:00:00Z", "odds": -110,
+        "decision": "BET", "units": 1, "result": "win", "ml_model_version": "prop-v1",
+    }
+    (snapshots / "a.json").write_text(json.dumps({
+        "generatedAt": "2026-09-24T20:00:00Z", "models": {"mlb_player_props": {"picks": [pick]}},
+    }))
+
+    report = build_scorecard({"records": []}, {"records": []}, tmp_path / "snapshots")
+    card = next(c for c in report["scorecards"] if c.get("model_version") == "prop-v1")
+
+    assert card["result_counts"] == {"pending": 1}
+    assert card["model"]["samples"] == 0
+    assert card["priced_settled_bets"] == 0
+    assert card["exclusions"] == {"unsettled": 1}

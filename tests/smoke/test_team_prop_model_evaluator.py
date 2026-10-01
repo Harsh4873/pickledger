@@ -130,7 +130,8 @@ def test_evaluator_accepts_canonical_status_certification_and_nested_price():
         market_probability=None,
         financial_eligible=True,
         market_benchmark_eligible=True,
-        price={"odds": -120, "pricing_type": "market", "odds_source": "sportsbook_observed"},
+        price={"odds": -120, "pricing_type": "market", "odds_source": "sportsbook_observed",
+               "market_updated_at": "2026-06-10T14:55:00Z"},
     )
 
     report = evaluate_team_prop_ledger({"records": [record]})
@@ -139,6 +140,98 @@ def test_evaluator_accepts_canonical_status_certification_and_nested_price():
     assert report["overall"]["market_benchmark"]["probability_sources"] == {
         "observed_american_odds": 1,
     }
+
+
+def test_evaluator_uses_captured_quote_for_roi_benchmark_and_exact_price():
+    record = _record(
+        model_key="nfl",
+        pregame_snapshot={
+            "odds": -110, "pricing_type": "user_assumed",
+            "market_updated_at": "2026-06-10T14:00:00Z",
+            "market_no_vig_selected_probability": 0.8,
+        },
+        observed_american_odds=140,
+        price={
+            "odds": 140, "pricing_type": "market", "odds_source": "sportsbook_observed",
+            "market_updated_at": "2026-06-10T14:58:00Z",
+            "market_no_vig_selected_probability": 0.42,
+        },
+    )
+
+    report = evaluate_team_prop_ledger({"records": [record]})
+
+    assert report["overall"]["real_price_roi"]["profit_units"] == 1.4
+    assert report["overall"]["market_benchmark"]["brier_score"] == 0.3364
+    assert report["overall"]["market_benchmark"]["probability_sources"] == {"observed_no_vig": 1}
+    assert report["exact_market_prices"][0]["offered_american_odds"] == "140.0"
+
+    del record["price"]["market_no_vig_selected_probability"]
+    report = evaluate_team_prop_ledger({"records": [record]})
+    assert report["overall"]["market_benchmark"]["probability_sources"] == {"observed_american_odds": 1}
+    assert report["overall"]["market_benchmark"]["mean_probability"] == 0.416667
+
+
+def test_evaluator_never_borrows_snapshot_clock_or_odds_for_captured_price():
+    record = _record(
+        model_key="nfl",
+        pregame_snapshot={
+            "odds": -110, "pricing_type": "market",
+            "market_updated_at": "2026-06-10T14:55:00Z",
+            "market_no_vig_selected_probability": 0.55,
+        },
+        observed_american_odds=140,
+        price={"odds": 140, "pricing_type": "market", "odds_source": "sportsbook_observed"},
+    )
+
+    report = evaluate_team_prop_ledger({"records": [record]})
+    assert report["overall"]["real_price_roi"]["excluded"] == {"missing_quote_timestamp": 1}
+    assert report["overall"]["market_benchmark"]["priced_or_observed_records"] == 0
+
+    record["price"]["market_updated_at"] = "2026-06-10T15:06:00Z"
+    report = evaluate_team_prop_ledger({"records": [record]})
+    assert report["overall"]["real_price_roi"]["excluded"] == {"quote_after_publication": 1}
+    assert report["overall"]["market_benchmark"]["priced_or_observed_records"] == 0
+
+    record["price"]["market_updated_at"] = "2026-06-10T14:58:00Z"
+    record["observed_american_odds"] = -110
+    report = evaluate_team_prop_ledger({"records": [record]})
+    assert report["overall"]["real_price_roi"]["excluded"] == {"missing_verified_american_price": 1}
+    assert report["overall"]["market_benchmark"]["priced_or_observed_records"] == 0
+
+    record["observed_american_odds"] = None
+    del record["price"]["odds"]
+    report = evaluate_team_prop_ledger({"records": [record]})
+    assert report["overall"]["real_price_roi"]["excluded"] == {"missing_verified_american_price": 1}
+    assert report["overall"]["market_benchmark"]["priced_or_observed_records"] == 0
+
+
+def test_evaluator_uses_ledger_settlement_over_pending_pregame_image():
+    record = _record(
+        model_key="nfl", result="win",
+        pregame_snapshot={"result": "pending", "outcome": "pending"},
+    )
+
+    report = evaluate_team_prop_ledger({"records": [record]})
+
+    assert report["overall"]["model_metrics"]["settled_records"] == 1
+    assert report["overall"]["result_counts"] == {"win": 1}
+    assert report["overall"]["real_price_roi"]["priced_settled_actionable_records"] == 1
+
+
+def test_observed_odds_at_model_selected_line_remain_financial_evidence():
+    record = _record(
+        model_key="mlb_first_five",
+        price={
+            "odds": -110, "pricing_type": "market", "odds_source": "posted_market",
+            "line_source": "user_assumed_f5_total_ladder",
+            "market_updated_at": "2026-06-10T14:55:00Z",
+        },
+    )
+
+    report = evaluate_team_prop_ledger({"records": [record]})
+
+    assert report["overall"]["real_price_roi"]["priced_settled_actionable_records"] == 1
+    assert report["overall"]["market_benchmark"]["priced_or_observed_records"] == 1
 
 
 def test_evaluator_never_uses_assumed_or_proxy_prices_as_financial_evidence():

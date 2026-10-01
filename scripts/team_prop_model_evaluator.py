@@ -274,7 +274,11 @@ def _timestamp_key(value: str | None) -> tuple[int, datetime, str]:
 
 
 def _outcome(record: Mapping[str, Any]) -> int | None:
-    value = _value_from_contexts(record, "outcome", "result")
+    # Settlement is attached to the ledger after the pregame image was frozen.
+    # That image may still say pending when the ledger has the final result.
+    value = _mapping_value(record, "outcome", "result")
+    if value is None:
+        value = _value_from_contexts(record, "outcome", "result")
     if value in (1, "1", True):
         return 1
     if value in (0, "0", False):
@@ -288,7 +292,9 @@ def _outcome(record: Mapping[str, Any]) -> int | None:
 
 
 def _result_label(record: Mapping[str, Any]) -> str:
-    value = _value_from_contexts(record, "result", "outcome")
+    value = _mapping_value(record, "result", "outcome")
+    if value is None:
+        value = _value_from_contexts(record, "result", "outcome")
     return str(value or "pending").strip().lower() or "pending"
 
 
@@ -362,13 +368,34 @@ def _market_benchmark_eligible(record: Mapping[str, Any]) -> bool:
     return explicit is True or _financial_eligible(record)
 
 
+def _price_context(record: Mapping[str, Any]) -> Mapping[str, Any]:
+    """Keep the captured quote and its clock together for financial evidence."""
+    price = record.get("price")
+    if isinstance(price, Mapping):
+        return price
+    odds_fields = ("observed_american_odds", "actual_american_odds", "american_odds", "real_american_odds", "odds")
+    if any(field in record for field in odds_fields):
+        return record
+    for key in ("pregame_snapshot", "snapshot", "immutable_record", "feature_snapshot"):
+        context = record.get(key)
+        if isinstance(context, Mapping) and any(field in context for field in odds_fields):
+            return context
+    return record
+
+
 def _price_provenance_is_disallowed(record: Mapping[str, Any]) -> bool:
-    text_values: list[str] = []
-    for context in _snapshot_contexts(record):
-        for key in ("pricing_type", "odds_source", "line_source", "price_source", "price_provenance"):
-            value = context.get(key)
-            if value not in (None, ""):
-                text_values.append(str(value).lower())
+    context = _price_context(record)
+    if context.get("market_priced") is False:
+        return True
+    odds = _as_number(context.get("odds"))
+    if context.get("assumed_odds_replaced") is not True and odds is not None and any(
+        _as_number(context.get(field)) == odds for field in ("assumed_odds", "model_assumed_odds")
+    ):
+        return True
+    # Line selection can be model-derived while odds at that line are posted.
+    text_values = [str(context.get(key)).lower() for key in (
+        "pricing_type", "odds_source", "price_source", "price_provenance",
+    ) if context.get(key) not in (None, "")]
     blocked = ("assumed", "proxy", "synthetic", "model_generated", "default", "unpriced", "unknown")
     return any(any(marker in value for marker in blocked) for value in text_values)
 
@@ -377,24 +404,28 @@ def _american_odds(record: Mapping[str, Any]) -> float | None:
     """Return a verified observed American price, never an assumed/proxy one."""
     if not _financial_eligible(record) or _price_provenance_is_disallowed(record):
         return None
-    for context in _snapshot_contexts(record):
-        for key in ("observed_american_odds", "actual_american_odds", "american_odds", "real_american_odds"):
-            odds = _as_number(context.get(key))
-            if odds is not None and odds != 0 and abs(odds) >= 100:
-                return odds
+    context = _price_context(record)
+    if isinstance(record.get("price"), Mapping):
         odds = _as_number(context.get("odds"))
-        odds_format = str(context.get("odds_format") or context.get("price_format") or "").strip().lower()
-        pricing_type = str(context.get("pricing_type") or "").strip().lower()
-        if (
-            odds is not None
-            and odds != 0
-            and abs(odds) >= 100
-            and (
-                odds_format in {"american", "us"}
-                or pricing_type in {"market", "sportsbook", "bookmaker", "observed", "executable"}
-            )
-        ):
+        captured = _as_number(record.get("observed_american_odds"))
+        if odds is None or abs(odds) < 100 or (captured is not None and captured != odds):
+            return None
+        return odds
+    if context is record and "observed_american_odds" in record:
+        odds = _as_number(record.get("observed_american_odds"))
+        return odds if odds is not None and abs(odds) >= 100 else None
+    for key in ("observed_american_odds", "actual_american_odds", "american_odds", "real_american_odds"):
+        odds = _as_number(context.get(key))
+        if odds is not None and abs(odds) >= 100:
             return odds
+    odds = _as_number(context.get("odds"))
+    odds_format = str(context.get("odds_format") or context.get("price_format") or "").strip().lower()
+    pricing_type = str(context.get("pricing_type") or "").strip().lower()
+    if odds is not None and abs(odds) >= 100 and (
+        odds_format in {"american", "us"}
+        or pricing_type in {"market", "sportsbook", "bookmaker", "observed", "executable"}
+    ):
+        return odds
     return None
 
 
@@ -402,24 +433,20 @@ def _market_probability(record: Mapping[str, Any]) -> tuple[float | None, str | 
     if not _market_benchmark_eligible(record) or _price_provenance_is_disallowed(record):
         return None, None
     if observed_quote_timing(
-        record.get("pregame_snapshot") if isinstance(record.get("pregame_snapshot"), Mapping) else record,
+        _price_context(record),
         published_at=record.get("published_at"), start_at=record.get("game_start_time"),
     ):
         return None, None
+    odds = _american_odds(record)
+    if odds is None:
+        return None, None
     # Use the paired, observed no-vig quote when publication retained it.
     # A single offered side is a vigged break-even, not a fair benchmark.
-    no_vig = _normalise_probability(_value_from_contexts(record, "market_no_vig_selected_probability"))
+    no_vig = _normalise_probability(_price_context(record).get("market_no_vig_selected_probability"))
     if no_vig is not None:
         return no_vig, "observed_no_vig"
-    odds = _american_odds(record)
-    if odds is not None:
-        implied = 100.0 / (odds + 100.0) if odds > 0 else abs(odds) / (abs(odds) + 100.0)
-        return implied, "observed_american_odds"
-    for field in ("market_probability", "market_implied_probability", "market_pick_prob"):
-        probability = _normalise_probability(_value_from_contexts(record, field))
-        if probability is not None:
-            return probability, field
-    return None, None
+    implied = 100.0 / (odds + 100.0) if odds > 0 else abs(odds) / (abs(odds) + 100.0)
+    return implied, "observed_american_odds"
 
 
 def _stake(record: Mapping[str, Any]) -> float | None:
@@ -523,7 +550,7 @@ def _roi(rows: Iterable[dict[str, Any]], *, shadow: bool = False) -> dict[str, A
             excluded["assumed_or_proxy_price"] += 1
             continue
         price_clock = observed_quote_timing(
-            record.get("pregame_snapshot") if isinstance(record.get("pregame_snapshot"), Mapping) else record,
+            _price_context(record),
             published_at=record.get("published_at"), start_at=record.get("game_start_time"),
         )
         if price_clock:
