@@ -785,6 +785,34 @@ def test_sportsgambler_mlb_uses_known_matchups_as_a_whitelist(monkeypatch):
     assert [row["matchup"] for row in rows] == ["Chicago Cubs vs St. Louis Cardinals"]
 
 
+def test_sportsgambler_mlb_rejects_cloudflare_or_non_200(monkeypatch):
+    module = _load_module(
+        "sportsgambler_mlb_block_test",
+        ROOT / "scripts" / "scrapers" / "sportsgambler_scraper.py",
+    )
+    expected = ["St. Louis Cardinals @ Chicago Cubs"]
+
+    def assert_blocked(response, snippet: str):
+        monkeypatch.setattr(module.requests, "get", lambda *_args, **_kwargs: response)
+        try:
+            result = module.scrape_mlb(date(2026, 6, 13), expected)
+        except RuntimeError as exc:
+            assert snippet in str(exc)
+        else:
+            raise AssertionError(f"blocked MLB listing must raise, got {result!r}")
+
+    class Forbidden:
+        status_code = 403
+        text = "<html><title>Just a moment...</title></html>"
+
+    class Challenge:
+        status_code = 200
+        text = "<html>Sorry, you have been blocked</html>"
+
+    assert_blocked(Forbidden(), "HTTP 403")
+    assert_blocked(Challenge(), "provider challenge page")
+
+
 def test_sportsgambler_fifa_world_cup_preserves_asian_handicap(monkeypatch):
     module = _load_module(
         "sportsgambler_fifa_test",

@@ -258,7 +258,13 @@ def scrape_nfl(target: date | None, expected_matchups: list[str] | None = None) 
 
 def scrape_mlb(target: date | None, expected_matchups: list[str] | None = None) -> list[dict]:
     expected = _expected_matchup_whitelist(expected_matchups)
-    html = requests.get(MLB_URL, headers=HEADERS, timeout=30).text
+    response = requests.get(MLB_URL, headers=HEADERS, timeout=30)
+    status = getattr(response, "status_code", 200)
+    html = response.text
+    if status != 200:
+        raise RuntimeError(f"unable to load MLB prediction listing(s): {MLB_URL}: HTTP {status}")
+    if any(signal in html[:12000].lower() for signal in BLOCK_SIGNALS):
+        raise RuntimeError(f"unable to load MLB prediction listing(s): {MLB_URL}: provider challenge page")
     soup = BeautifulSoup(html, "html.parser")
     rows, seen = [], set()
     for item in soup.select("div.tipbox_item"):
