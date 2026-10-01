@@ -24,6 +24,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT))
 
 from scripts.model_scorecard_stats import binary_score, clustered_roi_interval  # noqa: E402
+from scripts.price_clock import QUOTE_FIELDS  # noqa: E402
 from scripts.team_prop_model_evaluator import (  # noqa: E402
     SUPPORTED_MODEL_KEYS,
     evaluate_team_prop_ledger,
@@ -111,8 +112,7 @@ def _prop_price(
     odds = _number(pick.get("odds"))
     if odds is None or abs(odds) < 100:
         return None, "missing_observed_odds"
-    quote_at = _timestamp(_first(pick, "market_updated_at", "market_retrieved_at",
-                                 "odds_updated_at", "price_updated_at"))
+    quote_at = _timestamp(_first(pick, *QUOTE_FIELDS))
     if quote_at is None:
         return None, "missing_quote_timestamp"
     if quote_at >= start or published >= start:
@@ -321,6 +321,81 @@ def _read(path: Path) -> dict[str, Any]:
     return payload
 
 
+
+def _iso_or_none(value: Any) -> str | None:
+    ts = _timestamp(value)
+    if ts is not None:
+        return ts.isoformat().replace("+00:00", "Z")
+    raw = str(value or "").strip()
+    # Date-only ledger fields are still a useful freshness bound.
+    # Reject strings that only look like YYYY-MM-DD so a bad field cannot become a clock.
+    if len(raw) == 10 and raw[4] == "-" and raw[7] == "-":
+        try:
+            datetime.strptime(raw, "%Y-%m-%d")
+        except ValueError:
+            return None
+        return raw
+    return None
+
+
+def _ledger_as_of(ledger: Mapping[str, Any], record_keys: tuple[str, ...]) -> str | None:
+    for key in ("updated_at", "updatedAt", "generated_at", "generatedAt", "built_at", "as_of"):
+        top = _iso_or_none(ledger.get(key))
+        if top is not None:
+            return top
+    best: str | None = None
+    best_time: datetime | None = None
+    records = ledger.get("records") if isinstance(ledger.get("records"), list) else []
+    for record in records:
+        if not isinstance(record, dict):
+            continue
+        for key in record_keys:
+            candidate = _iso_or_none(record.get(key))
+            if candidate is None:
+                continue
+            candidate_time = datetime.fromisoformat(candidate.replace("Z", "+00:00"))
+            if candidate_time.tzinfo is None:
+                candidate_time = candidate_time.replace(tzinfo=timezone.utc)
+            if best_time is None or candidate_time > best_time:
+                best = candidate
+                best_time = candidate_time
+    return best
+
+
+def _history_freshness(
+    team_ledger: Mapping[str, Any],
+    outcome_ledger: Mapping[str, Any],
+    slots: Mapping[tuple[str, str, str, str, str], dict[str, Any]],
+) -> dict[str, Any]:
+    fingerprints: set[str] = set()
+    for slot in slots.values():
+        for role in ("forecast", "action"):
+            item = slot.get(role) if isinstance(slot, dict) else None
+            pick = item.get("pick") if isinstance(item, dict) else None
+            if not isinstance(pick, dict):
+                continue
+            fp = str(_first(pick, "ml_training_fingerprint", "training_fingerprint") or "").strip()
+            if fp:
+                fingerprints.add(fp)
+    team_records = team_ledger.get("records") if isinstance(team_ledger.get("records"), list) else []
+    outcome_records = outcome_ledger.get("records") if isinstance(outcome_ledger.get("records"), list) else []
+    return {
+        "outcome_ledger_as_of": _ledger_as_of(
+            outcome_ledger, ("settled_at", "graded_at", "as_of", "updated_at", "date"),
+        ),
+        "outcome_ledger_records": len(outcome_records),
+        "team_ledger_as_of": _ledger_as_of(
+            team_ledger,
+            ("updated_at", "data_as_of", "published_at", "settled_at", "graded_at", "as_of", "slate_date", "date"),
+        ),
+        "team_ledger_records": len(team_records),
+        "training_fingerprints": sorted(fingerprints),
+        "note": (
+            "Soft-skipped history restores can leave these clocks older than the live props publish."
+        ),
+    }
+
+
 def build_scorecard(
     team_ledger: Mapping[str, Any], outcome_ledger: Mapping[str, Any],
     snapshot_dir: Path, *, forward_since: str = FORWARD_SINCE,
@@ -386,6 +461,7 @@ def build_scorecard(
             "player_props": "data/player_props_snapshots/YYYY-MM-DD/*.json",
             "prop_outcomes": "data/calibration/outcome_ledger.json (result join only)",
         },
+        "history_freshness": _history_freshness(team_ledger, outcome_ledger, slots),
         "team_record_quality": team["record_quality"],
         "player_prop_snapshot_exclusions": dict(sorted(prop_exclusions.items())),
         "scorecards": cards,

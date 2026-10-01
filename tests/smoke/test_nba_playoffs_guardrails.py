@@ -272,6 +272,17 @@ def test_nba_roster_falls_back_to_espn_when_nba_api_times_out(monkeypatch):
     assert result == fallback
 
 
+def test_playoff_pass_json_cannot_keep_a_stake():
+    import pickgrader_server as ps
+
+    picks = ps._parse_nba_playoffs_output(
+        'PICK_JSON: {"pick":"Celtics ML (Heat @ Celtics)","decision":"PASS","units":1.13,"odds":-110}'
+    )
+    assert picks[0]["decision"] == "PASS"
+    assert picks[0]["units"] == 0
+    assert picks[0]["sport"] == "NBA"
+
+
 def test_nba_playoffs_pick_payload_records_team_stats_source():
     source = (REPO_ROOT / "NBAPlayoffsPredictionModel" / "run_live.py").read_text(encoding="utf-8")
 

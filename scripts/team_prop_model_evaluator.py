@@ -24,7 +24,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT))
 
 from scripts.model_scorecard_stats import clustered_roi_interval  # noqa: E402
-from scripts.price_clock import observed_quote_timing  # noqa: E402
+from scripts.price_clock import borrow_missing_quote_clocks, observed_quote_timing  # noqa: E402
 
 SCHEMA_VERSION = 1
 SUPPORTED_MODEL_KEYS = (
@@ -369,9 +369,15 @@ def _market_benchmark_eligible(record: Mapping[str, Any]) -> bool:
 
 
 def _price_context(record: Mapping[str, Any]) -> Mapping[str, Any]:
-    """Keep the captured quote and its clock together for financial evidence."""
+    """Keep the captured quote and its clock together for financial evidence.
+
+    Ledger odds and provenance win. A price blob with no quote clock borrows
+    the missing clock from the pregame snapshot, then the top-level record.
+    """
     price = record.get("price")
     if isinstance(price, Mapping):
+        if price:
+            return borrow_missing_quote_clocks(price, record.get("pregame_snapshot"), record)
         return price
     odds_fields = ("observed_american_odds", "actual_american_odds", "american_odds", "real_american_odds", "odds")
     if any(field in record for field in odds_fields):

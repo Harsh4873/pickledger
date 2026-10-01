@@ -380,6 +380,16 @@ def test_trainer_waits_for_100_new_decisions_then_force_evaluates(tmp_path: Path
     assert (calibration_dir / "active.json").exists()
     assert (calibration_dir / "challenger.json").exists()
     assert json.loads((calibration_dir / "state.json").read_text())["last_evaluated_decided_count"] == 60
+    challenger = json.loads((calibration_dir / "challenger.json").read_text())
+    assert challenger["holdout_describes"] == "selection_mapping_train_only"
+    assert challenger["global"] == challenger["selection_mapping"]["global"]
+    assert challenger["groups"] == challenger["selection_mapping"]["groups"]
+    assert challenger["global"]["samples"] == 40
+    assert challenger["refit_mapping_all_rows"]["global"]["samples"] == 60
+    if evaluated["promoted"]:
+        active = json.loads((calibration_dir / "active.json").read_text())
+        assert active["global"] == challenger["selection_mapping"]["global"]
+        assert active["groups"] == challenger["selection_mapping"]["groups"]
 
 
 def test_existing_champion_waits_for_enough_unseen_trainable_rows(tmp_path: Path):

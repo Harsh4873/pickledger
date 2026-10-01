@@ -159,15 +159,24 @@ def test_daily_schedule_runs_writers_sequentially_and_requests_deployment():
     assert "uses: ./.github/workflows/external-feed-refresh.yml" in daily
     assert "needs: models" in daily
     assert "needs: props" in daily
-    assert "needs: feeds" in daily
-    assert daily.count("if: ${{ !cancelled() }}") == 3
+    assert "needs: [models, props, feeds]" in daily
+    assert daily.count("if: ${{ !cancelled() }}") == 2  # props + feeds still advisory continue
+    assert "needs.feeds.result == 'success'" in daily
+    assert "needs.props.result == 'success'" in daily
+    assert "needs.models.result == 'success'" in daily
     assert "gh workflow run deploy-pages.yml --ref main" in daily
+    assert daily.count("skip_deploy: true") == 3
     for name in ("model-cache-refresh.yml", "player-props-refresh.yml", "external-feed-refresh.yml"):
         writer = (workflows / name).read_text(encoding="utf-8")
         assert "  workflow_call:" in writer
         assert "  workflow_dispatch:" in writer
         assert "\n  schedule:" not in writer
         assert "group: pick-cache-writer" in writer
+        caller_inputs = writer.split("  workflow_call:", 1)[1].split("  workflow_dispatch:", 1)[0]
+        assert "skip_deploy:" in caller_inputs
+        assert "type: boolean" in caller_inputs and "default: false" in caller_inputs
+        deploy = writer.split("- name: Deploy updated", 1)[1].split("- name:", 1)[0]
+        assert "!inputs.skip_deploy" in deploy
 
 
 def test_diagnostic_and_notification_failures_do_not_fail_published_refresh():

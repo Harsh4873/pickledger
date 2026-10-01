@@ -232,6 +232,17 @@ def demote_unpriced_team_model_picks(payload: dict[str, Any]) -> int:
             if not isinstance(pick, dict):
                 continue
             decision = str(pick.get("decision") or "").strip().upper()
+            # NBA PASS rows used to keep a positive stake (spread Kelly stored
+            # as units below the action threshold, and the legacy 1u default).
+            # Demotion only rewrites BET/LEAN, so clear that stake here.
+            if key in {"nba", "nba_playoffs", "nba_summer"} and decision == "PASS":
+                try:
+                    pass_units = float(pick.get("units") or 0)
+                except (TypeError, ValueError):
+                    pass_units = 0.0
+                if pass_units:
+                    pick["units"] = 0
+                    changed += 1
             if decision not in {"BET", "LEAN"} or not _still_assumed_price(pick):
                 continue
             pick.setdefault("source_decision", decision)
@@ -273,6 +284,8 @@ EXTERNAL_FEED_MODEL_KEYS = {
     "forebet_mls",
     "forebet_mlb",
     "forebet_wnba",
+    "forebet_nhl",
+    "forebet_nba",
     "tennistonic_tennis",
     "scores24_tennis",
 }

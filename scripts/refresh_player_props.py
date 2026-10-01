@@ -136,8 +136,10 @@ def _publication_contract_errors(
         if not isinstance(model, dict):
             errors.append(f"required bucket {model_name} is missing")
             continue
-        # Football slates soft-fail: an empty or unpriced day is valid, and an
-        # upstream outage must not block MLB/NBA/WNBA publication.
+        # Soft NFL/CFB: missing buckets still fail the contract. ok=False is a
+        # real outage, not a healthy empty day, but it must not block MLB/NBA/WNBA.
+        # Residual: this process still exits 0 when only soft buckets are ok=False.
+        # Callers surface that on ::warning lines via _soft_failure_warning_lines.
         if model.get("ok") is not True:
             continue
     mlb = models.get("mlb_player_props") if isinstance(models.get("mlb_player_props"), dict) else {}
@@ -145,6 +147,28 @@ def _publication_contract_errors(
     if scheduled_games > 0 and not (mlb.get("picks") or []) and not documented_abstention(mlb):
         errors.append(f"scheduled MLB games ({scheduled_games}) have zero published picks")
     return errors
+
+
+def _soft_failure_warning_lines(models: dict[str, Any]) -> list[str]:
+    """GitHub-style warnings for soft NFL/CFB outages.
+
+    These lines are not publication contract errors. Exit status stays on the
+    hard MLB/NBA/WNBA contract so those sports still publish when football
+    soft-fails. Residual: an ok=False football bucket is written and warned,
+    and this process still exits 0 when every hard bucket is ok.
+    """
+    lines: list[str] = []
+    for model_name in sorted(SOFT_PLAYER_PROP_MODEL_KEYS):
+        model = models.get(model_name)
+        if not isinstance(model, dict):
+            continue
+        errors = [str(item) for item in (model.get("errors") or []) if str(item).strip()]
+        if model.get("ok") is True and not errors:
+            continue
+        detail = "; ".join(errors) or str(model.get("note") or "soft-failed")
+        escaped = detail.replace("%", "%25").replace("\r", "%0D").replace("\n", "%0A")
+        lines.append(f"::warning title=Player props soft-fail::{model_name} ok={model.get('ok')}: {escaped}")
+    return lines
 
 
 def main() -> int:
@@ -184,6 +208,8 @@ def main() -> int:
         print(f"[player-props] {model_name}: {'ok' if ok else 'error'} ({len(picks)} pick(s))")
         for error in model.get("errors") or []:
             print(f"[player-props] {model_name} warning: {error}")
+    for line in _soft_failure_warning_lines(payload["models"]):
+        print(line)
     for error in contract_errors:
         print(f"[player-props] publication contract error: {error}")
     print(f"[player-props] wrote {output_dir / f'{target_date}.json'}")

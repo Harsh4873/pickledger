@@ -229,6 +229,39 @@ SEARCHED_MARKETS = {
 }
 
 
+
+def _gha_escape(text: str) -> str:
+    """Escape newlines/% for GitHub Actions workflow command payloads."""
+    return str(text).replace("%", "%25").replace("\r", "%0D").replace("\n", "%0A")
+
+
+def _emit_skipped_sports_warning(skipped_sports: list[str], *, reason: str = "") -> None:
+    """Surface soft-skipped sports as a Actions ::warning (verify-only still exits 0).
+
+    Residual honesty: NFL/CFB can land in skipped_sports while --verify-only returns 0.
+    Without this annotation, CI looks fully green and ops miss football soft-skips.
+    """
+    if not skipped_sports:
+        return
+    sports = ",".join(str(sport) for sport in skipped_sports)
+    detail = f"skipped_sports={sports}"
+    if reason:
+        detail = f"{detail}; {reason}"
+    print(
+        f"::warning title=Player prop consensus soft-skip::{_gha_escape(detail)}",
+        file=sys.stderr,
+    )
+
+
+def _emit_verify_skip_warning(reason: str) -> None:
+    """Annotate early --verify-only soft skips (missing history / empty matrices)."""
+    detail = str(reason or "verify-only soft skip").strip() or "verify-only soft skip"
+    print(
+        f"::warning title=Player prop consensus soft-skip::{_gha_escape(detail)}",
+        file=sys.stderr,
+    )
+
+
 def _read_jsonl(path: Path) -> list[dict[str, Any]]:
     rows: list[dict[str, Any]] = []
     opener = gzip.open if path.suffix == ".gz" else open
@@ -297,19 +330,23 @@ def _regressor() -> Any:
     )
 
 
-def _fit_market(frame: Any, stat_key: str, cutoff: str | None = None, *, min_child_weight: int = 15) -> Any:
+def _fit_market(frame: Any, stat_key: str, cutoff: str | None = None, *, min_child_weight: int = 15) -> Any | None:
     rows = frame[frame["stat_key"].eq(stat_key)]
     if cutoff:
         rows = rows[rows["date"].le(cutoff)]
+    if rows.empty or rows["over_outcome"].nunique() < 2:
+        return None
     model = _classifier(min_child_weight=min_child_weight)
     model.fit(rows[NUMERIC_FEATURES], rows["over_outcome"].astype(int))
     return model
 
 
-def _fit_paired_history(frame: Any, stat_key: str, cutoff: str | None = None) -> Any:
+def _fit_paired_history(frame: Any, stat_key: str, cutoff: str | None = None) -> Any | None:
     rows = frame[frame["stat_key"].eq(stat_key)]
     if cutoff:
         rows = rows[rows["date"].le(cutoff)]
+    if rows.empty or rows["over_outcome"].nunique() < 2:
+        return None
     columns = [
         name if name in {"line", "over_implied", "under_implied"} else f"history_{name}"
         for name in NUMERIC_FEATURES
@@ -806,6 +843,30 @@ def _publication_plan(
     return publication_metadata, publish_artifacts_for
 
 
+
+def _atomic_write_text(path: Path, content: str) -> None:
+    """Write text via temp+os.replace so a crash cannot truncate active metadata."""
+    import os
+    import tempfile
+
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temporary: Path | None = None
+    try:
+        with tempfile.NamedTemporaryFile(
+            mode="w", encoding="utf-8", dir=path.parent,
+            prefix=f".{path.name}.", suffix=".tmp", delete=False,
+        ) as handle:
+            temporary = Path(handle.name)
+            handle.write(content)
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.replace(temporary, path)
+        temporary = None
+    finally:
+        if temporary is not None:
+            temporary.unlink(missing_ok=True)
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--markets", type=Path, default=DEFAULT_MARKETS)
@@ -827,7 +888,9 @@ def main() -> int:
             if not path.is_file()
         ]
         if missing:
-            print(json.dumps({"status": "skipped", "reason": f"missing {', '.join(missing)}",
+            reason = f"missing {', '.join(missing)}"
+            _emit_verify_skip_warning(reason)
+            print(json.dumps({"status": "skipped", "reason": reason,
                               "artifacts": "unchanged"}, sort_keys=True))
             return 0
     market_rows = _read_jsonl(args.markets.resolve())
@@ -838,11 +901,20 @@ def main() -> int:
             evaluation_windows[sport] = _windows(sport, market_rows)
         except ValueError:
             if sport in {"NFL", "CFB"}:
-                skipped_sports.append(sport)
+                if sport not in skipped_sports:
+                    skipped_sports.append(sport)
+                print(
+                    f"[player-prop-consensus] soft-skip {sport}: no dated market windows",
+                    file=sys.stderr,
+                )
                 continue
             if args.verify_only:
-                print(json.dumps({"status": "skipped", "reason": f"no dated {sport} market rows",
-                                  "artifacts": "unchanged"}, sort_keys=True))
+                reason = f"no dated {sport} market rows"
+                _emit_skipped_sports_warning(skipped_sports, reason="partial soft-skip before hard verify abort")
+                _emit_verify_skip_warning(reason)
+                print(json.dumps({"status": "skipped", "reason": reason,
+                                  "artifacts": "unchanged",
+                                  "skipped_sports": list(skipped_sports)}, sort_keys=True))
                 return 0
             raise
     outcome_rows = [
@@ -877,8 +949,12 @@ def main() -> int:
             if not any(str(row.get("sport") or "").upper() == sport for row in rows)
         ]
         if missing_features:
-            print(json.dumps({"status": "skipped", "reason": f"missing {', '.join(missing_features)}",
-                              "artifacts": "unchanged"}, sort_keys=True))
+            reason = f"missing {', '.join(missing_features)}"
+            _emit_skipped_sports_warning(skipped_sports, reason="soft-skip before empty-matrix verify abort")
+            _emit_verify_skip_warning(reason)
+            print(json.dumps({"status": "skipped", "reason": reason,
+                              "artifacts": "unchanged",
+                              "skipped_sports": list(skipped_sports)}, sort_keys=True))
             return 0
 
     import joblib  # type: ignore
@@ -1114,13 +1190,16 @@ def main() -> int:
                     **({"search_near_miss": near_miss} if (not active and near_miss) else {}),
                 }
 
-        except Exception:
+        except Exception as exc:
             if sport not in {"NFL", "CFB"}:
                 raise
             if sport not in skipped_sports:
                 skipped_sports.append(sport)
             evaluation_windows.pop(sport, None)
+            # This mapping contains per-market result dictionaries only.
+            # Mixing in a bool/string here crashes metadata construction below.
             validation_results[sport] = {}
+            print(f"[player-prop-consensus] soft-skip {sport}: {exc}", file=sys.stderr)
 
     final_artifacts: dict[tuple[str, str], dict[str, Any]] = {}
     for sport in POLICIES:
@@ -1174,10 +1253,16 @@ def main() -> int:
                         )
                         history_kinds[stat_key] = "market_classifier"
                         history_model_features[stat_key] = NUMERIC_FEATURES
-        except Exception:
+        except Exception as exc:
             if sport in {"NFL", "CFB"}:
                 if sport not in skipped_sports:
                     skipped_sports.append(sport)
+                # A successful validation cannot activate an artifact whose
+                # final fit failed. Preserve any existing sport via the normal
+                # inactive-candidate publication plan.
+                validation_results[sport] = {}
+                evaluation_windows.pop(sport, None)
+                print(f"[player-prop-consensus] soft-skip {sport} final fit: {exc}", file=sys.stderr)
                 continue
             raise
         final_artifacts[(sport, "season")] = {
@@ -1331,6 +1416,10 @@ def main() -> int:
         except json.JSONDecodeError:
             existing_metadata = None
     if args.dry_run or args.verify_only:
+        _emit_skipped_sports_warning(
+            skipped_sports,
+            reason="verify-only" if args.verify_only else "dry-run",
+        )
         print(json.dumps(metadata, indent=2, sort_keys=True))
         return 0 if args.verify_only or metadata.get("active") is True else 2
     publication_metadata, publish_artifacts_for = _publication_plan(metadata, existing_metadata)
@@ -1342,9 +1431,9 @@ def main() -> int:
             )
             print(json.dumps(existing_metadata, indent=2, sort_keys=True))
             return 2
-        CONSENSUS_METADATA_PATH.write_text(
+        _atomic_write_text(
+            CONSENSUS_METADATA_PATH,
             json.dumps(publication_metadata, indent=2, sort_keys=True) + "\n",
-            encoding="utf-8",
         )
         print(json.dumps(publication_metadata, indent=2, sort_keys=True))
         return 2
@@ -1352,10 +1441,11 @@ def main() -> int:
     for key, artifact in final_artifacts.items():
         if key[0] in publish_artifacts_for:
             joblib.dump(artifact, MODEL_PATHS[key], compress=3)
-    CONSENSUS_METADATA_PATH.write_text(
+    _atomic_write_text(
+        CONSENSUS_METADATA_PATH,
         json.dumps(publication_metadata, indent=2, sort_keys=True) + "\n",
-        encoding="utf-8",
     )
+    _emit_skipped_sports_warning(skipped_sports, reason="published with soft-skips")
     print(json.dumps(publication_metadata, indent=2, sort_keys=True))
     return 0
 

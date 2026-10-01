@@ -214,6 +214,16 @@ def test_shadow_rule_needs_a_complete_fresh_quote_and_team_rating():
         "2026-10-10", games=[{**game, "season_type": "PRE"}], now=clock,
     )
     assert preseason["picks"] == []
+    assert preseason["coverage"]["staked_rows"] == 0
+    no_clock = nhl_model.generate_nhl_picks(
+        "2026-10-10",
+        games=[{key: value for key, value in game.items() if key != "market_retrieved_at"}],
+        now=clock,
+    )["picks"][0]
+    assert no_clock["decision"] == "PASS" and no_clock["units"] == 0
+    assert no_clock["decision_reason"] == "research_only:missing_quote_timestamp"
+    assert "shadow_decision" not in no_clock
+    assert "market_retrieved_at" not in no_clock
 
 
 def test_integer_totals_keep_push_mass_out_of_the_under_probability():

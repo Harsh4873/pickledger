@@ -5,6 +5,11 @@ on:
     - cron: "15 9,11,15,17 * * *"
       timezone: "America/Chicago"
   workflow_dispatch:
+  # Reusable jobs complete under their caller's workflow name. Ignore standalone
+  # feed workflow_dispatch completions to avoid following our own retries.
+  workflow_run:
+    workflows: ["External Feed Refresh", "Daily Refresh"]
+    types: [completed]
 
 permissions:
   contents: read
@@ -17,7 +22,10 @@ concurrency:
 jobs:
   retry:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    # external-feed-refresh allows 20 minutes. Leave room to watch one run,
+    # reset onto its cache commit, and redispatch.
+    timeout-minutes: 35
+    if: ${{ github.event_name != 'workflow_run' || ((github.event.workflow_run.conclusion == 'success' || github.event.workflow_run.conclusion == 'failure' || github.event.workflow_run.conclusion == 'timed_out') && (github.event.workflow_run.name == 'Daily Refresh' || github.event.workflow_run.event != 'workflow_dispatch')) }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -32,18 +40,53 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
         run: |
+          set -euo pipefail
           TARGET_DATE="$(TZ=America/Chicago date +%F)"
+
+          read_active_refresh() {
+            local payload
+            payload="$(gh run list --branch main \
+              --limit 100 --json databaseId,status,workflowName \
+              --jq '[.[] | select(.workflowName == "External Feed Refresh" or .workflowName == "Daily Refresh") | select(.status == "queued" or .status == "in_progress" or .status == "waiting" or .status == "pending" or .status == "requested")]')"
+            # gh run list is newest-first, so the first active row is the newest active run.
+            ACTIVE_RUNS="$(jq -n --argjson runs "$payload" '$runs | length')"
+            ACTIVE_RUN_ID="$(jq -n -r --argjson runs "$payload" '$runs[0].databaseId // ""')"
+          }
+
+          sync_origin_main() {
+            git fetch origin main
+            git reset --hard origin/main
+          }
+
           FEEDS="$(python scripts/forebet_retry.py --date "$TARGET_DATE")"
           if [ -z "$FEEDS" ]; then
             echo "All Forebet sports have complete current-date official coverage."
             exit 0
           fi
-          ACTIVE_RUNS="$(gh run list --workflow external-feed-refresh.yml --branch main \
-            --limit 20 --json status \
-            --jq '[.[] | select(.status == "queued" or .status == "in_progress" or .status == "waiting" or .status == "pending" or .status == "requested")] | length')"
+
+          read_active_refresh
           if [ "${ACTIVE_RUNS:-0}" -gt 0 ]; then
-            echo "External feed refresh is already active; retry remains due: $FEEDS"
-            exit 0
+            if [ -z "${ACTIVE_RUN_ID}" ]; then
+              echo "::error::External feed refresh is active but no run id was returned; Forebet retry not dispatched: ${FEEDS}"
+              exit 1
+            fi
+            WATCHED_RUN_ID="$ACTIVE_RUN_ID"
+            echo "External feed refresh ${WATCHED_RUN_ID} is active; waiting before Forebet retry: ${FEEDS}"
+            if ! gh run watch "${WATCHED_RUN_ID}" --exit-status; then
+              echo "::warning::Watched external feed refresh ${WATCHED_RUN_ID} did not succeed; re-checking Forebet coverage from origin/main."
+            fi
+            sync_origin_main
+            FEEDS="$(python scripts/forebet_retry.py --date "$TARGET_DATE")"
+            if [ -z "$FEEDS" ]; then
+              echo "Forebet coverage completed by the refresh we waited on."
+              exit 0
+            fi
+            read_active_refresh
+            if [ "${ACTIVE_RUNS:-0}" -gt 0 ]; then
+              echo "::error::External feed refresh is still active after waiting on ${WATCHED_RUN_ID}; Forebet retry not dispatched: ${FEEDS}"
+              exit 1
+            fi
           fi
+
           echo "Retrying incomplete Forebet sports for ${TARGET_DATE}: ${FEEDS}"
           gh workflow run external-feed-refresh.yml --ref main -f date="$TARGET_DATE" -f feeds="$FEEDS"

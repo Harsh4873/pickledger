@@ -409,3 +409,14 @@ def test_mls_rows_stamp_the_espn_price_provenance(serving_fixture):
     unpriced = next(pick for pick in bucket["picks"] if pick["game_id"] == "g2")
     assert unpriced["odds"] is None
     assert unpriced["pricing_type"] == "unpriced" and unpriced["market_priced"] is False
+
+
+def test_settlement_support_rejects_quarter_goal_lines():
+    from scripts.settlement_support import binary_settlement_supported, settlement_exclusion_reason
+
+    fractional = {"model_key": "mls", "market": "total", "line": 2.75, "pick": "Over 2.75"}
+    assert settlement_exclusion_reason(fractional) == "unsupported_fractional_settlement"
+    assert binary_settlement_supported(fractional) is False
+    half = {"model_key": "mls", "market": "spread", "line": -0.5, "pick": "Home -0.5"}
+    assert settlement_exclusion_reason(half) is None
+    assert binary_settlement_supported(half) is True

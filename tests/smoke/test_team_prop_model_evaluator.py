@@ -171,9 +171,10 @@ def test_evaluator_uses_captured_quote_for_roi_benchmark_and_exact_price():
     assert report["overall"]["market_benchmark"]["mean_probability"] == 0.416667
 
 
-def test_evaluator_never_borrows_snapshot_clock_or_odds_for_captured_price():
+def test_evaluator_borrows_missing_quote_clock_but_not_snapshot_odds():
     record = _record(
         model_key="nfl",
+        market_updated_at="2026-06-10T20:00:00Z",
         pregame_snapshot={
             "odds": -110, "pricing_type": "market",
             "market_updated_at": "2026-06-10T14:55:00Z",
@@ -184,8 +185,28 @@ def test_evaluator_never_borrows_snapshot_clock_or_odds_for_captured_price():
     )
 
     report = evaluate_team_prop_ledger({"records": [record]})
+    roi = report["overall"]["real_price_roi"]
+    assert roi["priced_settled_actionable_records"] == 1
+    assert roi["profit_units"] == 1.4
+    assert "missing_quote_timestamp" not in roi["excluded"]
+    assert report["overall"]["market_benchmark"]["priced_or_observed_records"] == 1
+    assert report["overall"]["market_benchmark"]["probability_sources"] == {"observed_american_odds": 1}
+
+    record["pregame_snapshot"].pop("market_updated_at")
+    record["market_updated_at"] = "2026-06-10T14:55:00Z"
+    report = evaluate_team_prop_ledger({"records": [record]})
+    assert report["overall"]["real_price_roi"]["priced_settled_actionable_records"] == 1
+    assert "missing_quote_timestamp" not in report["overall"]["real_price_roi"]["excluded"]
+
+    record["market_updated_at"] = None
+    report = evaluate_team_prop_ledger({"records": [record]})
     assert report["overall"]["real_price_roi"]["excluded"] == {"missing_quote_timestamp": 1}
     assert report["overall"]["market_benchmark"]["priced_or_observed_records"] == 0
+
+    record["pregame_snapshot"]["market_odds_captured_at"] = "2026-06-10T14:55:00Z"
+    report = evaluate_team_prop_ledger({"records": [record]})
+    assert report["overall"]["real_price_roi"]["priced_settled_actionable_records"] == 1
+    assert report["overall"]["real_price_roi"]["profit_units"] == 1.4
 
     record["price"]["market_updated_at"] = "2026-06-10T15:06:00Z"
     report = evaluate_team_prop_ledger({"records": [record]})
@@ -216,6 +237,30 @@ def test_evaluator_uses_ledger_settlement_over_pending_pregame_image():
     assert report["overall"]["model_metrics"]["settled_records"] == 1
     assert report["overall"]["result_counts"] == {"win": 1}
     assert report["overall"]["real_price_roi"]["priced_settled_actionable_records"] == 1
+
+
+def test_quote_borrow_preserves_source_priority_across_aliases():
+    from scripts.price_clock import QUOTE_FIELDS, borrow_missing_quote_clocks, observed_quote_timing
+
+    good = "2026-06-10T14:55:00Z"
+    for field in QUOTE_FIELDS:
+        for bad, reason in (("2026-06-10T23:00:00Z", "post_start"), ("invalid", "missing_quote_timestamp")):
+            original = {"odds": 140, field: bad}
+            context = borrow_missing_quote_clocks(original, {"market_updated_at": good})
+            assert context == original
+            assert context is not original
+            assert observed_quote_timing(
+                context, published_at="2026-06-10T15:00:00Z", start_at="2026-06-10T22:00:00Z",
+            ) == reason
+
+    context = borrow_missing_quote_clocks(
+        {"odds": 140}, {"market_odds_captured_at": good},
+        {"market_updated_at": "2026-06-10T23:00:00Z", "odds": -110},
+    )
+    assert context == {"odds": 140, "market_odds_captured_at": good}
+    assert observed_quote_timing(
+        context, published_at="2026-06-10T15:00:00Z", start_at="2026-06-10T22:00:00Z",
+    ) is None
 
 
 def test_observed_odds_at_model_selected_line_remain_financial_evidence():

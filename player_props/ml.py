@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import sys
+
 import hashlib
 import json
 import math
@@ -177,8 +179,13 @@ def load_ml_bundle(sport: str) -> dict[str, Any] | None:
         import joblib  # type: ignore
 
         model_payload = joblib.load(artifact["model"])
-    except Exception:
-        model_payload = None
+    except Exception as exc:
+        print(
+            f"[player-props-ml] load failed sport={cache_key} path={artifact['model']}: {exc}",
+            file=sys.stderr,
+        )
+        # Do not cache load failures — a later call may succeed after repair.
+        return None
     if isinstance(model_payload, dict):
         model = model_payload.get("model")
         feature_names = model_payload.get("features") or FEATURE_NAMES
@@ -186,7 +193,10 @@ def load_ml_bundle(sport: str) -> dict[str, Any] | None:
         model = model_payload
         feature_names = FEATURE_NAMES
     if model is None:
-        _BUNDLES[cache_key] = None
+        print(
+            f"[player-props-ml] load returned empty model sport={cache_key} path={artifact['model']}",
+            file=sys.stderr,
+        )
         return None
     bundle = {"model": model, "features": list(feature_names), "metadata": metadata}
     _BUNDLES[cache_key] = bundle
@@ -234,7 +244,10 @@ def _predict_bundle_probability(bundle: dict[str, Any] | None, vector: list[floa
     try:
         probabilities = model.predict_proba([vector])
         return _clamp(float(probabilities[0][1]))
-    except Exception:
+    except Exception as exc:
+        if not getattr(_predict_bundle_probability, "_logged_predict_error", False):
+            print(f"[player-props-ml] predict failed: {exc}", file=sys.stderr)
+            _predict_bundle_probability._logged_predict_error = True  # type: ignore[attr-defined]
         return None
 
 

@@ -48,6 +48,33 @@ def test_refresh_publication_contract_requires_every_public_bucket():
     ]
 
 
+def test_soft_football_outage_warns_without_hard_contract_error():
+    from scripts.refresh_player_props import _soft_failure_warning_lines
+
+    models = _public_prop_buckets()
+    models["nfl_player_props"] = {
+        "ok": False,
+        "games": 0,
+        "picks": [],
+        "errors": ["synthetic football crash"],
+        "note": "NFL player-props soft-failed; empty slate so other sports can publish.",
+    }
+    models["cfb_player_props"] = {
+        "ok": False,
+        "games": 0,
+        "picks": [],
+        "errors": ["espn unavailable"],
+    }
+    assert _publication_contract_errors(models, official_mlb_games=0) == []
+    assert models["mlb_player_props"]["ok"] is True
+    assert models["nba_player_props"]["ok"] is True
+    assert models["wnba_player_props"]["ok"] is True
+    warnings = _soft_failure_warning_lines(models)
+    assert any(line.startswith("::warning") and "nfl_player_props" in line and "synthetic football crash" in line for line in warnings)
+    assert any("cfb_player_props" in line and "espn unavailable" in line for line in warnings)
+    assert _soft_failure_warning_lines(_public_prop_buckets()) == []
+
+
 def test_refresh_publication_contract_uses_independent_mlb_slate():
     models = _public_prop_buckets()
     models["mlb_player_props"].update({"games": 0, "abstained": True})
@@ -169,6 +196,9 @@ class EmptyClient:
 
     def mlb_schedule(self, date_iso):
         return {"dates": []}
+
+    def football_scoreboard(self, league, date_iso):
+        return {"events": [], "season": {"year": 2026}}
 
 
 class MockClient(EmptyClient):
@@ -761,7 +791,9 @@ def test_four_model_consensus_clears_70_percent_on_validation_and_later_holdout(
 
     monkeypatch.delenv("PICKLEDGER_DISABLE_PRECISION_MODEL", raising=False)
     precision._BUNDLE = False
-    consensus._BUNDLE = False
+    # This checks the checked-in metadata gate, not joblib deserialization.
+    # The loader has separate fixture coverage; production bundles are large.
+    consensus._BUNDLE = {"metadata": metadata, "artifacts": {}}
     assert precision.precision_model_active("MLB") is True
     assert precision.precision_model_active("WNBA") is bool(metadata["sports"]["WNBA"]["active"])
     source = (ROOT / "player_props" / "precision.py").read_text(encoding="utf-8")

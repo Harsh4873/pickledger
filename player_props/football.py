@@ -688,6 +688,39 @@ def _soft_empty_bucket(
     }
 
 
+def _honest_soft_ok(bucket: dict[str, Any]) -> dict[str, Any]:
+    """Mark true outages ok=False. Scheduled empty or unpriced abstention stays ok.
+
+    A scoreboard miss, a market-feed exception, or a slate whose every pregame
+    game raised is a soft failure. No games and no errors, or a scheduled slate
+    that simply has no posted price, stays ok so it still reads as abstention.
+    """
+    if not isinstance(bucket, dict) or bucket.get("ok") is False or bucket.get("picks"):
+        return bucket
+    errors = [str(item) for item in (bucket.get("errors") or []) if str(item).strip()]
+    diagnostics = [row for row in (bucket.get("diagnostics") or []) if isinstance(row, dict)]
+    pregame = [row for row in diagnostics if row.get("status") != "not_pregame"]
+    try:
+        games = int(bucket.get("games") or 0)
+    except (TypeError, ValueError):
+        games = 0
+    all_source_errors = bool(pregame) and all(row.get("status") == "source_error" for row in pregame)
+    schedule_outage = games == 0 and bool(errors)
+    market_outage = games > 0 and bool(errors) and not diagnostics
+    if not (all_source_errors or schedule_outage or market_outage):
+        return bucket
+    sport = str(bucket.get("sport") or "Football")
+    soft_note = f"{sport} player-props soft-failed; empty slate so other sports can publish."
+    existing = str(bucket.get("note") or "").strip()
+    if "soft-failed" in existing:
+        note = existing
+    elif existing:
+        note = f"{soft_note} {existing}"
+    else:
+        note = soft_note
+    return {**bucket, "ok": False, "note": note}
+
+
 def generate_football_candidate_model(
     client: Any,
     league: str,
@@ -695,28 +728,33 @@ def generate_football_candidate_model(
     date_iso: str,
     max_workers: int = 6,
 ) -> dict[str, Any]:
-    """Generate the market-priced NFL/CFB candidate pool. Failures stay empty-ok."""
+    """Generate the market-priced NFL/CFB candidate pool.
+
+    No games, or a scheduled slate with no posted price, stays ok. Scoreboard,
+    market, and per-game exceptions soft-fail with ok false and an empty board
+    so other sports can still publish.
+    """
     sport = str(sport or "").upper()
     if sport == "CFB" and callable(getattr(client, "cfb_market_json", None)):
         from .cfb import generate_cfb_candidate_model
-        return generate_cfb_candidate_model(client, date_iso, max_workers=max_workers)
+        return _honest_soft_ok(generate_cfb_candidate_model(client, date_iso, max_workers=max_workers))
     league = str(league or LEAGUE_SLUGS.get(sport) or "").strip()
     try:
         events, injuries, season, schedule_errors = _football_schedule(client, league, sport, date_iso)
     except Exception as exc:
-        return _soft_empty_bucket(
+        return _honest_soft_ok(_soft_empty_bucket(
             sport,
             date_iso,
             errors=[str(exc)],
             note=f"{sport} schedule unavailable; empty slate so other sports can publish.",
-        )
+        ))
     if not events:
         note = (
             f"{sport} schedule unavailable; empty slate so other sports can publish."
             if schedule_errors
             else f"No {sport} games scheduled; empty slate is healthy."
         )
-        return _soft_empty_bucket(sport, date_iso, errors=schedule_errors, note=note)
+        return _honest_soft_ok(_soft_empty_bucket(sport, date_iso, errors=schedule_errors, note=note))
 
     picks: list[dict[str, Any]] = []
     errors: list[str] = list(schedule_errors)
@@ -759,8 +797,8 @@ def generate_football_candidate_model(
         baseline = generate_cfb_candidate_model(client, date_iso, max_workers=max_workers, sport=sport, league=league)
         baseline["primary_source_diagnostics"] = diagnostics
         baseline["primary_source_errors"] = errors
-        return baseline
-    return {
+        return _honest_soft_ok(baseline)
+    return _honest_soft_ok({
         "ok": True,
         "sport": sport,
         "date": date_iso,
@@ -770,4 +808,4 @@ def generate_football_candidate_model(
         "diagnostics": diagnostics,
         "method": "ESPN football candidate pool with posted markets, gamelogs, opponent, and injury context",
         "note": "" if picks else f"No {sport} posted player-prop market cleared the in-house input floor.",
-    }
+    })

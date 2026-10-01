@@ -31,6 +31,19 @@ def source_issues(key, bucket, day):
             issues.append(f"TennisTonic snapshot dated {bucket.get('date') or 'unknown'}, expected {day}")
         if meta.get("unavailableMatchups") or meta.get("unattemptedMatchups"):
             issues.append("TennisTonic official slate has unavailable or unattempted matches")
+        # Tipster feed can look green while the in-house tennis archive lags;
+        # accept archiveThrough copied onto this bucket's meta (see main()).
+        archive = meta.get("archiveThrough") or meta.get("tennisArchiveThrough")
+        if archive:
+            try:
+                age = (date.fromisoformat(day) - date.fromisoformat(str(archive)[:10])).days
+            except ValueError:
+                age = None
+            if age is None or age > 7:
+                issues.append(
+                    f"paired tennis archive stale through {archive}; "
+                    "tipster feed OK does not refresh ranking/points inputs"
+                )
     if key.startswith(("sportytrader_", "sportsgambler_")) and key.endswith(
         ("_mlb", "_wnba", "_cfb", "_nfl", "_fifa_world_cup")
     ):
@@ -76,7 +89,16 @@ def main():
     for directory in ("model_cache", "player_props_cache"):
         payload = json.loads((ROOT / "data" / directory / "latest.json").read_text())
         day = args.date or payload["date"]
-        for key, bucket in sorted(payload.get("models", {}).items()):
+        models = payload.get("models", {}) if isinstance(payload.get("models"), dict) else {}
+        tennis_meta = (models.get("tennis") or {}).get("meta") if isinstance(models.get("tennis"), dict) else {}
+        tennis_meta = tennis_meta if isinstance(tennis_meta, dict) else {}
+        for key, bucket in sorted(models.items()):
+            if key == "tennistonic_tennis" and isinstance(bucket, dict) and tennis_meta.get("archiveThrough"):
+                enriched = dict(bucket)
+                meta = dict(enriched.get("meta") or {})
+                meta.setdefault("archiveThrough", tennis_meta.get("archiveThrough"))
+                enriched["meta"] = meta
+                bucket = enriched
             issues = source_issues(key, bucket, day)
             count = len(bucket.get("picks") or [])
             detail = "; ".join(issues) or str(bucket.get("note") or "refresh complete")

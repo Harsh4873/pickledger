@@ -102,10 +102,28 @@ SPORT_CONFIG = {
         "cache_keys": ("nfl",),
         "market": "two_way",
     },
+    "nhl": {
+        "espn_sport": "hockey",
+        "espn_league": "nhl",
+        "listing_url": f"{BASE_URL}/en/hockey/usa/nhl",
+        "source": "ForebetNHL",
+        "label": "NHL",
+        "cache_keys": ("nhl",),
+        "market": "two_way",
+    },
+    "nba": {
+        "espn_sport": "basketball",
+        "espn_league": "nba",
+        "listing_url": f"{BASE_URL}/en/basketball/usa/nba",
+        "source": "ForebetNBA",
+        "label": "NBA",
+        "cache_keys": ("nba",),
+        "market": "two_way",
+    },
 }
 SIGN_INDEX = {"1": 0, "X": 1, "2": 2}
 TWO_WAY_SIGN_INDEX = {"1": 0, "2": 1}
-SCORE_RE = re.compile(r"(\d{1,2})\s*-\s*(\d{1,2})")
+SCORE_RE = re.compile(r"\b(\d{1,3})\s*-\s*(\d{1,3})\b")
 AMERICAN_ODDS_RE = re.compile(r"^[+-]\d+$")
 KICKOFF_RE = re.compile(r"(\d{1,2})/(\d{1,2})/(\d{4})(?:\s+(\d{1,2}):(\d{2}))?")
 # Forebet timestamps sit within a few hours of UTC; series games are >=20h
@@ -420,6 +438,14 @@ def run_forebet_cfb(date_iso: str, _sports: list[str] | None = None) -> dict[str
 
 def run_forebet_nfl(date_iso: str, _sports: list[str] | None = None) -> dict[str, Any]:
     return scrape_forebet("nfl", date_iso)
+
+
+def run_forebet_nhl(date_iso: str, _sports: list[str] | None = None) -> dict[str, Any]:
+    return scrape_forebet("nhl", date_iso)
+
+
+def run_forebet_nba(date_iso: str, _sports: list[str] | None = None) -> dict[str, Any]:
+    return scrape_forebet("nba", date_iso)
 
 
 def main() -> int:

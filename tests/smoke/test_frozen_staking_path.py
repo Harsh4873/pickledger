@@ -115,6 +115,18 @@ def test_frozen_holdout_uses_the_ledger_price_clock_and_odds(model):
     assert late["independently_priced_settled"] == 0
     assert late["candidate_exclusions"] == {"invalid_quote_clock": 1}
 
+    untimed = record(freeze)
+    untimed["price"] = {
+        "odds": -125, "pricing_type": "market", "odds_source": "posted_market",
+        "market_no_vig_selected_probability": 0.53,
+    }
+    untimed["observed_american_odds"] = -125
+    untimed["pregame_snapshot"]["odds"] = -110
+    borrowed = evaluate({"records": [untimed]}, freeze)["markets"][0]
+    assert borrowed["independently_priced_settled"] == 1
+    assert borrowed["profit_units"] == 0.4
+    assert borrowed["candidate_exclusions"] == {}
+
 
 @pytest.mark.parametrize("model", ["nhl", "mls"])
 def test_evidence_and_exact_approval_lifecycle(model, tmp_path):
@@ -324,10 +336,12 @@ def test_no_vig_benchmark_is_retained_in_canonical_price_fields(tmp_path):
             "line": 2.5, "decision": "PASS", "shadow_decision": "BET", "shadow_units": .5,
             "probability": .6, "market_priced": True,
             "certification_timing": {"trusted": True, "published_at": row["published_at"],
-                                     "data_as_of": row["published_at"], "source": "mls-model-generate"}}
+                                     "data_as_of": row["published_at"], "source": "mls-model-generate"},
+            "market_odds_captured_at": "2026-10-02T15:50:00Z"}
     capture_team_prop_pregame_snapshots({"date": "2026-10-02", "models": {"mls": {"picks": [pick]}}}, repo_root=tmp_path)
     saved = load_team_prop_pregame_ledger(tmp_path)["records"][0]
     assert saved["price"]["market_no_vig_selected_probability"] == .5
+    assert saved["price"]["market_odds_captured_at"] == "2026-10-02T15:50:00Z"
     assert saved["market_probability"] == .5
 
 
@@ -378,3 +392,81 @@ def test_mls_final_approval_controls_calibration_after_earlier_snapshot_flag(tmp
     calibration = build_outcome_ledger(tmp_path)
     assert calibration["summary"]["trainable_decided_picks"] == 1
     assert calibration["records"][0]["model_key"] == "mls"
+
+
+def _mls_approval(freeze, market):
+    return {
+        "model_key": "mls",
+        "model_version": freeze["fitted_version"],
+        "market": market,
+        "variant": "base",
+        "approved": True,
+        "frozen_rule": freeze["frozen_rule"],
+        "holdout": {
+            "unused_during_selection": True,
+            "independently_priced_settled": 100,
+            "roi": 0.1,
+            "clustered_lower_95": 0.01,
+            "calibration_no_material_regression": True,
+        },
+    }
+
+
+@pytest.mark.parametrize("market,line,label", [
+    ("total", 2.25, "Over 2.25 (Away @ Home)"),
+    ("total", 2.75, "Under 2.75 (Away @ Home)"),
+    ("spread", -0.25, "Home -0.25 (Away @ Home)"),
+    ("spread", 0.75, "Home +0.75 (Away @ Home)"),
+])
+def test_approved_mls_quarter_lines_cannot_stake(market, line, label):
+    """A .25/.75 total or handicap splits the stake across two lines, so a
+    final score can be a half win or half loss. A forged market approval
+    must not turn that into a binary BET, even from the pick text alone."""
+    freeze = load_freeze("mls")
+    base = record(freeze)["pregame_snapshot"]
+    pick = {
+        **base, "market": market, "line": line, "pick": label,
+        "decision": "BET", "units": 0.5, "market_priced": True,
+        "game_start_time": "2026-10-02T20:00:00Z",
+    }
+    text_only = {key: value for key, value in pick.items() if key != "line"}
+    approvals = {"approvals": [_mls_approval(freeze, market)]}
+    payload = {"publishedAt": "2026-10-02T16:00:00Z", "models": {"mls": {"picks": [pick, text_only]}}}
+    apply_stake_policy(payload, model_keys={"mls"}, approvals=approvals)
+    assert pick["decision"] == "PASS" and pick["units"] == 0
+    assert pick["calibration_excluded"] is True
+    assert text_only["decision"] == "PASS" and text_only["units"] == 0
+
+    half_line = 2.5 if market == "total" else -0.5
+    half_label = "Over 2.5 (Away @ Home)" if market == "total" else "Home -0.5 (Away @ Home)"
+    half = {
+        **base, "market": market, "line": half_line, "pick": half_label,
+        "decision": "BET", "units": 0.5, "market_priced": True,
+        "game_start_time": "2026-10-02T20:00:00Z",
+    }
+    apply_stake_policy(
+        {"publishedAt": "2026-10-02T16:00:00Z", "models": {"mls": {"picks": [half]}}},
+        model_keys={"mls"}, approvals=approvals,
+    )
+    assert half["decision"] == "BET" and half["units"] == 0.5
+
+
+def test_nhl_holdout_uses_market_retrieved_at_and_rejects_a_missing_clock():
+    freeze = load_freeze("nhl")
+    row = record(freeze)
+    row["pregame_snapshot"].pop("market_updated_at", None)
+    row["price"] = {
+        "odds": -110,
+        "pricing_type": "market",
+        "odds_source": "draftkings",
+        "market_retrieved_at": "2026-10-02T15:50:00Z",
+        "market_no_vig_selected_probability": 0.5,
+    }
+    row["observed_american_odds"] = -110
+    priced = evaluate({"records": [row]}, freeze)["markets"][0]
+    assert priced["independently_priced_settled"] == 1
+
+    row["price"].pop("market_retrieved_at")
+    missed = evaluate({"records": [row]}, freeze)["markets"][0]
+    assert missed["independently_priced_settled"] == 0
+    assert missed["candidate_exclusions"] == {"invalid_quote_clock": 1}

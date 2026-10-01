@@ -25,6 +25,8 @@ from scripts.scrapers.forebet_scraper import (  # noqa: E402
     run_forebet_cfb,
     run_forebet_mlb,
     run_forebet_mls,
+    run_forebet_nba,
+    run_forebet_nhl,
     run_forebet_nfl,
     run_forebet_wnba,
 )
@@ -56,6 +58,8 @@ FEED_RUNNERS: dict[str, Callable[[str, list[str]], dict[str, Any]]] = {
     "forebet_wnba": run_forebet_wnba,
     "forebet_cfb": run_forebet_cfb,
     "forebet_nfl": run_forebet_nfl,
+    "forebet_nhl": run_forebet_nhl,
+    "forebet_nba": run_forebet_nba,
     "tennistonic_tennis": run_tennistonic_tennis,
     "scores24_tennis": run_scores24_tennis,
 }

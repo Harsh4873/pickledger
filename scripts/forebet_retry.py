@@ -12,7 +12,7 @@ from zoneinfo import ZoneInfo
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
-FOREBET_KEYS = ("forebet_mls", "forebet_mlb", "forebet_wnba", "forebet_cfb", "forebet_nfl")
+FOREBET_KEYS = ("forebet_mls", "forebet_mlb", "forebet_wnba", "forebet_cfb", "forebet_nfl", "forebet_nhl", "forebet_nba")
 
 
 def retryable_forebet_keys(payload: dict[str, Any], target_date: str) -> list[str]:

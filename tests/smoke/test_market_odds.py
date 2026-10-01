@@ -696,3 +696,62 @@ def test_frozen_candidate_keeps_the_quote_used_to_select_it(model):
     assert not market_odds._attach_pick(pick, {"markets": {}}, bucket_key=model, captured_at="2026-07-11T12:00:00Z")
     assert pick["market_retrieved_at"] == "2026-07-11T10:00:00Z"
     assert "market_updated_at" not in pick
+
+def test_cfb_posted_odds_refresh_pregame_quote_when_the_line_matches():
+    from datetime import datetime, timezone
+
+    event = scoreboard_event(
+        home="Texas A&M Aggies",
+        away="Arizona State Sun Devils",
+        total_line=52.5,
+        under="-112",
+        over="-108",
+    )
+    now = datetime(2026, 7, 11, 12, 0, tzinfo=timezone.utc)
+    book = market_odds.fetch_market_odds_for_date(DATE, ["CFB"], make_fetch([event]), now=now)
+    pick = {
+        "date": DATE,
+        "sport": "CFB",
+        "espn_event_id": "401",
+        "matchup": "Arizona State Sun Devils @ Texas A&M Aggies",
+        "away_team": "Arizona State Sun Devils",
+        "home_team": "Texas A&M Aggies",
+        "market": "totals",
+        "direction": "under",
+        "pick": "Under 52.5 (Arizona State Sun Devils @ Texas A&M Aggies)",
+        "line": 52.5,
+        "odds": -115,
+        "pricing_type": "market",
+        "odds_source": "espn_scoreboard:DraftKings",
+        "market_priced": True,
+        "market_retrieved_at": "2026-07-11T11:00:00Z",
+        "odds_updated_at": "2026-07-11T11:00:00Z",
+        "staking_candidate_fingerprint": "cfb-not-frozen",
+        "game_start_time": f"{DATE}T20:05:00Z",
+        "decision": "BET",
+        "units": 0.5,
+    }
+    summary = market_odds.apply_market_odds_to_payload(payload_with("cfb", [pick]), book, now=now)
+    assert summary["attached"] == 1
+    assert pick["odds"] == -112
+    assert pick["odds_source"] == "posted_market"
+    assert pick["market_updated_at"] == "2026-07-11T12:00:00Z"
+    assert pick["market_retrieved_at"] == "2026-07-11T11:00:00Z"
+
+    missed = {
+        **pick,
+        "line": 48.5,
+        "odds": -115,
+        "odds_source": "espn_scoreboard:DraftKings",
+        "pick": "Under 48.5 (Arizona State Sun Devils @ Texas A&M Aggies)",
+    }
+    missed.pop("market_updated_at", None)
+    missed.pop("assumed_odds_replaced", None)
+    late = payload_with("cfb", [missed])
+    late_summary = market_odds.apply_market_odds_to_payload(late, book, now=now)
+    assert late_summary["attached"] == 0
+    kept = late["models"]["cfb"]["picks"][0]
+    assert kept["odds"] == -115
+    assert kept["odds_source"] == "espn_scoreboard:DraftKings"
+    assert kept["market_retrieved_at"] == "2026-07-11T11:00:00Z"
+    assert "market_updated_at" not in kept

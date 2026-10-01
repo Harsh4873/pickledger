@@ -80,3 +80,8 @@ def test_price_clock_rejects_missing_late_stale_and_post_start_quotes():
     assert observed_quote_timing({"market_updated_at": "2026-09-23T19:59:00Z"}, published_at=published, start_at=start) == "stale_quote"
     assert observed_quote_timing({"market_updated_at": start}, published_at=published, start_at=start) == "post_start"
     assert observed_quote_timing({"market_updated_at": "2026-09-24T19:59:00Z"}, published_at=published, start_at=start) is None
+    assert observed_quote_timing({"market_odds_captured_at": "2026-09-24T19:59:00Z"}, published_at=published, start_at=start) is None
+    assert observed_quote_timing(
+        {"market_updated_at": "2026-09-24T19:59:00Z", "market_odds_captured_at": start},
+        published_at=published, start_at=start,
+    ) is None

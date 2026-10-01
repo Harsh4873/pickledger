@@ -18,8 +18,10 @@ def _soft_football_candidates(api: Any, league: str, sport: str, date_iso: str) 
     try:
         return generate_football_candidate_model(api, league, sport, date_iso)
     except Exception as exc:
+        # Exception is not a healthy empty slate. Soft for the publication
+        # contract (ok false does not block MLB/NBA/WNBA) and must not look like abstention.
         return {
-            "ok": True,
+            "ok": False,
             "sport": sport,
             "date": date_iso,
             "games": 0,

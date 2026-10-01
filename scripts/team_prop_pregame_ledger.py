@@ -471,6 +471,7 @@ def _price_fields(pick: Mapping[str, Any]) -> dict[str, Any]:
         "market_total_source",
         "market_priced",
         "market_updated_at",
+        "market_odds_captured_at",
         "market_retrieved_at",
         "odds_updated_at",
         "price_updated_at",

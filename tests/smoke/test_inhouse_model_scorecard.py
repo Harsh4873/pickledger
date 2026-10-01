@@ -38,6 +38,32 @@ def test_prop_scorecard_uses_first_pregame_publication_and_observed_price(tmp_pa
     assert report["forward_since"] == "2026-09-22T00:00:00Z"
 
 
+def test_prop_scorecard_accepts_market_odds_captured_at_as_quote_clock(tmp_path):
+    snapshots = tmp_path / "snapshots" / "2026-09-24"
+    snapshots.mkdir(parents=True)
+    pick = {
+        "id": "captured-clock", "date": "2026-09-24", "game_id": "game-1",
+        "start_time": "2026-09-24T22:00:00Z", "stat_key": "hits",
+        "selection": "Over", "line": 0.5, "probability": 0.60,
+        "market_priced": True, "pricing_type": "market",
+        "odds_source": "posted_market", "market_odds_captured_at": "2026-09-24T19:00:00Z",
+        "odds": -110, "decision": "LEAN", "units": 0.25,
+        "ml_model_version": "prop-v1", "result": "pending",
+    }
+    (snapshots / "a.json").write_text(json.dumps({
+        "generatedAt": "2026-09-24T20:00:00Z",
+        "models": {"mlb_player_props": {"picks": [pick]}},
+    }))
+    outcomes = {"records": [{
+        "cache_type": "player_props_cache", "result": "win",
+        "pregame_snapshot": {"id": "captured-clock"},
+    }]}
+    report = build_scorecard({"records": []}, outcomes, tmp_path / "snapshots")
+    card = next(c for c in report["scorecards"] if c.get("model_version") == "prop-v1")
+    assert card["priced_settled_bets"] == 1
+    assert card["exclusions"] == {}
+
+
 def test_prop_scorecard_excludes_assumed_and_post_start_prices(tmp_path):
     snapshots = tmp_path / "snapshots" / "2026-09-24"
     snapshots.mkdir(parents=True)
@@ -190,3 +216,83 @@ def test_prop_scorecard_keeps_unjoined_snapshot_result_pending(tmp_path):
     assert card["model"]["samples"] == 0
     assert card["priced_settled_bets"] == 0
     assert card["exclusions"] == {"unsettled": 1}
+
+
+def test_scorecard_surfaces_history_freshness(tmp_path):
+    snapshots = tmp_path / "snapshots" / "2026-09-24"
+    snapshots.mkdir(parents=True)
+    pick = {
+        "id": "fresh-1", "date": "2026-09-24", "game_id": "game-1",
+        "start_time": "2026-09-24T22:00:00Z", "stat_key": "hits",
+        "selection": "Over", "line": 0.5, "probability": 0.55,
+        "market_priced": True, "pricing_type": "market",
+        "odds_source": "posted_market", "market_retrieved_at": "2026-09-24T19:00:00Z",
+        "odds": -110, "decision": "LEAN", "units": 0.25,
+        "ml_model_version": "prop-v2",
+        "ml_training_fingerprint": "abc123fingerprintvalue",
+        "result": "pending",
+    }
+    (snapshots / "a.json").write_text(json.dumps({
+        "generatedAt": "2026-09-24T20:00:00Z",
+        "models": {"mlb_player_props": {"picks": [pick]}},
+    }))
+    team_ledger = {
+        "updated_at": "2026-09-30T22:13:56.016313Z",
+        # Newer than the ledger header. The embedded clock still wins.
+        "records": [{"id": "t1", "data_as_of": "2026-10-02T12:00:00Z"}],
+    }
+    outcome_ledger = {
+        "records": [
+            {"cache_type": "player_props_cache", "date": "2026-09-20", "result": "win",
+             "pregame_snapshot": {"id": "fresh-1"}},
+            {"cache_type": "player_props_cache", "date": "2026-09-28", "result": "loss",
+             "pregame_snapshot": {"id": "other"}},
+        ],
+    }
+    report = build_scorecard(team_ledger, outcome_ledger, tmp_path / "snapshots")
+    freshness = report["history_freshness"]
+    assert set(freshness) >= {
+        "outcome_ledger_as_of", "outcome_ledger_records",
+        "team_ledger_as_of", "team_ledger_records",
+        "training_fingerprints", "note",
+    }
+    assert freshness["team_ledger_as_of"] == "2026-09-30T22:13:56.016313Z"
+    assert freshness["team_ledger_records"] == 1
+    assert freshness["outcome_ledger_records"] == 2
+    assert freshness["outcome_ledger_as_of"] == "2026-09-28"
+    assert freshness["training_fingerprints"] == ["abc123fingerprintvalue"]
+    assert "Soft-skipped" in freshness["note"]
+
+    bare = build_scorecard(
+        {"records": [{"id": "no-clock"}]},
+        {"records": [{"date": "not-a-date"}]},
+        tmp_path / "snapshots",
+    )
+    bare_freshness = bare["history_freshness"]
+    assert bare_freshness["outcome_ledger_as_of"] is None
+    assert bare_freshness["team_ledger_as_of"] is None
+    assert bare_freshness["outcome_ledger_records"] == 1
+    assert bare_freshness["team_ledger_records"] == 1
+    assert bare_freshness["training_fingerprints"] == ["abc123fingerprintvalue"]
+
+    empty_dir = tmp_path / "empty-snapshots"
+    empty_dir.mkdir()
+    empty = build_scorecard({"records": []}, {"records": []}, empty_dir)
+    assert empty["history_freshness"]["training_fingerprints"] == []
+    assert empty["history_freshness"]["outcome_ledger_as_of"] is None
+    assert empty["history_freshness"]["team_ledger_as_of"] is None
+    assert empty["scorecards"]
+    assert all(card.get("promotion_approved") is not True for card in empty["scorecards"])
+
+
+def test_history_freshness_compares_instants_and_uses_parseable_headers():
+    from scripts.inhouse_model_scorecard import _ledger_as_of
+
+    assert _ledger_as_of({"records": [
+        {"date": "2026-09-30T12:00:00Z"},
+        {"date": "2026-09-30T12:00:00.900000Z"},
+    ]}, ("date",)) == "2026-09-30T12:00:00.900000Z"
+    assert _ledger_as_of({
+        "updated_at": "invalid", "generated_at": "2026-09-29T08:00:00-05:00",
+        "records": [{"date": "2026-09-30"}],
+    }, ("date",)) == "2026-09-29T13:00:00Z"

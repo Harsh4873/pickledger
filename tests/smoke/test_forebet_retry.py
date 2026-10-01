@@ -32,3 +32,24 @@ def test_retry_selector_requires_a_certified_denominator_and_missing_bucket():
     assert retryable_forebet_keys({"external_feeds": feeds}, date) == [
         "forebet_mls", "forebet_wnba",
     ]
+
+
+def test_forebet_retry_workflow_redispatches_after_active_refresh():
+    from pathlib import Path
+
+    workflow = (Path(__file__).resolve().parents[2] / ".github/workflows/forebet-retry.yml").read_text(encoding="utf-8")
+    assert "workflow_run:" in workflow
+    assert 'workflows: ["External Feed Refresh", "Daily Refresh"]' in workflow
+    assert "github.event.workflow_run.name == 'Daily Refresh'" in workflow
+    assert '.workflowName == "Daily Refresh"' in workflow
+    assert "github.event.workflow_run.event != 'workflow_dispatch'" in workflow
+    assert "timeout-minutes: 35" in workflow
+    assert "gh run watch" in workflow
+    assert "--exit-status" in workflow
+    assert workflow.count('python scripts/forebet_retry.py --date "$TARGET_DATE"') >= 2
+    assert "git fetch origin main" in workflow
+    assert "git reset --hard origin/main" in workflow
+    assert 'gh workflow run external-feed-refresh.yml --ref main -f date="$TARGET_DATE" -f feeds="$FEEDS"' in workflow
+    assert "retry remains due" not in workflow
+    assert "::error::External feed refresh is still active after waiting" in workflow
+    assert "exit 1" in workflow

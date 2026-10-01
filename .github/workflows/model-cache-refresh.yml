@@ -2,6 +2,11 @@ name: Model Cache Refresh
 
 on:
   workflow_call:
+    inputs:
+      skip_deploy:
+        description: "Let the caller deploy after all refresh jobs succeed"
+        type: boolean
+        default: false
   workflow_dispatch:
     inputs:
       date:
@@ -125,7 +130,7 @@ jobs:
           exit 1
 
       - name: Deploy updated model cache
-        if: steps.commit-cache.outputs.changed == 'true'
+        if: ${{ !inputs.skip_deploy && steps.commit-cache.outputs.changed == 'true' }}
         env:
           GH_TOKEN: ${{ github.token }}
         run: gh workflow run deploy-pages.yml --ref main

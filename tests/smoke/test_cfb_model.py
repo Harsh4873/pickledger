@@ -76,6 +76,8 @@ def test_public_serving_emits_exactly_three_stable_market_rows(monkeypatch):
             "home_moneyline": -155,
             "away_moneyline": 135,
             "odds_source": "espn_scoreboard:DraftKings",
+            "market_retrieved_at": "2026-09-05T14:00:00Z",
+            "odds_updated_at": "2026-09-05T14:05:00Z",
         },
     }
     monkeypatch.setattr(cfb_model, "serving_rows", lambda _date, **_kwargs: [entry])
@@ -97,6 +99,12 @@ def test_public_serving_emits_exactly_three_stable_market_rows(monkeypatch):
         assert 0 <= pick["push_probability"] < 1
         assert pick["decision"] in {"BET", "LEAN", "PASS"}
         assert pick["units"] == (0.5 if pick["decision"] == "BET" else 0.25 if pick["decision"] == "LEAN" else 0)
+        if pick.get("market_priced") is True:
+            assert pick.get("market_retrieved_at") == "2026-09-05T14:00:00Z"
+            assert pick.get("odds_updated_at") == "2026-09-05T14:05:00Z"
+        else:
+            assert "market_retrieved_at" not in pick
+            assert "odds_updated_at" not in pick
 
 
 def test_artifact_records_walk_forward_calibration_and_feature_contract():
@@ -310,6 +318,7 @@ def test_cfb_scoreboard_preserves_unpriced_pregame_games_and_explains_started_ga
     assert len(slate) == 1
     assert slate[0]["home_moneyline"] is None
     assert slate[0]["home_line"] is None
+    assert "market_retrieved_at" not in slate[0]
     assert coverage == {"official_games": 2, "started_games": 1, "incomplete_games": 0,
                         "pregame_games": 1, "unpriced_games": 1}
 
@@ -353,6 +362,8 @@ def test_cfb_unpriced_forecasts_have_no_fabricated_prices_or_stakes(monkeypatch,
         "home_team": "Home State", "away_team": "Away Tech",
         "start_time": "2026-09-05T17:00:00Z", "home_line": home_line, "total_line": total_line,
         "home_moneyline": None, "away_moneyline": None, "odds_source": "espn_scoreboard:unknown",
+        "market_retrieved_at": "2026-09-05T14:00:00Z",
+        "odds_updated_at": "2026-09-05T14:05:00Z",
     }
     entry = {"game": game, "features": {name: 0.0 for name in FEATURE_NAMES}}
     monkeypatch.setattr(cfb_model, "serving_rows", lambda _date, **_kwargs: [entry])
@@ -368,6 +379,8 @@ def test_cfb_unpriced_forecasts_have_no_fabricated_prices_or_stakes(monkeypatch,
         assert pick["decision"] == "PASS"
         assert pick["shadow_mode"] is False
         assert pick["market_priced"] is False
+        assert "market_retrieved_at" not in pick
+        assert "odds_updated_at" not in pick
 
 
 def test_cfb_missing_artifacts_fail_visibly(monkeypatch):
@@ -750,3 +763,34 @@ def test_artifact_ladder_tiers_each_clear_their_own_bar():
     # Today's data: a BET tier exists and every published tier beats -110 break-even.
     decisions = {segment["decision"] for segment in policy["totals"]["segments"]}
     assert "BET" in decisions and "LEAN" in decisions
+
+def test_cfb_scoreboard_stamps_one_quote_clock_when_odds_are_present(monkeypatch):
+    from CFBPredictionModel import cfb_core
+    from CFBPredictionModel.cfb_core import load_live_slate
+
+    class FrozenDateTime(datetime):
+        @classmethod
+        def now(cls, tz=None):
+            return datetime(2026, 9, 5, 16, 30, tzinfo=timezone.utc)
+
+    odds = {
+        "provider": {"name": "DraftKings"},
+        "spread": -3.5,
+        "overUnder": 52.5,
+        "moneyline": {"home": {"close": {"odds": -155}}, "away": {"close": {"odds": 135}}},
+    }
+    priced = _scoreboard_event(odds=odds)
+    priced["id"] = "401900099"
+    other = _scoreboard_event(odds={**odds, "spread": -7.0})
+    other["id"] = "401900100"
+    bare = _scoreboard_event()
+    bare["id"] = "401900101"
+    monkeypatch.setattr(cfb_core, "datetime", FrozenDateTime)
+    _mock_scoreboard(monkeypatch, {"events": [priced, other, bare]})
+    slate = {game["game_id"]: game for game in load_live_slate("2026-09-05")}
+    assert set(slate) == {"401900099", "401900100", "401900101"}
+    assert slate["401900099"]["market_retrieved_at"] == "2026-09-05T16:30:00Z"
+    assert slate["401900100"]["market_retrieved_at"] == "2026-09-05T16:30:00Z"
+    assert slate["401900099"]["home_moneyline"] == -155
+    assert "market_retrieved_at" not in slate["401900101"]
+    assert slate["401900101"]["home_moneyline"] is None

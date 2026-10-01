@@ -98,6 +98,97 @@ def test_forebet_mls_config():
     assert config["label"] == "MLS"
 
 
+def test_forebet_nhl_config():
+    module = _module()
+    config = module.SPORT_CONFIG["nhl"]
+    assert config["espn_sport"] == "hockey"
+    assert config["espn_league"] == "nhl"
+    assert config["listing_url"].endswith("/en/hockey/usa/nhl")
+    assert config["source"] == "ForebetNHL"
+    assert config["label"] == "NHL"
+    assert config["market"] == "two_way"
+    assert config["cache_keys"] == ("nhl",)
+
+
+def test_forebet_nhl_matches_official_slate_and_marks_incomplete(monkeypatch):
+    module = _module()
+    slate = [
+        {"away": "Ottawa Senators", "home": "Toronto Maple Leafs", "start_time": "2026-10-04T01:00Z"},
+        {"away": "Montreal Canadiens", "home": "Pittsburgh Penguins", "start_time": "2026-10-04T01:00Z"},
+    ]
+    monkeypatch.setattr(module, "fetch_daily_matchups", lambda *args, **kwargs: (slate, True))
+    html = "".join([
+        _forebet_row(
+            "Toronto Maple Leafs", "Ottawa Senators", "1", "53 47",
+            ("-130", "+110"), kickoff="04/10/2026 01:00", two_way=True,
+        ),
+        # Wrong date / reverse sides — must not match the Penguins slate row.
+        _forebet_row(
+            "Montreal Canadiens", "Pittsburgh Penguins", "2", "48 52",
+            ("+120", "-140"), kickoff="03/10/2026 01:00", two_way=True,
+        ),
+    ])
+    result = module.scrape_forebet("nhl", "2026-10-03", html=html)
+    assert result["ok"] is False  # incomplete: 1/2
+    assert len(result["picks"]) == 1
+    pick = result["picks"][0]
+    assert pick["tip"] == "Toronto Maple Leafs ML"
+    assert pick["sport"] == "NHL"
+    assert pick["source"] == "ForebetNHL"
+    assert pick["probability"] == 0.53
+    assert pick["odds"] == -130
+    assert pick["matchup"] == "Ottawa Senators @ Toronto Maple Leafs"
+    assert result["meta"]["officialMatchups"] == 2
+    assert result["meta"]["matchedPicks"] == 1
+    assert "Montreal Canadiens @ Pittsburgh Penguins" in result["meta"]["unpublishedMatchups"]
+
+
+def test_forebet_nba_config():
+    module = _module()
+    config = module.SPORT_CONFIG["nba"]
+    assert config["espn_sport"] == "basketball"
+    assert config["espn_league"] == "nba"
+    assert config["listing_url"].endswith("/en/basketball/usa/nba")
+    assert config["source"] == "ForebetNBA"
+    assert config["label"] == "NBA"
+    assert config["market"] == "two_way"
+
+
+def test_forebet_basketball_predicted_scores_keep_three_digits():
+    module = _module()
+    html = _forebet_row("Home", "Away", "1", "55 45", ("-130", "+110"), two_way=True)
+    html = html.replace("1 - 2</div>", "115 - 108</div>")
+    html = html.replace('1 <span class="scrmobpreddash">-</span> 2',
+                        '115 <span class="scrmobpreddash">-</span> 108')
+    assert module.parse_forebet_rows(html)[0]["predicted_score"] == "115-108"
+
+
+def test_forebet_nba_matches_official_slate(monkeypatch):
+    module = _module()
+    slate = [
+        {"away": "Boston Celtics", "home": "New York Knicks", "start_time": "2026-10-22T23:30Z"},
+        {"away": "Golden State Warriors", "home": "Los Angeles Lakers", "start_time": "2026-10-23T02:00Z"},
+    ]
+    monkeypatch.setattr(module, "fetch_daily_matchups", lambda *args, **kwargs: (slate, True))
+    html = "".join([
+        _forebet_row(
+            "New York Knicks", "Boston Celtics", "2", "45 55",
+            ("+130", "-150"), kickoff="22/10/2026 23:30", two_way=True,
+        ),
+    ])
+    result = module.scrape_forebet("nba", "2026-10-22", html=html)
+    assert result["ok"] is False  # 1/2 incomplete
+    assert len(result["picks"]) == 1
+    pick = result["picks"][0]
+    assert pick["tip"] == "Boston Celtics ML"
+    assert pick["sport"] == "NBA"
+    assert pick["source"] == "ForebetNBA"
+    assert pick["probability"] == 0.55
+    assert pick["odds"] == -150
+    assert result["meta"]["matchedPicks"] == 1
+    assert "Golden State Warriors @ Los Angeles Lakers" in result["meta"]["unpublishedMatchups"]
+
+
 def test_parse_forebet_rows_decodes_div_layout():
     module = _module()
     rows = module.parse_forebet_rows(FIXTURE_HTML)
@@ -268,25 +359,48 @@ def test_wnba_historical_listing_rows_do_not_match_the_current_slate(monkeypatch
 
 def test_forebet_feeds_are_registered_across_the_pipeline():
     refresh = _load_module("refresh_external_feeds_test", ROOT / "scripts" / "refresh_external_feeds.py")
-    for key in ("forebet_mls", "forebet_mlb", "forebet_wnba"):
+    for key in ("forebet_mls", "forebet_mlb", "forebet_wnba", "forebet_nhl", "forebet_nba"):
         assert key in refresh.FEED_RUNNERS
         assert key not in refresh.SPLIT_PROVIDER_FEEDS
 
     merge = _load_module("merge_external_feed_test", ROOT / "scripts" / "merge_external_feed_cache_payload.py")
-    assert {"forebet_mls", "forebet_mlb", "forebet_wnba"} <= merge.EXTERNAL_FEED_MODEL_KEYS
+    assert {"forebet_mls", "forebet_mlb", "forebet_wnba", "forebet_nhl", "forebet_nba"} <= merge.EXTERNAL_FEED_MODEL_KEYS
+
+    model_merge = _load_module("merge_model_feed_test", ROOT / "scripts" / "merge_model_cache_payload.py")
+    assert "forebet_nhl" in model_merge.EXTERNAL_FEED_MODEL_KEYS
+    assert "forebet_nba" in model_merge.EXTERNAL_FEED_MODEL_KEYS
 
     calibration = _load_module("pick_calibration_test", ROOT / "scripts" / "pick_calibration.py")
     assert "forebet_mls" in calibration.CALIBRATION_EXCLUDED_MODEL_KEYS
+    assert "forebet_nhl" in calibration.CALIBRATION_EXCLUDED_MODEL_KEYS
+    assert "forebet_nba" not in calibration.CALIBRATION_EXCLUDED_MODEL_KEYS
     # Two-way US-sport feeds calibrate like the other external feeds.
     assert "forebet_mlb" not in calibration.CALIBRATION_EXCLUDED_MODEL_KEYS
     assert "forebet_wnba" not in calibration.CALIBRATION_EXCLUDED_MODEL_KEYS
 
     data_ts = (ROOT / "src" / "data.ts").read_text(encoding="utf-8")
-    for label in ("forebet_mls: 'ForebetMLS'", "forebet_mlb: 'ForebetMLB'", "forebet_wnba: 'ForebetWNBA'"):
+    for label in (
+        "forebet_mls: 'ForebetMLS'",
+        "forebet_mlb: 'ForebetMLB'",
+        "forebet_wnba: 'ForebetWNBA'",
+        "forebet_nhl: 'ForebetNHL'",
+        "forebet_nba: 'ForebetNBA'",
+    ):
         assert label in data_ts
 
     workflow = (ROOT / ".github" / "workflows" / "external-feed-refresh.yml").read_text(encoding="utf-8")
     assert "forebet_mls,forebet_mlb,forebet_wnba" in workflow
+    assert "forebet_nhl" in workflow
+    assert "forebet_nba" in workflow
+
+    ensure = (ROOT / "scripts" / "automation" / "ensure_external_feeds.py").read_text(encoding="utf-8")
+    assert "forebet_nhl" in ensure
+    publisher = (ROOT / "scripts" / "scrapers" / "forebet_publish.sh").read_text(encoding="utf-8")
+    assert "forebet_nhl" in publisher
+
+    from scripts.forebet_retry import FOREBET_KEYS
+    assert "forebet_nhl" in FOREBET_KEYS
+    assert "forebet_nba" in FOREBET_KEYS
 
 
 def test_football_feeds_match_official_names_and_keep_missing_odds(monkeypatch):
@@ -389,6 +503,6 @@ def test_football_feeds_merge_as_research_without_hiding_model_pass(tmp_path):
         assert len(result['models'][sport]['picks']) == 1
     workflow = (ROOT / '.github/workflows/external-feed-refresh.yml').read_text()
     publisher = (ROOT / 'scripts/scrapers/forebet_publish.sh').read_text()
-    for key in ('forebet_cfb', 'forebet_nfl'):
+    for key in ('forebet_cfb', 'forebet_nfl', 'forebet_nhl', 'forebet_nba'):
         assert key in workflow
         assert key in publisher

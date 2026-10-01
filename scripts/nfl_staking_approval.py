@@ -28,7 +28,7 @@ sys.path.insert(0, str(REPO_ROOT))
 from scripts.inhouse_model_scorecard import MIN_PRICED_SETTLED  # noqa: E402
 from scripts.model_scorecard_stats import binary_score, clustered_roi_interval  # noqa: E402
 from scripts.model_stake_policy import POLICY_PATH, _approved  # noqa: E402
-from scripts.price_clock import observed_quote_timing  # noqa: E402
+from scripts.price_clock import borrow_missing_quote_clocks, observed_quote_timing  # noqa: E402
 from scripts.team_prop_pregame_ledger import (  # noqa: E402
     backfill_team_prop_pregame_from_cache,
     load_team_prop_pregame_ledger,
@@ -96,11 +96,16 @@ def _candidate_action(record: Mapping[str, Any]) -> tuple[str, float | None]:
 
 
 def _holdout_price_context(record: Mapping[str, Any]) -> Mapping[str, Any]:
-    """Use the captured ledger price; old records fall back to their snapshot."""
+    """Use the captured ledger price; old records fall back to their snapshot.
+
+    Odds and provenance stay on the ledger price. Quote clocks that were stored
+    only on the pregame image (or the top-level row) are filled in when the
+    price blob itself has none.
+    """
 
     price = record.get("price")
     if isinstance(price, Mapping) and price:
-        return price
+        return borrow_missing_quote_clocks(price, record.get("pregame_snapshot"), record)
     snapshot = record.get("pregame_snapshot")
     return snapshot if isinstance(snapshot, Mapping) else record
 

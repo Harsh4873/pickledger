@@ -558,6 +558,16 @@ def _build_pick(game: SummerGame, projection: dict[str, Any]) -> dict[str, Any]:
             decision = "PASS"
             reasons.append("market price removed the stake edge")
 
+    # Unpriced generate must not publish a stake — merge demote is belt-and-suspenders.
+    source_decision = None
+    source_units = None
+    if market_pick_odds is None and decision in {"BET", "LEAN"}:
+        source_decision = decision
+        source_units = units
+        decision = "PASS"
+        units = 0.0
+        reasons.append("unpriced:no_executable_price")
+
     confidence_label = "High" if decision == "BET" else "Medium" if decision == "LEAN" else "Low"
     factors = [
         f"Summer form margin {projection['components']['form_edge']:+.1f}",
@@ -590,6 +600,23 @@ def _build_pick(game: SummerGame, projection: dict[str, Any]) -> dict[str, Any]:
         "decision": decision,
         "units": units,
         "odds": market_pick_odds,
+        **(
+            {
+                "pricing_type": "unpriced",
+                "market_priced": False,
+                "decision_basis": "model_conviction_pending_price",
+            }
+            if market_pick_odds is None
+            else {}
+        ),
+        **(
+            {
+                "source_decision": source_decision,
+                "source_units": source_units,
+            }
+            if source_decision is not None
+            else {}
+        ),
         "market_pick_odds": market_pick_odds,
         "market_pick_prob": round(market_pick_prob, 4) if market_pick_prob is not None else None,
         "market_edge": round(market_edge, 4) if market_edge is not None else None,

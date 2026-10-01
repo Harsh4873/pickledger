@@ -453,6 +453,8 @@ const SOURCE_LABELS: Record<string, string> = {
   forebet_wnba: 'ForebetWNBA',
   forebet_cfb: 'ForebetCFB',
   forebet_nfl: 'ForebetNFL',
+  forebet_nhl: 'ForebetNHL',
+  forebet_nba: 'ForebetNBA',
   scores24_tennis: 'Scores24Tennis',
   tennistonic_tennis: 'TennisTonic',
   tennis: 'Tennis Model',
@@ -1362,7 +1364,7 @@ export function getPlayerSourceStatuses(date: string): SourceStatus[] {
     } else if (bucket.ok === false || bucket.error || errors.length) {
       status.state = 'error';
       status.detail = 'Player-prop refresh reported an error; coverage may be incomplete.';
-      if (bucket.preserved_research_from && count) status.detail += ' Earlier same-day PASS research remains visible with its original quote timestamps.';
+      if (bucket.preserved_research_from && count) status.detail += ' Earlier same-day picks remain visible with their original quote timestamps.';
     } else if (bucket.ok === true && count) {
       status.state = 'ready';
       status.detail = bucket.football_baseline === true

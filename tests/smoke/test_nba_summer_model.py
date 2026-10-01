@@ -144,10 +144,24 @@ def test_nba_summer_model_skips_started_games_and_emits_pregame_pick(monkeypatch
     assert pick["source"] == "NBA Summer League"
     assert pick["sport"] == "NBA SUMMER"
     assert pick["team"] == "Utah Jazz"
-    assert pick["decision"] in {"BET", "LEAN"}
-    assert pick["units"] > 0
+    # Generate-time honesty: unpriced conviction never publishes a stake.
+    assert pick["odds"] is None
+    assert pick["pricing_type"] == "unpriced" and pick["market_priced"] is False
+    assert pick["decision_basis"] == "model_conviction_pending_price"
+    assert pick["decision"] == "PASS" and pick["units"] == 0
+    assert pick["source_decision"] in {"BET", "LEAN"}
+    assert float(pick["source_units"]) > 0
+    assert "unpriced:no_executable_price" in pick["guardrail_reasons"]
     assert pick["probability"] > 0.6
     assert "game already started" in result["games"][0]["skipped_reason"]
+    from scripts.merge_model_cache_payload import demote_unpriced_team_model_picks
+
+    # Already PASS@0u at generate — demote is a no-op for BET/LEAN rewrite.
+    payload = {"models": {"nba_summer": {"picks": [dict(pick)]}}}
+    demoted = demote_unpriced_team_model_picks(payload)
+    assert demoted == 0
+    assert payload["models"]["nba_summer"]["picks"][0]["decision"] == "PASS"
+    assert payload["models"]["nba_summer"]["picks"][0]["units"] == 0
 
 
 def test_nba_summer_model_returns_empty_ok_for_no_slate(monkeypatch):

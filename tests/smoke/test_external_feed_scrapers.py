@@ -813,6 +813,60 @@ def test_sportsgambler_mlb_rejects_cloudflare_or_non_200(monkeypatch):
     assert_blocked(Challenge(), "provider challenge page")
 
 
+def test_sportsgambler_basketball_detail_rejects_cloudflare_or_non_200(monkeypatch):
+    module = _load_module(
+        "sportsgambler_basketball_detail_block_test",
+        ROOT / "scripts" / "scrapers" / "sportsgambler_scraper.py",
+    )
+    detail_url = (
+        "https://www.sportsgambler.com/betting-tips/basketball/"
+        "example-away-vs-example-home-prediction-odds-2026-06-11/"
+    )
+    listing = {
+        "item": {
+            "@type": "SportsEvent",
+            "name": "Example Away vs Example Home",
+            "startDate": "2026-06-11T23:00:00Z",
+            "url": detail_url,
+        }
+    }
+    listing_html = f'<script type="application/ld+json">{json.dumps(listing)}</script>'
+    expected = ["Example Away @ Example Home"]
+
+    def assert_blocked(detail_response, snippet: str):
+        class Listing:
+            status_code = 200
+            text = listing_html
+
+        def fake_get(url, **_kwargs):
+            if url == detail_url:
+                return detail_response
+            return Listing()
+
+        monkeypatch.setattr(module.requests, "get", fake_get)
+        try:
+            result = module.scrape_nba(date(2026, 6, 11), expected)
+        except RuntimeError as exc:
+            message = str(exc)
+            assert "blocked 1 detail page(s)" in message
+            assert "Cloudflare/HTTP" in message
+            assert snippet in message
+            assert "missing" not in message
+        else:
+            raise AssertionError(f"blocked basketball detail must raise, got {result!r}")
+
+    class Forbidden:
+        status_code = 403
+        text = "<html><title>Just a moment...</title></html>"
+
+    class Challenge:
+        status_code = 200
+        text = "<html>Sorry, you have been blocked</html>"
+
+    assert_blocked(Forbidden(), "HTTP 403")
+    assert_blocked(Challenge(), "provider challenge page")
+
+
 def test_sportsgambler_fifa_world_cup_preserves_asian_handicap(monkeypatch):
     module = _load_module(
         "sportsgambler_fifa_test",
@@ -1267,6 +1321,95 @@ def test_cfb_soft_fail_does_not_block_mlb_refresh(monkeypatch):
         assert "cfb:" in ";".join(result["errors"])
         assert result["meta"]["sportErrors"]["cfb"]
         assert result["picks"][0]["source"] in {"SportyTraderMLB", "SportsGamblerMLB"}
+
+
+def test_empty_slate_on_nonempty_cfb_whitelist_is_soft_error(monkeypatch):
+    import pickgrader_server as server
+
+    # allow_partial_listings (SportyTrader) and require_complete_listings=False
+    # (SportsGambler) still exit 0 when a loaded football page has zero official
+    # cards. That must not certify empty while the whitelist is nonempty.
+    cases = (
+        ("cfb", "2026-09-04", "Toledo Rockets @ Michigan State Spartans"),
+        ("nfl", "2026-09-10", "New England Patriots @ Seattle Seahawks"),
+    )
+    for sport_code, target_date, football_matchup in cases:
+        def fake_matchups(_date, sport, sport_code=sport_code, football_matchup=football_matchup):
+            if sport == "mlb":
+                return ["St. Louis Cardinals @ Chicago Cubs"]
+            if sport == sport_code:
+                return [football_matchup]
+            return []
+
+        monkeypatch.setattr(server, "_known_external_slate_matchups", fake_matchups)
+        monkeypatch.setattr(server, "_save_admin_picks_doc", lambda *_args, **_kwargs: None)
+
+        def fake_run(command, **_kwargs):
+            sport = command[command.index("--sport") + 1]
+            scraper = " ".join(command)
+            if sport == sport_code:
+                if "sportytrader_scraper.py" in scraper:
+                    stdout = f"No SportyTrader {sport_code.upper()} picks parsed.\n"
+                else:
+                    stdout = "No picks found.\n"
+                return subprocess.CompletedProcess(command, 0, stdout=stdout, stderr="")
+            return subprocess.CompletedProcess(
+                command,
+                0,
+                stdout=(
+                    "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
+                    "Match: Chicago Cubs vs St. Louis Cardinals\n"
+                    "League: USA - MLB\n"
+                    "Tip: Chicago Cubs to win\n"
+                    "Odds: -115\n"
+                    "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
+                ),
+                stderr="",
+            )
+
+        monkeypatch.setattr(server, "_subprocess_run", fake_run)
+        for runner in (server.run_sportytrader_scraper, server.run_sportsgambler_scraper):
+            result = runner(target_date, ["mlb", sport_code])
+            assert result["ok"] is True, result
+            assert result["meta"]["officialMatchupCounts"][sport_code] > 0
+            assert result["meta"]["officialMatchupCounts"]["mlb"] > 0
+            assert [pick["sport"] for pick in result["picks"]] == ["MLB"]
+            sport_error = result["meta"]["sportErrors"][sport_code]
+            assert sport_error.startswith(f"{sport_code}:")
+            assert "empty parse despite nonempty official whitelist" in sport_error
+            assert f"{sport_code}:" in ";".join(result["errors"])
+            assert result["picks"][0]["source"] in {"SportyTraderMLB", "SportsGamblerMLB"}
+
+
+def test_empty_slate_on_nonempty_mlb_whitelist_is_hard_failure(monkeypatch):
+    import pickgrader_server as server
+
+    monkeypatch.setattr(
+        server,
+        "_known_external_slate_matchups",
+        lambda _date, sport: ["St. Louis Cardinals @ Chicago Cubs"] if sport == "mlb" else [],
+    )
+    monkeypatch.setattr(server, "_save_admin_picks_doc", lambda *_args, **_kwargs: None)
+
+    def fake_run(command, **_kwargs):
+        sport = command[command.index("--sport") + 1]
+        assert sport == "mlb"
+        scraper = " ".join(command)
+        if "sportytrader_scraper.py" in scraper:
+            stdout = "No SportyTrader MLB picks parsed.\n"
+        else:
+            stdout = "No picks found.\n"
+        return subprocess.CompletedProcess(command, 0, stdout=stdout, stderr="")
+
+    monkeypatch.setattr(server, "_subprocess_run", fake_run)
+    for runner in (server.run_sportytrader_scraper, server.run_sportsgambler_scraper):
+        result = runner("2026-06-13", ["mlb"])
+        assert result["ok"] is False, result
+        assert result["picks"] == []
+        assert result["meta"]["officialMatchupCounts"]["mlb"] > 0
+        assert "mlb:" in result["error"]
+        assert "empty parse despite nonempty official whitelist" in result["error"]
+        assert "mlb" not in result["meta"]["sportErrors"]
 
 
 def test_unresolved_cfb_slate_does_not_fail_mlb_provider(monkeypatch):

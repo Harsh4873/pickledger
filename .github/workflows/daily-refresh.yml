@@ -21,23 +21,29 @@ concurrency:
 jobs:
   models:
     uses: ./.github/workflows/model-cache-refresh.yml
+    with:
+      skip_deploy: true
     secrets: inherit
 
   props:
     needs: models
     if: ${{ !cancelled() }}
     uses: ./.github/workflows/player-props-refresh.yml
+    with:
+      skip_deploy: true
     secrets: inherit
 
   feeds:
     needs: props
     if: ${{ !cancelled() }}
     uses: ./.github/workflows/external-feed-refresh.yml
+    with:
+      skip_deploy: true
     secrets: inherit
 
   deploy:
-    needs: feeds
-    if: ${{ !cancelled() }}
+    needs: [models, props, feeds]
+    if: ${{ !cancelled() && needs.models.result == 'success' && needs.props.result == 'success' && needs.feeds.result == 'success' }}
     runs-on: ubuntu-latest
     steps:
       - name: Deploy the latest published cache

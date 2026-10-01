@@ -763,6 +763,165 @@ def test_refresh_reports_sport_failure_while_publishing_valid_other_sport(monkey
     assert mlb["picks"][0]["units"] == 0
 
 
+def test_empty_exit_on_nonempty_whitelist_retains_same_day_football_picks(monkeypatch, tmp_path):
+    import subprocess
+
+    import pickgrader_server as server
+
+    date = "2026-09-04"
+    priors = {
+        "sportytrader_cfb": {
+            "ok": True, "date": date, "updatedAt": "2026-09-04T14:00:00Z",
+            "picks": [{"pick": "Auburn ML", "sport": "CFB", "date": date}],
+            "refreshStatus": "ok",
+        },
+        "sportytrader_nfl": {
+            "ok": True, "date": date, "updatedAt": "2026-09-04T14:00:00Z",
+            "picks": [{"pick": "Seahawks -3", "sport": "NFL", "date": date}],
+            "refreshStatus": "ok",
+        },
+        "sportsgambler_cfb": {
+            "ok": True, "date": date, "updatedAt": "2026-09-04T14:00:00Z",
+            "picks": [{"pick": "Toledo +10.5", "sport": "CFB", "date": date}],
+            "refreshStatus": "ok",
+        },
+        "sportsgambler_nfl": {
+            "ok": True, "date": date, "updatedAt": "2026-09-04T14:00:00Z",
+            "picks": [{"pick": "Patriots +3", "sport": "NFL", "date": date}],
+            "refreshStatus": "ok",
+        },
+    }
+    (tmp_path / "latest.json").write_text(json.dumps({
+        "date": date, "models": {}, "external_feeds": priors,
+    }))
+
+    def fake_matchups(_date, sport):
+        return {
+            "mlb": ["St. Louis Cardinals @ Chicago Cubs"],
+            "cfb": ["Toledo Rockets @ Michigan State Spartans"],
+            "nfl": ["New England Patriots @ Seattle Seahawks"],
+        }.get(sport, [])
+
+    def fake_run(command, **_kwargs):
+        sport = command[command.index("--sport") + 1]
+        joined = " ".join(command)
+        if sport in {"cfb", "nfl"}:
+            if "sportytrader_scraper.py" in joined:
+                stdout = f"No SportyTrader {sport.upper()} picks parsed.\n"
+            else:
+                stdout = "No picks found.\n"
+            return subprocess.CompletedProcess(command, 0, stdout=stdout, stderr="")
+        return subprocess.CompletedProcess(
+            command,
+            0,
+            stdout=(
+                "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
+                "Match: Chicago Cubs vs St. Louis Cardinals\n"
+                "League: USA - MLB\n"
+                "Tip: Chicago Cubs to win\n"
+                "Odds: -115\n"
+                "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
+            ),
+            stderr="",
+        )
+
+    monkeypatch.setattr(server, "_known_external_slate_matchups", fake_matchups)
+    monkeypatch.setattr(server, "_save_admin_picks_doc", lambda *_args, **_kwargs: None)
+    monkeypatch.setattr(server, "_subprocess_run", fake_run)
+    _configure(
+        monkeypatch,
+        tmp_path,
+        {
+            "sportytrader": server.run_sportytrader_scraper,
+            "sportsgambler": server.run_sportsgambler_scraper,
+        },
+        date=date,
+    )
+    monkeypatch.setattr(
+        refresh,
+        "_parse_args",
+        lambda: SimpleNamespace(
+            date=date, feeds="sportytrader,sportsgambler", sports="mlb,cfb,nfl", skip_firestore=True,
+        ),
+    )
+
+    assert refresh.main() == 0
+    published = json.loads((tmp_path / "latest.json").read_text())
+    for key, prior in priors.items():
+        bucket = published["external_feeds"][key]
+        assert bucket["picks"] == prior["picks"]
+        assert bucket["ok"] is False
+        assert bucket["refreshStatus"] == "error"
+        assert "empty parse despite nonempty official whitelist" in bucket["lastError"]
+        assert bucket["lastSuccessAt"] == prior["updatedAt"]
+    for provider in ("sportytrader", "sportsgambler"):
+        mlb = published["external_feeds"][f"{provider}_mlb"]
+        assert mlb["refreshStatus"] == "ok"
+        assert mlb["ok"] is True
+        assert mlb["picks"][0]["sport"] == "MLB"
+        assert "Cubs" in mlb["picks"][0]["pick"]
+        assert f"{provider}_cfb" in " ".join(published["external_feed_errors"])
+        assert f"{provider}_nfl" in " ".join(published["external_feed_errors"])
+
+
+def test_empty_exit_on_nonempty_mlb_whitelist_retains_same_day_picks(monkeypatch, tmp_path):
+    import subprocess
+
+    import pickgrader_server as server
+
+    date = "2026-06-13"
+    prior = {
+        "ok": True, "date": date, "updatedAt": "2026-06-13T14:00:00Z",
+        "picks": [{"pick": "Yankees ML", "sport": "MLB", "date": date}],
+        "refreshStatus": "ok",
+    }
+    (tmp_path / "latest.json").write_text(json.dumps({
+        "date": date,
+        "models": {},
+        "external_feeds": {"sportsgambler_mlb": prior, "sportytrader_mlb": prior},
+    }))
+
+    def fake_run(command, **_kwargs):
+        joined = " ".join(command)
+        if "sportytrader_scraper.py" in joined:
+            stdout = "No SportyTrader MLB picks parsed.\n"
+        else:
+            stdout = "No picks found.\n"
+        return subprocess.CompletedProcess(command, 0, stdout=stdout, stderr="")
+
+    monkeypatch.setattr(
+        server,
+        "_known_external_slate_matchups",
+        lambda _date, sport: ["New York Yankees @ Boston Red Sox"] if sport == "mlb" else [],
+    )
+    monkeypatch.setattr(server, "_save_admin_picks_doc", lambda *_args, **_kwargs: None)
+    monkeypatch.setattr(server, "_subprocess_run", fake_run)
+    _configure(
+        monkeypatch,
+        tmp_path,
+        {
+            "sportytrader": server.run_sportytrader_scraper,
+            "sportsgambler": server.run_sportsgambler_scraper,
+        },
+        date=date,
+    )
+    monkeypatch.setattr(
+        refresh,
+        "_parse_args",
+        lambda: SimpleNamespace(date=date, feeds="sportytrader,sportsgambler", sports="mlb", skip_firestore=True),
+    )
+
+    assert refresh.main() == 1
+    published = json.loads((tmp_path / "latest.json").read_text())
+    for key in ("sportytrader_mlb", "sportsgambler_mlb"):
+        bucket = published["external_feeds"][key]
+        assert bucket["picks"] == prior["picks"]
+        assert bucket["ok"] is False
+        assert bucket["refreshStatus"] == "error"
+        assert "empty parse despite nonempty official whitelist" in bucket["lastError"]
+        assert bucket["date"] == date
+
+
 def test_non_nba_split_source_retry_marks_retained_cfb_snapshot_degraded(monkeypatch, tmp_path):
     from scripts.source_health import source_issues
 
@@ -798,3 +957,12 @@ def test_workflow_publishes_diagnostics_before_marking_total_outage_failed():
     assert "continue-on-error: true" in workflow
     assert workflow.index("Report refresh failure after publishing diagnostics") > workflow.index("Deploy updated external feeds")
     assert "if: steps.refresh-feeds.outcome == 'failure'" in workflow
+
+
+def test_sportytrader_local_sync_uses_refresh_merge_path():
+    from pathlib import Path
+
+    source = (Path(__file__).resolve().parents[2] / "scripts/scrapers/sportytrader_local_sync.py").read_text(encoding="utf-8")
+    assert "refresh_external_feeds" in source
+    assert "SPORTYTRADER_DEBUG_ORPHAN" in source
+    assert "sportytrader_manual_feed.json" in source

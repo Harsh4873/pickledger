@@ -6,7 +6,38 @@ from datetime import datetime, timezone
 from typing import Any, Mapping
 
 
-QUOTE_FIELDS = ("market_updated_at", "market_retrieved_at", "odds_updated_at", "price_updated_at")
+QUOTE_FIELDS = (
+    "market_updated_at",
+    "market_retrieved_at",
+    "odds_updated_at",
+    "price_updated_at",
+    "market_odds_captured_at",
+)
+
+
+def borrow_missing_quote_clocks(
+    price: Mapping[str, Any],
+    *fallbacks: Mapping[str, Any] | None,
+) -> dict[str, Any]:
+    """Keep ledger odds and provenance; borrow clocks only when all are absent.
+
+    Callers pass the pregame snapshot first, then the top-level record. A clock
+    already stored on ``price`` wins across aliases, even if it cannot be parsed.
+    Use the first fallback with a clock so a lower-priority source cannot hide
+    the snapshot's clock by supplying a higher-priority alias.
+    """
+
+    merged = dict(price)
+    if any(merged.get(field) not in (None, "") for field in QUOTE_FIELDS):
+        return merged
+    for source in fallbacks:
+        if not isinstance(source, Mapping):
+            continue
+        clocks = {field: source[field] for field in QUOTE_FIELDS if source.get(field) not in (None, "")}
+        if clocks:
+            merged.update(clocks)
+            break
+    return merged
 
 
 def aware_time(value: Any) -> datetime | None:

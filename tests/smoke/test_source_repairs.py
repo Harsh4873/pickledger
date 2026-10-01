@@ -1,5 +1,7 @@
 from datetime import date, datetime, timezone
 
+import pytest
+
 from MLBPredictionModel.observed_odds import fetch_mlb_market_odds_for_date
 from scripts.source_health import source_issues
 from scripts.model_versions import stamp_prediction_versions
@@ -48,3 +50,61 @@ def test_prediction_version_changes_with_artifact_and_not_probability(tmp_path):
     artifact.write_text('{"v":2}')
     stamp_prediction_versions(payload, root=tmp_path)
     assert payload['models']['mlb_new']['picks'][0]['prediction_model_version'] != first
+
+
+def test_tennistonic_source_health_surfaces_paired_archive_lag():
+    from scripts.source_health import source_issues
+
+    green = source_issues(
+        "tennistonic_tennis",
+        {"ok": True, "date": "2026-09-20", "meta": {}, "picks": [{"id": "1"}]},
+        "2026-09-20",
+    )
+    assert not any("archive stale" in issue for issue in green)
+
+    lag = source_issues(
+        "tennistonic_tennis",
+        {
+            "ok": True,
+            "date": "2026-09-20",
+            "meta": {"archiveThrough": "2026-07-20"},
+            "picks": [{"id": "1"}],
+        },
+        "2026-09-20",
+    )
+    assert any("paired tennis archive stale" in issue for issue in lag)
+
+
+@pytest.mark.parametrize("exit_code", [0, 1])
+def test_sportytrader_local_sync_calls_shared_refresh_and_restores_parser(monkeypatch, exit_code):
+    import importlib.util
+    from pathlib import Path
+    from scripts import refresh_external_feeds as refresh
+
+    monkeypatch.setenv("ENABLE_SPORTYTRADER_LOCALSYNC", "true")
+    monkeypatch.setenv("SPORTYTRADER_DEBUG_ORPHAN", "false")
+    path = Path(__file__).resolve().parents[2] / "scripts/scrapers/sportytrader_local_sync.py"
+    spec = importlib.util.spec_from_file_location("sportytrader_sync_test", path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    original_parser = refresh._parse_args
+
+    class Clock:
+        @staticmethod
+        def now(tz):
+            return datetime(2026, 10, 1, 2, tzinfo=timezone.utc).astimezone(tz)
+
+    monkeypatch.setattr(module, "datetime", Clock)
+    calls = []
+    def fake_refresh():
+        calls.append(refresh._parse_args())
+        return exit_code
+
+    monkeypatch.setattr(refresh, "main", fake_refresh)
+    assert module.main() == exit_code
+    assert len(calls) == 1
+    assert calls[0].date == "2026-09-30"
+    assert calls[0].feeds == "sportytrader"
+    assert "nfl" in calls[0].sports.split(",")
+    assert calls[0].skip_firestore is True
+    assert refresh._parse_args is original_parser

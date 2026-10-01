@@ -262,7 +262,11 @@ def run_training(calibration_dir: Path, *, force: bool = False) -> dict[str, Any
     challenger_metrics = evaluate(holdout_rows, challenger_mapping)
     promote, reasons = should_promote(champion_metrics, challenger_metrics)
     now = _utc_now()
-    final_mapping = fit_mapping(rows)
+    # Holdout metrics describe the train-only challenger. Promote that same
+    # mapping so served coefficients match the reported holdout numbers.
+    # Keep an all-rows refit only as a diagnostic sibling field.
+    selection_mapping = challenger_mapping
+    refit_mapping = fit_mapping(rows)
     version = f"cal-v{TRAINING_CONTRACT_VERSION}-{decided_count}-{now[:10]}"
     challenger_payload = {
         "schema_version": CALIBRATION_SCHEMA_VERSION,
@@ -272,9 +276,12 @@ def run_training(calibration_dir: Path, *, force: bool = False) -> dict[str, Any
         "decided_count": decided_count,
         "trainable_decided_count": len(rows),
         "holdout": {"champion": champion_metrics, "challenger": challenger_metrics},
+        "holdout_describes": "selection_mapping_train_only",
         "promotion": {"approved": promote, "reasons": reasons},
         "minimum_group_samples": MIN_GROUP_SAMPLES,
-        **final_mapping,
+        "selection_mapping": selection_mapping,
+        "refit_mapping_all_rows": refit_mapping,
+        **selection_mapping,
     }
     write_json_if_changed(calibration_dir / "challenger.json", challenger_payload)
 

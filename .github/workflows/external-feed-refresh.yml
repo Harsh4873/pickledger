@@ -6,6 +6,11 @@ name: External Feed Refresh
 
 on:
   workflow_call:
+    inputs:
+      skip_deploy:
+        description: "Let the caller deploy after all refresh jobs succeed"
+        type: boolean
+        default: false
   workflow_dispatch:
     inputs:
       date:
@@ -15,7 +20,7 @@ on:
       feeds:
         description: "Comma-separated GitHub-safe feeds (Scores24 is local-only)"
         required: false
-        default: "sportytrader,sportsgambler,forebet_mls,forebet_mlb,forebet_wnba,tennistonic_tennis,forebet_cfb,forebet_nfl"
+        default: "sportytrader,sportsgambler,forebet_mls,forebet_mlb,forebet_wnba,tennistonic_tennis,forebet_cfb,forebet_nfl,forebet_nhl,forebet_nba"
 
 permissions:
   contents: write
@@ -56,7 +61,7 @@ jobs:
       - name: Select GitHub-safe feeds
         id: feeds
         env:
-          REQUESTED_FEEDS: ${{ github.event.inputs.feeds || 'sportytrader,sportsgambler,forebet_mls,forebet_mlb,forebet_wnba,tennistonic_tennis,forebet_cfb,forebet_nfl' }}
+          REQUESTED_FEEDS: ${{ github.event.inputs.feeds || 'sportytrader,sportsgambler,forebet_mls,forebet_mlb,forebet_wnba,tennistonic_tennis,forebet_cfb,forebet_nfl,forebet_nhl,forebet_nba' }}
         run: |
           set -euo pipefail
           FEEDS=$(printf '%s' "$REQUESTED_FEEDS" | tr '[:upper:]' '[:lower:]' | tr -d '[:space:]')
@@ -134,7 +139,7 @@ jobs:
           exit 1
 
       - name: Deploy updated external feeds
-        if: steps.commit-feeds.outputs.changed == 'true' && steps.commit-feeds.outputs.deployable == 'true'
+        if: ${{ !inputs.skip_deploy && steps.commit-feeds.outputs.changed == 'true' && steps.commit-feeds.outputs.deployable == 'true' }}
         env:
           GH_TOKEN: ${{ github.token }}
         run: gh workflow run deploy-pages.yml --ref main

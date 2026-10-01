@@ -343,7 +343,7 @@ def _row(
         decision, units, decision_reason = policy_decision
         if odds is None and decision != "PASS":
             decision, units, decision_reason = "PASS", 0.0, "unpriced"
-    return {
+    row = {
         **base,
         "source": source,
         "pick": pick,
@@ -374,6 +374,19 @@ def _row(
         },
         **extra,
     }
+    # **base may carry the game's fetch clock. Unpriced rows must not publish
+    # it. Priced rows copy both clocks (NFL _price_fields: one quote fills both
+    # when the book has no separate odds_updated_at).
+    row.pop("market_retrieved_at", None)
+    row.pop("odds_updated_at", None)
+    if price_observed and odds is not None:
+        retrieved = str(base.get("market_retrieved_at") or "").strip()
+        updated = str(base.get("odds_updated_at") or "").strip()
+        quote = retrieved or updated
+        if quote:
+            row["market_retrieved_at"] = retrieved or quote
+            row["odds_updated_at"] = updated or quote
+    return row
 
 
 def generate_cfb_picks(date_iso: str) -> dict[str, Any]:
@@ -431,6 +444,10 @@ def generate_cfb_picks(date_iso: str) -> dict[str, Any]:
         model_total = float(model_total_raw)
         base = _base(game, date_iso, model_version)
         base["odds_source"] = game.get("odds_source")
+        if game.get("market_retrieved_at"):
+            base["market_retrieved_at"] = game.get("market_retrieved_at")
+        if game.get("odds_updated_at"):
+            base["odds_updated_at"] = game.get("odds_updated_at")
         home_line_value = game.get("home_line")
         total_line_value = game.get("total_line")
         if home_line_value is not None:

@@ -3,6 +3,11 @@ run-name: Player Props Refresh ${{ github.event.inputs.date || 'today' }}
 
 on:
   workflow_call:
+    inputs:
+      skip_deploy:
+        description: "Let the caller deploy after all refresh jobs succeed"
+        type: boolean
+        default: false
   workflow_dispatch:
     inputs:
       date:
@@ -84,7 +89,7 @@ jobs:
         id: train-props
         if: steps.market-history.outcome == 'success' && steps.outcome-history.outcome == 'success'
         continue-on-error: true
-        run: python scripts/train_player_prop_ml.py
+        run: python scripts/train_player_prop_ml.py --allow-skip
 
       - name: Evaluate four-model consensus challenger
         id: verify-consensus
@@ -186,7 +191,7 @@ jobs:
           exit 1
 
       - name: Deploy updated player props
-        if: steps.commit-props.outputs.changed == 'true'
+        if: ${{ !inputs.skip_deploy && steps.commit-props.outputs.changed == 'true' }}
         env:
           GH_TOKEN: ${{ github.token }}
         run: gh workflow run deploy-pages.yml --ref main

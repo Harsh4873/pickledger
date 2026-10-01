@@ -456,6 +456,9 @@ def load_live_slate(date_iso: str, *, coverage: dict[str, int] | None = None) ->
     counts = coverage if coverage is not None else {}
     counts.update(official_games=len(payload["events"]), started_games=0, incomplete_games=0,
                   pregame_games=0, unpriced_games=0)
+    # One UTC clock for this scoreboard fetch. Attach it only to rows that
+    # carry a posted line or price. An empty odds block is not a quote.
+    quote_at = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
     slate: list[dict[str, Any]] = []
     for event in payload.get("events") or []:
         state = _text(((event.get("status") or {}).get("type") or {}).get("state"))
@@ -497,35 +500,46 @@ def load_live_slate(date_iso: str, *, coverage: dict[str, int] | None = None) ->
         season = int(_num((event.get("season") or {}).get("year"), int(date_iso[:4])))
         week = int(_num(((event.get("week") or {}).get("number")), 1) or 1)
         provider = odds.get("provider") if isinstance(odds.get("provider"), Mapping) else {}
-        slate.append(
-            {
-                "game_id": _text(event.get("id")),
-                "event_id": _text(event.get("id")),
-                "season": season,
-                "week": week,
-                "season_type": _text(((event.get("season") or {}).get("type"))) or "regular",
-                "start_time": _text(event.get("date") or competition.get("date")),
-                "date": date_iso,
-                "completed": False,
-                "neutral_site": bool(competition.get("neutralSite")),
-                "conference_game": bool(competition.get("conferenceCompetition")),
-                "home_team_id": home_id,
-                "away_team_id": away_id,
-                "home_team": home_team,
-                "away_team": away_team,
-                "home_abbreviation": home_abbr,
-                "away_abbreviation": away_abbr,
-                "home_line": home_line,
-                "total_line": total_line,
-                "home_moneyline": home_ml,
-                "away_moneyline": away_ml,
-                "home_spread_odds": _odds_price(point_spread.get("home")),
-                "away_spread_odds": _odds_price(point_spread.get("away")),
-                "over_odds": _odds_price(total.get("over")),
-                "under_odds": _odds_price(total.get("under")),
-                "odds_source": f"espn_scoreboard:{_text(provider.get('name') or provider.get('displayName')) or 'unknown'}",
-            }
-        )
+        home_spread_odds = _odds_price(point_spread.get("home"))
+        away_spread_odds = _odds_price(point_spread.get("away"))
+        over_odds = _odds_price(total.get("over"))
+        under_odds = _odds_price(total.get("under"))
+        row = {
+            "game_id": _text(event.get("id")),
+            "event_id": _text(event.get("id")),
+            "season": season,
+            "week": week,
+            "season_type": _text(((event.get("season") or {}).get("type"))) or "regular",
+            "start_time": _text(event.get("date") or competition.get("date")),
+            "date": date_iso,
+            "completed": False,
+            "neutral_site": bool(competition.get("neutralSite")),
+            "conference_game": bool(competition.get("conferenceCompetition")),
+            "home_team_id": home_id,
+            "away_team_id": away_id,
+            "home_team": home_team,
+            "away_team": away_team,
+            "home_abbreviation": home_abbr,
+            "away_abbreviation": away_abbr,
+            "home_line": home_line,
+            "total_line": total_line,
+            "home_moneyline": home_ml,
+            "away_moneyline": away_ml,
+            "home_spread_odds": home_spread_odds,
+            "away_spread_odds": away_spread_odds,
+            "over_odds": over_odds,
+            "under_odds": under_odds,
+            "odds_source": f"espn_scoreboard:{_text(provider.get('name') or provider.get('displayName')) or 'unknown'}",
+        }
+        if any(
+            value is not None
+            for value in (
+                home_line, total_line, home_ml, away_ml,
+                home_spread_odds, away_spread_odds, over_odds, under_odds,
+            )
+        ):
+            row["market_retrieved_at"] = quote_at
+        slate.append(row)
     return slate
 
 

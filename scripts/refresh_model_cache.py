@@ -370,6 +370,13 @@ def main() -> int:
     print(f"[model-cache] wrote {MODEL_CACHE_DIR / f'{date_iso}.json'}")
     print(f"[model-cache] wrote {MODEL_CACHE_DIR / 'latest.json'}")
     print(json.dumps({"ok": not errors, "date": date_iso, "models": selected, "errors": errors}, indent=2))
+    # Dated JSON is always written for debug. latest.json (and Firestore,
+    # unless --skip-firestore) still receive that partial payload. Exit is
+    # nonzero whenever errors is non-empty so CI cannot green on a selected
+    # model that returned ok=False. model-cache-refresh.yml does not commit
+    # after this failure, so the partial latest.json is not published.
+    if errors:
+        return 1
     success_count = sum(
         1 for result in results.values()
         if isinstance(result, dict) and result.get("ok")

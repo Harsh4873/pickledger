@@ -69,3 +69,48 @@ def test_later_success_clears_failed_refresh_marker(tmp_path):
     bucket = merge_payload(generated, tmp_path)["models"]["cfb"]
     assert bucket["ok"] is True
     assert "preserved_after_refresh_error" not in bucket
+
+def test_partial_model_failures_exit_nonzero(monkeypatch, tmp_path):
+    """A mixed ok/error refresh must not exit 0 (Auditor A model-cache-partial-exit0)."""
+    from types import SimpleNamespace
+
+    from scripts import refresh_model_cache as rmc
+
+    monkeypatch.setattr(rmc, "MODEL_CACHE_DIR", tmp_path)
+    monkeypatch.setattr(
+        rmc,
+        "_parse_args",
+        lambda: SimpleNamespace(
+            date="2026-10-01",
+            models="ok_model,bad_model",
+            max_workers=1,
+            skip_firestore=True,
+        ),
+    )
+    monkeypatch.setattr(
+        rmc,
+        "_model_jobs",
+        lambda _date: {
+            "ok_model": lambda: {"ok": True, "picks": [{"id": "a"}]},
+            "bad_model": lambda: {"ok": False, "error": "boom", "picks": []},
+        },
+    )
+    monkeypatch.setattr(rmc, "_run_model_job_with_retries", lambda _key, job: job())
+    written = {}
+
+    def _write(date_iso, payload):
+        written["date"] = date_iso
+        written["errors"] = list(payload.get("errors") or [])
+        written["models"] = dict(payload.get("models") or {})
+        (tmp_path / f"{date_iso}.json").write_text("{}")
+        return payload
+
+    monkeypatch.setattr(rmc, "_write_json_cache", _write)
+    monkeypatch.setattr(rmc.server, "_write_admin_picks_cache", lambda *_a, **_k: None)
+    monkeypatch.setattr(rmc.server, "_parse_model_date_arg", lambda _raw: ("2026-10-01", None))
+
+    assert rmc.main() == 1
+    assert written["date"] == "2026-10-01"
+    assert written["errors"] and "bad_model" in written["errors"][0]
+    assert written["models"]["ok_model"]["ok"] is True
+    assert written["models"]["bad_model"]["ok"] is False

@@ -189,9 +189,17 @@ def scrape_basketball(
 
     rows = []
     missing: list[str] = []
+    blocked: list[str] = []
     for art in articles:
         try:
-            detail = BeautifulSoup(requests.get(art["url"], headers=HEADERS, timeout=30).text, "html.parser")
+            response = requests.get(art["url"], headers=HEADERS, timeout=30)
+            status = getattr(response, "status_code", 200)
+            html = response.text
+            if status != 200 or any(signal in html[:12000].lower() for signal in BLOCK_SIGNALS):
+                reason = f"HTTP {status}" if status != 200 else "provider challenge page"
+                blocked.append(f"{art['url']}: {reason}")
+                continue
+            detail = BeautifulSoup(html, "html.parser")
         except Exception:
             missing.append(art["url"])
             continue
@@ -215,6 +223,14 @@ def scrape_basketball(
             missing.append(art["url"])
             continue
         rows.append({"datetime": art["date"], "league": league, "matchup": art["matchup"], "tip": tip, "odds": odds, "href": art["url"]})
+    if blocked:
+        message = (
+            f"partial {league} scrape: parsed {len(rows)} of {len(articles)} listed prediction page(s); "
+            f"blocked {len(blocked)} detail page(s) (Cloudflare/HTTP): {'; '.join(blocked[:3])}"
+        )
+        if missing:
+            message += f"; missing {', '.join(missing[:3])}"
+        raise RuntimeError(message)
     if missing:
         raise RuntimeError(
             f"partial {league} scrape: parsed {len(rows)} of {len(articles)} listed prediction page(s); "

@@ -23,7 +23,7 @@ if [[ -z "${GH_BIN}" ]]; then
 fi
 
 DATE_ISO="${FOREBET_DATE:-$(TZ=America/Chicago date +%F)}"
-PUBLISH_FEEDS="${FOREBET_PUBLISH_FEEDS:-forebet_mlb,forebet_wnba,forebet_mls,forebet_cfb,forebet_nfl}"
+PUBLISH_FEEDS="${FOREBET_PUBLISH_FEEDS:-forebet_mlb,forebet_wnba,forebet_mls,forebet_cfb,forebet_nfl,forebet_nhl,forebet_nba}"
 FEED_COOLDOWN="${FOREBET_PUBLISH_FEED_COOLDOWN_SECONDS:-5}"
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -114,7 +114,7 @@ required = tuple(
     feed.strip()
     for feed in os.environ.get(
         "PUBLISH_FEEDS",
-        "forebet_mlb,forebet_wnba,forebet_mls,forebet_cfb,forebet_nfl",
+        "forebet_mlb,forebet_wnba,forebet_mls,forebet_cfb,forebet_nfl,forebet_nhl,forebet_nba",
     ).split(",")
     if feed.strip()
 )

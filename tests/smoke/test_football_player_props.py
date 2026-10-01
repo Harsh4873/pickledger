@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
+
 from player_props.football import generate_football_candidate_model
 from player_props.generator import generate_payload
 from player_props.schema import central_calendar_date
@@ -20,6 +22,26 @@ DATE = "2026-09-12"
 STAMP = "2026-09-12T12:00:00Z"
 
 
+@pytest.fixture(autouse=True)
+def _isolate_consensus_artifacts(monkeypatch, tmp_path):
+    """Exercise missing football artifacts without loading production joblibs."""
+    import json
+    import joblib
+    import player_props.consensus as consensus
+
+    metadata = tmp_path / "consensus.json"
+    metadata.write_text(json.dumps({"active": True, "sports": {"MLB": {"active": True}}}))
+    mlb = tmp_path / "mlb.joblib"
+    joblib.dump({"models": {}, "market_profiles": {}}, mlb)
+    monkeypatch.setattr(consensus, "CONSENSUS_METADATA_PATH", metadata)
+    monkeypatch.setattr(consensus, "MODEL_PATHS", {
+        ("MLB", "season"): mlb,
+        ("NFL", "season"): tmp_path / "absent-nfl.joblib",
+        ("CFB", "season"): tmp_path / "absent-cfb.joblib",
+    })
+    monkeypatch.setattr(consensus, "_BUNDLE", False)
+
+
 class EmptyFootballClient:
     def football_scoreboard(self, league, date_iso):
         return {"events": [], "season": {"year": 2026}}
@@ -31,6 +53,14 @@ class BoomFootballClient:
 
 
 class PartialMlbClient(EmptyFootballClient):
+    def basketball_scoreboard(self, league, date_iso):
+        return {"events": [], "season": {"year": 2026}}
+
+    def mlb_schedule(self, date_iso):
+        return {"dates": []}
+
+
+class BoomSportsClient(BoomFootballClient):
     def basketball_scoreboard(self, league, date_iso):
         return {"events": [], "season": {"year": 2026}}
 
@@ -297,17 +327,23 @@ def test_nfl_unpriced_source_rows_are_not_reported_as_posted_markets():
 def test_football_scoreboard_outage_soft_fails_and_does_not_block_mlb(monkeypatch):
     monkeypatch.setenv("PICKLEDGER_DISABLE_PRECISION_MODEL", "true")
     boom = generate_football_candidate_model(BoomFootballClient(), "nfl", "NFL", DATE)
-    assert boom["ok"] is True
+    assert boom["ok"] is False
     assert boom["games"] == 0
     assert boom["picks"] == []
     assert boom["errors"]
+    assert "soft-failed" in str(boom.get("note") or "")
 
-    payload = generate_payload(DATE, client=PartialMlbClient(), generated_at=STAMP)
+    payload = generate_payload(DATE, client=BoomSportsClient(), generated_at=STAMP)
     models = payload["models"]
     errors = _publication_contract_errors(models, official_mlb_games=0, target_date=DATE)
     assert errors == []
     assert models["mlb_player_props"]["ok"] is True
-    assert models["nfl_player_props"]["ok"] is True
+    assert models["nba_player_props"]["ok"] is True
+    assert models["wnba_player_props"]["ok"] is True
+    assert models["nfl_player_props"]["ok"] is False
+    assert models["cfb_player_props"]["ok"] is False
+    assert models["nfl_player_props"]["picks"] == []
+    assert "espn unavailable" in " ".join(models["nfl_player_props"]["errors"])
 
 
 def test_market_priced_football_candidates_reuse_espn_prop_bets():
@@ -366,14 +402,57 @@ def test_player_props_refresh_workflow_trains_and_histories_include_football():
     assert workflow.count("--sports MLB,WNBA,NFL,CFB") == 2
 
 
-def test_consensus_bundle_loads_without_native_football_artifacts():
+def test_consensus_bundle_loads_without_native_football_artifacts(monkeypatch):
     import player_props.consensus as consensus
 
-    consensus._BUNDLE = False
+    monkeypatch.delenv("PICKLEDGER_DISABLE_PRECISION_MODEL", raising=False)
     bundle = consensus.load_consensus_bundle()
-    if bundle is None:
-        return
+    assert bundle is not None
     artifacts = bundle.get("artifacts") or {}
     assert "MLB:season" in artifacts or "WNBA:season" in artifacts
     assert "NFL:season" not in artifacts
     assert "CFB:season" not in artifacts
+
+
+def test_soft_football_wrapper_marks_exceptions_not_ok(monkeypatch):
+    from player_props import generator as gen
+
+    def boom(*_a, **_k):
+        raise RuntimeError("synthetic football crash")
+
+    monkeypatch.setattr(gen, "generate_football_candidate_model", boom)
+    bucket = gen._soft_football_candidates(object(), "nfl", "NFL", DATE)
+    assert bucket["ok"] is False
+    assert bucket["picks"] == []
+    assert bucket["errors"]
+    assert "synthetic football crash" in bucket["errors"][0]
+    assert "soft-failed" in bucket["note"]
+
+
+def test_football_schedule_exception_is_not_a_healthy_empty(monkeypatch):
+    import player_props.football as football
+
+    def boom(*_args, **_kwargs):
+        raise RuntimeError("schedule boom")
+
+    monkeypatch.setattr(football, "_football_schedule", boom)
+    bucket = generate_football_candidate_model(object(), "nfl", "NFL", DATE)
+    assert bucket["ok"] is False
+    assert bucket["picks"] == []
+    assert bucket["errors"] == ["schedule boom"]
+    assert "soft-failed" in bucket["note"]
+
+
+def test_football_per_game_exception_is_not_an_unpriced_abstention(monkeypatch):
+    import player_props.football as football
+
+    def boom(**_kwargs):
+        raise RuntimeError("props boom")
+
+    monkeypatch.setattr(football, "_game_props", boom)
+    bucket = generate_football_candidate_model(ScheduledUnpricedClient(), "nfl", "NFL", DATE)
+    assert bucket["ok"] is False
+    assert bucket["games"] == 1
+    assert bucket["picks"] == []
+    assert any("props boom" in error for error in bucket["errors"])
+    assert "soft-failed" in bucket["note"]

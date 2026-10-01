@@ -110,8 +110,15 @@ def test_holdout_uses_the_captured_price_and_quote_clock():
     assert replaced["independently_priced_settled"] == 1
     assert replaced["profit_units"] == 0.4
 
-    # A valid old snapshot cannot certify a newer price with no quote clock.
+    # Odds stay on the ledger price. A missing price clock borrows the
+    # pregame snapshot clock instead of dropping the row.
     row["price"].pop("market_updated_at")
+    borrowed = evaluate_frozen_holdout({"records": [row]}, _freeze())
+    assert borrowed["independently_priced_settled"] == 1
+    assert borrowed["profit_units"] == 0.4
+    assert borrowed["exclusions"] == {}
+
+    row["pregame_snapshot"].pop("market_updated_at")
     missing = evaluate_frozen_holdout({"records": [row]}, _freeze())
     assert missing["independently_priced_settled"] == 0
     assert missing["exclusions"] == {"missing_quote_timestamp": 1}

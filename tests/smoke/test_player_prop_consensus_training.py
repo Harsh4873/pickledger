@@ -1,12 +1,16 @@
 import json
 import sys
 
+import pytest
+
 from scripts import train_player_prop_consensus_ml as trainer
 from scripts.train_player_prop_consensus_ml import (
     COUNT_GATE_FEATURES,
     POLICIES,
     _apply_view_policy,
     _classifier_views,
+    _emit_skipped_sports_warning,
+    _emit_verify_skip_warning,
     _evaluate_count_gate,
     _fit_count_gate,
     _publication_plan,
@@ -24,7 +28,9 @@ def test_verify_only_skips_missing_history_without_touching_artifacts(monkeypatc
                                   str(tmp_path / "missing.jsonl.gz")])
 
     assert trainer.main() == 0
-    assert json.loads(capsys.readouterr().out)["status"] == "skipped"
+    captured = capsys.readouterr()
+    assert json.loads(captured.out)["status"] == "skipped"
+    assert "::warning title=Player prop consensus soft-skip::" in captured.err
     assert metadata.read_text(encoding="utf-8") == '{"active": true}'
 
 
@@ -40,10 +46,13 @@ def test_verify_only_skips_empty_feature_matrix_without_training(monkeypatch, tm
                                   str(markets), "--outcomes", str(outcomes)])
 
     assert trainer.main() == 0
-    result = json.loads(capsys.readouterr().out)
+    captured = capsys.readouterr()
+    result = json.loads(captured.out)
     assert result["status"] == "skipped"
     assert "market features" in result["reason"]
     assert result["artifacts"] == "unchanged"
+    assert "::warning title=Player prop consensus soft-skip::" in captured.err
+    assert "market features" in captured.err
 
 
 def test_consensus_windows_roll_forward_to_latest_sport_market_date():
@@ -196,3 +205,109 @@ def test_classifier_fair_probability_tracks_selected_side_and_edge():
         "minimum_implied": 0.50,
     }
     assert _apply_view_policy(views["dynamic"], policy)["samples"] == 0
+
+def test_emit_skipped_sports_warning_is_noop_when_empty(capsys):
+    _emit_skipped_sports_warning([])
+    assert capsys.readouterr().err == ""
+
+
+def test_emit_skipped_sports_warning_uses_github_actions_annotation(capsys):
+    _emit_skipped_sports_warning(["NFL", "CFB"], reason="verify-only")
+    err = capsys.readouterr().err
+    assert err.startswith("::warning title=Player prop consensus soft-skip::")
+    assert "skipped_sports=NFL,CFB" in err
+    assert "verify-only" in err
+
+
+def test_emit_verify_skip_warning_escapes_newlines(capsys):
+    _emit_verify_skip_warning("missing MLB market features\nand more")
+    err = capsys.readouterr().err
+    assert "::warning title=Player prop consensus soft-skip::" in err
+    assert "%0A" in err
+
+
+def test_verify_only_surfaces_football_soft_skips_in_warning(monkeypatch, tmp_path, capsys):
+    """NFL/CFB missing windows soft-skip while verify still exits 0 with ::warning."""
+    markets = tmp_path / "markets.jsonl"
+    outcomes = tmp_path / "outcomes.jsonl"
+    markets.write_text(
+        "".join(
+            json.dumps({"sport": sport, "date": "2026-09-29"}) + "\n"
+            for sport in ("MLB", "WNBA")
+        ),
+        encoding="utf-8",
+    )
+    outcomes.write_text("", encoding="utf-8")
+    monkeypatch.setattr(trainer, "build_training_features", lambda *_args: ([], {}))
+    monkeypatch.setattr(trainer, "build_outcome_training_features", lambda *_args: ([], {}))
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        ["consensus", "--verify-only", "--markets", str(markets), "--outcomes", str(outcomes)],
+    )
+
+    assert trainer.main() == 0
+    captured = capsys.readouterr()
+    result = json.loads(captured.out)
+    assert result["status"] == "skipped"
+    assert set(result.get("skipped_sports") or []) >= {"NFL", "CFB"}
+    assert "soft-skip NFL: no dated market windows" in captured.err
+    assert "soft-skip CFB: no dated market windows" in captured.err
+    assert "::warning title=Player prop consensus soft-skip::" in captured.err
+    assert "skipped_sports=" in captured.err
+
+
+@pytest.mark.parametrize("failed_sport", ["NFL", "CFB", "WNBA"])
+@pytest.mark.parametrize("stage", ["validation", "final"])
+def test_consensus_fit_failure_does_not_activate_missing_artifacts(
+    monkeypatch, tmp_path, capsys, failed_sport, stage,
+):
+    policy = {"minimum_validation_samples": 1, "minimum_holdout_samples": 1}
+    stats = {"WNBA": "points", "NFL": "passing_yards", "CFB": "passing_yards"}
+    monkeypatch.setattr(trainer, "POLICIES", {sport: {stat: policy} for sport, stat in stats.items()})
+    monkeypatch.setattr(trainer, "SEARCHED_MARKETS", set())
+    rows = [{
+        **{name: 0.0 for name in trainer.NUMERIC_FEATURES},
+        "sport": sport, "stat_key": stat, "date": "2026-09-29", "event_id": sport,
+        "athlete_id": sport, "market_format": "over_under", "over_outcome": 1,
+        "over_odds": -110, "under_odds": -110,
+    } for sport, stat in stats.items()]
+    monkeypatch.setattr(trainer, "build_training_features", lambda *_args: (rows, {}))
+    monkeypatch.setattr(trainer, "build_outcome_training_features", lambda *_args: (rows, {}))
+    monkeypatch.setattr(trainer, "_outcome_frame_for_markets", lambda frame, _profiles:
+                        frame.assign(**{name: 0.0 for name in trainer.OUTCOME_FEATURES}))
+    monkeypatch.setattr(trainer, "_windows", lambda *_args:
+                        (("2026-09-01", "2026-09-02", "2026-09-15"),
+                         ("2026-09-15", "2026-09-16", "2026-09-29")))
+
+    def fit(frame, _stat, cutoff=None, **_kwargs):
+        if frame["sport"].iloc[0] == failed_sport and ((cutoff is None) == (stage == "final")):
+            raise RuntimeError("fixture fit failure")
+        return object()
+
+    monkeypatch.setattr(trainer, "_fit_market", fit)
+    monkeypatch.setattr(trainer, "_fit_paired_history", lambda *_args: object())
+    monkeypatch.setattr(trainer, "_classifier_views", lambda *_args, **_kwargs: {"dynamic": {}})
+    monkeypatch.setattr(trainer, "_apply_view_policy", lambda *_args: {
+        "samples": 2, "wins": 2, "losses": 0, "accuracy": 1.0,
+    })
+    history = tmp_path / "history.jsonl"
+    history.write_text("")
+    metadata = tmp_path / "metadata.json"
+    monkeypatch.setattr(trainer, "CONSENSUS_METADATA_PATH", metadata)
+    monkeypatch.setattr(sys, "argv", ["consensus", "--dry-run", "--markets", str(history),
+                                     "--outcomes", str(history)])
+    if failed_sport == "WNBA":
+        with pytest.raises(RuntimeError, match="fixture fit failure"):
+            trainer.main()
+        return
+    assert trainer.main() == 0
+    captured = capsys.readouterr()
+    result = json.loads(captured.out)
+    assert result["sports"]["WNBA"]["active"] is True
+    assert result["sports"][failed_sport]["active"] is False
+    assert result["sports"][failed_sport]["policies"] == {}
+    assert failed_sport in result["skipped_sports"]
+    assert failed_sport not in result["evaluation_windows"]
+    assert "fixture fit failure" in captured.err
+    assert not metadata.exists()

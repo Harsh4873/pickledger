@@ -214,6 +214,50 @@ def _forward_validation(
     }
 
 
+def _published_fit_selection(
+    rows: list[list[float]],
+    labels: list[int],
+    dates: list[str],
+    validation_dates: list[str],
+) -> tuple[list[list[float]], list[int], dict[str, Any]]:
+    """Choose rows for the dumped classifier.
+
+    Walk-forward metrics stay on the selection model. The published fit stops
+    before the last validated date so that holdout day is not in the artifact.
+    """
+    if not validation_dates:
+        return rows, labels, {
+            "full_sample_refit": True,
+            "published_fit": "all_rows_no_validation_dates",
+            "published_fit_samples": len(rows),
+            "full_sample_refit_reason": "walk-forward produced no validation dates",
+        }
+
+    final_holdout_date = max(validation_dates)
+    kept = [index for index, date in enumerate(dates) if date < final_holdout_date]
+    subset_rows = [rows[index] for index in kept]
+    subset_labels = [labels[index] for index in kept]
+    class_count = len(set(subset_labels))
+    if len(subset_rows) < 30 or class_count < 2:
+        return rows, labels, {
+            "full_sample_refit": True,
+            "published_fit": "all_rows_insufficient_pre_holdout",
+            "published_fit_end_exclusive": final_holdout_date,
+            "published_fit_samples": len(rows),
+            "full_sample_refit_reason": (
+                f"pre-final-validation-date rows before {final_holdout_date} "
+                f"have {len(subset_rows)} samples and {class_count} classes; "
+                "need at least 30 samples and 2 classes"
+            ),
+        }
+    return subset_rows, subset_labels, {
+        "full_sample_refit": False,
+        "published_fit": "pre_final_validation_date",
+        "published_fit_end_exclusive": final_holdout_date,
+        "published_fit_samples": len(subset_rows),
+    }
+
+
 def _fit_artifact(
     *,
     sport: str,
@@ -265,13 +309,21 @@ def _fit_artifact(
         market_probabilities,
         baseline_probabilities,
     )
-    model = _fit_classifier(rows, labels)
+    raw_validation_dates = validation.get("dates") or []
+    validation_dates = [str(item) for item in raw_validation_dates] if isinstance(raw_validation_dates, list) else []
+    published_rows, published_labels, published_fit = _published_fit_selection(
+        rows,
+        labels,
+        dates,
+        validation_dates,
+    )
+    model = _fit_classifier(published_rows, published_labels)
     model_brier = validation.get("model_brier")
     market_brier = validation.get("market_brier")
     baseline_brier = validation.get("baseline_brier")
     calibration_gap = validation.get("calibration_gap")
     active = bool(
-        len(rows) >= MIN_TRAINING_SAMPLES[sport]
+        len(published_rows) >= MIN_TRAINING_SAMPLES[sport]
         and int(validation.get("samples") or 0) >= MIN_VALIDATION_SAMPLES[sport]
         and len(validation.get("dates") or []) >= MIN_VALIDATION_DATES
         and model_brier is not None
@@ -302,6 +354,8 @@ def _fit_artifact(
         "training_dates": sorted(set(dates)),
         "positive_rate": sum(labels) / len(labels),
         "validation": validation,
+        "validation_describes": "walk_forward_selection_not_published_fit",
+        **published_fit,
         "activation_requirements": {
             "minimum_training_samples": MIN_TRAINING_SAMPLES[sport],
             "minimum_validation_samples": MIN_VALIDATION_SAMPLES[sport],
@@ -332,8 +386,31 @@ def _fit_artifact(
         return result
     ARTIFACT_DIR.mkdir(parents=True, exist_ok=True)
     joblib.dump({"model": model, "features": FEATURE_NAMES}, model_path)
-    metadata_path.write_text(json.dumps(metadata, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    _atomic_write_text(metadata_path, json.dumps(metadata, indent=2, sort_keys=True) + "\n")
     return result
+
+
+def _atomic_write_text(path: Path, content: str) -> None:
+    import os
+    import tempfile
+
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temporary: Path | None = None
+    try:
+        with tempfile.NamedTemporaryFile(
+            mode="w", encoding="utf-8", dir=path.parent,
+            prefix=f".{path.name}.", suffix=".tmp", delete=False,
+        ) as handle:
+            temporary = Path(handle.name)
+            handle.write(content)
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.replace(temporary, path)
+        temporary = None
+    finally:
+        if temporary is not None:
+            temporary.unlink(missing_ok=True)
+
 
 
 def main() -> int:
@@ -350,6 +427,11 @@ def main() -> int:
         help="Train and evaluate candidates without replacing any artifacts.",
     )
     parser.add_argument("--rebuild-ledger", action="store_true", help="Rebuild outcome ledger before training.")
+    parser.add_argument(
+        "--allow-skip",
+        action="store_true",
+        help="Exit 0 even when NFL/CFB soft-skip for insufficient outcomes (CI may set this).",
+    )
     args = parser.parse_args()
     repo_root = args.repo_root.resolve()
     if args.rebuild_ledger:
@@ -386,6 +468,7 @@ def main() -> int:
             dry_run=args.dry_run,
         ),
     ]
+    skipped: list[str] = []
     for result in results:
         status = (
             "skipped"
@@ -399,6 +482,22 @@ def main() -> int:
             else "existing"
         )
         print(f"[player-prop-ml] {result['sport']}: {status} {result['path']}")
+        if result.get("skipped"):
+            skipped.append(f"{result['sport']}:{result.get('reason') or 'insufficient outcomes'}")
+    if skipped:
+        import sys
+        detail = "; ".join(skipped)
+        escaped = detail.replace("%", "%25").replace("\r", "%0D").replace("\n", "%0A")
+        print(
+            f"::warning title=Player prop ML soft-skip::skipped_sports={escaped}",
+            file=sys.stderr,
+        )
+        if not getattr(args, "allow_skip", False):
+            print(
+                "[player-prop-ml] soft-skipped sports without --allow-skip: " + detail,
+                file=sys.stderr,
+            )
+            return 2
     return 0
 
 

@@ -279,35 +279,92 @@ def _rank_published_picks(fresh: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return ranked
 
 
+def _baseline_research_rows(rows: list[Any]) -> bool:
+    return bool(rows) and all(
+        isinstance(row, dict)
+        and row.get("baseline_only") is True
+        and row.get("decision") == "PASS"
+        and row.get("probability_calibrated") is False
+        and row.get("ml_model_active") is False
+        and all(float(row.get(field) or 0) == 0 for field in ("units", "full_kelly", "quarter_kelly"))
+        for row in rows
+    )
+
+
+def _same_day_pick_rows(prior: dict[str, Any], generated_date: Any) -> list[dict[str, Any]]:
+    if prior.get("date") != generated_date:
+        return []
+    rows: list[dict[str, Any]] = []
+    for row in prior.get("picks") or []:
+        if not isinstance(row, dict):
+            continue
+        row_date = str(row.get("date") or "").strip()
+        if row_date and row_date != str(generated_date or ""):
+            continue
+        rows.append(row)
+    return rows
+
+
 def _preserve_pick_metadata(
     source_buckets: list[Any],
     generated_bucket: Any,
+    *,
+    model_key: str | None = None,
 ) -> Any:
     if not isinstance(generated_bucket, dict):
         return generated_bucket
     generated_picks = generated_bucket.get("picks")
     if not isinstance(generated_picks, list):
         return generated_bucket
-    if (generated_bucket.get("football_baseline") is True and not generated_picks
-            and (generated_bucket.get("errors") or generated_bucket.get("ok") is False)):
-        # Preserve only already-published zero-stake research from this slate.
-        # Keep the failed refresh diagnostics and original per-pick quote times.
+    failed_empty = (
+        not generated_picks
+        and (generated_bucket.get("errors") or generated_bucket.get("ok") is False)
+    )
+    # Soft CFB/NFL: ok:false, or an empty board that carries errors, must not
+    # wipe a same-day board. Priced ML/consensus rows qualify, not only
+    # football_baseline PASS research. Hard keys stay on the generated bucket.
+    soft_outage = model_key in SOFT_PLAYER_PROP_MODEL_KEYS and (
+        generated_bucket.get("ok") is False
+        or (not generated_picks and bool(generated_bucket.get("errors")))
+    )
+    baseline_outage = generated_bucket.get("football_baseline") is True and failed_empty
+    if baseline_outage or soft_outage:
+        # Keep failed-refresh diagnostics (ok, errors) and original quote times.
+        generated_date = generated_bucket.get("date")
         for prior in reversed(source_buckets):
-            if not isinstance(prior, dict) or prior.get("date") != generated_bucket.get("date"):
+            if not isinstance(prior, dict):
                 continue
-            rows = prior.get("picks") or []
-            if prior.get("football_baseline") is not True or not rows:
+            rows = _same_day_pick_rows(prior, generated_date)
+            if not rows:
                 continue
-            if not all(row.get("baseline_only") is True and row.get("decision") == "PASS"
-                       and row.get("probability_calibrated") is False and row.get("ml_model_active") is False
-                       and all(float(row.get(field) or 0) == 0 for field in ("units", "full_kelly", "quarter_kelly"))
-                       for row in rows):
+            if prior.get("football_baseline") is True:
+                if not _baseline_research_rows(rows):
+                    continue
+            elif not soft_outage:
                 continue
-            generated_bucket = {**generated_bucket,
+            zero_stake_pass = all(
+                row.get("decision") == "PASS"
+                and all(float(row.get(field) or 0) == 0 for field in ("units", "full_kelly", "quarter_kelly"))
+                for row in rows
+            )
+            note = (
+                "Refresh failed; retaining earlier same-day PASS research with its original quote timestamps."
+                if zero_stake_pass
+                else "Refresh failed; retaining earlier same-day picks with their original quote timestamps."
+            )
+            generated_bucket = {
+                **generated_bucket,
                 "preserved_research_from": prior.get("preserved_research_from") or prior.get("updatedAt"),
                 "publication_status": "preserved_research",
-                "note": "Refresh failed; retaining earlier same-day PASS research with its original quote timestamps.",
-                "picks": [dict(row) for row in rows]}
+                "note": note,
+                "picks": [dict(row) for row in rows],
+            }
+            # The retained board may use a different publication mode than
+            # the failed attempt (baseline projections versus priced consensus).
+            if prior.get("football_baseline") is True:
+                generated_bucket["football_baseline"] = True
+            else:
+                generated_bucket.pop("football_baseline", None)
             generated_picks = generated_bucket["picks"]
             break
     source_picks = [
@@ -356,6 +413,10 @@ def _preserve_pick_metadata(
         for index, pick in enumerate(merged["picks"], 1):
             pick["rank"] = index
             pick["ml_rank"] = index
+    elif generated_bucket.get("publication_status") == "preserved_research":
+        # A failed soft refresh keeps the prior board intact, including a
+        # second priced prop for the same player.
+        merged["picks"] = fresh_picks
     else:
         merged["picks"] = _rank_published_picks(fresh_picks)
     return merged
@@ -386,6 +447,7 @@ def merge_payload(
             _snapshot_buckets(date_iso, key, snapshot_dir)
             + (_current_buckets(current_models, key) if include_current else []),
             bucket,
+            model_key=key,
         )
         for key, bucket in public_generated_models.items()
     }

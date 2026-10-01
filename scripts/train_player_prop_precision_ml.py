@@ -74,9 +74,14 @@ def _frame(rows: list[dict[str, Any]]) -> Any:
     return pd.DataFrame(rows)
 
 
-def _fit(rows: Any) -> Any:
+def _fit(rows: Any) -> Any | None:
+    if rows is None or getattr(rows, "empty", True):
+        return None
+    labels = rows["over_outcome"].astype(int)
+    if labels.nunique() < 2:
+        return None
     model = _pipeline()
-    model.fit(rows[NUMERIC_FEATURES + CATEGORICAL_FEATURES], rows["over_outcome"].astype(int))
+    model.fit(rows[NUMERIC_FEATURES + CATEGORICAL_FEATURES], labels)
     return model
 
 
@@ -186,6 +191,8 @@ def _evaluate(
         & (features["date"] <= evaluation_end.isoformat())
     ]
     model = _fit(training)
+    if model is None:
+        return None, [], {"skipped": True, "reason": "empty_or_single_class_training_window"}
     selections = _one_per_game(_candidate_rows(model, evaluation, policy))
     return model, selections, _metrics(selections)
 
@@ -227,13 +234,16 @@ def main() -> int:
     )
     combined = _metrics(validation_rows + holdout_rows)
     target = float(args.target_accuracy)
-    active = bool(
-        validation["samples"] >= MIN_VALIDATION_PICKS
-        and holdout["samples"] >= MIN_HOLDOUT_PICKS
-        and safe_float(validation["accuracy"]) >= target
-        and safe_float(holdout["accuracy"]) >= target
-        and safe_float(combined["roi"], -1.0) >= 0.0
-    )
+    if validation.get("skipped") or holdout.get("skipped"):
+        active = False
+    else:
+        active = bool(
+            validation["samples"] >= MIN_VALIDATION_PICKS
+            and holdout["samples"] >= MIN_HOLDOUT_PICKS
+            and safe_float(validation["accuracy"]) >= target
+            and safe_float(holdout["accuracy"]) >= target
+            and safe_float(combined["roi"], -1.0) >= 0.0
+        )
     final_model = _fit(features)
     training_fingerprint = hashlib.sha256(history_path.read_bytes()).hexdigest()
     metadata = {
@@ -271,25 +281,44 @@ def main() -> int:
             "chronological_split_required": True,
             "one_pick_per_game": True,
         },
-        "wnba": {
-            "active": False,
-            "reason": "No WNBA policy reached 70% on both chronological validation and holdout.",
-        },
+        "mlb_only": True,
+        "inactive_reason": (
+            None if active else
+            "No MLB precision policy reached the chronological validation and holdout gates."
+        ),
         "training_fingerprint": training_fingerprint,
     }
     ARTIFACT_DIR.mkdir(parents=True, exist_ok=True)
     import joblib  # type: ignore
+    import os
+    import tempfile
 
-    joblib.dump(
-        {
-            "model": final_model,
-            "profiles": profiles,
-            "numeric_features": NUMERIC_FEATURES,
-            "categorical_features": CATEGORICAL_FEATURES,
-        },
-        MODEL_PATH,
-    )
-    METADATA_PATH.write_text(json.dumps(metadata, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    if final_model is not None:
+        joblib.dump(
+            {
+                "model": final_model,
+                "profiles": profiles,
+                "numeric_features": NUMERIC_FEATURES,
+                "categorical_features": CATEGORICAL_FEATURES,
+            },
+            MODEL_PATH,
+        )
+    meta_text = json.dumps(metadata, indent=2, sort_keys=True) + "\n"
+    temporary = None
+    try:
+        with tempfile.NamedTemporaryFile(
+            mode="w", encoding="utf-8", dir=ARTIFACT_DIR,
+            prefix=f".{METADATA_PATH.name}.", suffix=".tmp", delete=False,
+        ) as handle:
+            temporary = Path(handle.name)
+            handle.write(meta_text)
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.replace(temporary, METADATA_PATH)
+        temporary = None
+    finally:
+        if temporary is not None:
+            temporary.unlink(missing_ok=True)
     print(json.dumps(metadata, indent=2, sort_keys=True))
     # An inactive artifact is still a successful safety result: inference will
     # abstain instead of falling back to the unvalidated legacy ranker.

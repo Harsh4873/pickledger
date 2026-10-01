@@ -394,3 +394,272 @@ def test_merge_keeps_wnba_3pm_research_bucket_out_of_public_cache(tmp_path: Path
     generic_picks = merged["models"]["wnba_player_props"]["picks"]
 
     assert generic_picks == []
+
+
+def test_soft_football_preserves_prior_pass_research_on_failed_empty_refresh(tmp_path: Path):
+    from scripts.merge_player_props_cache_payload import merge_payload
+
+    date = "2026-09-30"
+    prior_pick = {
+        "id": "nfl-pass-1",
+        "sport": "NFL",
+        "date": date,
+        "decision": "PASS",
+        "units": 0,
+        "full_kelly": 0,
+        "quarter_kelly": 0,
+        "player_name": "Example",
+        "stat_key": "passing_yards",
+        "market_retrieved_at": "2026-09-30T16:00:00Z",
+    }
+    current = {
+        "date": date,
+        "models": {
+            "nfl_player_props": {
+                "ok": True,
+                "date": date,
+                "picks": [prior_pick],
+                "updatedAt": "2026-09-30T16:05:00Z",
+            }
+        },
+    }
+    (tmp_path / f"{date}.json").write_text(__import__("json").dumps(current), encoding="utf-8")
+    generated = {
+        "date": date,
+        "models": {
+            "nfl_player_props": {
+                "ok": False,
+                "date": date,
+                "picks": [],
+                "errors": ["synthetic crash"],
+            }
+        },
+    }
+    merged = merge_payload(generated, tmp_path)
+    bucket = merged["models"]["nfl_player_props"]
+    assert bucket["publication_status"] == "preserved_research"
+    assert bucket["note"] == (
+        "Refresh failed; retaining earlier same-day PASS research with its original quote timestamps."
+    )
+    assert len(bucket["picks"]) == 1
+    assert bucket["picks"][0]["market_retrieved_at"] == "2026-09-30T16:00:00Z"
+    assert bucket["ok"] is False
+    assert bucket["errors"] == ["synthetic crash"]
+
+
+def _priced_football_pick(
+    sport: str,
+    date: str,
+    pick_id: str,
+    player_id: str,
+    *,
+    line: float,
+    units: float = 1.0,
+) -> dict:
+    return {
+        "id": pick_id,
+        "source": f"{sport}PlayerProps",
+        "sport": sport,
+        "date": date,
+        "game_id": "game-1",
+        "player_id": player_id,
+        "player_name": player_id,
+        "stat_key": "receiving_yards",
+        "selection": "Over",
+        "line": line,
+        "pick": f"{player_id} Over {line} Receiving Yards",
+        "matchup": "A @ B",
+        "market_priced": True,
+        "odds": -110,
+        "decision": "BET",
+        "units": units,
+        "full_kelly": 0.04,
+        "quarter_kelly": 0.01,
+        "ml_expected_value": 0.08,
+        "ml_probability": 0.58,
+        "probability_source": "player_props_ml_v1",
+        "market_retrieved_at": f"{date}T16:00:00Z",
+        "result": "pending",
+    }
+
+
+@pytest.mark.parametrize(
+    ("model_key", "sport", "via_snapshot"),
+    [
+        ("nfl_player_props", "NFL", False),
+        ("cfb_player_props", "CFB", True),
+    ],
+)
+def test_soft_football_failed_refresh_keeps_priced_same_day_picks(
+    tmp_path: Path,
+    model_key: str,
+    sport: str,
+    via_snapshot: bool,
+):
+    date = "2026-10-01"
+    priced = [
+        _priced_football_pick(sport, date, f"{sport.lower()}-a", "Alpha", line=64.5),
+        _priced_football_pick(sport, date, f"{sport.lower()}-a2", "Alpha", line=72.5, units=0.25),
+        _priced_football_pick(sport, date, f"{sport.lower()}-b", "Bravo", line=45.5, units=0.5),
+    ]
+    wrong_day = _priced_football_pick(sport, "2026-09-30", f"{sport.lower()}-old", "Old", line=10.5)
+    prior_bucket = {
+        "ok": True,
+        "date": date,
+        "updatedAt": f"{date}T16:05:00Z",
+        "picks": [*priced, wrong_day],
+    }
+    cache_dir = tmp_path / "cache"
+    snapshot_dir = tmp_path / "snapshots"
+    cache_dir.mkdir()
+    board = {"date": date, "models": {model_key: prior_bucket}}
+    if via_snapshot:
+        day_dir = snapshot_dir / date
+        day_dir.mkdir(parents=True)
+        (day_dir / "board.json").write_text(json.dumps(board), encoding="utf-8")
+    else:
+        (cache_dir / f"{date}.json").write_text(json.dumps(board), encoding="utf-8")
+
+    failed = {
+        "date": date,
+        "models": {
+            model_key: {
+                "ok": False,
+                "date": date,
+                "picks": [],
+                "errors": ["consensus refresh failed"],
+                "football_baseline": True,
+            }
+        },
+    }
+    bucket = merge_payload(failed, cache_dir, snapshot_dir)["models"][model_key]
+    assert bucket["ok"] is False
+    assert bucket["errors"] == ["consensus refresh failed"]
+    assert bucket.get("football_baseline") is not True
+    assert bucket["publication_status"] == "preserved_research"
+    assert bucket["preserved_research_from"] == f"{date}T16:05:00Z"
+    assert bucket["note"] == (
+        "Refresh failed; retaining earlier same-day picks with their original quote timestamps."
+    )
+    assert {pick["id"] for pick in bucket["picks"]} == {pick["id"] for pick in priced}
+    assert {pick["id"] for pick in bucket["picks"]}.isdisjoint({wrong_day["id"]})
+    kept = {pick["id"]: pick for pick in bucket["picks"]}
+    assert kept[priced[0]["id"]]["odds"] == -110
+    assert kept[priced[0]["id"]]["units"] == 1.0
+    assert kept[priced[0]["id"]]["market_retrieved_at"] == f"{date}T16:00:00Z"
+    assert kept[priced[1]["id"]]["decision"] == "BET"
+
+    nonempty = {
+        "date": date,
+        "models": {
+            model_key: {
+                "ok": True,
+                "date": date,
+                "picks": [_priced_football_pick(sport, date, f"{sport.lower()}-new", "Newer", line=70.5)],
+                "errors": [],
+            }
+        },
+    }
+    replaced = merge_payload(nonempty, cache_dir, snapshot_dir)["models"][model_key]
+    assert [pick["id"] for pick in replaced["picks"]] == [f"{sport.lower()}-new"]
+    assert replaced.get("publication_status") != "preserved_research"
+
+    mismatched = {
+        "date": date,
+        "models": {
+            model_key: {
+                "ok": False,
+                "date": "2026-09-30",
+                "picks": [],
+                "errors": ["consensus refresh failed"],
+            }
+        },
+    }
+    blank = merge_payload(mismatched, cache_dir, snapshot_dir)["models"][model_key]
+    assert blank["picks"] == []
+    assert blank.get("publication_status") != "preserved_research"
+
+    other_day = merge_payload({**failed, "date": "2026-09-30"}, cache_dir, snapshot_dir)
+    assert other_day["models"][model_key]["picks"] == []
+
+    warned = {
+        "date": date,
+        "models": {
+            model_key: {
+                "ok": True,
+                "date": date,
+                "picks": [],
+                "errors": ["partial feed"],
+            }
+        },
+    }
+    warned_bucket = merge_payload(warned, cache_dir, snapshot_dir)["models"][model_key]
+    assert {pick["id"] for pick in warned_bucket["picks"]} == {pick["id"] for pick in priced}
+    assert warned_bucket["errors"] == ["partial feed"]
+    assert warned_bucket["publication_status"] == "preserved_research"
+
+    healthy_empty = {
+        "date": date,
+        "models": {
+            model_key: {
+                "ok": True,
+                "date": date,
+                "picks": [],
+                "errors": [],
+            }
+        },
+    }
+    assert merge_payload(healthy_empty, cache_dir, snapshot_dir)["models"][model_key]["picks"] == []
+
+    partial = {
+        "date": date,
+        "models": {
+            model_key: {
+                "ok": False,
+                "date": date,
+                "picks": [_priced_football_pick(sport, date, f"{sport.lower()}-partial", "Partial", line=12.5)],
+                "errors": ["partial crash"],
+            }
+        },
+    }
+    partial_bucket = merge_payload(partial, cache_dir, snapshot_dir)["models"][model_key]
+    assert partial_bucket["ok"] is False
+    assert partial_bucket["errors"] == ["partial crash"]
+    assert {pick["id"] for pick in partial_bucket["picks"]} == {pick["id"] for pick in priced}
+
+
+def test_hard_player_prop_failure_does_not_preserve_prior_picks(tmp_path: Path):
+    date = "2026-10-01"
+    cache_dir = tmp_path / "cache"
+    cache_dir.mkdir()
+    prior = _priced_football_pick("NBA", date, "nba-priced", "Center", line=18.5)
+    prior["sport"] = "NBA"
+    prior["source"] = "NBAPlayerProps"
+    (cache_dir / f"{date}.json").write_text(
+        json.dumps({
+            "date": date,
+            "models": {
+                "nba_player_props": {"ok": True, "date": date, "picks": [prior], "updatedAt": f"{date}T12:00:00Z"},
+                "mlb_player_props": {
+                    "ok": True,
+                    "date": date,
+                    "picks": [_pick("mlb-priced", "mlb-market", "Batter Over 0.5 Hits")],
+                    "updatedAt": f"{date}T12:00:00Z",
+                },
+            },
+        }),
+        encoding="utf-8",
+    )
+    generated = {
+        "date": date,
+        "models": {
+            "nba_player_props": {"ok": False, "date": date, "picks": [], "errors": ["nba down"]},
+            "mlb_player_props": {"ok": False, "date": date, "picks": [], "errors": ["mlb down"]},
+        },
+    }
+    merged = merge_payload(generated, cache_dir, tmp_path / "snapshots")
+    assert merged["models"]["nba_player_props"]["picks"] == []
+    assert merged["models"]["mlb_player_props"]["picks"] == []
+    assert merged["models"]["nba_player_props"].get("publication_status") != "preserved_research"
+    assert merged["models"]["nba_player_props"]["ok"] is False
+    assert merged["models"]["nba_player_props"]["errors"] == ["nba down"]

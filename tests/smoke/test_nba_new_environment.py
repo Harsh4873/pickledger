@@ -296,6 +296,39 @@ def test_nba_new_total_and_spread_without_a_price_are_labelled_assumed(monkeypat
     assert priced_total["decision"] == "BET" and priced_total["units"] > 0
 
 
+def test_nba_new_pass_spread_below_the_edge_gate_is_zero_units(monkeypatch):
+    """A 1.5-point cover is about +2.8pp at assumed -110. That is PASS, and
+    the quarter-Kelly figure (~1.47) must not remain on the row as a stake.
+    The refresh demotion only rewrites BET/LEAN, so the parser has to zero it."""
+    import pickgrader_server as ps
+    from scripts.market_odds import _looks_assumed
+    from scripts.merge_model_cache_payload import demote_unpriced_team_model_picks
+
+    monkeypatch.setattr(ps, "_sl_get_spread", lambda h, a, league: (-4.5, 4.5, None))
+    monkeypatch.setattr(ps, "_sl_get_ml", lambda h, a, league: (None, None))
+    monkeypatch.setattr(ps, "_sl_get_total", lambda h, a, league: (None, None))
+    monkeypatch.setattr(ps, "_nba_fatigue_multiplier", lambda *args: None)
+
+    output = "\n".join([
+        "GAME: Grizzlies @ Pistons (7:30 pm ET)",
+        "**Winner:** Pistons (Model Prob: 66.0%)",
+        "**Spread:** Pistons by 6.0 points",
+        "**Model Confidence:** 66.0%",
+        "**Decision: BET**",
+    ])
+    picks = ps._parse_nba_output(output, source_label="NBA New")
+    spread = picks[0]
+    assert spread["decision"] == "PASS"
+    assert spread["units"] == 0
+    assert spread["odds"] == -110 and spread["assumed_odds"] == -110
+    assert spread["pricing_type"] == "assumed" and spread["market_priced"] is False
+    assert _looks_assumed(spread) is True
+
+    payload = {"models": {"nba": {"picks": picks}}}
+    assert demote_unpriced_team_model_picks(payload) == 0
+    assert spread["decision"] == "PASS" and spread["units"] == 0
+
+
 def test_nba_buckets_are_certified_and_frozen_like_other_team_models():
     from scripts.pick_calibration import GLOBAL_FALLBACK_EXEMPT_MODEL_KEYS
     from scripts.refresh_model_cache import KICKOFF_FROZEN_MODEL_KEYS
@@ -305,3 +338,30 @@ def test_nba_buckets_are_certified_and_frozen_like_other_team_models():
         assert key in TEAM_PROP_MODEL_KEYS
         assert key in KICKOFF_FROZEN_MODEL_KEYS
         assert key in GLOBAL_FALLBACK_EXEMPT_MODEL_KEYS
+
+
+def test_nba_unpriced_or_pass_rows_cannot_carry_stake_units():
+    """Honesty lock: PASS and unpriced NBA rows stay at 0u (model-audit Sep 2026)."""
+    from scripts.merge_model_cache_payload import demote_unpriced_team_model_picks
+
+    payload = {
+        "date": "2026-10-15",
+        "models": {
+            "nba": {
+                "ok": True,
+                "picks": [
+                    {"sport": "NBA", "decision": "PASS", "units": 1.0, "odds": -110, "market_priced": True},
+                    {"sport": "NBA", "decision": "BET", "units": 0.5, "odds": None, "market_priced": False},
+                    {"sport": "NBA", "decision": "BET", "units": 0.5, "odds": -110, "market_priced": True,
+                     "pricing_type": "assumed"},
+                ],
+            }
+        },
+    }
+    demote_unpriced_team_model_picks(payload)
+    picks = payload["models"]["nba"]["picks"]
+    assert picks[0]["decision"] == "PASS" and picks[0]["units"] == 0
+    assert picks[1]["decision"] == "PASS" and picks[1]["units"] == 0
+    assert picks[1]["unpriced_demoted"] is True
+    assert picks[2]["decision"] == "PASS" and picks[2]["units"] == 0
+    assert picks[2]["unpriced_demoted"] is True

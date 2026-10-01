@@ -3655,7 +3655,11 @@ def _parse_nba_output(output: str, source_label: str = "NBA Model") -> list[dict
                     elif _edge_val >= 3.0:
                         pick["decision"] = "LEAN"
                     else:
+                        # Positive quarter-Kelly below the 3pp gate used to
+                        # stay on the row (about 1.47u at a 1.5-point cover).
+                        # PASS is research and carries no stake.
                         pick["decision"] = "PASS"
+                        pick["units"] = 0
                 else:
                     # Spread missing — try moneyline market before defaulting.
                     sl_ml_home, sl_ml_away = _sl_get_ml(current_home, current_away, 'NBA')
@@ -3740,6 +3744,8 @@ def _parse_nba_output(output: str, source_label: str = "NBA Model") -> list[dict
                     except (TypeError, ValueError):
                         pass
                     pick["fatigue_multiplier"] = fatigue_mult
+            if str(pick.get("decision") or "").upper() == "PASS":
+                pick["units"] = 0
             _append_unique(pick)
 
         # Over/Under decision: "**O/U Decision: BET OVER**"
@@ -3813,6 +3819,8 @@ def _parse_nba_output(output: str, source_label: str = "NBA Model") -> list[dict
                     # keep their provenance-free shape so the SportsLine price is
                     # still upgraded to the posted DraftKings price.
                     ou_pick.update({"assumed_odds": _odds_price, "pricing_type": "assumed", "market_priced": False})
+                if str(ou_pick.get("decision") or "").upper() == "PASS":
+                    ou_pick["units"] = 0
                 _append_unique(ou_pick)
 
     return picks
@@ -3842,6 +3850,8 @@ def _parse_nba_playoffs_output(output: str) -> list[dict[str, Any]]:
         pick["league"] = "NBA"
         pick.setdefault("units", 0)
         pick.setdefault("decision", "PASS")
+        if str(pick.get("decision") or "").upper() == "PASS":
+            pick["units"] = 0
 
         key = (
             str(pick.get("source", "")),
@@ -6532,9 +6542,20 @@ def run_sportytrader_scraper(
                 errors.append(f"{sport_code}: scraper exited {result.returncode} ({_compact_error_text(output)})")
                 continue
             if not picks:
-                if result.returncode == 0 and _scraper_reported_empty_slate(output):
+                # Scrapers run only for nonempty whitelists. Exit 0 + an empty-slate
+                # line is a real off-day only when that whitelist is missing or empty.
+                reported_empty = (
+                    result.returncode == 0 and _scraper_reported_empty_slate(output)
+                )
+                if reported_empty and not expected_by_sport.get(sport_code):
                     continue
-                errors.append(f"{sport_code}: no picks parsed ({_compact_error_text(output)})")
+                if reported_empty:
+                    errors.append(
+                        f"{sport_code}: empty parse despite nonempty official whitelist "
+                        f"({_compact_error_text(output)})"
+                    )
+                else:
+                    errors.append(f"{sport_code}: no picks parsed ({_compact_error_text(output)})")
                 continue
 
             all_picks.extend(picks)
@@ -6678,9 +6699,20 @@ def run_sportsgambler_scraper(
                 errors.append(f"{sport_code}: scraper exited {result.returncode} ({_compact_error_text(output)})")
                 continue
             if not picks:
-                if result.returncode == 0 and _scraper_reported_empty_slate(output):
+                # Scrapers run only for nonempty whitelists. Exit 0 + an empty-slate
+                # line is a real off-day only when that whitelist is missing or empty.
+                reported_empty = (
+                    result.returncode == 0 and _scraper_reported_empty_slate(output)
+                )
+                if reported_empty and not expected_by_sport.get(sport_code):
                     continue
-                errors.append(f"{sport_code}: no picks parsed ({_compact_error_text(output)})")
+                if reported_empty:
+                    errors.append(
+                        f"{sport_code}: empty parse despite nonempty official whitelist "
+                        f"({_compact_error_text(output)})"
+                    )
+                else:
+                    errors.append(f"{sport_code}: no picks parsed ({_compact_error_text(output)})")
                 continue
 
             all_picks.extend(picks)
