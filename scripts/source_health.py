@@ -11,9 +11,30 @@ ROOT = Path(__file__).resolve().parents[1]
 def source_issues(key, bucket, day):
     issues = []
     meta = bucket.get("meta") or {}
+    if key.startswith("forebet_"):
+        if bucket.get("refreshStatus") in {"error", "incomplete"}:
+            issues.append(f"latest Forebet attempt failed: {bucket.get('lastError') or 'unknown error'}")
+        if str(bucket.get("date") or "") != day:
+            issues.append(f"Forebet snapshot dated {bucket.get('date') or 'unknown'}, expected {day}")
+        if meta.get("blockedUrls"):
+            issues.append(f"Forebet listing blocked: {meta['blockedUrls']} URL(s)")
+    if key == "tennistonic_tennis":
+        if bucket.get("refreshStatus") == "error":
+            issues.append(f"latest TennisTonic attempt failed: {bucket.get('lastError') or 'unknown error'}")
+        if str(bucket.get("date") or "") != day:
+            issues.append(f"TennisTonic snapshot dated {bucket.get('date') or 'unknown'}, expected {day}")
+        if meta.get("unavailableMatchups") or meta.get("unattemptedMatchups"):
+            issues.append("TennisTonic official slate has unavailable or unattempted matches")
+    if key.startswith(("sportytrader_", "sportsgambler_")) and key.endswith(
+        ("_mlb", "_wnba", "_cfb", "_nfl", "_fifa_world_cup")
+    ):
+        if bucket.get("refreshStatus") == "error":
+            issues.append(f"latest provider attempt failed: {bucket.get('lastError') or 'unknown error'}")
     if bucket.get("ok") is False or bucket.get("errors") or bucket.get("error"):
         issues.append(str(bucket.get("error") or bucket.get("errors") or "refresh failed"))
     expected = meta.get("expectedMatchups", meta.get("officialMatchups"))
+    if key.startswith("forebet_") and isinstance(meta.get("officialMatchups"), int):
+        expected = meta["officialMatchups"]
     matched = meta.get("matchedPicks")
     if isinstance(expected, (float, int)) and isinstance(matched, (float, int)) and matched < expected:
         issues.append(f"partial provider coverage: {matched}/{expected}")

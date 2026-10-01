@@ -37,13 +37,19 @@ python3 scripts/frozen_staking_approval.py nhl --write
 ```
 
 The scheduled `frozen-staking-status.yml` workflow uploads reports only. It
-cannot write approvals. The explicit writer reuses the NFL gate/statistics
+also shows each market's settled and pending counts in the job summary; it
+cannot write approvals. `awaiting_holdout_evidence` with zero independently
+priced settled rows and null ROI means the gate has no October result yet.
+`gate_clear_review_required` still requires explicit human evidence review.
+The explicit writer reuses the NFL gate/statistics
 without changing NFL behavior. Each market qualifies separately: at least
 100 certified independently priced settled actions, ROI > 0, game-clustered
 lower 95% > 0, and at least 20 paired observations with model Brier no more
 than 0.01 worse than market. Only first qualifying event/market observations
 count; repeated refreshes cannot multiply the sample. NHL binary calibration
 uses probability conditional on no push; financial grading retains pushes.
+Exclusion counts are market specific. A record with a different fitted version
+cannot consume the first publication slot for the frozen candidate.
 
 The current refresh and auto-grader capture and settle immutable ledger rows.
 The report rejects missing fingerprints, unpriced/uncertified rows, invalid

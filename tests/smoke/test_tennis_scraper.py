@@ -213,6 +213,8 @@ def test_tennistonic_does_not_label_blocked_pages_as_unpublished_predictions():
     assert result["meta"]["blockedUrls"] == len(tn.tennistonic_urls(match))
     assert result["meta"]["unavailableMatchups"] == ["Carlos Alcaraz vs Tommy Paul"]
     assert result["meta"]["unpublishedMatchups"] == []
+    assert result["meta"]["expectedMatchups"] == 1
+    assert result["meta"]["missingMatchups"] == ["Carlos Alcaraz vs Tommy Paul"]
 
 
 def test_tennistonic_reports_network_failure_separately_from_no_prediction():
@@ -237,9 +239,63 @@ def test_tennistonic_keeps_verified_prediction_when_another_match_is_blocked():
         return _tennistonic_html("Barbora Krejcikova Vs Lucie Havlickova", prediction="Krejcikova in 2"), 200, False
 
     result = tn.scrape_tennistonic("2026-09-06", matches=matches, fetch_html=fetch)
-    assert result["ok"] is True
+    assert result["ok"] is False
     assert len(result["picks"]) == 1
     assert result["meta"]["unavailableMatchups"] == ["Carlos Alcaraz vs Tommy Paul"]
+    assert result["meta"]["expectedMatchups"] == len(matches)
+    assert result["meta"]["matchedPicks"] == 1
+
+
+def test_tennistonic_http_403_is_blocked_even_without_transport_flag():
+    match = {"away": "Carlos Alcaraz", "home": "Tommy Paul"}
+    result = tn.scrape_tennistonic(
+        "2026-09-06", matches=[match], fetch_html=lambda _url: ("Forbidden", 403, False),
+    )
+    assert result["ok"] is False
+    assert result["meta"]["blockedUrls"] == len(tn.tennistonic_urls(match))
+    assert result["meta"]["expectedMatchups"] == 1
+
+
+def test_tennistonic_soft_timeout_keeps_full_slate_after_verified_pick():
+    import time
+
+    matches = [
+        {"away": "Barbora Krejcikova", "home": "Lucie Havlickova"},
+        {"away": "Carlos Alcaraz", "home": "Tommy Paul"},
+    ]
+
+    def fetch(_url):
+        time.sleep(0.12)
+        return _tennistonic_html("Barbora Krejcikova Vs Lucie Havlickova", prediction="Krejcikova in 2"), 200, False
+
+    result = tn.scrape_tennistonic(
+        "2026-09-06", matches=matches, fetch_html=fetch, soft_timeout_seconds=0.1,
+    )
+    assert result["ok"] is False
+    assert len(result["picks"]) == 1
+    assert result["meta"]["timedOut"] is True
+    assert result["meta"]["expectedMatchups"] == len(matches)
+    assert result["meta"]["matchedPicks"] == 1
+    assert result["meta"]["unattemptedMatchups"] == ["Carlos Alcaraz vs Tommy Paul"]
+
+
+def test_tennistonic_interrupt_keeps_full_slate_and_partial_pick():
+    matches = [
+        {"away": "Barbora Krejcikova", "home": "Lucie Havlickova"},
+        {"away": "Carlos Alcaraz", "home": "Tommy Paul"},
+    ]
+
+    def fetch(url):
+        if "Alcaraz" in url:
+            raise KeyboardInterrupt
+        return _tennistonic_html("Barbora Krejcikova Vs Lucie Havlickova", prediction="Krejcikova in 2"), 200, False
+
+    result = tn.scrape_tennistonic("2026-09-06", matches=matches, fetch_html=fetch)
+    assert result["ok"] is False
+    assert len(result["picks"]) == 1
+    assert result["meta"]["interrupted"] is True
+    assert result["meta"]["expectedMatchups"] == len(matches)
+    assert result["meta"]["unattemptedMatchups"] == ["Carlos Alcaraz vs Tommy Paul"]
 
 
 def test_tennistonic_accepts_verified_no_prediction_even_if_alternative_url_is_blocked():

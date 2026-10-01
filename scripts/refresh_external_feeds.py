@@ -80,6 +80,11 @@ SPLIT_PROVIDER_MODEL_KEYS = {
         "sportsgambler_nfl",
     ),
 }
+NON_NBA_SPLIT_FEEDS = {
+    f"{provider}_{sport}"
+    for provider in SPLIT_PROVIDER_FEEDS
+    for sport in ("mlb", "wnba", "fifa_world_cup", "cfb", "nfl")
+}
 
 
 def _runtime_origin() -> str:
@@ -287,6 +292,125 @@ def _today_result_picks(result: dict[str, Any], date_iso: str) -> list[dict[str,
             continue
         picks.append(pick)
     return picks
+
+
+def _normalize_forebet_coverage(result: dict[str, Any], date_iso: str) -> dict[str, Any]:
+    """Use the full official slate, including games Forebet did not publish."""
+    meta = result.get("meta") if isinstance(result.get("meta"), dict) else {}
+    official = meta.get("officialMatchups")
+    if not isinstance(official, int) or isinstance(official, bool):
+        return result
+    count = len(_today_result_picks(result, date_iso))
+    missing = list(meta.get("missingMatchups") or [])
+    for matchup in meta.get("unpublishedMatchups") or []:
+        if matchup not in missing:
+            missing.append(matchup)
+    result = dict(result)
+    result["meta"] = {**meta, "expectedMatchups": official,
+                      "matchedPicks": count, "missingMatchups": missing}
+    if result.get("ok") and (count != official or missing or meta.get("blockedUrls")):
+        result["ok"] = False
+        result["error"] = f"Forebet incomplete official slate coverage: {count}/{official}"
+    return result
+
+
+def _mark_failed_retained_bucket(
+    bucket: dict[str, Any], result: dict[str, Any], date_iso: str, now_iso: str,
+) -> dict[str, Any]:
+    """Separate the last real snapshot clock from an unsuccessful retry."""
+    if result.get("ok"):
+        return bucket
+    bucket["ok"] = False
+    bucket["refreshStatus"] = "error"
+    bucket["lastError"] = str(result.get("error") or "Source refresh incomplete")
+    bucket["lastAttemptAt"] = now_iso
+    bucket["lastAttemptDate"] = date_iso
+    if str(bucket.get("date") or "") == date_iso:
+        meta = bucket.get("meta") if isinstance(bucket.get("meta"), dict) else {}
+        attempt_meta = result.get("meta") if isinstance(result.get("meta"), dict) else {}
+        official = attempt_meta.get("officialMatchups")
+        if not isinstance(official, int) or isinstance(official, bool):
+            official = meta.get("officialMatchups")
+        retained = _today_result_picks(bucket, date_iso)
+        retained_matchups = {str(pick.get("matchup") or "") for pick in retained}
+        missing = attempt_meta.get("missingMatchups", meta.get("missingMatchups", []))
+        missing = [name for name in missing if name not in retained_matchups] if isinstance(missing, list) else []
+        bucket["meta"] = {
+            **meta,
+            **({"officialMatchups": official, "expectedMatchups": official}
+               if isinstance(official, int) else {}),
+            "matchedPicks": len(retained),
+            "missingMatchups": missing,
+            "updatedAt": bucket.get("updatedAt", meta.get("updatedAt")),
+            "date": date_iso,
+        }
+    return bucket
+
+
+def _resume_same_day_partial_picks(previous: Any, result: dict[str, Any], date_iso: str) -> dict[str, Any]:
+    """Carry verified matchup picks across incomplete attempts for one date."""
+    if (not isinstance(previous, dict) or result.get("ok")
+            or str(previous.get("date") or "") != date_iso
+            or str(result.get("date") or "") != date_iso):
+        return result
+    old = _today_result_picks(previous, date_iso)
+    new = _today_result_picks(result, date_iso)
+    if not old or not new:
+        return result
+    carried = {
+        str(pick.get("matchup")): pick
+        for pick in old
+        if pick.get("matchup")
+    }
+    current = {
+        str(pick.get("matchup")): pick
+        for pick in new
+        if pick.get("matchup")
+    }
+    if not carried or not current or len(carried) != len(old) or len(current) != len(new):
+        return result
+    resumed = len(carried.keys() - current.keys())
+    if not resumed:
+        return result
+    meta = result.get("meta") if isinstance(result.get("meta"), dict) else {}
+    return {
+        **result,
+        "picks": list({**carried, **current}.values()),
+        "meta": {**meta, "resumedPicks": resumed},
+    }
+
+
+def _record_forebet_attempt(
+    previous: Any, result: dict[str, Any], date_iso: str, now_iso: str,
+) -> dict[str, Any]:
+    if isinstance(previous, dict) and str(previous.get("date") or "") == date_iso:
+        previous = _normalize_forebet_coverage(previous, date_iso)
+    result = _resume_same_day_partial_picks(previous, result, date_iso)
+    return _mark_failed_retained_bucket(
+        _record_feed_attempt(previous, result, date_iso, now_iso), result, date_iso, now_iso,
+    )
+
+
+def _record_research_feed_attempt(
+    previous: Any, result: dict[str, Any], date_iso: str, now_iso: str,
+) -> dict[str, Any]:
+    if isinstance(previous, dict) and str(previous.get("date") or "") == date_iso:
+        prior_meta = previous.get("meta") if isinstance(previous.get("meta"), dict) else {}
+        if (prior_meta.get("unavailableMatchups") or prior_meta.get("unattemptedMatchups")
+                or prior_meta.get("timedOut") or prior_meta.get("interrupted")):
+            previous = {**previous, "ok": False}
+            previous.pop("lastSuccessAt", None)
+    return _mark_failed_retained_bucket(
+        _record_feed_attempt(previous, result, date_iso, now_iso), result, date_iso, now_iso,
+    )
+
+
+def _record_tennistonic_attempt(
+    previous: Any, result: dict[str, Any], date_iso: str, now_iso: str,
+) -> dict[str, Any]:
+    return _record_research_feed_attempt(
+        previous, _resume_same_day_partial_picks(previous, result, date_iso), date_iso, now_iso,
+    )
 
 
 def _incomplete_scores24_football_bucket(bucket: Any, date_iso: str) -> bool:
@@ -504,6 +628,8 @@ def main() -> int:
             raw_result = {"ok": False, "error": str(exc)}
 
         result = _normalize_feed_result(feed_key, raw_result, date_iso, sports, now_iso)
+        if feed_key.startswith("forebet_"):
+            result = _normalize_forebet_coverage(result, date_iso)
         split_results = _split_provider_result(feed_key, result, date_iso, sports, now_iso)
         ok = bool(result.get("ok"))
         pick_count = len(result.get("picks") or [])
@@ -516,21 +642,35 @@ def main() -> int:
         for split_key, split_result in split_results.items():
             if not split_result.get("ok"):
                 errors.append(f"{split_key}: {split_result.get('error') or 'unknown error'}")
-            bucket = _record_feed_attempt(
+            record_attempt = (
+                _record_forebet_attempt if split_key.startswith("forebet_")
+                else _record_tennistonic_attempt if split_key == "tennistonic_tennis"
+                else _record_research_feed_attempt if split_key in NON_NBA_SPLIT_FEEDS
+                else _record_feed_attempt
+            )
+            bucket = record_attempt(
                 _previous_feed_bucket(payload, split_key), split_result, date_iso, now_iso,
             )
             results[split_key] = bucket
             payload["models"][split_key] = bucket
             payload[split_key] = bucket
 
-    # An explicit empty list clears errors from a previous run during merge.
-    payload["external_feed_errors"] = errors
     external_feeds = payload.get("external_feeds") if isinstance(payload.get("external_feeds"), dict) else {}
     external_feeds = dict(external_feeds)
     for feed_key in feeds:
         if feed_key in SPLIT_PROVIDER_FEEDS:
             external_feeds.pop(feed_key, None)
     payload["external_feeds"] = {**external_feeds, **results}
+    # Local publishers invoke Forebet and TennisTonic one feed at a time. A
+    # later successful sibling must not erase an earlier same-day source error.
+    for key, bucket in payload["external_feeds"].items():
+        if key in results or not (key.startswith("forebet_") or key == "tennistonic_tennis"):
+            continue
+        if (isinstance(bucket, dict) and bucket.get("refreshStatus") == "error"
+                and bucket.get("lastAttemptDate") == date_iso):
+            errors.append(f"{key}: {bucket.get('lastError') or 'source refresh incomplete'}")
+    # An explicit empty list clears repaired errors during merge.
+    payload["external_feed_errors"] = errors
 
     _write_run_summary(date_iso, results, errors)
     payload = _write_json_cache(date_iso, payload)

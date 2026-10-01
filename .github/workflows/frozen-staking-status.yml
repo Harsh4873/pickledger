@@ -17,6 +17,19 @@ jobs:
         run: |
           python scripts/frozen_staking_approval.py nhl --output /tmp/nhl-staking-status.json
           python scripts/frozen_staking_approval.py mls --output /tmp/mls-staking-status.json
+          python - <<'PY' >> "$GITHUB_STEP_SUMMARY"
+          import json
+          from pathlib import Path
+
+          print("| Model | Market | Status | Priced settled | Pending | Blocker |")
+          print("| --- | --- | --- | ---: | ---: | --- |")
+          for model in ("nhl", "mls"):
+              report = json.loads(Path(f"/tmp/{model}-staking-status.json").read_text())
+              for market in report["markets"]:
+                  print(f"| {model} | {market['market']} | {market['status']} | "
+                        f"{market['independently_priced_settled']} | "
+                        f"{market['pending_actionable']} | {market['blocker'] or 'none'} |")
+          PY
       - uses: actions/upload-artifact@v4
         with:
           name: prospective-staking-status

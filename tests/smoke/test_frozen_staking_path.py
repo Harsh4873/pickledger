@@ -36,6 +36,8 @@ def test_empty_prospective_holdout_never_writes(model, tmp_path):
     policy.write_text('{"schema_version":1,"approvals":[]}')
     report = evaluate({"records": []}, freeze)
     assert all(m["blocker"] == "insufficient_priced_settled" and m["roi"] is None for m in report["markets"])
+    assert all(m["status"] == "awaiting_holdout_evidence" and m["independently_priced_settled"] == 0
+               for m in report["markets"])
     assert not write_reviewed(freeze, report, policy)
     assert json.loads(policy.read_text())["approvals"] == []
 
@@ -106,6 +108,30 @@ def test_regression_and_used_selection_window_block_approval():
     freeze["holdout"]["unused_during_selection"] = False
     report = evaluate({"records": [record(freeze, i) for i in range(100)]}, freeze)["markets"][0]
     assert report["blocker"] == "holdout_not_unused"
+
+
+def test_frozen_candidate_uses_first_eligible_publication_by_instant():
+    freeze = load_freeze("mls")
+    wrong_version = record(freeze, model_version="older-version")
+    earlier = record(freeze, published_at="2026-10-02T17:00:00+02:00")
+    later = record(freeze, published_at="2026-10-02T16:00:00Z", result="loss")
+    for row in (wrong_version, earlier, later):
+        row["pregame_snapshot"]["market_updated_at"] = "2026-10-02T14:50:00Z"
+    report = evaluate({"records": [wrong_version, later, earlier]}, freeze)["markets"][0]
+    assert report["independently_priced_settled"] == 1
+    assert report["profit_units"] > 0  # The 15:00Z win precedes the 16:00Z loss.
+    assert report["candidate_exclusions"] == {
+        "duplicate_event_market": 1, "fitted_version_mismatch": 1,
+    }
+
+
+def test_candidate_exclusions_are_specific_to_each_market():
+    freeze = load_freeze("mls")
+    earlier = record(freeze, 1, published_at="2026-09-30T12:00:00Z")
+    later = record(freeze, 2, market="spread")
+    reports = evaluate({"records": [earlier, later]}, freeze)["markets"]
+    assert reports[0]["candidate_exclusions"] == {"before_holdout_start": 1}
+    assert reports[1]["candidate_exclusions"] == {}
 
 
 @pytest.mark.parametrize("approved", [False, True])

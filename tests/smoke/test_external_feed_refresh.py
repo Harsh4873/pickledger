@@ -57,6 +57,166 @@ def test_refresh_publishes_outage_diagnostics_without_redating_last_good_picks(m
     assert "| forebet_mlb | error | 2026-09-05 | 1 |" in summary.read_text()
 
 
+def test_forebet_same_day_cloudflare_retry_keeps_picks_but_reports_failure(monkeypatch, tmp_path):
+    from scripts.source_health import source_issues
+
+    date = "2026-09-06"
+    prior = {
+        "ok": True, "date": date, "updatedAt": "2026-09-06T14:00:00Z",
+        "refreshStatus": "ok",
+        "picks": [{"pick": "Cubs ML", "matchup": "Cubs @ Padres", "date": date}],
+        "meta": {"officialMatchups": 1, "expectedMatchups": 1,
+                 "matchedPicks": 1, "missingMatchups": [],
+                 "updatedAt": "2026-09-06T14:00:00Z", "date": date},
+    }
+    _write_previous(tmp_path, prior)
+    _configure(monkeypatch, tmp_path, {"forebet_mlb": lambda *_args: {
+        "ok": False, "date": date, "picks": [],
+        "error": "ForebetMLB: listing blocked by Cloudflare",
+        "meta": {"officialMatchups": 1, "expectedMatchups": 1,
+                 "matchedPicks": 0, "missingMatchups": ["Cubs @ Padres"], "blockedUrls": 1},
+    }})
+
+    assert refresh.main() == 1
+    published = json.loads((tmp_path / "latest.json").read_text())
+    for container in (published["models"], published["external_feeds"], published):
+        bucket = container["forebet_mlb"]
+        assert bucket["picks"] == prior["picks"]
+        assert bucket["ok"] is False
+        assert bucket["refreshStatus"] == "error"
+        assert bucket["updatedAt"] == prior["updatedAt"]
+        assert bucket["meta"]["updatedAt"] == prior["meta"]["updatedAt"]
+        assert bucket["lastSuccessAt"] == prior["updatedAt"]
+        assert bucket["lastAttemptDate"] == date
+        assert "Cloudflare" in bucket["lastError"]
+        assert source_issues("forebet_mlb", bucket, date)
+
+
+def test_forebet_legacy_partial_coverage_is_not_recertified_on_failed_retry(monkeypatch, tmp_path):
+    date = "2026-09-06"
+    prior = {
+        "ok": True, "date": date, "updatedAt": "2026-09-06T14:00:00Z",
+        "picks": [{"pick": "Cubs ML", "matchup": "Cubs @ Padres", "date": date}],
+        "meta": {"officialMatchups": 2, "expectedMatchups": 1,
+                 "matchedPicks": 1, "unpublishedMatchups": ["Giants @ Dodgers"]},
+    }
+    _write_previous(tmp_path, prior)
+    _configure(monkeypatch, tmp_path, {"forebet_mlb": lambda *_args: {
+        "ok": False, "date": date, "picks": [], "error": "Cloudflare",
+        "meta": {"officialMatchups": 2, "missingMatchups": ["Cubs @ Padres", "Giants @ Dodgers"]},
+    }})
+
+    assert refresh.main() == 1
+    bucket = json.loads((tmp_path / "latest.json").read_text())["external_feeds"]["forebet_mlb"]
+    assert bucket["ok"] is False
+    assert bucket["meta"]["expectedMatchups"] == 2
+    assert bucket["meta"]["matchedPicks"] == 1
+    assert bucket["meta"]["missingMatchups"] == ["Giants @ Dodgers"]
+    assert "lastSuccessAt" not in bucket
+
+
+def test_forebet_partial_success_result_is_demoted_to_incomplete(monkeypatch, tmp_path):
+    date = "2026-09-06"
+    _configure(monkeypatch, tmp_path, {"forebet_mlb": lambda *_args: {
+        "ok": True, "date": date,
+        "picks": [{"pick": "Cubs ML", "matchup": "Cubs @ Padres", "date": date}],
+        "meta": {"officialMatchups": 2, "expectedMatchups": 1,
+                 "matchedPicks": 1, "unpublishedMatchups": ["Giants @ Dodgers"]},
+    }})
+
+    assert refresh.main() == 1
+    bucket = json.loads((tmp_path / "latest.json").read_text())["external_feeds"]["forebet_mlb"]
+    assert bucket["ok"] is False
+    assert bucket["meta"]["expectedMatchups"] == 2
+    assert bucket["meta"]["missingMatchups"] == ["Giants @ Dodgers"]
+    assert "lastSuccessAt" not in bucket
+    assert bucket["refreshStatus"] == "error"
+
+
+def test_tennistonic_failed_retry_retains_pick_with_full_official_gap(monkeypatch, tmp_path):
+    from scripts.source_health import source_issues
+
+    date = "2026-09-06"
+    prior = {
+        "ok": True, "date": date, "updatedAt": "2026-09-06T14:00:00Z",
+        "picks": [{"pick": "Krejcikova ML", "matchup": "Krejcikova vs Havlickova", "date": date}],
+        "meta": {"officialMatchups": 2, "expectedMatchups": 1,
+                 "matchedPicks": 1, "unpublishedMatchups": ["Alcaraz vs Paul"]},
+    }
+    (tmp_path / "latest.json").write_text(json.dumps({
+        "date": date, "models": {}, "external_feeds": {"tennistonic_tennis": prior},
+    }))
+    _configure(monkeypatch, tmp_path, {"tennistonic_tennis": lambda *_args: {
+        "ok": False, "date": date, "picks": [], "error": "TennisTonic incomplete slate (403)",
+        "meta": {"officialMatchups": 2, "expectedMatchups": 2,
+                 "matchedPicks": 0, "missingMatchups": ["Krejcikova vs Havlickova", "Alcaraz vs Paul"],
+                 "unavailableMatchups": ["Alcaraz vs Paul"]},
+    }})
+
+    assert refresh.main() == 1
+    bucket = json.loads((tmp_path / "latest.json").read_text())["external_feeds"]["tennistonic_tennis"]
+    assert bucket["picks"] == prior["picks"]
+    assert bucket["ok"] is False
+    assert bucket["meta"]["officialMatchups"] == 2
+    assert bucket["meta"]["expectedMatchups"] == 2
+    assert bucket["meta"]["matchedPicks"] == 1
+    assert bucket["meta"]["missingMatchups"] == ["Alcaraz vs Paul"]
+    assert bucket["refreshStatus"] == "error"
+    assert source_issues("tennistonic_tennis", bucket, date)
+
+
+def test_separate_forebet_runs_keep_prior_same_day_error_visible(monkeypatch, tmp_path):
+    date = "2026-09-06"
+    _configure(monkeypatch, tmp_path, {"forebet_mlb": lambda *_args: {
+        "ok": False, "date": date, "picks": [], "error": "Cloudflare blocked MLB",
+        "meta": {"officialMatchups": 1, "expectedMatchups": 1,
+                 "matchedPicks": 0, "missingMatchups": ["Cubs @ Padres"]},
+    }})
+    assert refresh.main() == 1
+
+    _configure(monkeypatch, tmp_path, {"forebet_wnba": lambda *_args: {
+        "ok": True, "date": date, "picks": [],
+        "meta": {"officialMatchups": 0, "expectedMatchups": 0,
+                 "matchedPicks": 0, "missingMatchups": []},
+    }})
+    assert refresh.main() == 0
+    published = json.loads((tmp_path / "latest.json").read_text())
+    assert published["external_feeds"]["forebet_wnba"]["refreshStatus"] == "ok"
+    assert published["external_feeds"]["forebet_mlb"]["refreshStatus"] == "error"
+    assert published["external_feed_errors"] == ["forebet_mlb: Cloudflare blocked MLB"]
+
+
+def test_forebet_and_tennistonic_resume_distinct_verified_partial_picks():
+    date = "2026-09-06"
+    for feed, separator in (("forebet_mlb", " @ "), ("tennistonic_tennis", " vs ")):
+        first_match = f"A{separator}B"
+        second_match = f"C{separator}D"
+        third_match = f"E{separator}F"
+        previous = {
+            "ok": False, "date": date, "picks": [
+                {"pick": "A ML", "matchup": first_match, "date": date}],
+            "meta": {"feed": feed, "officialMatchups": 3, "expectedMatchups": 3,
+                     "matchedPicks": 1, "missingMatchups": [second_match, third_match]},
+        }
+        attempt = {
+            "ok": False, "date": date, "picks": [
+                {"pick": "C ML", "matchup": second_match, "date": date}],
+            "error": "soft timeout",
+            "meta": {"feed": feed, "officialMatchups": 3, "expectedMatchups": 3,
+                     "matchedPicks": 1, "missingMatchups": [first_match, third_match]},
+        }
+        record = (refresh._record_forebet_attempt if feed.startswith("forebet_")
+                  else refresh._record_tennistonic_attempt)
+        bucket = record(previous, attempt, date, "2026-09-06T17:00:00Z")
+        assert bucket["ok"] is False
+        assert bucket["refreshStatus"] == "error"
+        assert {pick["matchup"] for pick in bucket["picks"]} == {first_match, second_match}
+        assert bucket["meta"]["expectedMatchups"] == 3
+        assert bucket["meta"]["matchedPicks"] == 2
+        assert bucket["meta"]["missingMatchups"] == [third_match]
+        assert bucket["meta"]["resumedPicks"] == 1
+
+
 def test_refresh_publishes_todays_partial_scores24_cfb_instead_of_yesterday(monkeypatch, tmp_path):
     yesterday = {
         "ok": True,
@@ -577,6 +737,35 @@ def test_refresh_reports_sport_failure_while_publishing_valid_other_sport(monkey
     assert mlb["picks"][0]["pick"] == "Cubs ML"
     assert mlb["picks"][0]["decision"] == "PASS"
     assert mlb["picks"][0]["units"] == 0
+
+
+def test_non_nba_split_source_retry_marks_retained_cfb_snapshot_degraded(monkeypatch, tmp_path):
+    from scripts.source_health import source_issues
+
+    date = "2026-09-06"
+    prior = {
+        "ok": True, "date": date, "updatedAt": "2026-09-06T14:00:00Z",
+        "picks": [{"pick": "Auburn ML", "sport": "CFB", "date": date}],
+        "refreshStatus": "ok",
+    }
+    (tmp_path / "latest.json").write_text(json.dumps({
+        "date": date, "models": {}, "external_feeds": {"sportytrader_cfb": prior},
+    }))
+    _configure(monkeypatch, tmp_path, {"sportytrader": lambda *_args: {
+        "ok": True, "picks": [{"sport": "MLB", "pick": "Cubs ML", "date": date}],
+        "meta": {"sportErrors": {"cfb": "CFB listing unavailable"}},
+    }})
+
+    assert refresh.main() == 0
+    published = json.loads((tmp_path / "latest.json").read_text())
+    bucket = published["external_feeds"]["sportytrader_cfb"]
+    assert bucket["picks"] == prior["picks"]
+    assert bucket["ok"] is False
+    assert bucket["refreshStatus"] == "error"
+    assert bucket["lastSuccessAt"] == prior["updatedAt"]
+    assert bucket["lastError"] == "CFB listing unavailable"
+    assert source_issues("sportytrader_cfb", bucket, date)
+    assert published["external_feeds"]["sportytrader_mlb"]["refreshStatus"] == "ok"
 
 
 def test_workflow_publishes_diagnostics_before_marking_total_outage_failed():

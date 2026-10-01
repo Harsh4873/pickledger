@@ -21,8 +21,10 @@ data pulled into a gitignored cache and regenerated on demand.
 from __future__ import annotations
 
 import csv
+import io
 import re
 import sys
+import tempfile
 import time
 import unicodedata
 import xml.etree.ElementTree as ET
@@ -304,8 +306,35 @@ def _download(url: str, destination: Path) -> bool:
     if len(payload) < 5_000:
         print(f"[tennis] suspiciously small payload for {url} ({len(payload)}B)", file=sys.stderr)
         return False
+    # A 200 response can still be a large block/challenge page. Never replace
+    # a usable cached workbook with HTML or a truncated OOXML archive.
+    if payload.startswith(b"PK"):
+        try:
+            with zipfile.ZipFile(io.BytesIO(payload)) as workbook:
+                names = set(workbook.namelist())
+                valid = ("xl/workbook.xml" in names
+                         and any(name.startswith("xl/worksheets/sheet") for name in names)
+                         and workbook.testzip() is None)
+        except (OSError, RuntimeError, zipfile.BadZipFile):
+            valid = False
+    else:
+        # Older .xlsx URLs actually serve BIFF/OLE workbooks.
+        valid = payload.startswith(b"\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1")
+    if not valid:
+        print(f"[tennis] rejected invalid workbook response for {url}", file=sys.stderr)
+        return False
     destination.parent.mkdir(parents=True, exist_ok=True)
-    destination.write_bytes(payload)
+    temporary = None
+    try:
+        with tempfile.NamedTemporaryFile(
+            dir=destination.parent, prefix=f".{destination.name}.", suffix=".tmp", delete=False,
+        ) as handle:
+            temporary = Path(handle.name)
+            handle.write(payload)
+        temporary.replace(destination)
+    finally:
+        if temporary is not None:
+            temporary.unlink(missing_ok=True)
     destination.with_suffix(".stamp").write_text(str(time.time()), encoding="utf-8")
     return True
 

@@ -212,7 +212,7 @@ def _fetch_listing_html(url: str) -> tuple[str, str]:
             response = browser_requests.get(url, headers=HEADERS, impersonate="chrome", timeout=30)
         except Exception as exc:
             return "", f"listing browser-TLS retry failed: {exc}"
-    if _listing_is_blocked(response.text):
+    if response.status_code == 403 or _listing_is_blocked(response.text):
         return "", "listing fetch blocked by Cloudflare"
     if response.status_code != 200:
         return "", f"listing fetch returned HTTP {response.status_code}"
@@ -338,7 +338,7 @@ def scrape_forebet(sport: str, date_iso: str, *, html: str | None = None) -> dic
                 "error": f"{config['source']}: {fetch_error}",
                 "meta": {
                     "officialMatchups": len(expected),
-                    "expectedMatchups": 0,
+                    "expectedMatchups": len(expected),
                     "matchedPicks": 0,
                     "missingMatchups": [f"{m['away']} @ {m['home']}" for m in expected],
                     "unpublishedMatchups": [],
@@ -346,6 +346,23 @@ def scrape_forebet(sport: str, date_iso: str, *, html: str | None = None) -> dic
                     "blockedUrls": blocked,
                 },
             }
+
+    if _listing_is_blocked(html):
+        return {
+            "ok": False,
+            "date": date_iso,
+            "picks": [],
+            "error": f"{config['source']}: listing blocked by Cloudflare",
+            "meta": {
+                "officialMatchups": len(expected),
+                "expectedMatchups": len(expected),
+                "matchedPicks": 0,
+                "missingMatchups": [f"{m['away']} @ {m['home']}" for m in expected],
+                "unpublishedMatchups": [],
+                "attemptedUrls": 1,
+                "blockedUrls": 1,
+            },
+        }
 
     rows = parse_forebet_rows(html)
     if config["market"] == "two_way":
@@ -359,19 +376,22 @@ def scrape_forebet(sport: str, date_iso: str, *, html: str | None = None) -> dic
             continue
         picks.append(_pick_payload(config, date_iso, matchup, row))
 
+    complete = len(picks) == len(expected)
     return {
-        "ok": True,
+        "ok": complete,
         "date": date_iso,
         "picks": picks,
+        **({"error": f"{config['source']} incomplete official slate coverage: {len(picks)}/{len(expected)}"}
+           if not complete else {}),
         "note": (
             f"{config['source']} matched {len(picks)} published prediction(s) "
             f"against {len(expected)} official {date_iso} matchup(s)."
         ),
         "meta": {
             "officialMatchups": len(expected),
-            "expectedMatchups": len(picks),
+            "expectedMatchups": len(expected),
             "matchedPicks": len(picks),
-            "missingMatchups": [],
+            "missingMatchups": unpublished,
             "unpublishedMatchups": unpublished,
             "attemptedUrls": 1,
             "blockedUrls": blocked,

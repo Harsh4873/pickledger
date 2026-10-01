@@ -35,6 +35,7 @@ import json
 import os
 import re
 import sys
+import time
 import unicodedata
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
@@ -423,6 +424,7 @@ def scrape_tennistonic(
     matches: list[dict[str, Any]] | None = None,
     fetch_html: Callable[[str], tuple[str, int, bool]] | None = None,
     fetch_json: Callable[[str], Any] | None = None,
+    soft_timeout_seconds: float | None = None,
 ) -> dict[str, Any]:
     _parse_target_date(date_iso)
     source = SPORT_CONFIG["tennis"]["tennistonic_source"]
@@ -451,19 +453,41 @@ def scrape_tennistonic(
     blocked_count = 0
     failed_count = 0
     unavailable_matchups: list[str] = []
+    processed_count = 0
+    timed_out = interrupted = False
+    if soft_timeout_seconds is None:
+        try:
+            soft_timeout_seconds = float(os.environ.get("TENNISTONIC_SOFT_TIMEOUT_SECONDS", "240"))
+        except ValueError:
+            soft_timeout_seconds = 240.0
+    deadline = time.monotonic() + max(0.0, soft_timeout_seconds)
     for match in matches:
+        if time.monotonic() >= deadline:
+            timed_out = True
+            break
         label = f"{match['away']} vs {match['home']}"
         found = None
         unavailable = False
         resolved = False
         for url in tennistonic_urls(match):
+            if time.monotonic() >= deadline:
+                timed_out = True
+                break
             attempted += 1
-            html, status, blocked = fetch_html(url)
-            if blocked:
+            try:
+                html, status, blocked = fetch_html(url)
+            except KeyboardInterrupt:
+                interrupted = True
+                break
+            except (requests.RequestException, TimeoutError, OSError):
+                failed_count += 1
+                unavailable = True
+                continue
+            if blocked or status in {403, 429}:
                 blocked_count += 1
                 unavailable = True
                 continue
-            if status == 0 or status >= 500:
+            if status == 0 or status >= 500 or (status == 200 and not html):
                 failed_count += 1
                 unavailable = True
                 continue
@@ -490,13 +514,17 @@ def scrape_tennistonic(
                 sets_prediction=sets_prediction,
             )
             break
+        if timed_out or interrupted:
+            break
         if found is not None:
             picks.append(found)
         elif unavailable and not resolved:
             unavailable_matchups.append(label)
         else:
             unpublished.append(label)
-    return _result_envelope(
+        processed_count += 1
+    unattempted = [f"{m['away']} vs {m['home']}" for m in matches[processed_count:]]
+    result = _result_envelope(
         source,
         date_iso,
         matches,
@@ -504,8 +532,23 @@ def scrape_tennistonic(
         unpublished,
         attempted=attempted,
         blocked=blocked_count,
-        extra_meta={"failedUrls": failed_count, "unavailableMatchups": unavailable_matchups},
+        extra_meta={"failedUrls": failed_count, "unavailableMatchups": unavailable_matchups,
+                    "timedOut": timed_out, "interrupted": interrupted,
+                    "unattemptedMatchups": unattempted},
     )
+    if unavailable_matchups or unattempted:
+        # A transport failure cannot establish that the rest of the official
+        # slate had no published prediction. Keep the full denominator so
+        # source health and a later retry see the unfinished work.
+        result["ok"] = False
+        result["meta"]["expectedMatchups"] = len(matches)
+        result["meta"]["missingMatchups"] = unavailable_matchups + unattempted
+        reason = "timeout" if timed_out else "interrupt" if interrupted else "blocked or failed requests"
+        result["error"] = (
+            f"{source} incomplete {date_iso} slate ({reason}): "
+            f"{len(picks)} verified pick(s) of {len(matches)} official matchup(s)."
+        )
+    return result
 
 
 # --------------------------------------------------------------------------- #

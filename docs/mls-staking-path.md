@@ -32,6 +32,10 @@ Quotes must have a valid observed pregame clock. The regular cache refresh
 captures shadow actions and the existing grader settles ledger records.
 Backfill captures actual missing publications; it never invents odds or clocks.
 Missing evidence produces an awaiting report with null ROI.
+Its job summary shows market-specific settled and pending counts. A zero-settled
+`awaiting_holdout_evidence` status is not an approval or a return estimate.
+Candidate exclusions are counted by market, and wrong fitted versions cannot
+consume the frozen candidate's first publication slot.
 
 MLS now uses its fitted version for ledger and approval identity. Its
 `calibration_excluded` flag follows approval state instead of an unconditional

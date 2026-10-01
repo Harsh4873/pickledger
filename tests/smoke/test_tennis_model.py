@@ -183,6 +183,51 @@ def test_archive_refresh_persists_workbook_matches_without_result_fallback(monke
     assert tennis_archive.refresh_archive_snapshot(target.isoformat(), path=ratings)["updated"] is False
 
 
+def test_workbook_403_or_challenge_keeps_cached_archive(monkeypatch, tmp_path) -> None:
+    import io
+    import urllib.error
+    import zipfile
+    from datetime import date
+
+    from TennisPredictionModel import tennis_data
+
+    def workbook() -> bytes:
+        output = io.BytesIO()
+        with zipfile.ZipFile(output, "w", compression=zipfile.ZIP_STORED) as archive:
+            archive.writestr("xl/workbook.xml", b"<workbook/>")
+            archive.writestr("xl/worksheets/sheet1.xml", b"<sheet>" + b"x" * 6_000 + b"</sheet>")
+        return output.getvalue()
+
+    cached = workbook()
+    path = tmp_path / "season.xlsx"
+    path.write_bytes(cached)
+    stamp = path.with_suffix(".stamp")
+    stamp.write_text("previous-fetch")
+    monkeypatch.setattr(tennis_data, "workbook_path", lambda *_args: path)
+
+    def forbidden(_request, timeout):
+        raise urllib.error.HTTPError("https://tennis-data.co.uk", 403, "Forbidden", None, None)
+
+    monkeypatch.setattr(tennis_data.urllib.request, "urlopen", forbidden)
+    assert tennis_data.ensure_season("ATP", date.today().year, refresh=True) == path
+    assert path.read_bytes() == cached
+    assert stamp.read_text() == "previous-fetch"
+
+    monkeypatch.setattr(
+        tennis_data.urllib.request, "urlopen",
+        lambda _request, timeout: io.BytesIO(b"<html>Cloudflare challenge</html>" * 400),
+    )
+    assert tennis_data.ensure_season("ATP", date.today().year, refresh=True) == path
+    assert path.read_bytes() == cached
+    assert stamp.read_text() == "previous-fetch"
+    assert list(tmp_path.glob("*.tmp")) == []
+
+    monkeypatch.setattr(tennis_data.urllib.request, "urlopen",
+                        lambda _request, timeout: io.BytesIO(workbook()))
+    assert tennis_data.ensure_season("ATP", date.today().year, refresh=True) == path
+    assert stamp.read_text() != "previous-fetch"
+
+
 def test_normalise_series_folds_tier_typos() -> None:
     assert _normalise_series("WTA253") == "WTA250"
     assert _normalise_series("WTA1000") == "WTA1000"

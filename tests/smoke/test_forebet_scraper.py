@@ -117,7 +117,7 @@ def test_scrape_forebet_matches_official_slate_only(monkeypatch):
     module = _module()
     monkeypatch.setattr(module, "fetch_daily_matchups", lambda sport, date_iso, config=None: (SLATE, True))
     result = module.scrape_forebet("mls", "2026-07-22", html=FIXTURE_HTML)
-    assert result["ok"] is True
+    assert result["ok"] is False
     picks = {pick["tip"]: pick for pick in result["picks"]}
 
     away_ml = picks["Red Bull New York ML"]
@@ -150,6 +150,8 @@ def test_scrape_forebet_matches_official_slate_only(monkeypatch):
     # The off-slate Brazilian match is excluded; the unmatched slate game is reported.
     assert result["meta"]["matchedPicks"] == 4
     assert result["meta"]["officialMatchups"] == 5
+    assert result["meta"]["expectedMatchups"] == 5
+    assert result["meta"]["missingMatchups"] == ["Seattle Sounders FC @ Austin FC"]
     assert result["meta"]["unpublishedMatchups"] == ["Seattle Sounders FC @ Austin FC"]
     assert all("Volta Redonda" not in pick["pick"] for pick in result["picks"])
 
@@ -212,7 +214,7 @@ def test_scrape_forebet_two_way_disambiguates_series_games(monkeypatch):
     module = _module()
     monkeypatch.setattr(module, "fetch_daily_matchups", lambda sport, date_iso, config=None: (MLB_SLATE, True))
     result = module.scrape_forebet("mlb", "2026-07-21", html=MLB_HISTORY_HTML)
-    assert result["ok"] is True
+    assert result["ok"] is False
     picks = {pick["matchup"]: pick for pick in result["picks"]}
 
     series = picks["Baltimore Orioles @ Boston Red Sox"]
@@ -232,6 +234,7 @@ def test_scrape_forebet_two_way_disambiguates_series_games(monkeypatch):
 
     # The Cubs game only had the malformed X row, so it goes unpublished.
     assert result["meta"]["unpublishedMatchups"] == ["Detroit Tigers @ Chicago Cubs"]
+    assert result["meta"]["expectedMatchups"] == 3
 
 
 def test_scrape_forebet_rejects_rows_outside_the_kickoff_window(monkeypatch):
@@ -345,6 +348,17 @@ def test_forebet_retries_challenged_html_and_reports_persistent_block(monkeypatc
     html, error = module._fetch_listing_html(url)
     assert not html
     assert 'blocked' in error
+
+
+def test_forebet_blocked_listing_preserves_full_official_gap(monkeypatch):
+    module = _module()
+    monkeypatch.setattr(module, 'fetch_daily_matchups', lambda *args, **kwargs: (MLB_SLATE, True))
+    result = module.scrape_forebet('mlb', '2026-07-21', html='<h1>Just a moment... Cloudflare</h1>')
+    assert result['ok'] is False
+    assert result['picks'] == []
+    assert result['meta']['blockedUrls'] == 1
+    assert result['meta']['expectedMatchups'] == len(MLB_SLATE)
+    assert len(result['meta']['missingMatchups']) == len(MLB_SLATE)
 
 
 def test_football_feeds_merge_as_research_without_hiding_model_pass(tmp_path):

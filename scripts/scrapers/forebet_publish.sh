@@ -88,12 +88,7 @@ for raw_feed_key in "${FEED_KEYS[@]}"; do
     --feeds "${feed_key}" \
     --sports "mlb,wnba,mls,cfb,nfl" \
     --skip-firestore; then
-    case "${feed_key}" in
-      forebet_cfb|forebet_nfl)
-        echo "Optional ${feed_key} failed; publishing diagnostics with the other feeds." >&2
-        ;;
-      *) exit 1 ;;
-    esac
+    echo "${feed_key} failed; publishing its attempt status with any retained real picks." >&2
   fi
   feed_index=$((feed_index + 1))
 done
@@ -136,20 +131,23 @@ for key in required:
     blocked = int(meta.get("blockedUrls") or 0)
     bucket_date = str(bucket.get("date") or meta.get("date") or "").strip()
     error = str(bucket.get("error") or "")
-    if key in {"forebet_cfb", "forebet_nfl"} and bucket.get("ok") is not True:
-        print(f"Optional {key}: {error or 'no successful refresh'}", file=sys.stderr)
+    if bucket.get("lastAttemptDate") != date_iso:
+        failures.append(f"{key}: no recorded {date_iso} attempt")
         continue
-    if bucket.get("ok") is not True:
-        reason = error or f"missingMatchups={missing!r} blockedUrls={blocked}"
-        failures.append(f"{key}: {reason}")
-    elif blocked or "Cloudflare" in error:
-        failures.append(f"{key}: Cloudflare block (blockedUrls={blocked})")
-    elif missing:
-        failures.append(f"{key}: missingMatchups={missing!r}")
-    elif bucket_date != date_iso:
-        failures.append(f"{key}: bucket date {bucket_date!r}, expected {date_iso!r}")
+    if bucket.get("refreshStatus") != "ok":
+        print(f"Degraded {key}: {bucket.get('lastError') or error or 'incomplete scrape'}; "
+              f"retained snapshot date {bucket_date or 'unknown'}", file=sys.stderr)
+        continue
+    expected = meta.get("officialMatchups")
+    matched = meta.get("matchedPicks")
+    if (bucket.get("ok") is not True or blocked or missing or bucket_date != date_iso
+            or not isinstance(expected, int) or expected != matched
+            or matched != len(bucket.get("picks") or [])):
+        failures.append(f"{key}: inconsistent successful attempt "
+                        f"(date={bucket_date!r}, matched={matched!r}, official={expected!r}, "
+                        f"missing={missing!r}, blocked={blocked})")
 if failures:
-    raise SystemExit("Forebet refresh incomplete; refusing to publish:\n- " + "\n- ".join(failures))
+    raise SystemExit("Forebet attempt status invalid; refusing to publish:\n- " + "\n- ".join(failures))
 PY
 
 cp "${FOREBET_CACHE_FILE}" "${GENERATED_CACHE}"

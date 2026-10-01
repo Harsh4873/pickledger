@@ -1,5 +1,15 @@
 # September 30 desk gate diagnostics
 
+## NHL and MLS October holdout status
+
+The frozen candidate fingerprints still match their committed source files.
+The NHL and MLS approval evaluators currently find zero independently priced
+settled rows after the October 1 UTC holdout start. ROI and confidence bounds
+are null, every market is `awaiting_holdout_evidence`, and
+`staking_approvals.json` remains empty. The scheduled status workflow reports
+these counts without writing an approval. Its per-market candidate exclusions
+show historical rows separately from actual holdout evidence.
+
 ## MLB inning prices
 
 Two live ESPN DraftKings propBets boards (events 401907972 and 401907897)
