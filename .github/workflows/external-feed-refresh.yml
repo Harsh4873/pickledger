@@ -79,7 +79,13 @@ jobs:
 
       - name: Report source coverage and feature freshness
         if: always()
+        id: source-health
+        continue-on-error: true
         run: python scripts/source_health.py
+
+      - name: Warn if source health reporting failed
+        if: steps.source-health.outcome == 'failure'
+        run: echo "::warning::Source health report failed; inspect its log. Feed publication checks still apply."
 
       - name: Commit feed cache JSON if changed
         id: commit-feeds
@@ -137,9 +143,15 @@ jobs:
         # Pushes made with GITHUB_TOKEN never emit push events, so the
         # profit-desk-notify push trigger cannot fire on its own.
         if: steps.commit-feeds.outputs.changed == 'true' && steps.commit-feeds.outputs.deployable == 'true'
+        id: notify-profit-desk
+        continue-on-error: true
         env:
           GH_TOKEN: ${{ github.token }}
         run: gh workflow run profit-desk-notify.yml --ref main
+
+      - name: Warn if Profit Desk notification dispatch failed
+        if: steps.notify-profit-desk.outcome == 'failure'
+        run: echo "::warning::Profit Desk notification dispatch failed after feed publication; inspect its log."
 
       - name: Report refresh failure after publishing diagnostics
         if: steps.refresh-feeds.outcome == 'failure'

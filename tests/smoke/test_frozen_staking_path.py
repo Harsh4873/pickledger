@@ -16,6 +16,8 @@ def record(freeze, index=0, **overrides):
         "pricing_type": "market", "odds_source": "posted_market", "odds": -110,
         "market_no_vig_selected_probability": .5,
     }
+    if freeze["model_key"] == "mls":
+        snapshot["line"] = -0.5 if overrides.get("market", freeze["markets"][0]) == "spread" else 2.5
     return {
         "id": str(index), "game_id": str(index), "model_key": freeze["model_key"],
         "model_version": freeze["fitted_version"], "market": freeze["markets"][0],
@@ -64,6 +66,14 @@ def test_evidence_and_exact_approval_lifecycle(model, tmp_path):
     apply_stake_policy(payload, model_keys={model}, approvals=approvals)
     assert pick["decision"] == "BET" and pick["units"] == .5
     assert pick["calibration_excluded"] is False
+    if model == "mls":
+        pick["line"] = 2.25
+        apply_stake_policy(payload, model_keys={model}, approvals=approvals)
+        assert pick["decision"] == "PASS" and pick["units"] == 0
+        assert pick["calibration_excluded"] is True
+        pick["line"] = 2.5
+        apply_stake_policy(payload, model_keys={model}, approvals=approvals)
+        assert pick["decision"] == "BET"
     pick["market"] = "unapproved_market"
     apply_stake_policy(payload, model_keys={model}, approvals=approvals)
     assert pick["decision"] == "PASS"
@@ -134,6 +144,52 @@ def test_candidate_exclusions_are_specific_to_each_market():
     assert reports[1]["candidate_exclusions"] == {}
 
 
+@pytest.mark.parametrize("market,line", [("spread", -0.25), ("total", 2.25)])
+def test_mls_quarter_lines_cannot_be_graded_as_full_binary_settlements(market, line):
+    from scripts.auto_grade_picks import _pending_certified_team_prop_candidate
+    from scripts.pick_calibration import _certified_team_record
+    from scripts.settlement_support import binary_settlement_supported
+
+    freeze = load_freeze("mls")
+    quarter = record(freeze, market=market, result="pending")
+    label = f"Home {line:+g} (Away @ Home)" if market == "spread" else f"Over {line:g} (Away @ Home)"
+    quarter["pregame_snapshot"].update(line=line, pick=label,
+                                        date="2026-10-02", sport="MLS")
+    assert binary_settlement_supported(quarter) is False
+    assert _pending_certified_team_prop_candidate(quarter) is None
+
+    # A historic full-win label on the same fractional wager is also excluded
+    # from the frozen financial and calibration gates.
+    quarter["result"] = "win"
+    quarter["calibration_eligible"] = True
+    quarter["decision"] = "BET"
+    assert _certified_team_record(quarter) is None
+    report = next(row for row in evaluate({"records": [quarter]}, freeze)["markets"] if row["market"] == market)
+    assert report["independently_priced_settled"] == 0
+    assert report["candidate_exclusions"] == {"unsupported_fractional_settlement": 1}
+
+    half = record(freeze, 2, market=market)
+    report = next(row for row in evaluate({"records": [quarter, half]}, freeze)["markets"] if row["market"] == market)
+    assert report["independently_priced_settled"] == 1
+
+
+def test_no_vig_benchmark_is_retained_in_canonical_price_fields(tmp_path):
+    from scripts.team_prop_pregame_ledger import capture_team_prop_pregame_snapshots, load_team_prop_pregame_ledger
+
+    freeze = load_freeze("mls")
+    row = record(freeze)
+    pick = {**row["pregame_snapshot"], "game_id": "priced-game", "date": "2026-10-02",
+            "game_start_time": row["game_start_time"], "market": "total", "pick": "Over 2.5",
+            "line": 2.5, "decision": "PASS", "shadow_decision": "BET", "shadow_units": .5,
+            "probability": .6, "market_priced": True,
+            "certification_timing": {"trusted": True, "published_at": row["published_at"],
+                                     "data_as_of": row["published_at"], "source": "mls-model-generate"}}
+    capture_team_prop_pregame_snapshots({"date": "2026-10-02", "models": {"mls": {"picks": [pick]}}}, repo_root=tmp_path)
+    saved = load_team_prop_pregame_ledger(tmp_path)["records"][0]
+    assert saved["price"]["market_no_vig_selected_probability"] == .5
+    assert saved["market_probability"] == .5
+
+
 @pytest.mark.parametrize("approved", [False, True])
 def test_mls_calibration_ledger_eligibility_tracks_policy(approved, tmp_path):
     from scripts.team_prop_pregame_ledger import capture_team_prop_pregame_snapshots, load_team_prop_pregame_ledger
@@ -152,3 +208,32 @@ def test_mls_calibration_ledger_eligibility_tracks_policy(approved, tmp_path):
     assert saved["model_version"] == freeze["fitted_version"]
     assert saved["calibration_eligible"] is approved
     assert (_certified_team_record(saved) is not None) is approved
+
+
+def test_mls_final_approval_controls_calibration_after_earlier_snapshot_flag(tmp_path):
+    from scripts.team_prop_pregame_ledger import (
+        capture_team_prop_pregame_snapshots, load_team_prop_pregame_ledger, write_team_prop_pregame_ledger,
+    )
+    from scripts.pick_calibration import _certified_team_record, build_outcome_ledger
+
+    freeze = load_freeze("mls")
+    row = record(freeze)
+    pick = {**row["pregame_snapshot"], "game_id": "approved-game", "date": "2026-10-02",
+            "game_start_time": row["game_start_time"], "market": "total", "pick": "Over 2.5",
+            "line": 2.5, "decision": "BET", "units": .5, "probability": .6,
+            "shadow_decision": "BET", "shadow_units": .5, "calibration_excluded": False,
+            "market_priced": True,
+            "certification_timing": {"trusted": True, "published_at": row["published_at"],
+                                     "data_as_of": row["published_at"], "source": "mls-model-generate"}}
+    pick["pregame_snapshot"] = {**pick, "calibration_excluded": True}
+    capture_team_prop_pregame_snapshots({"date": "2026-10-02", "models": {"mls": {"picks": [pick]}}}, repo_root=tmp_path)
+    saved = load_team_prop_pregame_ledger(tmp_path)["records"][0]
+    assert saved["pregame_snapshot"]["calibration_excluded"] is True
+    assert saved["calibration_eligible"] is True
+    assert _certified_team_record(saved) is not None
+    ledger = load_team_prop_pregame_ledger(tmp_path)
+    ledger["records"][0]["result"] = "win"
+    write_team_prop_pregame_ledger(ledger, repo_root=tmp_path)
+    calibration = build_outcome_ledger(tmp_path)
+    assert calibration["summary"]["trainable_decided_picks"] == 1
+    assert calibration["records"][0]["model_key"] == "mls"

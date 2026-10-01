@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import Any, Mapping
 
 from scripts.price_clock import aware_time
+from scripts.settlement_support import binary_settlement_supported
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -122,6 +123,8 @@ def apply_stake_policy(
                     and a.get("frozen_rule") == freeze["frozen_rule"]
                     for a in entries
                 )
+                if approved_candidate and model_key == "mls":
+                    approved_candidate = binary_settlement_supported({**pick, "model_key": model_key, "market": market})
                 if approved_candidate:
                     from scripts.merge_model_cache_payload import _still_assumed_price
                     from scripts.price_clock import observed_quote_timing

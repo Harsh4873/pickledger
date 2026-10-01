@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Any, Iterator
 
 from player_props.era import is_ml_era_pick
+from scripts.settlement_support import binary_settlement_supported
 from scripts.team_prop_pregame_ledger import (
     TEAM_PROP_MODEL_KEYS,
     load_team_prop_pregame_ledger,
@@ -514,9 +515,14 @@ def _certified_team_record(record: dict[str, Any]) -> dict[str, Any] | None:
     contract, so legacy/assumed/proxy prices cannot promote a calibration.
     """
 
-    if record.get("model_key") == "mls" and (record.get("pregame_snapshot") or {}).get("calibration_excluded", True):
-        return None
+    # MLS is approved only after the final stake gate. Its earlier in-cache
+    # snapshot can still carry the generator's exclusion flag, while the
+    # immutable ledger's calibration_eligible flag records the final published
+    # policy state below. Do not let that stale intermediate flag veto a
+    # certified approved row.
     if record.get("calibration_eligible") is not True:
+        return None
+    if not binary_settlement_supported(record):
         return None
     certification = record.get("certification")
     if not isinstance(certification, dict) or certification.get("status") != "certified":

@@ -24,6 +24,7 @@ from scripts.team_prop_model_evaluator import _financial_eligible, _price_proven
 from scripts.price_clock import observed_quote_timing, aware_time
 from scripts.team_prop_pregame_ledger import load_team_prop_pregame_ledger, backfill_team_prop_pregame_from_cache
 from scripts.model_stake_policy import POLICY_PATH
+from scripts.settlement_support import binary_settlement_supported
 
 
 def evaluate(ledger: dict, freeze: dict) -> dict:
@@ -54,6 +55,8 @@ def evaluate(ledger: dict, freeze: dict) -> dict:
             reason = "fitted_version_mismatch"
         elif not certification_status(raw, ledger)[0]:
             reason = "uncertified"
+        elif not binary_settlement_supported(raw):
+            reason = "unsupported_fractional_settlement"
         elif observed_quote_timing(snapshot, published_at=raw.get("published_at"), start_at=raw.get("game_start_time")):
             reason = "invalid_quote_clock"
         if reason is None:

@@ -176,6 +176,14 @@ def test_priced_regular_season_candidates_are_shadow_only_and_certifiable(tmp_pa
     assert spread["financial_eligible"] is True
     assert spread["shadow_decision"] == "BET"
     assert spread["shadow_units"] == 0.5
+    # Once the real pregame quote has a settled result, the frozen holdout
+    # evaluator must count the published zero-stake shadow action.
+    from scripts.frozen_staking_approval import evaluate
+    from scripts.frozen_staking_candidate import load_freeze
+    spread["result"] = "win"
+    holdout = evaluate({"records": records}, load_freeze("nhl"))
+    spread_status = next(row for row in holdout["markets"] if row["market"] == "spread")
+    assert spread_status["independently_priced_settled"] == 1
 
 
 def test_shadow_rule_needs_a_complete_fresh_quote_and_team_rating():

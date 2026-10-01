@@ -26,6 +26,7 @@ from scripts.merge_model_cache_payload import DEPLOYED_MODEL_KEYS  # noqa: E402
 from scripts.scrapers.tennis_scraper import grade_tennis_picks, is_tennis_pick  # noqa: E402
 from scripts.team_prop_pregame_ledger import FORECAST_AUDIT_MODEL_KEYS  # noqa: E402
 from scripts.merge_player_props_cache_payload import PUBLIC_PLAYER_PROP_MODEL_KEYS  # noqa: E402
+from scripts.settlement_support import binary_settlement_supported  # noqa: E402
 
 IN_HOUSE_GRADE_SCOPES = {
     str(key).strip().lower()
@@ -274,6 +275,8 @@ def _certified_team_prop_record(record: Any) -> bool:
 def _pending_certified_team_prop_candidate(record: dict[str, Any]) -> tuple[str, dict[str, Any]] | None:
     """Build a grading candidate for a certified wager or forecast-audit row."""
     if not _certified_team_prop_record(record):
+        return None
+    if not binary_settlement_supported(record):
         return None
     if str(record.get("result") or "pending").strip().lower() != "pending":
         return None

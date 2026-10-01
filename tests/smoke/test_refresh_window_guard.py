@@ -170,6 +170,28 @@ def test_daily_schedule_runs_writers_sequentially_and_requests_deployment():
         assert "group: pick-cache-writer" in writer
 
 
+def test_diagnostic_and_notification_failures_do_not_fail_published_refresh():
+    from pathlib import Path
+
+    workflows = Path(__file__).resolve().parents[2] / ".github" / "workflows"
+    for name, publication_contract in (
+        ("model-cache-refresh.yml", "Commit cache JSON if changed"),
+        ("player-props-refresh.yml", "Enforce player-props publication contract"),
+        ("external-feed-refresh.yml", "Report refresh failure after publishing diagnostics"),
+    ):
+        workflow = (workflows / name).read_text(encoding="utf-8")
+        report = workflow.split("- name: Report source coverage and feature freshness", 1)[1].split("- name:", 1)[0]
+        notify = workflow.split("- name: Notify Profit Desk", 1)[1].split("- name:", 1)[0]
+        assert "continue-on-error: true" in report
+        assert "continue-on-error: true" in notify
+        assert "steps.source-health.outcome == 'failure'" in workflow
+        assert "steps.notify-profit-desk.outcome == 'failure'" in workflow
+        # Publication and deploy requests keep their hard-failure behavior.
+        assert publication_contract in workflow
+        deploy = workflow.split("- name: Deploy updated", 1)[1].split("- name:", 1)[0]
+        assert "continue-on-error" not in deploy
+
+
 def test_local_backup_and_bot_docs_use_the_daily_coordinator():
     from pathlib import Path
 

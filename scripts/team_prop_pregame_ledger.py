@@ -460,6 +460,7 @@ def _price_fields(pick: Mapping[str, Any]) -> dict[str, Any]:
         "market_line",
         "market_total_line",
         "market_pick_prob",
+        "market_no_vig_selected_probability",
         "market_probability",
         "market_implied_probability",
         "pricing_type",
@@ -756,6 +757,7 @@ def _snapshot_record(
         "price": price,
         "observed_american_odds": _number(price.get("odds")) if financial_eligible else None,
         "market_probability": _first_value(
+            price.get("market_no_vig_selected_probability"),
             price.get("market_pick_prob"),
             price.get("market_probability"),
             price.get("market_implied_probability"),
