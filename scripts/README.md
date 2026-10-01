@@ -14,6 +14,7 @@ The active production automation uses GitHub Actions plus local Codex morning an
 | `train_player_prop_consensus_ml.py` | Trains the four season/history models and requires at least 70% on chronological validation and holdout before publication. |
 | `archive_player_prop_snapshot.py` | Freezes every published prop slate so later refreshes cannot rewrite its measured record. |
 | `auto_grade_picks.py` | Grades completed games through ESPN and rebuilds the universal outcome ledger. |
+| `settlement_support.py` | Keeps MLS total/handicap settlement restricted to verified whole and half goal lines. |
 | `rebuild_pick_outcome_ledger.py` | Deduplicates all model and player-prop picks into `data/calibration/outcome_ledger.json`. |
 | `train_pick_calibration.py` | Evaluates a shrinkage-based probability calibrator against the active champion. |
 | `pick_calibration.py` | Preserves immutable pregame snapshots and applies the promoted calibrator to refresh payloads. |
@@ -22,6 +23,18 @@ The active production automation uses GitHub Actions plus local Codex morning an
 | `scrapers/scores24_publish.sh` | Portable Scores24 publisher for local Mac or Cursor Cloud automations. |
 
 Production refresh workflows pass `--skip-firestore`; committed JSON is the source of truth.
+
+MLS .25/.75 total and handicap lines are research only. A quarter line splits the
+stake between adjacent whole and half lines, so a final score can produce a
+half win or half loss. The current grader stores only win/loss/push, and the
+frozen ROI and calibration gates treat those labels as one binary wager. The
+cache grader therefore leaves these results pending, records
+`unsupported_fractional_settlement`, and excludes them from calibration and
+frozen staking evidence. To enable them, the grader must retain the matched
+official final score and selected line, record split-stake profit and partial
+outcome, and teach the evaluators to score those returns without treating them
+as full binary wins or losses. Whole and half goal lines keep the existing
+win/loss/push path.
 
 Useful local checks:
 

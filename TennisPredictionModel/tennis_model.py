@@ -313,9 +313,15 @@ def catch_up_ratings(
     if download and include_fallback and stale_tours:
         from .tennis_results import fetch_completed_matches
         index = load_tournament_index()
-        extra, errors = fetch_completed_matches(archive_through, cutoff,
-            lambda tour, tournament, day, venue: _tournament_meta(index, tour, tournament, day, venue),
-            _round_order, tours=stale_tours)
+        try:
+            extra, errors = fetch_completed_matches(archive_through, cutoff,
+                lambda tour, tournament, day, venue: _tournament_meta(index, tour, tournament, day, venue),
+                _round_order, tours=stale_tours)
+        except Exception as exc:
+            # An unavailable ESPN bridge must not discard completed matches
+            # already verified in the workbooks. Report the stale bridge in
+            # metadata while serving the available archive evidence.
+            extra, errors = [], [f"ESPN results bridge failed: {type(exc).__name__}: {exc}"]
         extra = [m for m in extra if m.date > archive_by_tour[m.tour]]
         fresh.extend(extra)
         fallback_count = len(extra)

@@ -183,6 +183,36 @@ def test_archive_refresh_persists_workbook_matches_without_result_fallback(monke
     assert tennis_archive.refresh_archive_snapshot(target.isoformat(), path=ratings)["updated"] is False
 
 
+def test_serving_replays_archive_when_espn_results_bridge_times_out(monkeypatch, tmp_path) -> None:
+    from datetime import date, timedelta
+
+    from TennisPredictionModel import tennis_model, tennis_results
+
+    target = date.today()
+    previous = (target - timedelta(days=12)).isoformat()
+    latest = (target - timedelta(days=1)).isoformat()
+    engine = RatingEngine()
+    engine.update(make_match(date=previous))
+    workbook = tmp_path / "season.xlsx"
+    workbook.write_bytes(b"workbook fixture")
+    completed = make_match(date=latest, winner="Charlie C.", loser="Delta D.")
+    monkeypatch.setattr(tennis_model, "ensure_season", lambda *_args: workbook)
+    monkeypatch.setattr(
+        tennis_model, "parse_workbook",
+        lambda _path, tour, season: [completed] if tour == "ATP" and season == target.year else [],
+    )
+
+    def timeout(*_args, **_kwargs):
+        raise TimeoutError("scoreboard timed out")
+
+    monkeypatch.setattr(tennis_results, "fetch_completed_matches", timeout)
+    catch_up = tennis_model.catch_up_ratings(engine, previous, before=target.isoformat())
+    assert catch_up["applied"] == 1
+    assert catch_up["fallback_matches"] == 0
+    assert catch_up["through"] == latest
+    assert catch_up["errors"] == ["ESPN results bridge failed: TimeoutError: scoreboard timed out"]
+
+
 def test_workbook_403_or_challenge_keeps_cached_archive(monkeypatch, tmp_path) -> None:
     import io
     import urllib.error

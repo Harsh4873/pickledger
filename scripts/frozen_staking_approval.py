@@ -24,7 +24,7 @@ from scripts.team_prop_model_evaluator import _financial_eligible, _price_proven
 from scripts.price_clock import observed_quote_timing, aware_time
 from scripts.team_prop_pregame_ledger import load_team_prop_pregame_ledger, backfill_team_prop_pregame_from_cache
 from scripts.model_stake_policy import POLICY_PATH
-from scripts.settlement_support import binary_settlement_supported
+from scripts.settlement_support import settlement_exclusion_reason
 
 
 def evaluate(ledger: dict, freeze: dict) -> dict:
@@ -55,9 +55,9 @@ def evaluate(ledger: dict, freeze: dict) -> dict:
             reason = "fitted_version_mismatch"
         elif not certification_status(raw, ledger)[0]:
             reason = "uncertified"
-        elif not binary_settlement_supported(raw):
-            reason = "unsupported_fractional_settlement"
-        elif observed_quote_timing(snapshot, published_at=raw.get("published_at"), start_at=raw.get("game_start_time")):
+        else:
+            reason = settlement_exclusion_reason(raw)
+        if reason is None and observed_quote_timing(snapshot, published_at=raw.get("published_at"), start_at=raw.get("game_start_time")):
             reason = "invalid_quote_clock"
         if reason is None:
             if snapshot.get("staking_candidate_fingerprint") != freeze["candidate_fingerprint"]:
@@ -78,6 +78,14 @@ def evaluate(ledger: dict, freeze: dict) -> dict:
             continue
         seen.add(key)
         row = copy.deepcopy(raw)
+        # The ledger's top-level result is attached by the grader after the
+        # immutable pregame snapshot. A retained snapshot may still say
+        # "pending"; do not let that stale label hide the settled outcome.
+        for context_key in ("feature_snapshot", "pregame_snapshot", "snapshot", "immutable_record", "price"):
+            context = row.get(context_key)
+            if isinstance(context, dict):
+                context.pop("result", None)
+                context.pop("outcome", None)
         # MLS grid probabilities are conditional on no push already. NHL
         # probabilities are unconditional; binary scores omit pushes.
         if freeze["model_key"] == "nhl":
@@ -94,7 +102,7 @@ def evaluate(ledger: dict, freeze: dict) -> dict:
         report["status"] = (
             "gate_clear_review_required" if report["clears_gate"]
             else "awaiting_holdout_evidence" if report["independently_priced_settled"] == 0
-            else "accruing_holdout_evidence"
+            else "accruing"
         )
         reports.append(report)
     return {"model_key": freeze["model_key"], "markets": reports}

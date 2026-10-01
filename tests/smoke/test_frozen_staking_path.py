@@ -45,6 +45,55 @@ def test_empty_prospective_holdout_never_writes(model, tmp_path):
 
 
 @pytest.mark.parametrize("model", ["nhl", "mls"])
+def test_first_graded_shadow_publication_starts_accruing(model, monkeypatch, tmp_path):
+    from scripts import auto_grade_picks
+    from scripts.team_prop_pregame_ledger import (
+        capture_team_prop_pregame_snapshots, load_team_prop_pregame_ledger,
+    )
+
+    freeze = load_freeze(model)
+    source = record(freeze)
+    market = freeze["markets"][0]
+    pick = {**source["pregame_snapshot"],
+            "game_id": f"{model}-holdout-game", "date": "2026-10-02",
+            "game_start_time": source["game_start_time"], "sport": model.upper(),
+            "market": market, "model_version": freeze["fitted_version"],
+            "pick": ("Over 2.5 (Away @ Home)" if model == "mls"
+                     else "Home ML (Away @ Home)"),
+            "decision": "PASS", "units": 0, "shadow_decision": "BET",
+            "shadow_units": .5, "raw_probability": .6, "probability": .6,
+            "market_priced": True,
+            "certification_timing": {"trusted": True, "published_at": source["published_at"],
+                                     "data_as_of": source["published_at"]}}
+    # An old result marker in the pregame image must not override the grader's
+    # later, top-level ledger settlement.
+    pick["pregame_snapshot"] = {**pick, "result": "pending"}
+    capture_team_prop_pregame_snapshots(
+        {"date": "2026-10-02", "models": {model: {"picks": [pick]}}}, repo_root=tmp_path)
+    before = load_team_prop_pregame_ledger(tmp_path)["records"][0]
+    assert before["certification"]["status"] == "certified"
+    assert before["financial_eligible"] is True
+    assert before["observed_american_odds"] == -110
+    assert before["price"]["market_updated_at"] == "2026-10-02T15:50:00Z"
+    assert before["result"] == "pending"
+
+    def official_grade(candidates, _existing, _year):
+        assert len(candidates) == 1
+        return {"graded": {candidates[0]["id"]: "win"}, "startTimes": {}}
+
+    monkeypatch.setattr(auto_grade_picks.pickgrader_server, "auto_grade", official_grade)
+    assert auto_grade_picks.grade_certified_team_prop_snapshots(tmp_path)["graded"] == 1
+    ledger = load_team_prop_pregame_ledger(tmp_path)
+    report = next(row for row in evaluate(ledger, freeze)["markets"] if row["market"] == market)
+    assert ledger["records"][0]["result"] == "win"
+    assert ledger["records"][0]["pregame_snapshot"]["result"] == "pending"
+    assert report["status"] == "accruing"
+    assert report["independently_priced_settled"] == 1
+    assert report["pending_actionable"] == 0
+    assert report["clears_gate"] is False
+
+
+@pytest.mark.parametrize("model", ["nhl", "mls"])
 def test_evidence_and_exact_approval_lifecycle(model, tmp_path):
     freeze = load_freeze(model)
     report = evaluate({"records": [record(freeze, i) for i in range(100)]}, freeze)
@@ -171,6 +220,75 @@ def test_mls_quarter_lines_cannot_be_graded_as_full_binary_settlements(market, l
     half = record(freeze, 2, market=market)
     report = next(row for row in evaluate({"records": [quarter, half]}, freeze)["markets"] if row["market"] == market)
     assert report["independently_priced_settled"] == 1
+
+
+@pytest.mark.parametrize("market,line,label", [
+    ("total", 2.25, "Over 2.25 (Away @ Home)"),
+    ("total", 2.75, "Under 2.75 (Away @ Home)"),
+    ("spread", -0.25, "Home -0.25 (Away @ Home)"),
+    ("spread", 0.75, "Home +0.75 (Away @ Home)"),
+])
+def test_mls_fractional_cache_result_is_retracted_as_research_only(monkeypatch, market, line, label):
+    from scripts.auto_grade_picks import grade_payload
+
+    def unexpected_grade(*_args, **_kwargs):
+        raise AssertionError("fractional MLS row reached binary grader")
+
+    monkeypatch.setattr("scripts.auto_grade_picks.pickgrader_server.auto_grade", unexpected_grade)
+    pick = {"sport": "MLS", "market": market, "line": line, "pick": label,
+            "decision": "PASS", "result": "win", "calibration_excluded": False}
+    payload = {"date": "2026-10-02", "models": {"mls": {"picks": [pick]}}}
+    assert grade_payload(payload) > 0
+    assert pick["result"] == "pending"
+    assert pick["grade_supported"] is False
+    assert pick["settlement_exclusion_reason"] == "unsupported_fractional_settlement"
+    assert pick["calibration_excluded"] is True
+    assert "Research only" in pick["grade_note"]
+
+
+def test_mls_line_conflict_cannot_pass_binary_settlement_gate():
+    from scripts.settlement_support import settlement_exclusion_reason
+
+    row = {"model_key": "mls", "market": "total", "line": 2.5,
+           "pick": "Over 2.25 (Away @ Home)"}
+    assert settlement_exclusion_reason(row) == "conflicting_mls_line"
+
+
+def test_fractional_ledger_records_explicit_calibration_exclusion(tmp_path):
+    from scripts.team_prop_pregame_ledger import capture_team_prop_pregame_snapshots, load_team_prop_pregame_ledger
+
+    freeze = load_freeze("mls")
+    row = record(freeze)
+    pick = {**row["pregame_snapshot"], "game_id": "quarter-game", "date": "2026-10-02",
+            "game_start_time": row["game_start_time"], "market": "total",
+            "pick": "Over 2.25 (Away @ Home)", "line": 2.25, "sport": "MLS",
+            "decision": "BET", "units": .5, "probability": .6,
+            "calibration_excluded": False, "market_priced": True,
+            "certification_timing": {"trusted": True, "published_at": row["published_at"],
+                                     "data_as_of": row["published_at"]}}
+    capture_team_prop_pregame_snapshots(
+        {"date": "2026-10-02", "models": {"mls": {"picks": [pick]}}}, repo_root=tmp_path)
+    saved = load_team_prop_pregame_ledger(tmp_path)["records"][0]
+    assert saved["settlement_exclusion_reason"] == "unsupported_fractional_settlement"
+    assert saved["calibration_eligible"] is False
+    assert saved["calibration_eligibility_reason"] == "unsupported_fractional_settlement"
+
+
+def test_fractional_ledger_retracts_prior_binary_result(tmp_path):
+    from scripts.auto_grade_picks import grade_certified_team_prop_snapshots
+    from scripts.team_prop_pregame_ledger import load_team_prop_pregame_ledger, write_team_prop_pregame_ledger
+
+    quarter = record(load_freeze("mls"), result="win", calibration_eligible=True)
+    quarter["pregame_snapshot"].update(
+        line=2.25, pick="Over 2.25 (Away @ Home)", sport="MLS", date="2026-10-02")
+    write_team_prop_pregame_ledger({"records": [quarter]}, repo_root=tmp_path)
+    summary = grade_certified_team_prop_snapshots(tmp_path)
+    saved = load_team_prop_pregame_ledger(tmp_path)["records"][0]
+    assert summary["candidates"] == 0
+    assert summary["changed"] is True
+    assert saved["result"] == "pending"
+    assert saved["calibration_eligible"] is False
+    assert saved["settlement_exclusion_reason"] == "unsupported_fractional_settlement"
 
 
 def test_no_vig_benchmark_is_retained_in_canonical_price_fields(tmp_path):

@@ -26,7 +26,7 @@ from scripts.merge_model_cache_payload import DEPLOYED_MODEL_KEYS  # noqa: E402
 from scripts.scrapers.tennis_scraper import grade_tennis_picks, is_tennis_pick  # noqa: E402
 from scripts.team_prop_pregame_ledger import FORECAST_AUDIT_MODEL_KEYS  # noqa: E402
 from scripts.merge_player_props_cache_payload import PUBLIC_PLAYER_PROP_MODEL_KEYS  # noqa: E402
-from scripts.settlement_support import binary_settlement_supported  # noqa: E402
+from scripts.settlement_support import binary_settlement_supported, settlement_exclusion_reason  # noqa: E402
 
 IN_HOUSE_GRADE_SCOPES = {
     str(key).strip().lower()
@@ -156,6 +156,24 @@ def grade_payload(payload: dict[str, Any], *, ml_player_props_only: bool = False
     for scope, picks in _iter_pick_lists(payload):
         for index, pick in enumerate(picks):
             changed += pickgrader_server.apply_external_pick_metadata(pick)
+            if str(scope).strip().lower() == "mls":
+                reason = settlement_exclusion_reason({**pick, "model_key": "mls"})
+                if reason:
+                    # A binary label can overstate a split-stake settlement.
+                    # Correct even a previously graded mutable cache row; the
+                    # immutable ledger and frozen evaluator already exclude it.
+                    corrections = {
+                        "result": "pending",
+                        "grade_supported": False,
+                        "grade_note": f"Research only: {reason}; split-stake settlement is unavailable",
+                        "settlement_exclusion_reason": reason,
+                        "calibration_excluded": True,
+                    }
+                    for key, value in corrections.items():
+                        if pick.get(key) != value:
+                            pick[key] = value
+                            changed += 1
+                    continue
             if ml_player_props_only and is_ml_era_pick is not None and not is_ml_era_pick(pick, fallback_timestamp):
                 continue
             decision = str(pick.get("decision") or "").strip().upper()
@@ -393,6 +411,26 @@ def grade_certified_team_prop_snapshots(repo_root: Path = REPO_ROOT) -> dict[str
             "changed": False,
         }
 
+    corrected = False
+    for record in records:
+        if not isinstance(record, dict):
+            continue
+        reason = settlement_exclusion_reason(record)
+        if not reason:
+            continue
+        # Older runs may have attached a full binary result to an MLS quarter
+        # line. Retract it before any consumer can treat it as a full wager.
+        corrections = {
+            "result": "pending",
+            "settlement_exclusion_reason": reason,
+            "calibration_eligible": False,
+            "calibration_eligibility_reason": reason,
+        }
+        for key, value in corrections.items():
+            if record.get(key) != value:
+                record[key] = value
+                corrected = True
+
     candidates: list[dict[str, Any]] = []
     records_by_id: dict[str, dict[str, Any]] = {}
     for record in records:
@@ -406,12 +444,13 @@ def grade_certified_team_prop_snapshots(repo_root: Path = REPO_ROOT) -> dict[str
         candidates.append(candidate)
 
     if not candidates:
+        persisted = write(payload, repo_root=repo_root) if corrected else False
         return {
             "available": True,
             "candidates": 0,
             "graded": 0,
             "start_times": 0,
-            "changed": False,
+            "changed": bool(persisted),
         }
 
     response = pickgrader_server.auto_grade(candidates, {}, datetime.now().year)
@@ -420,7 +459,7 @@ def grade_certified_team_prop_snapshots(repo_root: Path = REPO_ROOT) -> dict[str
     grades = grades if isinstance(grades, dict) else {}
     start_times = start_times if isinstance(start_times, dict) else {}
 
-    changed = False
+    changed = corrected
     graded = 0
     updated_start_times = 0
     for record_id, record in records_by_id.items():

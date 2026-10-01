@@ -24,6 +24,7 @@ from pathlib import Path
 from typing import Any, Iterable, Mapping
 
 from scripts.price_clock import observed_quote_timing
+from scripts.settlement_support import settlement_exclusion_reason
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -677,13 +678,20 @@ def _snapshot_record(
     shadow_decision = _text(_first_value(snapshot.get("shadow_decision"), pick.get("shadow_decision"))) or None
     shadow_units = _number(_first_value(snapshot.get("shadow_units"), pick.get("shadow_units")))
     financial_eligible, financial_reason, benchmark_eligible, benchmark_reason = _price_eligibility(pick, price)
+    settlement_reason = settlement_exclusion_reason({
+        **pick, "model_key": model_key, "market": market,
+        "pregame_snapshot": snapshot, "price": price,
+    })
     if financial_eligible:
         clock_reason = observed_quote_timing(pick, published_at=published_at, start_at=game_start_time)
         if clock_reason:
             financial_eligible = benchmark_eligible = False
             financial_reason = benchmark_reason = clock_reason
 
-    if model_key in FIFA_MODEL_KEYS:
+    if settlement_reason:
+        calibration_eligible = False
+        calibration_reason = settlement_reason
+    elif model_key in FIFA_MODEL_KEYS:
         calibration_eligible = False
         calibration_reason = "fifa_evaluation_excluded"
     elif model_key == "mls" and pick.get("calibration_excluded", True):
@@ -751,6 +759,7 @@ def _snapshot_record(
         "stake": immutable["stake"],
         "shadow_decision": shadow_decision,
         "shadow_units": shadow_units,
+        **({"result": "pending"} if model_key in {"nhl", "mls"} else {}),
         "market": market,
         "selection": selection,
         "pick": _text(snapshot.get("pick") or pick.get("pick")),
@@ -770,6 +779,7 @@ def _snapshot_record(
         "financial_eligibility_reason": financial_reason,
         "market_benchmark_eligible": benchmark_eligible,
         "market_benchmark_eligibility_reason": benchmark_reason,
+        **({"settlement_exclusion_reason": settlement_reason} if settlement_reason else {}),
         "calibration_eligible": calibration_eligible,
         "calibration_eligibility_reason": calibration_reason,
         "pregame_snapshot": snapshot,
