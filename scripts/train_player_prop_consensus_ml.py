@@ -821,6 +821,15 @@ def main() -> int:
         help="Evaluate a candidate for routine refresh without replacing published artifacts.",
     )
     args = parser.parse_args()
+    if args.verify_only:
+        missing = [
+            label for label, path in (("market history", args.markets), ("outcome history", args.outcomes))
+            if not path.is_file()
+        ]
+        if missing:
+            print(json.dumps({"status": "skipped", "reason": f"missing {', '.join(missing)}",
+                              "artifacts": "unchanged"}, sort_keys=True))
+            return 0
     market_rows = _read_jsonl(args.markets.resolve())
     evaluation_windows: dict[str, tuple[tuple[str, str, str], tuple[str, str, str]]] = {}
     skipped_sports: list[str] = []
@@ -831,6 +840,10 @@ def main() -> int:
             if sport in {"NFL", "CFB"}:
                 skipped_sports.append(sport)
                 continue
+            if args.verify_only:
+                print(json.dumps({"status": "skipped", "reason": f"no dated {sport} market rows",
+                                  "artifacts": "unchanged"}, sort_keys=True))
+                return 0
             raise
     outcome_rows = [
         row for row in _read_jsonl(args.outcomes.resolve())
@@ -854,6 +867,19 @@ def main() -> int:
     season_features, season_profiles = build_training_features(market_rows)
     history_features, history_profiles = build_training_features(market_rows, prior_rows)
     outcome_feature_rows, outcome_profiles = build_outcome_training_features(outcome_rows)
+    if args.verify_only:
+        missing_features = [
+            f"{sport} {label}"
+            for sport in ("MLB", "WNBA")
+            for label, rows in (("market features", season_features),
+                                ("history features", history_features),
+                                ("outcome features", outcome_feature_rows))
+            if not any(str(row.get("sport") or "").upper() == sport for row in rows)
+        ]
+        if missing_features:
+            print(json.dumps({"status": "skipped", "reason": f"missing {', '.join(missing_features)}",
+                              "artifacts": "unchanged"}, sort_keys=True))
+            return 0
 
     import joblib  # type: ignore
     import pandas as pd  # type: ignore

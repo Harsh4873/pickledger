@@ -57,6 +57,30 @@ def test_refresh_publishes_outage_diagnostics_without_redating_last_good_picks(m
     assert "| forebet_mlb | error | 2026-09-05 | 1 |" in summary.read_text()
 
 
+def test_forebet_cross_date_block_reports_attempted_url_with_retained_snapshot(monkeypatch, tmp_path):
+    from scripts.source_health import source_issues
+
+    prior = {
+        "ok": True, "date": "2026-09-05", "updatedAt": "2026-09-05T14:00:00Z",
+        "picks": [{"pick": "Prior verified pick", "date": "2026-09-05"}],
+        "meta": {"officialMatchups": 1, "matchedPicks": 1, "blockedUrls": 0},
+    }
+    _write_previous(tmp_path, prior, date="2026-09-05")
+    url = "https://www.forebet.com/en/baseball/usa/mlb"
+    _configure(monkeypatch, tmp_path, {"forebet_mlb": lambda *_args: {
+        "ok": False, "date": "2026-09-06", "picks": [], "error": "Cloudflare blocked",
+        "meta": {"officialMatchups": 2, "matchedPicks": 0, "blockedUrls": 1,
+                 "blockedUrl": url, "missingMatchups": ["A @ B", "C @ D"]},
+    }})
+
+    assert refresh.main() == 1
+    bucket = json.loads((tmp_path / "latest.json").read_text())["external_feeds"]["forebet_mlb"]
+    assert bucket["date"] == "2026-09-05"
+    assert bucket["lastAttemptDate"] == "2026-09-06"
+    assert bucket["lastAttemptMeta"]["blockedUrl"] == url
+    assert f"Forebet listing blocked: {url}" in source_issues("forebet_mlb", bucket, "2026-09-06")
+
+
 def test_forebet_same_day_cloudflare_retry_keeps_picks_but_reports_failure(monkeypatch, tmp_path):
     from scripts.source_health import source_issues
 

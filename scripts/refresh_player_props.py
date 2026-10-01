@@ -23,6 +23,7 @@ from scripts.merge_player_props_cache_payload import (  # noqa: E402
     HARD_PLAYER_PROP_MODEL_KEYS,
     PUBLIC_PLAYER_PROP_MODEL_KEYS,
     SOFT_PLAYER_PROP_MODEL_KEYS,
+    _should_publish_latest,
 )
 from scripts.pick_calibration import apply_calibration_to_payload  # noqa: E402
 from scripts.model_stake_policy import apply_stake_policy  # noqa: E402
@@ -163,8 +164,10 @@ def main() -> int:
     gated = apply_stake_policy(payload, model_keys=PUBLIC_PLAYER_PROP_MODEL_KEYS, prop=True)
     print(f"[staking-policy] player-prop rows demoted={gated}")
     output_dir = args.output_dir.resolve()
+    latest_updated = _should_publish_latest(output_dir, target_date)
     _write_json(output_dir / f"{target_date}.json", payload)
-    _write_json(output_dir / "latest.json", payload)
+    if latest_updated:
+        _write_json(output_dir / "latest.json", payload)
     files = sorted(path.name for path in output_dir.glob("20??-??-??.json"))
     _write_json(output_dir / "index.json", {"files": files})
 
@@ -184,7 +187,7 @@ def main() -> int:
     for error in contract_errors:
         print(f"[player-props] publication contract error: {error}")
     print(f"[player-props] wrote {output_dir / f'{target_date}.json'}")
-    print(f"[player-props] wrote {output_dir / 'latest.json'}")
+    print(f"[player-props] {'wrote' if latest_updated else 'kept newer'} {output_dir / 'latest.json'}")
     return 1 if contract_errors else 0
 
 

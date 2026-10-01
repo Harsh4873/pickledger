@@ -1,3 +1,7 @@
+import json
+import sys
+
+from scripts import train_player_prop_consensus_ml as trainer
 from scripts.train_player_prop_consensus_ml import (
     COUNT_GATE_FEATURES,
     POLICIES,
@@ -9,6 +13,37 @@ from scripts.train_player_prop_consensus_ml import (
     _search_classifier_policy,
     _windows,
 )
+
+
+def test_verify_only_skips_missing_history_without_touching_artifacts(monkeypatch, tmp_path, capsys):
+    metadata = tmp_path / "active.json"
+    metadata.write_text('{"active": true}', encoding="utf-8")
+    monkeypatch.setattr(trainer, "CONSENSUS_METADATA_PATH", metadata)
+    monkeypatch.setattr(sys, "argv", ["consensus", "--verify-only", "--markets",
+                                  str(tmp_path / "missing.jsonl"), "--outcomes",
+                                  str(tmp_path / "missing.jsonl.gz")])
+
+    assert trainer.main() == 0
+    assert json.loads(capsys.readouterr().out)["status"] == "skipped"
+    assert metadata.read_text(encoding="utf-8") == '{"active": true}'
+
+
+def test_verify_only_skips_empty_feature_matrix_without_training(monkeypatch, tmp_path, capsys):
+    markets = tmp_path / "markets.jsonl"
+    outcomes = tmp_path / "outcomes.jsonl"
+    markets.write_text(''.join(json.dumps({"sport": sport, "date": "2026-09-29"}) + "\n"
+                               for sport in ("MLB", "WNBA")), encoding="utf-8")
+    outcomes.write_text("", encoding="utf-8")
+    monkeypatch.setattr(trainer, "build_training_features", lambda *_args: ([], {}))
+    monkeypatch.setattr(trainer, "build_outcome_training_features", lambda *_args: ([], {}))
+    monkeypatch.setattr(sys, "argv", ["consensus", "--verify-only", "--markets",
+                                  str(markets), "--outcomes", str(outcomes)])
+
+    assert trainer.main() == 0
+    result = json.loads(capsys.readouterr().out)
+    assert result["status"] == "skipped"
+    assert "market features" in result["reason"]
+    assert result["artifacts"] == "unchanged"
 
 
 def test_consensus_windows_roll_forward_to_latest_sport_market_date():

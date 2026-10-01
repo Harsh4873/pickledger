@@ -386,9 +386,19 @@ def _record_forebet_attempt(
     if isinstance(previous, dict) and str(previous.get("date") or "") == date_iso:
         previous = _normalize_forebet_coverage(previous, date_iso)
     result = _resume_same_day_partial_picks(previous, result, date_iso)
-    return _mark_failed_retained_bucket(
+    bucket = _mark_failed_retained_bucket(
         _record_feed_attempt(previous, result, date_iso, now_iso), result, date_iso, now_iso,
     )
+    if result.get("ok"):
+        bucket.pop("lastAttemptMeta", None)
+    else:
+        attempt_meta = result.get("meta") if isinstance(result.get("meta"), dict) else {}
+        bucket["lastAttemptMeta"] = {
+            key: attempt_meta[key]
+            for key in ("officialMatchups", "matchedPicks", "missingMatchups", "blockedUrls", "blockedUrl")
+            if key in attempt_meta
+        }
+    return bucket
 
 
 def _record_research_feed_attempt(

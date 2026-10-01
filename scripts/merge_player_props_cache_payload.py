@@ -5,14 +5,11 @@ from __future__ import annotations
 
 import argparse
 import json
-from datetime import datetime, timezone
+import os
+import tempfile
+from datetime import date, datetime, timezone
 from pathlib import Path
 from typing import Any
-
-try:
-    from cache_manifest import write_cache_manifest
-except ModuleNotFoundError:  # pragma: no cover - exercised when tests import by file path
-    from scripts.cache_manifest import write_cache_manifest
 
 
 PLAYER_PROPS_CACHE_DIR = Path("data/player_props_cache")
@@ -51,7 +48,34 @@ def _read_json(path: Path) -> dict[str, Any] | None:
 
 def _write_json(path: Path, payload: dict[str, Any]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(payload, indent=2, sort_keys=True, default=str) + "\n", encoding="utf-8")
+    temporary: Path | None = None
+    try:
+        with tempfile.NamedTemporaryFile(
+            mode="w", encoding="utf-8", dir=path.parent,
+            prefix=f".{path.name}.", suffix=".tmp", delete=False,
+        ) as handle:
+            temporary = Path(handle.name)
+            json.dump(payload, handle, indent=2, sort_keys=True, default=str)
+            handle.write("\n")
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.replace(temporary, path)
+    finally:
+        if temporary is not None:
+            temporary.unlink(missing_ok=True)
+
+
+def _should_publish_latest(cache_dir: Path, date_iso: str) -> bool:
+    try:
+        target = date.fromisoformat(date_iso)
+    except ValueError as exc:
+        raise SystemExit(f"Invalid player-props cache date: {date_iso}") from exc
+    latest = _read_json(cache_dir / "latest.json") or {}
+    try:
+        current = date.fromisoformat(str(latest.get("date") or ""))
+    except ValueError:
+        return True
+    return target >= current
 
 
 def _consensus_models() -> list[str]:
@@ -388,10 +412,14 @@ def main() -> int:
     )
     merged["publishedAt"] = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
     date_iso = str(merged["date"])
+    latest_updated = _should_publish_latest(cache_dir, date_iso)
     _write_json(cache_dir / f"{date_iso}.json", merged)
-    _write_json(cache_dir / "latest.json", merged)
-    write_cache_manifest(cache_dir)
-    print(json.dumps({"date": date_iso, "models": sorted(merged["models"])}, indent=2))
+    if latest_updated:
+        _write_json(cache_dir / "latest.json", merged)
+    files = sorted(path.name for path in cache_dir.glob("20??-??-??.json"))
+    _write_json(cache_dir / "index.json", {"files": files})
+    print(json.dumps({"date": date_iso, "models": sorted(merged["models"]),
+                      "latestUpdated": latest_updated}, indent=2))
     return 0
 
 

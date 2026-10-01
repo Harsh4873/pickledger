@@ -12,12 +12,18 @@ def source_issues(key, bucket, day):
     issues = []
     meta = bucket.get("meta") or {}
     if key.startswith("forebet_"):
+        has_attempt_meta = bucket.get("lastAttemptDate") == day and "lastAttemptMeta" in bucket
+        attempt_meta = bucket.get("lastAttemptMeta") if has_attempt_meta else {}
+        if not isinstance(attempt_meta, dict):
+            attempt_meta = {}
         if bucket.get("refreshStatus") in {"error", "incomplete"}:
             issues.append(f"latest Forebet attempt failed: {bucket.get('lastError') or 'unknown error'}")
         if str(bucket.get("date") or "") != day:
             issues.append(f"Forebet snapshot dated {bucket.get('date') or 'unknown'}, expected {day}")
-        if meta.get("blockedUrls"):
-            issues.append(f"Forebet listing blocked: {meta['blockedUrls']} URL(s)")
+        blocked = attempt_meta.get("blockedUrls") if has_attempt_meta else meta.get("blockedUrls")
+        if blocked:
+            url = attempt_meta.get("blockedUrl") if has_attempt_meta else meta.get("blockedUrl")
+            issues.append(f"Forebet listing blocked: {url or str(blocked) + ' URL(s)'}")
     if key == "tennistonic_tennis":
         if bucket.get("refreshStatus") == "error":
             issues.append(f"latest TennisTonic attempt failed: {bucket.get('lastError') or 'unknown error'}")

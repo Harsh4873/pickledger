@@ -357,6 +357,7 @@ def test_forebet_blocked_listing_preserves_full_official_gap(monkeypatch):
     assert result['ok'] is False
     assert result['picks'] == []
     assert result['meta']['blockedUrls'] == 1
+    assert result['meta']['blockedUrl'] == module.SPORT_CONFIG['mlb']['listing_url']
     assert result['meta']['expectedMatchups'] == len(MLB_SLATE)
     assert len(result['meta']['missingMatchups']) == len(MLB_SLATE)
 

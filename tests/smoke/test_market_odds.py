@@ -278,11 +278,14 @@ def test_three_way_market_publishes_exact_no_vig_instead_of_two_way_pair():
 
 
 def f5_prop_items() -> list[dict]:
-    def item(type_name: str, price: str, team_id: str | None = None, line: float | None = None) -> dict:
+    def item(type_name: str, price: str, team_id: str | None = None, line: float | None = None,
+             selection: str | None = None) -> dict:
         odds: dict = {"american": {"value": price}}
         if line is not None:
             odds["total"] = {"value": str(line)}
         row = {"type": {"name": type_name}, "odds": odds}
+        if selection is not None:
+            row["selection"] = selection
         if team_id:
             row["team"] = {"$ref": f"http://example/teams/{team_id}?lang=en"}
         return row
@@ -292,12 +295,12 @@ def f5_prop_items() -> list[dict]:
         item("1st 5 Innings Moneyline", "+110", team_id="23"),
         item("1st 5 Innings Run Line", "-115", team_id="8", line=-0.5),
         item("1st 5 Innings Run Line", "-105", team_id="23", line=0.5),
-        item("1st 5 Innings Total Runs", "-145", line=4.5),
-        item("1st 5 Innings Total Runs", "+114", line=4.5),
+        item("1st 5 Innings Total Runs", "-145", line=4.5, selection="Over"),
+        item("1st 5 Innings Total Runs", "+114", line=4.5, selection="Under"),
     ]
 
 
-def test_first_five_markets_price_moneyline_and_ordered_total_pairs():
+def test_first_five_markets_price_moneyline_and_labeled_total_pairs():
     book = build_book([scoreboard_event()], f5_prop_items())
     payload = payload_with(
         "mlb_first_five",
@@ -339,20 +342,74 @@ def test_first_five_markets_price_moneyline_and_ordered_total_pairs():
 
 
 def team_total_prop_items() -> list[dict]:
-    def item(price: str, team_id: str, line: float) -> dict:
+    def item(price: str, team_id: str, line: float, selection: str) -> dict:
         return {
             "type": {"name": "Team Total Runs"},
             "odds": {"american": {"value": price}, "total": {"value": str(line)}},
+            "selection": selection,
             "team": {"$ref": f"http://example/teams/{team_id}?lang=en"},
         }
 
-    # Over precedes Under per team, mirroring the live feed's ordering.
     return [
-        item("-135", "23", 3.5),
-        item("+105", "23", 3.5),
-        item("-115", "8", 4.5),
-        item("-105", "8", 4.5),
+        item("-135", "23", 3.5, "Over"),
+        item("+105", "23", 3.5, "Under"),
+        item("-115", "8", 4.5, "Over"),
+        item("-105", "8", 4.5, "Under"),
     ]
+
+
+def test_mlb_prop_totals_use_labels_when_feed_order_reverses():
+    game = {"homeTeamId": "23", "awayTeamId": "8", "markets": {}}
+    items = list(reversed([*f5_prop_items()[-2:], *team_total_prop_items()]))
+
+    market_odds._parse_f5_prop_items(game, items)
+
+    assert game["markets"]["f5_totals"][4.5] == {"under": 114, "over": -145}
+    assert game["markets"]["team_totals"]["away"][4.5] == {"under": -105, "over": -115}
+
+
+def test_mlb_prop_totals_without_side_or_with_conflicting_quote_are_not_attached():
+    game = {"homeTeamId": "23", "awayTeamId": "8", "markets": {}}
+    unknown = [{**row, "selection": ""} for row in f5_prop_items()[-2:]]
+    conflicting = team_total_prop_items() + [{**team_total_prop_items()[2],
+                                               "odds": {"american": {"value": "+105"},
+                                                        "total": {"value": "4.5"}}}]
+
+    market_odds._parse_f5_prop_items(game, [*unknown, *conflicting])
+
+    assert "f5_totals" not in game["markets"]
+    assert not game["markets"].get("team_totals", {}).get("away")
+
+
+def test_unlabeled_espn_total_rows_cannot_replace_assumed_mlb_prices():
+    unlabeled = [
+        {key: value for key, value in row.items() if key != "selection"}
+        for row in [*f5_prop_items(), *team_total_prop_items()]
+    ]
+    book = build_book([scoreboard_event()], unlabeled)
+    payload = {"date": DATE, "models": {
+        "mlb_first_five": {"picks": [{
+            "date": DATE, "sport": "MLB", "pick": "Over 4.5 F5",
+            "away_team": "Milwaukee Brewers", "home_team": "Pittsburgh Pirates",
+            "line": 4.5, "direction": "Over", "odds": -130,
+            "assumed_odds": -130, "pricing_type": "user_assumed",
+        }]},
+        "mlb_team_total": {"picks": [{
+            "date": DATE, "sport": "MLB", "pick": "Milwaukee Brewers Team Total Over 4.5",
+            "away_team": "Milwaukee Brewers", "home_team": "Pittsburgh Pirates",
+            "team": "Milwaukee Brewers", "market": "team_total",
+            "line": 4.5, "direction": "Over", "odds": -110,
+            "assumed_odds": -110, "pricing_type": "user_assumed",
+        }]},
+    }}
+
+    summary = market_odds.apply_market_odds_to_payload(payload, book)
+
+    assert summary["replacedAssumed"] == 0
+    for bucket in payload["models"].values():
+        pick = bucket["picks"][0]
+        assert pick["pricing_type"] == "user_assumed"
+        assert "market_odds_provider" not in pick
 
 
 def test_team_total_markets_price_by_side_and_line():

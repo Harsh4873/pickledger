@@ -298,8 +298,25 @@ def _parse_f5_prop_items(game: dict[str, Any], items: Iterable[Mapping[str, Any]
 
     f5_moneyline: dict[str, int] = {}
     f5_run_line: dict[str, dict[str, Any]] = {}
-    totals_by_line: dict[float, list[int]] = {}
-    team_totals_by_line: dict[str, dict[float, list[int]]] = {"home": {}, "away": {}}
+    totals_by_line: dict[float, dict[str, int]] = {}
+    team_totals_by_line: dict[str, dict[float, dict[str, int]]] = {"home": {}, "away": {}}
+    ambiguous_totals: set[float] = set()
+    ambiguous_team_totals: set[tuple[str, float]] = set()
+
+    def selected_direction(item: Mapping[str, Any]) -> str:
+        label = item.get("selection") or item.get("outcome") or ""
+        if isinstance(label, Mapping):
+            label = label.get("name") or label.get("displayName") or ""
+        match = _DIRECTION_RE.search(_text(label))
+        return match.group(1).lower() if match else ""
+
+    def record(pair: dict[str, int], direction: str, price: int) -> bool:
+        previous = pair.get(direction)
+        if previous is not None and previous != price:
+            return False
+        pair[direction] = price
+        return True
+
     for item in items:
         type_name = _text((item.get("type") or {}).get("name"))
         if type_name != "Team Total Runs" and not type_name.startswith("1st 5 Innings"):
@@ -319,15 +336,20 @@ def _parse_f5_prop_items(game: dict[str, Any], items: Iterable[Mapping[str, Any]
             else ""
         )
         line = _number((odds_node.get("total") or {}).get("value"))
+        direction = selected_direction(item)
         if type_name == "1st 5 Innings Moneyline" and side:
             f5_moneyline[side] = price
         elif type_name == "1st 5 Innings Run Line" and side and line is not None:
             existing = f5_run_line.setdefault(side, {})
             existing[round(line, 2)] = price
-        elif type_name == "1st 5 Innings Total Runs" and line is not None:
-            totals_by_line.setdefault(round(line, 2), []).append(price)
-        elif type_name == "Team Total Runs" and side and line is not None:
-            team_totals_by_line[side].setdefault(round(line, 2), []).append(price)
+        elif type_name == "1st 5 Innings Total Runs" and line is not None and direction:
+            rounded = round(line, 2)
+            if not record(totals_by_line.setdefault(rounded, {}), direction, price):
+                ambiguous_totals.add(rounded)
+        elif type_name == "Team Total Runs" and side and line is not None and direction:
+            rounded = round(line, 2)
+            if not record(team_totals_by_line[side].setdefault(rounded, {}), direction, price):
+                ambiguous_team_totals.add((side, rounded))
 
     markets = game.setdefault("markets", {})
     if "home" in f5_moneyline and "away" in f5_moneyline:
@@ -335,20 +357,15 @@ def _parse_f5_prop_items(game: dict[str, Any], items: Iterable[Mapping[str, Any]
     if f5_run_line:
         markets["f5_run_line"] = f5_run_line
     f5_totals = {
-        # The ESPN prop feed publishes each total's Over row before its Under
-        # row; the repository's player-prop parser relies on the same
-        # ordering convention.
-        line: {"over": prices[0], "under": prices[1]}
-        for line, prices in totals_by_line.items()
-        if len(prices) == 2
+        line: pair for line, pair in totals_by_line.items()
+        if set(pair) == {"over", "under"} and line not in ambiguous_totals
     }
     if f5_totals:
         markets["f5_totals"] = f5_totals
     team_totals = {
         side: {
-            line: {"over": prices[0], "under": prices[1]}
-            for line, prices in by_line.items()
-            if len(prices) == 2
+            line: pair for line, pair in by_line.items()
+            if set(pair) == {"over", "under"} and (side, line) not in ambiguous_team_totals
         }
         for side, by_line in team_totals_by_line.items()
     }

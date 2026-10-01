@@ -44,17 +44,31 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
+      - name: Resolve player-props target date
+        id: target-date
+        env:
+          REQUESTED_DATE: ${{ github.event.inputs.date || '' }}
+        run: echo "date=${REQUESTED_DATE:-$(TZ=America/Chicago date +%F)}" >> "$GITHUB_OUTPUT"
+
       - name: Rebuild player-prop outcome ledger
         run: python scripts/rebuild_pick_outcome_ledger.py
 
       - name: Extend immutable posted-market history
+        id: market-history
+        continue-on-error: true
         run: |
           python scripts/build_player_prop_market_history.py \
             --start "$(date -u -d '14 days ago' +%F)" \
             --end "$(date -u -d 'yesterday' +%F)" \
             --sports MLB,WNBA,NFL,CFB
 
+      - name: Restore market history after failed update
+        if: steps.market-history.outcome == 'failure'
+        run: git restore -- data/player_props_training/market_history_2026.jsonl
+
       - name: Refresh roster-aware player outcome history
+        id: outcome-history
+        continue-on-error: true
         run: |
           python scripts/build_player_prop_outcome_history.py \
             --seasons 2024,2025,2026 \
@@ -62,19 +76,35 @@ jobs:
             --refresh \
             --max-workers 20
 
+      - name: Restore outcome history after failed update
+        if: steps.outcome-history.outcome == 'failure'
+        run: git restore -- data/player_props_training/outcome_history_2022_2026.jsonl.gz
+
       - name: Train or verify player-prop ML artifacts
+        id: train-props
+        if: steps.market-history.outcome == 'success' && steps.outcome-history.outcome == 'success'
+        continue-on-error: true
         run: python scripts/train_player_prop_ml.py
 
       - name: Evaluate four-model consensus challenger
+        id: verify-consensus
+        if: steps.market-history.outcome == 'success' && steps.outcome-history.outcome == 'success'
+        continue-on-error: true
         run: python scripts/train_player_prop_consensus_ml.py --verify-only
+
+      - name: Report optional history or training failures
+        if: steps.market-history.outcome == 'failure' || steps.outcome-history.outcome == 'failure' || steps.train-props.outcome == 'failure' || steps.verify-consensus.outcome == 'failure'
+        run: |
+          echo "::warning::Player-prop history update, ML training, or consensus verification failed; committed history and published artifacts remain in place and the refresh publication contract still applies."
 
       - name: Refresh in-house player props
         id: refresh-props
         continue-on-error: true
-        run: python scripts/refresh_player_props.py --date "${{ github.event.inputs.date || '' }}"
+        run: python scripts/refresh_player_props.py --date "${{ steps.target-date.outputs.date }}"
 
       - name: Archive immutable published snapshot
-        run: python scripts/archive_player_prop_snapshot.py
+        if: steps.refresh-props.outcome == 'success'
+        run: python scripts/archive_player_prop_snapshot.py --input "data/player_props_cache/${{ steps.target-date.outputs.date }}.json"
 
       - name: Rebuild parlay cards
         run: python scripts/build_parlay_cards.py --date "${{ github.event.inputs.date || '' }}"
@@ -105,7 +135,7 @@ jobs:
           GENERATED_OUTCOMES="${RUNNER_TEMP}/player-props-outcome-history.jsonl.gz"
           GENERATED_SNAPSHOTS="${RUNNER_TEMP}/player-props-snapshots"
           GENERATED_ARTIFACTS="${RUNNER_TEMP}/player-props-artifacts"
-          cp data/player_props_cache/latest.json "$GENERATED_CACHE"
+          cp "data/player_props_cache/${{ steps.target-date.outputs.date }}.json" "$GENERATED_CACHE"
           cp data/calibration/outcome_ledger.json "$GENERATED_LEDGER"
           cp data/player_props_training/market_history_2026.jsonl "$GENERATED_HISTORY"
           cp data/player_props_training/outcome_history_2022_2026.jsonl.gz "$GENERATED_OUTCOMES"

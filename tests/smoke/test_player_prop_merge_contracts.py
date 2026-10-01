@@ -1,10 +1,46 @@
 from __future__ import annotations
 
 import json
+import sys
 from pathlib import Path
 
+import pytest
+
+from scripts import merge_player_props_cache_payload as publisher
 from scripts.merge_player_props_cache_payload import merge_payload
 from scripts.site_upcheck import _published_player_prop_keys
+
+
+def test_cache_write_failure_keeps_existing_json_and_removes_partial_temp(monkeypatch, tmp_path):
+    path = tmp_path / "latest.json"
+    path.write_text('{"date": "2026-09-30"}\n', encoding="utf-8")
+
+    def partial_dump(_payload, handle, **_kwargs):
+        handle.write('{"date":')
+        raise OSError("disk full")
+
+    monkeypatch.setattr(publisher.json, "dump", partial_dump)
+    with pytest.raises(OSError, match="disk full"):
+        publisher._write_json(path, {"date": "2026-10-01"})
+
+    assert json.loads(path.read_text(encoding="utf-8"))["date"] == "2026-09-30"
+    assert list(tmp_path.glob("*.tmp")) == []
+
+
+def test_historical_merge_updates_dated_cache_without_downgrading_latest(monkeypatch, tmp_path):
+    cache_dir = tmp_path / "cache"
+    cache_dir.mkdir()
+    latest = {"date": "2026-09-30", "models": {}}
+    (cache_dir / "latest.json").write_text(json.dumps(latest), encoding="utf-8")
+    generated = tmp_path / "generated.json"
+    generated.write_text(json.dumps({"date": "2026-09-29", "models": {}}), encoding="utf-8")
+    monkeypatch.setattr(sys, "argv", ["merge", str(generated), "--cache-dir", str(cache_dir),
+                                  "--snapshot-dir", str(tmp_path / "snapshots")])
+
+    assert publisher.main() == 0
+    assert json.loads((cache_dir / "latest.json").read_text(encoding="utf-8")) == latest
+    assert json.loads((cache_dir / "2026-09-29.json").read_text(encoding="utf-8"))["date"] == "2026-09-29"
+    assert json.loads((cache_dir / "index.json").read_text(encoding="utf-8"))["files"] == ["2026-09-29.json"]
 
 
 def _pick(

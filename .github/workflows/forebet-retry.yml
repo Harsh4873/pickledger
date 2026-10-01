@@ -1,0 +1,49 @@
+name: Forebet Incomplete Slate Retry
+
+on:
+  schedule:
+    - cron: "15 9,11,15,17 * * *"
+      timezone: "America/Chicago"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: write
+
+concurrency:
+  group: forebet-retry-dispatch
+  cancel-in-progress: false
+
+jobs:
+  retry:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Read latest published cache
+        run: |
+          git fetch origin main
+          git reset --hard origin/main
+
+      - name: Dispatch incomplete Forebet sports
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          TARGET_DATE="$(TZ=America/Chicago date +%F)"
+          FEEDS="$(python scripts/forebet_retry.py --date "$TARGET_DATE")"
+          if [ -z "$FEEDS" ]; then
+            echo "All Forebet sports have complete current-date official coverage."
+            exit 0
+          fi
+          ACTIVE_RUNS="$(gh run list --workflow external-feed-refresh.yml --branch main \
+            --limit 20 --json status \
+            --jq '[.[] | select(.status == "queued" or .status == "in_progress" or .status == "waiting" or .status == "pending" or .status == "requested")] | length')"
+          if [ "${ACTIVE_RUNS:-0}" -gt 0 ]; then
+            echo "External feed refresh is already active; retry remains due: $FEEDS"
+            exit 0
+          fi
+          echo "Retrying incomplete Forebet sports for ${TARGET_DATE}: ${FEEDS}"
+          gh workflow run external-feed-refresh.yml --ref main -f date="$TARGET_DATE" -f feeds="$FEEDS"

@@ -344,6 +344,7 @@ def scrape_forebet(sport: str, date_iso: str, *, html: str | None = None) -> dic
                     "unpublishedMatchups": [],
                     "attemptedUrls": 1,
                     "blockedUrls": blocked,
+                    **({"blockedUrl": config["listing_url"]} if blocked else {}),
                 },
             }
 
@@ -361,6 +362,7 @@ def scrape_forebet(sport: str, date_iso: str, *, html: str | None = None) -> dic
                 "unpublishedMatchups": [],
                 "attemptedUrls": 1,
                 "blockedUrls": 1,
+                "blockedUrl": config["listing_url"],
             },
         }
 
