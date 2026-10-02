@@ -71,6 +71,29 @@ def make_pick(
     return payload
 
 
+def moneyline_approval() -> dict:
+    return {
+        "schema_version": 1,
+        "approvals": [
+            {
+                "approved": True,
+                "model_key": "test",
+                "model_version": "model-v1",
+                "market": "moneyline",
+                "variant": "base",
+                "frozen_rule": "fixture-holdout",
+                "holdout": {
+                    "unused_during_selection": True,
+                    "independently_priced_settled": 100,
+                    "roi": 0.05,
+                    "clustered_lower_95": 0.01,
+                    "calibration_no_material_regression": True,
+                },
+            }
+        ],
+    }
+
+
 def make_payload(picks: list[dict], *, slate_date: str = DATE, source_key: str = "test") -> dict:
     return {
         "date": slate_date,
@@ -471,13 +494,34 @@ def test_positive_fixture_backfill_slate_qualifies_without_stakes():
     assert built["portfolio"]["all"][0]["stakeUnits"] == 0
 
 
-def test_positive_fixture_live_slate_takes_the_edge_stake():
+def test_positive_fixture_live_slate_sits_out_without_an_approval():
     built = desk.build_profit_desk_payload(
         LIVE_DATE,
         make_payload([make_pick(slate_date=LIVE_DATE)], slate_date=LIVE_DATE),
         None,
         team_history=history_payloads(target_date=LIVE_DATE),
         prop_history=[],
+    )
+    candidate = built["candidates"][0]
+    assert candidate["edgeQualified"] is True
+    assert candidate["shadowQualified"] is True
+    assert candidate["tier"] == "watch"
+    assert candidate["liveQualified"] is False
+    assert candidate["stakeUnits"] == 0
+    assert "staking_approval_required" in candidate["blockers"]
+    assert built["phase"] == "live"
+    assert built["summary"]["liveQualified"] == 0
+    assert built["portfolio"]["live"] == []
+
+
+def test_approved_edge_live_slate_takes_the_edge_stake():
+    built = desk.build_profit_desk_payload(
+        LIVE_DATE,
+        make_payload([make_pick(slate_date=LIVE_DATE)], slate_date=LIVE_DATE),
+        None,
+        team_history=history_payloads(target_date=LIVE_DATE),
+        prop_history=[],
+        approvals=moneyline_approval(),
     )
     candidate = built["candidates"][0]
     assert candidate["tier"] == "edge"
@@ -494,7 +538,7 @@ def test_positive_fixture_live_slate_takes_the_edge_stake():
     assert record["settled"] == 0
 
 
-def test_value_lane_stakes_half_unit_on_source_level_flat_roi_evidence():
+def test_value_lane_cannot_ride_a_different_market_family():
     history = history_payloads(
         wins_per_date=5,
         losses_per_date=3,
@@ -516,14 +560,59 @@ def test_value_lane_stakes_half_unit_on_source_level_flat_roi_evidence():
     )
     candidate = built["candidates"][0]
     assert candidate["evidence"]["sourceSamples"] == 160
-    assert candidate["evidence"]["segmentSamples"] == 0
+    assert candidate["evidence"]["marketFamilySamples"] == 0
     assert candidate["evidence"]["sourceFlatRoi"] > 0
+    assert candidate["tier"] == "watch"
+    assert candidate["liveQualified"] is False
+    assert candidate["stakeUnits"] == 0
+    assert "value_insufficient_market_family_samples" in candidate["blockers"]
+    assert "value_insufficient_source_samples" not in candidate["blockers"]
+
+
+def test_value_lane_stakes_half_unit_only_for_an_approved_market_family():
+    history = history_payloads(
+        wins_per_date=5,
+        losses_per_date=3,
+        days=20,
+        target_date=LIVE_DATE,
+        market="moneyline",
+    )
+    candidate_pick = make_pick(
+        pick="Same Market ML",
+        market="moneyline",
+        slate_date=LIVE_DATE,
+        no_vig=None,
+    )
+    blocked = desk.build_profit_desk_payload(
+        LIVE_DATE,
+        make_payload([candidate_pick], slate_date=LIVE_DATE),
+        None,
+        team_history=history,
+        prop_history=[],
+    )
+    waiting = blocked["candidates"][0]
+    assert waiting["evidence"]["marketFamilySamples"] == 160
+    assert waiting["valueQualified"] is True
+    assert waiting["edgeQualified"] is False
+    assert waiting["liveQualified"] is False
+    assert waiting["stakeUnits"] == 0
+    assert "staking_approval_required" in waiting["blockers"]
+
+    built = desk.build_profit_desk_payload(
+        LIVE_DATE,
+        make_payload([candidate_pick], slate_date=LIVE_DATE),
+        None,
+        team_history=history,
+        prop_history=[],
+        approvals=moneyline_approval(),
+    )
+    candidate = built["candidates"][0]
     assert candidate["tier"] == "value"
     assert candidate["lane"] == "value"
     assert candidate["liveQualified"] is True
     assert candidate["stakeUnits"] == desk.VALUE_STAKE_UNITS
     assert candidate["blockers"] == []
-    assert "edge_insufficient_segment_samples" in candidate["laneBlockers"]["edge"]
+    assert "edge_requires_two_sided_price" in candidate["laneBlockers"]["edge"]
     assert candidate["estimate"]["value"]["probabilityPositiveEv"] >= 0.70
 
 
@@ -610,8 +699,9 @@ def test_selection_policy_is_engine_owned_and_unversioned_feeds_pool_by_source()
     assert candidate["evidence"]["policyVersion"] == desk.POLICY_VERSION
     assert candidate["modelVersion"] == "source_identity:test"
     assert candidate["shadowQualified"] is True
-    assert candidate["liveQualified"] is True
-    assert candidate["stakeUnits"] > 0
+    assert candidate["liveQualified"] is False
+    assert candidate["stakeUnits"] == 0
+    assert "staking_approval_required" in candidate["blockers"]
 
 
 def test_portfolio_caps_modes_and_uses_each_game_once():
@@ -717,6 +807,7 @@ def test_result_sync_settles_frozen_live_artifacts_and_cumulative_record(tmp_pat
         model_cache_dir=model_dir,
         player_cache_dir=prop_dir,
         output_dir=output_dir,
+        approvals=moneyline_approval(),
     )
     assert changed > 0
     first = json.loads((output_dir / f"{LIVE_DATE}.json").read_text(encoding="utf-8"))
@@ -752,6 +843,7 @@ def test_result_sync_settles_frozen_live_artifacts_and_cumulative_record(tmp_pat
         model_cache_dir=model_dir,
         player_cache_dir=prop_dir,
         output_dir=output_dir,
+        approvals=moneyline_approval(),
     )
 
     synced = json.loads((output_dir / f"{LIVE_DATE}.json").read_text(encoding="utf-8"))
@@ -861,6 +953,7 @@ def test_published_past_artifacts_are_frozen_against_reselection(tmp_path: Path)
         player_cache_dir=prop_dir,
         output_dir=output_dir,
         today_iso=LIVE_DATE,
+        approvals=moneyline_approval(),
     )
     published = json.loads((output_dir / f"{LIVE_DATE}.json").read_text(encoding="utf-8"))
     assert len(published["portfolio"]["live"]) == 1
@@ -883,6 +976,7 @@ def test_published_past_artifacts_are_frozen_against_reselection(tmp_path: Path)
         player_cache_dir=prop_dir,
         output_dir=output_dir,
         today_iso=next_date,
+        approvals=moneyline_approval(),
     )
     frozen = json.loads((output_dir / f"{LIVE_DATE}.json").read_text(encoding="utf-8"))
     live_rows = frozen["portfolio"]["live"]

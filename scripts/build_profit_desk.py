@@ -8,11 +8,13 @@ observed price rather than model scores or consensus:
   direction + probability band) must beat the market baseline after
   hierarchical shrinkage and an uncertainty penalty, with strict sample,
   distinct-date, and chronological-stability gates.
-- VALUE lane (0.5u): the source as a whole must show a positive shrunk
+- VALUE lane (0.5u): the market family (source plus market, pooling
+  versions, directions, and probability bands) must show a positive shrunk
   residual against its own posted prices (a conservative flat-ROI test:
   one-sided quotes are measured against their vigged break-even, never
-  a fabricated no-vig number), with volume, distinct-date, stability, and
-  probability-of-profit gates.
+  a fabricated no-vig number), with the same volume, distinct-date,
+  stability, and probability-of-profit gates the source pool still has to
+  clear. A winning source cannot carry a different market.
 
 The selection policy version is owned by this engine and stamped on every
 candidate; upstream feeds only need to supply real prices, timestamps, and
@@ -39,6 +41,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Iterable, Mapping, Sequence
 
+from scripts.model_stake_policy import _approved, load_approvals
+
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 MODEL_CACHE_DIR = REPO_ROOT / "data" / "model_cache"
@@ -63,10 +67,9 @@ MIN_PROBABILITY_POSITIVE_EV = 0.80
 MIN_CONSERVATIVE_PROBABILITY_MARGIN = 0.02
 EDGE_STAKE_UNITS = 1.0
 
-# VALUE lane: source-level flat-ROI gates against the source's own posted
-# prices.  Thresholds are grounded in the July 2026 evidence audit: the one
-# genuinely positive source (322 rows, 20 dates, +7.5% flat ROI) clears them
-# while marginal (+2.4% ROI, Pr 0.67) and negative sources do not.
+# VALUE lane: the same flat-ROI bars apply to the source and to the market
+# family. A source that is up overall cannot stake a market that has not
+# cleared the bars on its own. Thresholds stay at the July 2026 audit levels.
 VALUE_MIN_SOURCE_SAMPLES = 150
 VALUE_MIN_SOURCE_DATES = 15
 VALUE_MIN_PROBABILITY_POSITIVE_EV = 0.70
@@ -316,6 +319,50 @@ def _market_family(record: Mapping[str, Any]) -> str:
         _first(record, "stat_key", "market_type", "market", "stat_label", "bet_type")
         or "market"
     )
+
+
+def _family_key(source_key: tuple[str, ...], market_family: str) -> tuple[str, ...]:
+    return source_key + (market_family,)
+
+
+def _approval_entries(approvals: Mapping[str, Any] | None) -> list[Mapping[str, Any]]:
+    payload = approvals
+    if payload is None:
+        try:
+            payload = load_approvals()
+        except (OSError, ValueError, json.JSONDecodeError):
+            return []
+    entries = payload.get("approvals") if isinstance(payload, Mapping) else None
+    if not isinstance(entries, list):
+        return []
+    return [entry for entry in entries if isinstance(entry, Mapping)]
+
+
+def _stake_approved(
+    approvals: Mapping[str, Any] | None,
+    source_key: str,
+    market_family: str,
+    model_version: str,
+) -> bool:
+    """Live units require an explicit holdout approval for this exact triple.
+
+    An empty ``staking_approvals.json`` is a sit-out. The file cannot be
+    inferred from a favorable source ROI.
+    """
+
+    for entry in _approval_entries(approvals):
+        if not _approved(entry):
+            continue
+        entry_source = _norm(entry.get("model_key") or entry.get("source_key") or "")
+        entry_market = _norm(entry.get("market") or "")
+        entry_version = _text(entry.get("model_version"))
+        if (
+            entry_source == _norm(source_key)
+            and entry_market == _norm(market_family)
+            and entry_version == model_version
+        ):
+            return True
+    return False
 
 
 def _player(record: Mapping[str, Any]) -> str:
@@ -793,6 +840,7 @@ class EvidenceRow:
     date: str
     source_key: tuple[str, ...]
     segment_key: tuple[str, ...]
+    family_key: tuple[str, ...]
     result: str
     outcome: float
     market_probability: float
@@ -884,9 +932,11 @@ class EvidenceBook:
         self.rows = list(unique.values())
         self.by_source: dict[tuple[str, ...], Aggregate] = defaultdict(Aggregate)
         self.by_segment: dict[tuple[str, ...], Aggregate] = defaultdict(Aggregate)
+        self.by_family: dict[tuple[str, ...], Aggregate] = defaultdict(Aggregate)
         for row in self.rows:
             self.by_source[row.source_key].rows.append(row)
             self.by_segment[row.segment_key].rows.append(row)
+            self.by_family[row.family_key].rows.append(row)
 
     @classmethod
     def build(
@@ -942,6 +992,7 @@ class EvidenceBook:
                     source_key, segment_key = _evidence_keys(
                         context, baseline, market_family, direction
                     )
+                    family_key = _family_key(source_key, market_family)
                     outcome = 1.0 if result == "win" else 0.0
                     profit = decimal - 1.0 if result == "win" else -1.0
                     row_identity = {
@@ -960,6 +1011,7 @@ class EvidenceBook:
                             date=record_date,
                             source_key=source_key,
                             segment_key=segment_key,
+                            family_key=family_key,
                             result=result,
                             outcome=outcome,
                             market_probability=baseline,
@@ -973,11 +1025,14 @@ class EvidenceBook:
         self,
         source_key: tuple[str, ...],
         segment_key: tuple[str, ...],
+        family_key: tuple[str, ...],
         market_probability: float,
         decimal_odds: float,
     ) -> tuple[dict[str, Any], dict[str, Any]]:
         source = self.by_source[source_key]
         segment = self.by_segment[segment_key]
+        family = self.by_family[family_key]
+        family_stats = source_value_stats(family)
         source_alpha = source.residual_sum / (source.samples + SOURCE_PRIOR_ROWS)
         alpha = (
             segment.residual_sum + SEGMENT_PRIOR_ROWS * source_alpha
@@ -1079,6 +1134,23 @@ class EvidenceBook:
             "sourceSecondHalfFlatNetUnits": round(source_second_half, 4),
             "sourceChronologicalHalvesNonnegative": (
                 source_first_half >= 0.0 and source_second_half >= 0.0
+            ),
+            "marketFamilySamples": family.samples,
+            "marketFamilyDistinctDates": len(family.dates),
+            "marketFamilyFlatRoi": (
+                round(family_stats["flatRoi"], 6)
+                if family_stats["flatRoi"] is not None
+                else None
+            ),
+            "marketFamilyFirstHalfFlatNetUnits": round(
+                family_stats["firstHalfFlatNetUnits"], 4
+            ),
+            "marketFamilySecondHalfFlatNetUnits": round(
+                family_stats["secondHalfFlatNetUnits"], 4
+            ),
+            "marketFamilyChronologicalHalvesNonnegative": family_stats["halvesNonnegative"],
+            "marketFamilyProbabilityPositiveEv": round(
+                family_stats["probabilityPositiveEv"], 6
             ),
             "priorOnly": True,
         }
@@ -1236,6 +1308,7 @@ def _candidate_payload(
     evidence_book: EvidenceBook,
     *,
     live_slate: bool = True,
+    approvals: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
     context = raw.context
     record = context.record
@@ -1256,8 +1329,9 @@ def _candidate_payload(
         source_key, segment_key = _evidence_keys(
             context, baseline, raw.market_family, raw.direction
         )
+        family_key = _family_key(source_key, raw.market_family)
         estimate, evidence = evidence_book.estimate(
-            source_key, segment_key, baseline, raw.decimal_odds
+            source_key, segment_key, family_key, baseline, raw.decimal_odds
         )
         # EDGE lane: strict segment-level market-alpha qualification.
         if raw.price_tier not in {"A", "B"}:
@@ -1291,6 +1365,18 @@ def _candidate_payload(
             value_blockers.append("value_non_positive_flat_roi")
         if value_estimate["probabilityPositiveEv"] < VALUE_MIN_PROBABILITY_POSITIVE_EV:
             value_blockers.append("value_probability_positive_ev_below_0.70")
+        # The market family has to clear the same bars. A walks book cannot
+        # ride a blended prop ROI, and a totals ticket cannot ride moneylines.
+        if evidence["marketFamilySamples"] < VALUE_MIN_SOURCE_SAMPLES:
+            value_blockers.append("value_insufficient_market_family_samples")
+        if evidence["marketFamilyDistinctDates"] < VALUE_MIN_SOURCE_DATES:
+            value_blockers.append("value_insufficient_market_family_dates")
+        if not evidence["marketFamilyChronologicalHalvesNonnegative"]:
+            value_blockers.append("value_negative_market_family_half")
+        if (evidence["marketFamilyFlatRoi"] or 0.0) <= 0.0:
+            value_blockers.append("value_non_positive_market_family_roi")
+        if evidence["marketFamilyProbabilityPositiveEv"] < VALUE_MIN_PROBABILITY_POSITIVE_EV:
+            value_blockers.append("value_market_family_probability_positive_ev_below_0.70")
     else:
         source_key = (
             context.mode,
@@ -1322,6 +1408,11 @@ def _candidate_payload(
             "sourceFirstHalfFlatNetUnits": 0.0,
             "sourceSecondHalfFlatNetUnits": 0.0,
             "sourceChronologicalHalvesNonnegative": False,
+            "marketFamilySamples": 0,
+            "marketFamilyDistinctDates": 0,
+            "marketFamilyFlatRoi": None,
+            "marketFamilyChronologicalHalvesNonnegative": False,
+            "marketFamilyProbabilityPositiveEv": 0.0,
             "priorOnly": True,
         }
         edge_blockers.append("edge_no_usable_price_baseline")
@@ -1329,12 +1420,20 @@ def _candidate_payload(
 
     edge_qualified = not structural_blockers and not edge_blockers
     value_qualified = not structural_blockers and not value_blockers
-    qualified = edge_qualified or value_qualified
-    if edge_qualified:
+    lane_qualified = edge_qualified or value_qualified
+    # Research backfill never stakes. A live slate stakes only when
+    # staking_approvals.json names this source, market family, and model.
+    approved = (not live_slate) or _stake_approved(
+        approvals, context.source_key, raw.market_family, model_version
+    )
+    approval_blockers: list[str] = []
+    if live_slate and lane_qualified and not approved:
+        approval_blockers.append("staking_approval_required")
+    if edge_qualified and not approval_blockers:
         tier = "edge"
         lane = "edge"
         stake_units = EDGE_STAKE_UNITS if live_slate else 0.0
-    elif value_qualified:
+    elif value_qualified and not approval_blockers:
         tier = "value"
         lane = "value"
         stake_units = VALUE_STAKE_UNITS if live_slate else 0.0
@@ -1346,15 +1445,16 @@ def _candidate_payload(
         tier = "avoid"
         lane = None
         stake_units = 0.0
-    live_qualified = qualified and live_slate
-    # Qualified candidates show a clean card; the lanes they did NOT clear
-    # stay inspectable in laneBlockers.
+    live_qualified = tier in {"edge", "value"} and live_slate and stake_units > 0
+    # A cleared lane with no approval stays off the card. The blocker says why.
     blockers = (
         []
-        if qualified
-        else list(dict.fromkeys(structural_blockers + edge_blockers + value_blockers))
+        if tier in {"edge", "value"}
+        else list(dict.fromkeys(
+            structural_blockers + edge_blockers + value_blockers + approval_blockers
+        ))
     )
-    shadow_qualified = qualified
+    shadow_qualified = lane_qualified
     candidate_id = "profit-" + _stable_hash(
         {
             "date": raw.date,
@@ -1641,6 +1741,7 @@ def build_profit_desk_payload(
     *,
     team_history: Iterable[Mapping[str, Any]] | None = None,
     prop_history: Iterable[Mapping[str, Any]] | None = None,
+    approvals: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Build one deterministic Profit Desk slate payload.
 
@@ -1670,7 +1771,13 @@ def build_profit_desk_payload(
 
     live_slate = date_iso >= FIRST_LIVE_DATE
     candidates = [
-        _candidate_payload(winner, duplicates, evidence_book, live_slate=live_slate)
+        _candidate_payload(
+            winner,
+            duplicates,
+            evidence_book,
+            live_slate=live_slate,
+            approvals=approvals,
+        )
         for winner, duplicates in _dedupe_raw_candidates(raw_candidates)
     ]
     candidates.sort(
@@ -1751,6 +1858,8 @@ def build_profit_desk_payload(
                 "minimumProbabilityPositiveEv": VALUE_MIN_PROBABILITY_POSITIVE_EV,
                 "requiresPositiveFlatRoi": True,
                 "chronologicalEvidenceHalvesMustBeNonnegative": True,
+                "marketFamilyMustClearTheSameBars": True,
+                "liveStakeRequiresStakingApproval": True,
             },
             "portfolio": {
                 "maximumPerMode": MAX_PER_MODE,
@@ -1759,7 +1868,8 @@ def build_profit_desk_payload(
         },
         "notes": [
             "EDGE picks stake 1.0u after strict segment-level market-alpha gates.",
-            "VALUE picks stake 0.5u after source-level flat-ROI gates at posted prices.",
+            "VALUE picks stake 0.5u only after the market family clears the same flat-ROI gates as the source.",
+            "A live unit also requires data/calibration/staking_approvals.json to name that source, market, and model version. An empty file stakes 0u.",
             "Raw model probability and consensus are display context only and never create edge.",
             "Evidence uses settled, executable-priced rows dated strictly before the target slate.",
             f"Live staking begins {FIRST_LIVE_DATE}; earlier slates rebuild as zero-stake research.",
@@ -2111,6 +2221,7 @@ def rebuild_profit_desk(
     player_cache_dir: Path | str | None = None,
     output_dir: Path | str | None = None,
     today_iso: str | None = None,
+    approvals: Mapping[str, Any] | None = None,
 ) -> int:
     """Write dated, latest, and index files; return the changed-file count."""
 
@@ -2146,6 +2257,7 @@ def rebuild_profit_desk(
             prop_payload,
             team_history=_payloads_before(model_dir, target),
             prop_history=_payloads_before(player_dir, target),
+            approvals=approvals,
         )
         prior_live_rows = _live_rows_from_artifacts(destination, before=target)
         payload["summary"]["liveRecordToDate"] = _cumulative_live_record(

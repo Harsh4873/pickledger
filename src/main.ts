@@ -509,7 +509,7 @@ function dailyDecisionFilterCounts(pool: Pick[]): Record<DailyDecisionFilter, nu
 
 function dailyDecisionFilterLabel(filter: DailyDecisionFilter): string {
   if (filter === 'ALL') return 'All';
-  if (filter === 'STAKED') return 'Staked';
+  if (filter === 'STAKED') return 'BET+LEAN';
   return filter;
 }
 
@@ -1232,7 +1232,7 @@ function renderResearchBoard(): void {
   const record = stats.total
     ? `${stats.wins}–${stats.losses}${stats.pushes ? `–${stats.pushes}` : ''}`
     : history.some(isOpenPick) ? 'Awaiting results' : 'No settled tips';
-  const decisionLabel = researchDecisionFilter === 'STAKED' ? 'Staked (BET+LEAN)' : researchDecisionFilter;
+  const decisionLabel = researchDecisionFilter === 'STAKED' ? 'BET+LEAN record' : researchDecisionFilter;
   const records = sourceRecordLines(history, selectedDate || centralDateKey());
   const groups = new Map<string, Pick[]>();
   picks.forEach(pick => groups.set(gameKey(pick), [...(groups.get(gameKey(pick)) || []), pick]));
@@ -1240,7 +1240,7 @@ function renderResearchBoard(): void {
     <p class="research-board-note">External feed BET / LEAN / PASS tips. Filters and W–L follow Rankings: STAKED is BET+LEAN, PASS is separate, and the record is the full graded history — not just this slate. Stakes stay out of Best Bets, parlays, and in-house profit. Units count only when price_verified. In-house CFB and NFL model rows, including PASS, appear on the board above.</p>
     <div class="research-filter-row" role="group" aria-label="Research decision filter">
       ${RESEARCH_DECISION_FILTERS.map(filter => (
-        `<button type="button" class="rank-filter-btn ${researchDecisionFilter === filter ? 'active' : ''}" data-research-decision="${escapeHtml(filter)}" aria-pressed="${researchDecisionFilter === filter}"><span class="rank-filter-label">${escapeHtml(filter === 'STAKED' ? 'Staked' : filter)}</span><span class="rank-filter-count">${decisionCounts[filter]}</span></button>`
+        `<button type="button" class="rank-filter-btn ${researchDecisionFilter === filter ? 'active' : ''}" data-research-decision="${escapeHtml(filter)}" aria-pressed="${researchDecisionFilter === filter}"><span class="rank-filter-label">${escapeHtml(filter === 'STAKED' ? 'BET+LEAN' : filter)}</span><span class="rank-filter-count">${decisionCounts[filter]}</span></button>`
       )).join('')}
     </div>
     <div class="research-stats" aria-label="Research overall stats">
@@ -1816,7 +1816,7 @@ function renderRankingFilters(comparablePicks: Pick[], scopedPicks: Pick[]): voi
         ${RANKING_DECISION_FILTERS.map(filter => rankingFilterButton(
           'decision',
           filter,
-          filter === 'STAKED' ? 'Staked' : filter,
+          filter === 'STAKED' ? 'BET+LEAN' : filter,
           decisionCounts[filter],
           rankingDecisionFilter === filter,
         )).join('')}
@@ -1862,7 +1862,7 @@ function renderRankingFilters(comparablePicks: Pick[], scopedPicks: Pick[]): voi
   const scopedPool = rankingPoolPicks(scopedPicks);
   const scopedSources = new Set<string>();
   scopedPool.forEach(pick => rankingBucketNames(pick).forEach(name => scopedSources.add(name)));
-  const decisionLabel = rankingDecisionFilter === 'STAKED' ? 'Staked (BET+LEAN)' : rankingDecisionFilter;
+  const decisionLabel = rankingDecisionFilter === 'STAKED' ? 'BET+LEAN record, not a live stake' : rankingDecisionFilter;
   const tags = [
     decisionLabel,
     ...[...rankingSportFilters].sort().map(filterLabel),
@@ -1893,8 +1893,8 @@ function renderRankings(): void {
   }
   if (dowSubtitle) {
     dowSubtitle.textContent = activePickMode === 'player'
-      ? 'Player-prop model win rates by weekday. Green cells have at least three decided picks and a 55%+ win rate.'
-      : 'Source win rates by weekday. Green cells have at least three decided picks and a 55%+ win rate.';
+      ? 'Player-prop model win rates by weekday. A cell stays gray under 30 priced results. Green needs those 30, a positive priced ROI, and a 55%+ win rate.'
+      : 'Source win rates by weekday. A cell stays gray under 30 priced results. Green needs those 30, a positive priced ROI, and a 55%+ win rate.';
   }
   const bySource = new Map<string, Pick[]>();
   // Every source in scope gets a card, decided or not; stats below stay
@@ -1905,19 +1905,19 @@ function renderRankings(): void {
     picks,
     stats: statsFor(picks.filter(isSettledPick)),
   }))
-    .sort((a, b) => activePickMode === 'player'
-      ? (
-        (b.stats.wins + b.stats.losses) - (a.stats.wins + a.stats.losses)
+    .sort((a, b) => {
+      // Fewer than 30 priced results cannot lead the board. A 3-0 run is
+      // not a stake, and it should not wear a rank crown.
+      const sample = (stats: Stats) => (stats.priced >= 30 ? 1 : 0);
+      return sample(b.stats) - sample(a.stats)
+        || (activePickMode === 'player'
+          ? (b.stats.wins + b.stats.losses) - (a.stats.wins + a.stats.losses)
+          : 0)
         || (b.stats.roi ?? -999) - (a.stats.roi ?? -999)
         || b.stats.net - a.stats.net
-        || a.source.localeCompare(b.source)
-      )
-      // Undecided sources have no ROI to rank on, so they sort below every
-      // source with a real record instead of tying at the top.
-      : (b.stats.roi ?? -999) - (a.stats.roi ?? -999)
-        || b.stats.net - a.stats.net
         || (b.stats.wins + b.stats.losses) - (a.stats.wins + a.stats.losses)
-        || a.source.localeCompare(b.source));
+        || a.source.localeCompare(b.source);
+    });
   const leaderboard = document.getElementById('leaderboard');
   if (leaderboard) {
     leaderboard.innerHTML = ranked.length ? ranked.map((item, index) => {
@@ -1929,7 +1929,8 @@ function renderRankings(): void {
       const decidedLabel = item.stats.total
         ? 'DECIDED PICKS'
         : `AWAITING FIRST RESULT${openPicks ? ` · ${openPicks} OPEN` : ''}`;
-      return `<article class="source-card ${index < 3 ? `rank-${index + 1}` : ''} ${expanded ? 'expanded' : ''}" data-source-card="${escapeHtml(item.source)}" role="button" tabindex="0" aria-expanded="${expanded}">
+      const crowned = item.stats.priced >= 30 && index < 3;
+      return `<article class="source-card ${crowned ? `rank-${index + 1}` : ''} ${expanded ? 'expanded' : ''}" data-source-card="${escapeHtml(item.source)}" role="button" tabindex="0" aria-expanded="${expanded}">
         <div class="card-rank">${index + 1}</div><div class="card-name">${escapeHtml(item.source)}</div>
         <div class="score-bar-wrap"><div class="score-label"><span>ACCURACY</span><span class="score-val">${item.stats.winRate == null ? '—' : `${(item.stats.winRate * 100).toFixed(1)}%`} (${item.stats.wins}-${item.stats.losses})</span></div><div class="bar-bg"><div class="bar-fill bar-acc" style="width:${(item.stats.winRate || 0) * 100}%"></div></div></div>
         <div class="score-bar-wrap"><div class="score-label"><span>ROI</span><span class="score-val">${item.stats.priced ? `${item.stats.roi == null ? '—' : `${(item.stats.roi * 100).toFixed(1)}%`} (${signedUnits(item.stats.net)})` : '— (no priced picks)'}</span></div><div class="bar-bg"><div class="bar-fill bar-roi" style="width:${Math.max(0, Math.min(100, 50 + (item.stats.roi || 0) * 100))}%"></div></div></div>
@@ -2012,11 +2013,15 @@ function renderDayOfWeekTable(comparablePicks: Pick[]): void {
       const stats = statsFor(bySource.get(source)?.[day] || []);
       const decided = stats.wins + stats.losses;
       const rate = stats.winRate == null ? null : stats.winRate * 100;
-      const tone = decided < 3 || rate == null
+      const tone = stats.priced < 30 || rate == null
         ? 'dow-cell-gray'
-        : rate >= 55 ? 'dow-cell-green' : rate >= 50 ? 'dow-cell-yellow' : 'dow-cell-red';
+        : stats.roi != null && stats.roi > 0 && rate >= 55
+          ? 'dow-cell-green'
+          : stats.roi != null && stats.roi > 0
+            ? 'dow-cell-yellow'
+            : 'dow-cell-red';
       const text = rate == null ? '—' : `${rate.toFixed(0)}% (${stats.wins}-${stats.losses})`;
-      return `<td class="${tone}" title="${decided} decided picks">${text}</td>`;
+      return `<td class="${tone}" title="${stats.priced} priced, ${decided} decided">${text}</td>`;
     }).join('')}</tr>`).join('')}</tbody>
   </table>`;
 }
@@ -2228,7 +2233,7 @@ function isFeaturedPlayablePick(pick: Pick): boolean {
   if (!isFeaturedPlayablePrice(pick)) return false;
   // Same windows Rankings uses: WNBA Total v2, MLS v2, consensus-era MLB
   // Total/ML. Dead pre-cutover rows still exist in cache and would dilute
-  // the betting card if Featured published them. Always the team window,
+  // the shortlist if Featured published them. Always the team window,
   // even when the viewer is in Player mode — this card is team sources.
   return isTeamRankingWindowPick(pick);
 }
@@ -3094,7 +3099,7 @@ function profitDeskCandidateCard(candidate: ProfitDeskCandidate): string {
     ${consensus.length ? `<div class="profit-consensus"><span>CONSENSUS CONTEXT</span>${consensus.map(source => `<strong>${escapeHtml(source)}</strong>`).join('')}</div>` : ''}
     ${profitDeskBlockersHtml(candidate.blockers)}
     <div class="profit-shadow-warning">${isLive
-      ? `${escapeHtml(stakeTier)} lane: ${candidate.lane === 'edge' ? 'strict segment-level market-alpha evidence' : 'source-level flat-ROI evidence at posted prices'}. Recorded stake: ${escapeHtml(`${stake}u`)} flat.`
+      ? `${escapeHtml(stakeTier)} lane: ${candidate.lane === 'edge' ? 'strict segment-level market-alpha evidence' : 'market-family flat-ROI evidence at posted prices'}. Recorded stake: ${escapeHtml(`${stake}u`)} flat.`
       : 'Research context is not live proof. Recorded stake: 0u.'}</div>
   </article>`;
 }
@@ -3130,7 +3135,7 @@ function profitDeskMethodHtml(payload: ProfitDeskPayload | null): string {
   const notes = Array.isArray(payload?.policy?.notes) ? payload.policy.notes : [];
   const policyStatus = payload?.policy?.status || payload?.policy?.mode || payload?.phase || 'artifact unavailable';
   return `<section class="profit-section profit-method">
-    <div class="profit-section-head"><div><div class="profit-section-kicker">MARKET-ANCHORED SELECTION POLICY</div><h2>How a pick earns promotion</h2><p>Every stake starts from a real observed price with a no-vig or break-even baseline, adds only a source&rsquo;s historically proven excess over the market, shrinks thin samples toward zero, and stakes by lane (EDGE 1.0u, VALUE 0.5u) or abstains. The browser displays a dated decision artifact; it never rescores raw picks.</p></div><span>${escapeHtml(String(policyStatus).toUpperCase())}</span></div>
+    <div class="profit-section-head"><div><div class="profit-section-kicker">MARKET-ANCHORED SELECTION POLICY</div><h2>How a pick earns promotion</h2><p>Every stake starts from a real observed price with a no-vig or break-even baseline, adds only that market family&rsquo;s historically proven excess over the market, shrinks thin samples toward zero, and stakes by lane (EDGE 1.0u, VALUE 0.5u) or abstains. A live unit also needs an entry in staking approvals for that source, market, and model. The browser displays a dated decision artifact; it never rescores raw picks.</p></div><span>${escapeHtml(String(policyStatus).toUpperCase())}</span></div>
     <div class="profit-policy-grid">
       <div><div class="profit-policy-title">Promotion requirements</div>${gates.length ? `<dl>${gates.map(([key, value]) => `<div><dt>${escapeHtml(humanizeProfitGate(key))}</dt><dd>${escapeHtml(formatProfitGateValue(value))}</dd></div>`).join('')}</dl>` : '<p>No policy gates were published for this date. That is itself a blocker; nothing can be promoted.</p>'}</div>
       <div><div class="profit-policy-title">Where to see the evidence</div><p>The promotion requirements beside this note are the full rule set. Each source&rsquo;s settled record, ROI, and weekday form live under Rankings &mdash; filter that page to a single source to read the evidence behind any candidate. Live recordkeeping begins only after promotion${payload?.policy?.firstLiveDate ? ` on ${escapeHtml(dateLabel(payload.policy.firstLiveDate, true))}` : ''}.</p>${notes.length ? `<ul>${notes.map(note => `<li>${escapeHtml(note)}</li>`).join('')}</ul>` : ''}</div>
@@ -3523,7 +3528,7 @@ function renderDaily(): void {
     ? 'Featured only publishes MLB Total, MLB Team Total, MLB ML, WNBA ML, WNBA Total, and MLS Total at posted prices, in the same ranking windows those sources actually print. WNBA ML may keep heavy juice; everything else skips -150 or worse. An empty card is the play.'
     : `No Featured pick matches ${dailyDecisionFilterLabel(dailyDecisionFilter)}. Try All.`;
   const featuredIntro = featuredVisible.length
-    ? '<div class="daily-dayform-warning daily-featured-intro"><strong>This is the betting card.</strong> In-house models with a priced record only. Singles, 0.5u–1u. Do not parlay these to manufacture action.</div>'
+    ? '<div class="daily-dayform-warning daily-featured-intro"><strong>This is not a stake.</strong> Profit Desk is the only place a unit is greater than zero, and it sits out until an approval names the source, market, and model. Featured is a research shortlist. Do not parlay it to manufacture action.</div>'
     : '';
   const activeBody = dailyView === 'featured'
     ? dailySection(
@@ -3544,7 +3549,7 @@ function renderDaily(): void {
             ? dailySection(`Fade Board for ${dayName}s`, `The inverse of Day Form: picks published today by sources that are cold on ${dayName}s AND cold over the last ${FADE_RECENT_DAYS} days, with any in-form agreement cancelling the fade.`, !fadeVisible.candidates.length && dailyDecisionFilter !== 'ALL' ? `<div class="daily-empty"><div class="daily-empty-title">No fade candidate in this filter</div><div class="daily-empty-sub">${escapeHtml(dailyDecisionFilterEmptySub('Fade', ''))}</div></div>` : dailyFadeBody(key, fadeVisible), `${fadeVisible.candidates.length} clean fade${fadeVisible.candidates.length === 1 ? '' : 's'}`)
             : dailySection('Research Queue', researchSubtitle, dailyPickGrid(researchVisible, 'Nothing qualifies yet', dailyDecisionFilterEmptySub('Research', 'This view fills in when today’s picks meet its rules.')), `${researchVisible.length} unique markets`);
 
-  container.innerHTML = `<div class="daily-hero"><div class="daily-hero-row"><div><div class="daily-eyebrow">TODAY'S QUICK READ</div><div class="daily-title">The Shortlist</div><div class="daily-sub">${escapeHtml(dateLabel(key, true))} | Featured Picks is the betting card. The other views are research.</div></div><div class="daily-clock-wrap"><div class="daily-clock-label">PICKS FOR</div><div class="daily-clock">${escapeHtml(key)}</div></div></div></div>
+  container.innerHTML = `<div class="daily-hero"><div class="daily-hero-row"><div><div class="daily-eyebrow">TODAY'S QUICK READ</div><div class="daily-title">The Shortlist</div><div class="daily-sub">${escapeHtml(dateLabel(key, true))} | Research only. Profit Desk is the stake, and an empty approval file means sit out.</div></div><div class="daily-clock-wrap"><div class="daily-clock-label">PICKS FOR</div><div class="daily-clock">${escapeHtml(key)}</div></div></div></div>
     <div class="daily-view-shell">
       <div class="daily-view-copy"><div class="daily-view-eyebrow">CHOOSE A VIEW</div><div class="daily-view-title">${escapeHtml(activeView.label)}</div><div class="daily-view-description">Sorted ${escapeHtml(activeSort.label.toLowerCase())}; ${stats.pending} picks remain open and ${priceyCount} are pricey favorites.</div></div>
       <div class="daily-view-nav" role="tablist" aria-label="Daily shortlist categories">${viewOptions.map(option => `<button class="daily-view-tab ${option.key === 'featured' ? 'is-featured' : ''} ${dailyView === option.key ? 'active' : ''}" type="button" role="tab" aria-selected="${dailyView === option.key}" onclick="setDailyView('${option.key}')"><span class="daily-view-tab-count">${option.count}</span><span class="daily-view-tab-label">${option.label}</span><span class="daily-view-tab-desc">${option.description}</span></button>`).join('')}</div>
@@ -3602,7 +3607,7 @@ function renderProfit(): void {
   const activeBody = profitView === 'card'
     ? profitDeskCandidateSection(
       'Live Card',
-      'Evidence-qualified picks only. EDGE clears strict segment-level market-alpha gates at 1.0u; VALUE clears source-level flat-ROI gates at 0.5u.',
+      'Evidence-qualified picks only. EDGE clears strict segment-level market-alpha gates at 1.0u; VALUE clears market-family flat-ROI gates at 0.5u. Neither stakes without an approval.',
       cardCandidates,
       'No candidate qualified for a stake',
       payload ? 'The engine abstained after price, uncertainty, evidence, and overlap checks. Sitting out is a valid result.' : 'No dated Profit Desk artifact was published, so no substitute recommendation is shown.',
