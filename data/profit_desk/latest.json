@@ -4,7 +4,7 @@
   "date": "2026-10-02",
   "engineVersion": "profit_desk_v2_live",
   "firstLiveDate": "2026-07-11",
-  "generatedAt": "2026-10-02T18:29:53.562634Z",
+  "generatedAt": "2026-10-02T19:54:39.363814Z",
   "notices": [
     "Qualified picks carry real flat stakes: EDGE 1.0u, VALUE 0.5u; everything else stays 0u.",
     "The market price is the baseline; historical residual alpha is shrunk and uncertainty-adjusted.",
@@ -41,6 +41,8 @@
       "valueLane": {
         "baseline": "posted price break-even (vig included), never a fabricated no-vig",
         "chronologicalEvidenceHalvesMustBeNonnegative": true,
+        "liveStakeRequiresStakingApproval": true,
+        "marketFamilyMustClearTheSameBars": true,
         "minimumDistinctPriorDates": 15,
         "minimumProbabilityPositiveEv": 0.7,
         "minimumSourceSamples": 150,
@@ -52,7 +54,8 @@
     "mode": "live",
     "notes": [
       "EDGE picks stake 1.0u after strict segment-level market-alpha gates.",
-      "VALUE picks stake 0.5u after source-level flat-ROI gates at posted prices.",
+      "VALUE picks stake 0.5u only after the market family clears the same flat-ROI gates as the source.",
+      "A live unit also requires data/calibration/staking_approvals.json to name that source, market, and model version. An empty file stakes 0u.",
       "Raw model probability and consensus are display context only and never create edge.",
       "Evidence uses settled, executable-priced rows dated strictly before the target slate.",
       "Live staking begins 2026-07-11; earlier slates rebuild as zero-stake research."
