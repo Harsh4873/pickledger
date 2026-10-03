@@ -47,7 +47,6 @@ from sklearn.preprocessing import OrdinalEncoder
 
 from features_v2 import (
     CATEGORICAL_FEATURES_V2,
-    LEAGUE_AVG_TOTAL,
     NUMERIC_FEATURES_V2,
     build_feature_frame,
     feature_columns_v2,
@@ -95,8 +94,18 @@ def ensure_artifact_dir() -> None:
 def chronological_split(
     frame: pd.DataFrame,
     validation_fraction: float = 0.2,
+    train_through: str | None = None,
 ) -> tuple[pd.DataFrame, pd.DataFrame]:
     frame = frame.sort_values("game_date").reset_index(drop=True)
+    if train_through:
+        cutoff = pd.Timestamp(train_through)
+        train_frame = frame[frame["game_date"] <= cutoff]
+        validation_frame = frame[frame["game_date"] > cutoff]
+        if train_frame.empty or validation_frame.empty:
+            raise ValueError(
+                f"train_through {train_through} does not leave both a fit and a later holdout"
+            )
+        return train_frame.copy(), validation_frame.copy()
     split_idx = max(1, int(len(frame) * (1.0 - validation_fraction)))
     split_idx = min(split_idx, len(frame) - 1)
     return frame.iloc[:split_idx].copy(), frame.iloc[split_idx:].copy()
@@ -188,11 +197,15 @@ def _recency_weights(frame: pd.DataFrame) -> np.ndarray:
 def train_moneyline_v2(
     dataset: pd.DataFrame,
     validation_fraction: float = 0.2,
+    train_through: str | None = None,
 ) -> TrainingResult:
     frame = build_feature_frame(dataset)
     frame = select_training_rows_v2(frame)
+    frame = frame.dropna(subset=["home_moneyline", "away_moneyline"])
 
-    train_frame, validation_frame = chronological_split(frame, validation_fraction)
+    train_frame, validation_frame = chronological_split(
+        frame, validation_fraction, train_through=train_through
+    )
 
     train_x = select_feature_matrix(train_frame)
     validation_x = select_feature_matrix(validation_frame)
@@ -285,18 +298,23 @@ def apply_calibration(artifact: dict[str, Any], probabilities: np.ndarray) -> np
 def train_totals_v2(
     dataset: pd.DataFrame,
     validation_fraction: float = 0.2,
+    train_through: str | None = None,
 ) -> TrainingResult:
     frame = build_feature_frame(dataset)
-    frame = frame.dropna(subset=["total_runs", "game_date"]).sort_values("game_date").reset_index(drop=True)
+    frame = frame.dropna(subset=["total_runs", "game_date", "market_total_line"]).sort_values("game_date").reset_index(drop=True)
+    if frame.empty:
+        raise ValueError("totals training has no rows with a posted market total")
 
     # Residual-to-market training target. The model learns `total_runs -
-    # market_total_line` so it stays anchored to Vegas and only deviates when
-    # the features justify it.
+    # market_total_line` so it stays anchored to the posted number. Rows
+    # without a posted total are dropped. Filling them with 8.70 trained the
+    # model on a line nobody could bet.
     frame = frame.copy()
-    frame["market_total_line"] = frame["market_total_line"].fillna(LEAGUE_AVG_TOTAL)
     frame["total_residual"] = frame["total_runs"].astype(float) - frame["market_total_line"].astype(float)
 
-    train_frame, validation_frame = chronological_split(frame, validation_fraction)
+    train_frame, validation_frame = chronological_split(
+        frame, validation_fraction, train_through=train_through
+    )
 
     train_x = select_feature_matrix(train_frame)
     validation_x = select_feature_matrix(validation_frame)
@@ -441,7 +459,7 @@ def predict_totals_v2(frame: pd.DataFrame) -> pd.DataFrame:
     out = frame.copy().reset_index(drop=True)
     market_total = pd.to_numeric(
         features["market_total_line"], errors="coerce"
-    ).fillna(LEAGUE_AVG_TOTAL).to_numpy()
+    ).to_numpy()
     out["raw_model_total_runs"] = market_total + predicted_residual
     out["predicted_total_runs"] = out["raw_model_total_runs"]
     return out

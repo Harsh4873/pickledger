@@ -4,9 +4,13 @@ on:
   workflow_dispatch:
     inputs:
       seasons:
-        description: "Seasons to train on (e.g. 2024-2025 or 2024 2025)"
+        description: "Seasons to train on (e.g. 2024 2025 2026)"
         required: false
-        default: "2024-2025"
+        default: "2024 2025 2026"
+      train_through:
+        description: "Last date included in the fit. Later games stay holdout."
+        required: false
+        default: "2026-08-15"
 
 jobs:
   train:
@@ -58,7 +62,7 @@ jobs:
 
       - name: Train v2 stack (new variant)
         working-directory: MLBPredictionModel
-        run: python train_model_v2.py
+        run: python train_model_v2.py --train-through "${{ github.event.inputs.train_through || '2026-08-15' }}"
 
       - name: Upload trained artifacts
         uses: actions/upload-artifact@v4

@@ -561,15 +561,18 @@ class HistoricalDatasetBuilder:
         if self.odds is not None:
             odds_row = self.odds.lookup_moneyline(game_date.isoformat(), away_abbrev, home_abbrev)
 
-        # Populate market_total_line for historical training rows. Prefer the
-        # StatsAPI game feed (it surfaces the pregame total when available);
-        # fall back to a league-average constant so the column is always well
-        # defined at training time.
-        try:
-            market_total = self.client.get_game_total_line(game_pk)
-        except Exception:
-            market_total = None
-        odds_row["market_total_line"] = float(market_total) if market_total is not None else 8.7
+        # A missing total stays missing. Writing 8.7 trained the model on a
+        # line that was never posted.
+        market_total = None
+        if self.odds is not None:
+            market_total = self.odds.lookup_total(game_date.isoformat(), away_abbrev, home_abbrev)
+        if market_total is None:
+            try:
+                market_total = self.client.get_game_total_line(game_pk)
+            except Exception:
+                market_total = None
+        if market_total is not None:
+            odds_row["market_total_line"] = float(market_total)
 
         row.update(odds_row)
         return row

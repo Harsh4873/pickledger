@@ -57,6 +57,11 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         default=0.2,
         help="Fraction of the timeline reserved for out-of-sample validation.",
     )
+    parser.add_argument(
+        "--train-through",
+        default=None,
+        help="YYYY-MM-DD. The fit stops on this date. Later games are the holdout.",
+    )
     return parser.parse_args(argv)
 
 
@@ -74,15 +79,26 @@ def main(argv: list[str] | None = None) -> int:
         dict(sorted(frame["game_date"].dt.year.value_counts().items())),
     )
 
-    moneyline_result = train_moneyline_v2(frame, validation_fraction=args.validation_fraction)
-    totals_result = train_totals_v2(frame, validation_fraction=args.validation_fraction)
+    moneyline_result = train_moneyline_v2(
+        frame,
+        validation_fraction=args.validation_fraction,
+        train_through=args.train_through,
+    )
+    totals_result = train_totals_v2(
+        frame,
+        validation_fraction=args.validation_fraction,
+        train_through=args.train_through,
+    )
 
     # Fit calibration on the same chronological validation fold that
     # train_moneyline_v2 used. Re-derive the fold here to avoid coupling to
     # internal state.
     prepared = build_feature_frame(frame)
     prepared = select_training_rows_v2(prepared)
-    _, validation_frame = chronological_split(prepared, args.validation_fraction)
+    prepared = prepared.dropna(subset=["home_moneyline", "away_moneyline"])
+    _, validation_frame = chronological_split(
+        prepared, args.validation_fraction, train_through=args.train_through
+    )
     validation_x = select_feature_matrix(validation_frame)
     validation_y = validation_frame["home_win"].astype(int).to_numpy()
     calibration_artifact = fit_calibration(

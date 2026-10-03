@@ -99,7 +99,14 @@ def _candidate_rows(model: Any, frame: Any, policy: dict[str, Any]) -> list[dict
         under_implied = row.get("under_implied")
         if under_odds is None or under_implied is None:
             continue
-        under_odds = int(under_odds)
+        if isinstance(under_odds, float) and not math.isfinite(under_odds):
+            continue
+        if isinstance(under_implied, float) and not math.isfinite(under_implied):
+            continue
+        try:
+            under_odds = int(under_odds)
+        except (TypeError, ValueError):
+            continue
         under_implied = safe_float(under_implied)
         over_implied = safe_float(row.get("over_implied"))
         under_probability = 1.0 - float(probabilities[index])
@@ -242,16 +249,22 @@ def main() -> int:
             and holdout["samples"] >= MIN_HOLDOUT_PICKS
             and safe_float(validation["accuracy"]) >= target
             and safe_float(holdout["accuracy"]) >= target
-            and safe_float(combined["roi"], -1.0) >= 0.0
+            and safe_float(validation.get("roi"), -1.0) > 0.0
+            and safe_float(holdout.get("roi"), -1.0) > 0.0
+            and safe_float(combined["roi"], -1.0) > 0.0
         )
-    final_model = _fit(features)
+    # The saved fit stops before the holdout. training_end_date is that day,
+    # not the last day in the file.
+    final_rows = features[features["date"] <= validation_end.isoformat()]
+    final_model = _fit(final_rows)
     training_fingerprint = hashlib.sha256(history_path.read_bytes()).hexdigest()
     metadata = {
         "version": PRECISION_MODEL_VERSION,
         "active": active,
         "supported_sports": ["MLB"] if active else [],
         "training_season": max_date.year,
-        "training_end_date": max_date.isoformat(),
+        "training_end_date": validation_end.isoformat(),
+        "history_end_date": max_date.isoformat(),
         "market_rows": len(market_rows),
         "feature_rows": len(features),
         "model_type": "StandardScaler+OneHotEncoder+LogisticRegression with selective precision gate",

@@ -408,3 +408,24 @@ class HistoricalOddsArchive:
             out["away_implied_prob"] = convert_american_to_implied(away_close_line)
 
         return out
+
+    def lookup_total(self, game_date: str, away_abbrev: str, home_abbrev: str) -> float | None:
+        """Median posted total across books. None when the archive has no line."""
+
+        index = self.build_index()
+        entry = index.get((game_date, away_abbrev.upper(), home_abbrev.upper()))
+        if not entry:
+            return None
+        totals: list[float] = []
+        for book in (entry.get("odds") or {}).get("totals") or []:
+            current = book.get("currentLine") or {}
+            total = current.get("total")
+            if isinstance(total, (int, float)):
+                totals.append(float(total))
+        if not totals:
+            return None
+        totals.sort()
+        mid = len(totals) // 2
+        if len(totals) % 2:
+            return totals[mid]
+        return (totals[mid - 1] + totals[mid]) / 2.0
