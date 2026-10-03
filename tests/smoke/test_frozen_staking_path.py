@@ -3,9 +3,41 @@ import json
 
 import pytest
 
-from scripts.frozen_staking_candidate import load_freeze, candidate_fingerprint
+from scripts.frozen_staking_candidate import load_freeze as load_committed_freeze, candidate_fingerprint
 from scripts.frozen_staking_approval import evaluate, write_reviewed
 from scripts.model_stake_policy import apply_stake_policy
+
+
+def load_freeze(model):
+    """Use a synthetic clock for fixture games, preserving real content identity."""
+    freeze = load_committed_freeze(model)
+    freeze["frozen_at"] = "2026-09-30T19:00:00Z"
+    freeze["holdout"]["starts_at"] = "2026-10-01T00:00:00Z"
+    return freeze
+
+
+@pytest.mark.parametrize("model", ["nhl", "mls"])
+def test_committed_freeze_matches_artifact_and_has_valid_window(model):
+    from scripts.price_clock import aware_time
+
+    freeze = load_committed_freeze(model)
+    assert candidate_fingerprint(freeze) == freeze["candidate_fingerprint"]
+    assert freeze["frozen_rule"].endswith(":" + freeze["candidate_fingerprint"])
+    assert aware_time(freeze["frozen_at"]) < aware_time(freeze["holdout"]["starts_at"])
+
+
+def test_mls_retrain_cannot_reuse_previous_freeze_or_observed_window(tmp_path):
+    from scripts.frozen_staking_candidate import ROOT, candidate_matches
+
+    freeze = load_committed_freeze("mls")
+    old = json.loads((ROOT / freeze["supersedes"]).read_text())
+    assert old["candidate_fingerprint"] != freeze["candidate_fingerprint"]
+    assert not candidate_matches(record(old)["pregame_snapshot"], "mls")
+    report = evaluate({"records": [record(freeze, i) for i in range(100)]}, freeze)
+    assert all(row["independently_priced_settled"] == 0 for row in report["markets"])
+    assert not write_reviewed(freeze, report, tmp_path / "approvals.json")
+    with pytest.raises(ValueError, match="candidate changed"):
+        write_reviewed(old, report, tmp_path / "approvals.json")
 
 
 def record(freeze, index=0, **overrides):

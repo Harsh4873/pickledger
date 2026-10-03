@@ -1,6 +1,9 @@
 from __future__ import annotations
 
 import json
+import os
+import subprocess
+import sys
 from datetime import date, timedelta
 from pathlib import Path
 
@@ -11,6 +14,16 @@ from scripts import build_profit_desk as desk
 
 DATE = "2026-07-10"
 LIVE_DATE = "2026-07-11"
+
+
+def test_workflow_script_entrypoint_without_pythonpath(tmp_path):
+    env = {key: value for key, value in os.environ.items() if key != "PYTHONPATH"}
+    result = subprocess.run(
+        [sys.executable, str(Path(desk.__file__).resolve()), "--help"],
+        cwd=tmp_path, env=env, capture_output=True, text=True, timeout=30,
+    )
+    assert result.returncode == 0, result.stderr
+    assert "--date" in result.stdout
 
 
 def make_pick(

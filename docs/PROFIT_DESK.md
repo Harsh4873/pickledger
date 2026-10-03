@@ -8,11 +8,15 @@ available evidence supports a positive return **at the current executable
 price**, after uncertainty and portfolio limits. Best Bets (the heuristic
 daily shortlist) remains a separate, unchanged tab.
 
-Policy `profit_desk_policy_v2` stakes real units through two qualification
-lanes and abstains otherwise:
+Policy `profit_desk_policy_v2` records suggested units through two qualification
+lanes and abstains otherwise. A live portfolio entry additionally requires an
+explicit approved source, market, and model version in
+`data/calibration/staking_approvals.json`. This is a published model portfolio,
+not a record of confirmed sportsbook transactions:
 
 - **EDGE (1.0u flat)** — strict segment-level market-alpha qualification;
-- **VALUE (0.5u flat)** — source-level flat-ROI qualification at posted prices;
+- **VALUE (0.5u flat)** — both source and market-family flat-ROI qualification
+  at posted prices;
 - everything else is a watchlist or rejection with exact blockers, and a slate
   with zero qualified picks correctly says `Sit out`.
 
@@ -91,11 +95,14 @@ For a candidate with offered decimal odds `d`:
    chronological halves nonnegative; `Pr(EV > 0) ≥ 0.80`; conservative
    probability ≥ break-even + 2 points; conservative EV > 0.
 7. **VALUE lane** (all required): Tier A/B/C fresh executable price;
-   ≥150 source rows; ≥15 distinct prior dates; positive source flat ROI; both
-   source chronological halves nonnegative; source-level `Pr(EV > 0) ≥ 0.70`.
+   ≥150 rows and ≥15 distinct prior dates for both the source and market
+   family; positive flat ROI and both chronological halves nonnegative in
+   each pool; `Pr(EV > 0) ≥ 0.70` in each pool. A profitable source cannot
+   carry an unproven market.
 8. Rank qualified picks (EDGE first, then conservative EV, probability of
    positive EV, evidence depth). Keep at most three per mode and one market
-   per canonical game. EDGE stakes 1.0u, VALUE 0.5u, flat.
+   per canonical game. EDGE suggests 1.0u, VALUE 0.5u, flat; live units still
+   require the exact approval above. Research qualification is not approval.
 
 Raw model probability, model rank, recent win rate, and consensus are display
 context only; they never create edge or ranking position.

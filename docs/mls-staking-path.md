@@ -1,9 +1,12 @@
 # MLS prospective staking path
 
-Status: awaiting unused holdout; no approval written. Historical walk-forward
-and the inspected live window through September 30 are selection evidence.
-The artifact explicitly fits serving calibration on validation plus test;
-those dates cannot support a new unused-holdout claim.
+Status: awaiting a new unused holdout; no approval written. The October 3
+retrain changed serving calibration and invalidated the first content freeze.
+That freeze is preserved in
+`data/calibration/frozen_candidates/mls_prospective_v1.json`. Historical
+walk-forward results and observations through October 3 are selection evidence.
+The current calibration excludes matches on or after September 21, but a
+retrospective split alone does not establish prospective staking evidence.
 
 `data/calibration/mls_staking_freeze.json` freezes the existing grid candidate:
 as-of daily Dixon-Coles ratings, committed calibration and 0.6 market blend,
@@ -14,8 +17,10 @@ must earn separate approvals. Daily ratings use only results before the
 slate date; changing that algorithm or serving calibration invalidates the
 content fingerprint. Accumulating prior results is part of the frozen rule.
 
-The unused window starts `2026-10-01T00:00:00Z`. Deploy before then or fix a
-new prospective start before collecting evidence. Do not backdate a freeze.
+The replacement rule is `mls_prospective_v2`, with an unused window starting
+`2026-10-04T05:00:00Z` (October 4 at midnight America/Chicago). Deploy before
+then or set a new prospective start before collecting evidence. Do not
+backdate a freeze or count the old candidate's observations for the new rule.
 
 ```bash
 python3 scripts/frozen_staking_approval.py mls --output /tmp/mls-status.json

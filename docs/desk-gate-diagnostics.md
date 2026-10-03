@@ -1,5 +1,10 @@
 # September 30 desk gate diagnostics
 
+October 3 follow-up: the MLS retrain changed its artifact and invalidated the
+fingerprint described below. The replacement freeze and its new prospective
+window are documented in `mls-staking-path.md`. The September 30 findings below
+describe the earlier candidate, not the retrained model.
+
 ## NHL and MLS October holdout status
 
 The frozen candidate fingerprints still match their committed source files.
