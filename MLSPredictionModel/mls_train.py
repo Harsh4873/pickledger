@@ -603,16 +603,21 @@ def build_artifacts(args: argparse.Namespace) -> None:
         },
     }
 
-    print("refitting calibration on all out-of-sample predictions for the shipped artifact ...")
+    print("refitting calibration on out-of-sample predictions before the holdout ...")
     all_rows = [*val_rows, *test_rows]
-    shipped_scaling = fit_vector_scaling([(row.probabilities, row.outcome) for row in all_rows])
-    shipped_totals = fit_total_calibration([(row.lam + row.mu, row.match.total_goals) for row in all_rows])
+    holdout_start = date(2026, 9, 21)
+    shipped_rows = [row for row in all_rows if row.match.date < holdout_start] or all_rows
+    shipped_scaling = fit_vector_scaling([(row.probabilities, row.outcome) for row in shipped_rows])
+    shipped_totals = fit_total_calibration([(row.lam + row.mu, row.match.total_goals) for row in shipped_rows])
+    metrics["fit_through"] = (holdout_start if shipped_rows is not all_rows else data_through).isoformat()
+    metrics["holdout_start"] = holdout_start.isoformat() if any(row.match.date >= holdout_start for row in all_rows) else None
 
     save_matches(matches)
     model_payload = {
         "model_version": MODEL_VERSION,
         "trained_at": metrics["trained_at"],
         "data_through": data_through.isoformat(),
+        "holdout_start": metrics.get("holdout_start"),
         "config": {"half_life_days": config.half_life_days, "ridge": config.ridge},
         "calibration": {
             "vector_scaling": {
@@ -621,7 +626,7 @@ def build_artifacts(args: argparse.Namespace) -> None:
                 "bias_away": shipped_scaling.bias_away,
             },
             "total": {"intercept": shipped_totals.intercept, "slope": shipped_totals.slope},
-            "fit_on": "validation+test out-of-sample walk (reported metrics used validation-only fits)",
+            "fit_on": "out-of-sample walk before holdout_start; reported test metrics used validation-only fits",
         },
         "market_blend_weight": weight,
         "gates": {

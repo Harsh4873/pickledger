@@ -263,8 +263,13 @@ def build_ladder(
     return [light] if light else []
 
 
-def train(first_season: int = FIRST_SEASON, last_season: int = LAST_SEASON) -> dict[str, Any]:
-    records = build_dataset(load_training_rows(first_season, last_season))
+def train(
+    first_season: int = FIRST_SEASON,
+    last_season: int = LAST_SEASON,
+    holdout_start: str | None = None,
+    refresh: bool = False,
+) -> dict[str, Any]:
+    records = build_dataset(load_training_rows(first_season, last_season, refresh=refresh))
     if len(records) < 4500:
         raise SystemExit(f"CFB dataset too small ({len(records)} priced FBS games); refusing to train")
 
@@ -417,8 +422,9 @@ def train(first_season: int = FIRST_SEASON, last_season: int = LAST_SEASON) -> d
         market: _fit_calibrator(calibration_input[market], calibration_truth[market])
         for market in ("moneyline", "spread", "total")
     }
-    final_margin = selected_factory().fit(matrix(records), [row["home_margin"] for row in records])
-    final_total = selected_factory().fit(matrix(records), [row["game_total"] for row in records])
+    fit_rows = [row for row in records if not holdout_start or row.get("start_date", "") < holdout_start]
+    final_margin = selected_factory().fit(matrix(fit_rows), [row["home_margin"] for row in fit_rows])
+    final_total = selected_factory().fit(matrix(fit_rows), [row["game_total"] for row in fit_rows])
     residual_array = np.array([residual_margin, residual_total])
     covariance = np.cov(residual_array).tolist()
 
@@ -490,11 +496,11 @@ def train(first_season: int = FIRST_SEASON, last_season: int = LAST_SEASON) -> d
         },
     }
 
-    all_home_win = [1 if row["home_margin"] > 0 else 0 for row in records]
+    all_home_win = [1 if row["home_margin"] > 0 else 0 for row in fit_rows]
     anchored_final = {
-        "moneyline": _anchored_logistic().fit(anchored_matrix(records, "spread"), all_home_win),
-        "spread": _anchored_residual().fit(anchored_matrix(records, "spread"), [row["home_margin"] + row["home_line"] for row in records]),
-        "total": _anchored_residual().fit(anchored_matrix(records, "total"), [row["game_total"] - row["total_line"] for row in records]),
+        "moneyline": _anchored_logistic().fit(anchored_matrix(fit_rows, "spread"), all_home_win),
+        "spread": _anchored_residual().fit(anchored_matrix(fit_rows, "spread"), [row["home_margin"] + row["home_line"] for row in fit_rows]),
+        "total": _anchored_residual().fit(anchored_matrix(fit_rows, "total"), [row["game_total"] - row["total_line"] for row in fit_rows]),
     }
 
     ARTIFACT_DIR.mkdir(parents=True, exist_ok=True)
@@ -512,6 +518,9 @@ def train(first_season: int = FIRST_SEASON, last_season: int = LAST_SEASON) -> d
         "trained_at": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
         "data_source": "SportsDataverse ESPN-derived schedules and resolved betting releases",
         "train_window": [first_season, last_season],
+        "holdout_start": holdout_start,
+        "fit_games": len(fit_rows),
+        "holdout_games": len(records) - len(fit_rows),
         "games": len(records),
         "population": "FBS-vs-FBS games with posted spread and total",
         "feature_names": FEATURE_NAMES,

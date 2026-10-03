@@ -230,11 +230,11 @@ def load_line_odds(first_season: int, last_season: int) -> dict[str, dict[str, A
     }
 
 
-def load_training_rows(first_season: int, last_season: int) -> list[dict[str, Any]]:
+def load_training_rows(first_season: int, last_season: int, *, refresh: bool = False) -> list[dict[str, Any]]:
     historical = load_line_odds(first_season, last_season)
     rows: list[dict[str, Any]] = []
     for season in range(first_season, last_season + 1):
-        schedule = load_schedule_season(season)
+        schedule = load_schedule_season(season, refresh=refresh and season == last_season)
         season_game_ids = {game["game_id"] for game in schedule}
         # The rectangular release is the preferred resolved line. The
         # multi-book history fills older seasons where that release is sparse.
@@ -243,7 +243,7 @@ def load_training_rows(first_season: int, last_season: int) -> list[dict[str, An
             for game_id, market in historical.items()
             if game_id in season_game_ids
         }
-        betting.update(load_betting_season(season))
+        betting.update(load_betting_season(season, refresh=refresh and season == last_season))
         for game in schedule:
             market = betting.get(game["game_id"])
             if market:
@@ -380,6 +380,7 @@ def build_dataset(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
                     {
                         "game_id": game["game_id"],
                         "season": season,
+                        "start_date": str(game.get("start_time") or "")[:10],
                         "features": features,
                         "home_margin": float(home_score - away_score),
                         "game_total": float(home_score + away_score),

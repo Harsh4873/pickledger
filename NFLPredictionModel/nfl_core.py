@@ -419,6 +419,7 @@ def build_dataset(
                 records.append({
                     "game_id": _text(game.get("game_id")),
                     "season": season,
+                    "gameday": _text(game.get("gameday")),
                     "features": features,
                     "home_win": 1 if margin > 0 else 0,
                     "margin": margin,

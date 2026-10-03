@@ -255,7 +255,11 @@ def build_ladder(
     return [light] if light else []
 
 
-def train(first_season: int = FIRST_TRAIN_SEASON, last_season: int = 2025) -> dict[str, Any]:
+def train(
+    first_season: int = FIRST_TRAIN_SEASON,
+    last_season: int = 2025,
+    holdout_start: str | None = None,
+) -> dict[str, Any]:
     games = load_games()
     team_stats, stats_seasons = load_team_stats(range(FIRST_TEAM_STATS_SEASON, last_season + 1), required=(last_season,))
     if len(stats_seasons) < (last_season - FIRST_TEAM_STATS_SEASON):
@@ -409,10 +413,33 @@ def train(first_season: int = FIRST_TRAIN_SEASON, last_season: int = 2025) -> di
         },
     }
 
-    final_ml = _logistic().fit(matrix(records, HEAD_FEATURES["moneyline"]), [r["home_win"] for r in records])
-    final_ml_free = _logistic().fit(matrix(records, HEAD_FEATURES["moneyline_free"]), [r["home_win"] for r in records])
-    final_spread = _ridge().fit(matrix(records, HEAD_FEATURES["spread"]), [r["margin_residual"] for r in records])
-    final_total = _ridge().fit(matrix(records, HEAD_FEATURES["total"]), [r["total_residual"] for r in records])
+    # The served weights stop before holdout_start. Walk-forward bands above
+    # stay on the completed seasons already in WALK_FORWARD_SEASONS.
+    fit_rows = [row for row in records if not holdout_start or row.get("gameday", "") < holdout_start]
+    holdout_rows = [row for row in records if holdout_start and row.get("gameday", "") >= holdout_start]
+    final_ml = _logistic().fit(matrix(fit_rows, HEAD_FEATURES["moneyline"]), [r["home_win"] for r in fit_rows])
+    final_ml_free = _logistic().fit(matrix(fit_rows, HEAD_FEATURES["moneyline_free"]), [r["home_win"] for r in fit_rows])
+    final_spread = _ridge().fit(matrix(fit_rows, HEAD_FEATURES["spread"]), [r["margin_residual"] for r in fit_rows])
+    final_total = _ridge().fit(matrix(fit_rows, HEAD_FEATURES["total"]), [r["total_residual"] for r in fit_rows])
+    holdout_report = None
+    if holdout_rows and len(fit_rows) >= 500:
+        hold_p = final_ml.predict_proba(matrix(holdout_rows, HEAD_FEATURES["moneyline"]))[:, 1]
+        hold_market = [
+            _implied(row["home_moneyline"]) / (_implied(row["home_moneyline"]) + _implied(row["away_moneyline"]))
+            for row in holdout_rows
+            if row.get("home_moneyline") and row.get("away_moneyline")
+        ]
+        hold_truth = [row["home_win"] for row in holdout_rows if row.get("home_moneyline") and row.get("away_moneyline")]
+        hold_model = [
+            float(p) for row, p in zip(holdout_rows, hold_p)
+            if row.get("home_moneyline") and row.get("away_moneyline")
+        ]
+        holdout_report = {
+            "start": holdout_start,
+            "games": len(holdout_rows),
+            "ml_brier": round(_brier(hold_truth, hold_model), 5) if hold_truth else None,
+            "market_brier": round(_brier(hold_truth, hold_market), 5) if hold_truth else None,
+        }
 
     ARTIFACT_DIR.mkdir(parents=True, exist_ok=True)
     joblib.dump(final_ml, ARTIFACT_DIR / "nfl_ml.joblib")
@@ -427,6 +454,9 @@ def train(first_season: int = FIRST_TRAIN_SEASON, last_season: int = 2025) -> di
         "model_version": MODEL_VERSION,
         "trained_at": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
         "train_window": [first_season, last_season],
+        "holdout_start": holdout_start,
+        "fit_games": len(fit_rows),
+        "holdout": holdout_report,
         "games": len(records),
         "team_stats_seasons": stats_seasons,
         "feature_names": FEATURE_NAMES,

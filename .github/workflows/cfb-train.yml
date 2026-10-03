@@ -10,7 +10,7 @@ on:
       last_season:
         description: "Last completed training season"
         required: false
-        default: "2025"
+        default: "2026"
 
 permissions:
   contents: read
@@ -46,9 +46,12 @@ jobs:
           import os
           from CFBPredictionModel.cfb_train import train
 
+          last_season = int(os.environ["CFB_LAST_SEASON"])
           metadata = train(
               first_season=int(os.environ["CFB_FIRST_SEASON"]),
-              last_season=int(os.environ["CFB_LAST_SEASON"]),
+              last_season=last_season,
+              holdout_start="2026-09-21" if last_season >= 2026 else None,
+              refresh=True,
           )
           print(json.dumps(metadata, indent=2))
           PY

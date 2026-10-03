@@ -1,11 +1,19 @@
 {
   "model_version": "nfl_v1_epa_elo_market_anchored",
-  "trained_at": "2026-09-19T18:17:56.880825Z",
+  "trained_at": "2026-10-03T17:59:35.300698Z",
   "train_window": [
     2007,
-    2025
+    2026
   ],
-  "games": 5164,
+  "holdout_start": "2026-09-21",
+  "fit_games": 5195,
+  "holdout": {
+    "start": "2026-09-21",
+    "games": 18,
+    "ml_brier": 0.25175,
+    "market_brier": 0.24845
+  },
+  "games": 5213,
   "team_stats_seasons": [
     2006,
     2007,
@@ -26,7 +34,8 @@
     2022,
     2023,
     2024,
-    2025
+    2025,
+    2026
   ],
   "feature_names": [
     "elo_diff",

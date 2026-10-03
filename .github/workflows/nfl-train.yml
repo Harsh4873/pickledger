@@ -10,7 +10,7 @@ on:
       last_season:
         description: "Last completed training season"
         required: false
-        default: "2025"
+        default: "2026"
 
 permissions:
   contents: read
@@ -46,9 +46,11 @@ jobs:
           import os
           from NFLPredictionModel.nfl_train import train
 
+          last_season = int(os.environ["NFL_LAST_SEASON"])
           metadata = train(
               first_season=int(os.environ["NFL_FIRST_SEASON"]),
-              last_season=int(os.environ["NFL_LAST_SEASON"]),
+              last_season=last_season,
+              holdout_start="2026-09-21" if last_season >= 2026 else None,
           )
           print(json.dumps({key: metadata[key] for key in (
               "model_version", "games", "oof_ml_brier", "market_reference_brier",
