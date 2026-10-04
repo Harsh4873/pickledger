@@ -541,7 +541,9 @@ def test_registration_across_model_cache_feeds_and_board():
     assert "nhl: { h2h: 'NHL ML'" in data_ts
     assert "team_total: 'NHL Team Total'" in data_ts
     assert "player_props: 'NHL Player Prop'" in data_ts
-    assert "'NHL'" in main_ts.split("PRIMARY_FILTERS")[1][:120]
+    assert "player_props: 'prop'" in main_ts
+    assert "'NHL'" in main_ts.split("PRIMARY_FILTERS")[1][:160]
+    assert "'NBA'" in main_ts.split("PRIMARY_FILTERS")[1][:160]
     assert "NHL: ['hockey', 'nhl']" in main_ts
     workflow = (ROOT / ".github" / "workflows" / "model-cache-refresh.yml").read_text(encoding="utf-8")
     assert ",nhl,tennis" in workflow or ",nhl," in workflow

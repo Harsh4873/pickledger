@@ -7,6 +7,7 @@ import {
   getSourceStatuses,
   getParlayCardsPayload,
   getProfitDeskPayload,
+  getAllPicks,
   loadAllData,
   loadLatestAndNewestDated,
   normalizedPriceProvenance,
@@ -171,7 +172,7 @@ test('publishes scraped tips and CFB shadow forecasts as research with preserved
         { sport: 'MLB', pick: 'Stale carried forecast', decision: 'PASS' },
       ] },
       covers_cfb: { ok: true, picks: [{ ...pass, id: 'retired' }] },
-      sportytrader_nba: { ok: true, picks: [{ ...pass, id: 'archived', sport: 'NBA' }] },
+      sportytrader_nba_summer: { ok: true, picks: [{ ...pass, id: 'archived', sport: 'NBA SUMMER' }] },
       nfl: { ok: true, picks: [{ id: 'tracked-nfl', sport: 'NFL', pick: 'Tracked model', decision: 'BET' }] },
     }, external_feeds: {
       scores24_cfb: { ok: true, picks: [pass] },
@@ -363,7 +364,8 @@ test('source health distinguishes blocked, stale, missing, no-games, and unquali
   assert.equal(byKey.get('forebet_mlb')?.researchCount, 0);
   assert.match(byKey.get('forebet_mlb')?.detail || '', /failed/);
   assert.ok(statuses.every(status => !/https?:|private|502/.test(status.detail)));
-  assert.ok(!byKey.has('covers_mlb') && !byKey.has('nba') && !byKey.has('scores24_fifa_world_cup'));
+  assert.ok(!byKey.has('covers_mlb') && !byKey.has('scores24_fifa_world_cup'));
+  assert.ok(byKey.has('nba'));
 });
 
 test('failed refresh preserves same-day forecasts and reports failure honestly', { concurrency: false }, async () => {
@@ -626,3 +628,65 @@ test('fresh tennis cache still exposes stale feature inputs', { concurrency: fal
   assert.match(status.detail, /24 unrated players/);
   assert.match(status.detail, /archive is stale/);
 });
+
+test('NHL player props leave the team board and appear in player mode', { concurrency: false }, async () => {
+  const date = '2026-10-03';
+  installFetch(new Map([
+    ['./data/model_cache/latest.json', { date, models: {
+      nhl: { ok: true, picks: [
+        {
+          id: 'nhl-total',
+          sport: 'NHL',
+          market: 'totals',
+          pick: 'Over 5.5 (Chicago Blackhawks @ Buffalo Sabres)',
+          decision: 'PASS',
+          units: 0,
+        },
+        {
+          id: 'nhl-prop',
+          sport: 'NHL',
+          market: 'player_props',
+          market_type: 'player_props',
+          player: 'Shayne Gostisbehere',
+          player_name: 'Shayne Gostisbehere',
+          stat_label: 'Shayne Gostisbehere Points O/U',
+          pick: 'Shayne Gostisbehere Shayne Gostisbehere Points O/U over 0.5 (Chicago Blackhawks @ Buffalo Sabres)',
+          decision: 'PASS',
+          units: 0,
+        },
+      ] },
+      nfl: { ok: true, picks: [{ id: 'nfl-ml', sport: 'NFL', market: 'h2h', pick: 'Seahawks ML', decision: 'BET' }] },
+    } }],
+  ]));
+  await loadAllData({ includeHistory: false });
+  setPickMode('team');
+  const team = getAllPicks().filter(pick => pick.date === date);
+  assert.deepEqual(team.map(pick => pick.id).sort(), ['nfl-ml', 'nhl-total']);
+  assert.equal(team.find(pick => pick.id === 'nhl-total')?.source, 'NHL Total');
+  setPickMode('player');
+  const player = getAllPicks().filter(pick => pick.date === date);
+  assert.deepEqual(player.map(pick => pick.id), ['nhl-prop']);
+  assert.equal(player[0]?.source, 'NHL Player Prop');
+  assert.equal(player[0]?.sport, 'NHL');
+  setPickMode('team');
+});
+
+test('NBA regular-season picks appear on the main board while summer and FIFA stay archived', { concurrency: false }, async () => {
+  const date = '2026-10-03';
+  installFetch(new Map([
+    ['./data/model_cache/latest.json', { date, models: {
+      nba: { ok: true, picks: [{ id: 'nba-ml', sport: 'NBA', market: 'h2h', pick: 'Celtics ML', decision: 'BET' }] },
+      nfl: { ok: true, picks: [{ id: 'nfl-ml', sport: 'NFL', market: 'h2h', pick: 'Seahawks ML', decision: 'BET' }] },
+      nba_summer: { ok: true, picks: [{ id: 'summer-ml', sport: 'NBA SUMMER', pick: 'Summer ML', decision: 'BET' }] },
+      fifa_world_cup: { ok: true, picks: [{ id: 'fifa-ml', sport: 'FIFA WC', pick: 'USA ML', decision: 'BET' }] },
+    } }],
+  ]));
+  await loadAllData({ includeHistory: false });
+  setPickMode('team');
+  const team = getAllPicks().filter(pick => pick.date === date);
+  assert.deepEqual(team.map(pick => pick.id).sort(), ['nba-ml', 'nfl-ml']);
+  assert.ok(getSourceStatuses(date).some(source => source.key === 'nba' && source.sport === 'NBA'));
+  assert.equal(getSourceStatuses(date).find(source => source.key === 'nba_summer'), undefined);
+  setPickMode('team');
+});
+

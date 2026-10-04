@@ -641,9 +641,13 @@ def test_home_filters_prioritize_primary_sports_and_use_more_menu():
     data = (ROOT / "src" / "data.ts").read_text(encoding="utf-8")
     css = (ROOT / "src" / "styles" / "pickledger.css").read_text(encoding="utf-8")
 
-    assert "const PRIMARY_FILTERS = ['ALL', 'NFL', 'CFB', 'MLB', 'WNBA', 'MLS', 'NHL', 'TENNIS']" in main
-    assert "const ARCHIVED_SPORTS = new Set(['NBA', 'NBA SUMMER', 'FIFA WC'])" in data
+    assert "const PRIMARY_FILTERS = ['ALL', 'NFL', 'CFB', 'MLB', 'NBA', 'WNBA', 'MLS', 'NHL', 'TENNIS']" in main
+    assert "const ARCHIVED_SPORTS = new Set(['NBA SUMMER', 'FIFA WC'])" in data
+    assert "'NBA'" not in data.split("const ARCHIVED_SPORTS")[1].split("\n", 1)[0]
     assert "!ARCHIVED_SPORTS.has(pick.sport)" in data
+    assert "player_props: 'prop'" in main
+    assert "function isTeamCachePlayerProp(" in data
+    assert "isTeamCachePlayerProp(pick)" in data
     assert "'MLB NEW': 'MLB Model'" in data
     assert "'FIFA WC In-House': 'FIFA Model'" in data
     assert "if (filter === 'NBA SUMMER') return 'SUMMER'" in main

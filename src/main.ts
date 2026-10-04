@@ -189,7 +189,7 @@ let latestPicksUpdatedAt = '';
 const HOME_SCORE_TTL_MS = 45_000;
 const DISPLAY_TIME_ZONE = 'America/Chicago';
 const AUTO_REFRESH_MS = 5 * 60_000;
-const PRIMARY_FILTERS = ['ALL', 'NFL', 'CFB', 'MLB', 'WNBA', 'MLS', 'NHL', 'TENNIS'];
+const PRIMARY_FILTERS = ['ALL', 'NFL', 'CFB', 'MLB', 'NBA', 'WNBA', 'MLS', 'NHL', 'TENNIS'];
 let lastCentralDate = '';
 
 function escapeHtml(value: unknown): string {
@@ -1345,6 +1345,7 @@ const MARKET_TYPE_FAMILIES: Record<string, string> = {
   team_total: 'team_total', team_totals: 'team_total',
   f5_side: 'f5_side', f5_total: 'f5_total',
   no_run_inning: 'inning', inning: 'inning',
+  player_props: 'prop', player_prop: 'prop',
   external_player_prop: 'prop',
   // "Brewers to win and over 7.5 runs" is two markets in one ticket; it belongs
   // beside the other oddities rather than pretending to be a team total.
@@ -1380,7 +1381,11 @@ function truncateLabel(value: string, max: number): string {
 // The matchup is already the card's title, so it only adds noise inside a lane.
 function pickSelectionText(pick: Pick): string {
   const text = String(pick.pick || '').trim();
-  return text.replace(/\s*\([^()]*(?:\bvs\.?\b|@)[^()]*\)\s*$/i, '').trim() || text;
+  const stripped = text.replace(/\s*\([^()]*(?:\bvs\.?\b|@)[^()]*\)\s*$/i, '').trim() || text;
+  const player = String(pick.player || pick.player_name || '').trim();
+  if (!player) return stripped;
+  const escaped = player.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return stripped.replace(new RegExp(`^(${escaped}\\s+)\\1`, 'i'), '$1');
 }
 
 function textNamesTeam(normalizedText: string, team: string): boolean {
@@ -1462,8 +1467,18 @@ function teamMarketSlot(pick: Pick): MarketSlot {
 }
 
 function playerStatLabel(pick: Pick): string {
-  const stamped = humanizeMarketToken(pick.stat_key ?? pick.market_type ?? pick.market);
-  if (stamped) return stamped;
+  const fromKey = humanizeMarketToken(pick.stat_key);
+  if (fromKey && !/^player props?$/i.test(fromKey)) return fromKey;
+  const player = String(pick.player || pick.player_name || '').trim();
+  let raw = String(pick.stat || pick.stat_label || '').trim();
+  if (player && raw.toLowerCase().startsWith(player.toLowerCase())) {
+    raw = raw.slice(player.length).replace(/^[:\-|]+/, '').trim();
+  }
+  raw = raw.replace(/\s*o\/u\s*$/i, '').trim();
+  const fromStat = humanizeMarketToken(raw);
+  if (fromStat && !/^player props?$/i.test(fromStat)) return fromStat;
+  const stamped = humanizeMarketToken(pick.market_type ?? pick.market);
+  if (stamped && !/^player props?$/i.test(stamped)) return stamped;
   const trailing = pickSelectionText(pick).replace(/^.*?\b(?:over|under)\b\s*[\d.]*\s*/i, '').trim();
   return truncateLabel(trailing || 'Prop', 28);
 }

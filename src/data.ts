@@ -402,7 +402,9 @@ const RESULT_STORAGE_KEY = 'pickledger_static_results_v2';
 const GAME_TIME_STORAGE_KEY = 'pickledger_static_game_times_v2';
 // NBA Summer League and the FIFA World Cup archived 2026-07-19: both
 // seasons ended (summer league finale + World Cup final same day).
-const ARCHIVED_SPORTS = new Set(['NBA', 'NBA SUMMER', 'FIFA WC']);
+// Regular-season NBA is live again on the main sport chips; only the
+// ended summer-league and World Cup slates stay hidden.
+const ARCHIVED_SPORTS = new Set(['NBA SUMMER', 'FIFA WC']);
 const PLAYER_PROPS_ML_SOURCE = 'player_props_ml_v1';
 // Keep in sync with CFBPredictionModel.PASS_BOARD_PROBABILITY. In-house PASS
 // rows are visible research: the published side is the model's favoured side,
@@ -768,8 +770,28 @@ function isTrackedPlayerProp(pick: Pick): boolean {
   return decision === 'BET' || decision === 'LEAN' || decision === 'PASS';
 }
 
+function playerPropMarketKey(pick: Pick): string {
+  return String(pick.market || pick.market_type || '').trim().toLowerCase();
+}
+
+function isTeamCachePlayerProp(pick: Pick): boolean {
+  const market = playerPropMarketKey(pick);
+  return market === 'player_props' || market === 'player_prop';
+}
+
 function isPlayerScopedPick(pick: Pick): boolean {
-  return String(pick.scope || '').trim().toLowerCase() === 'player';
+  if (String(pick.scope || '').trim().toLowerCase() === 'player') return true;
+  // In-house NHL (and any later team-cache publisher) stamps player props
+  // onto the team model bucket. Those rows are player markets even when
+  // older cache files omitted scope=player.
+  return isTeamCachePlayerProp(pick);
+}
+
+function isVisiblePlayerBoardPick(pick: Pick): boolean {
+  return isMlEraPlayerProp(pick)
+    || isFootballBaselineProjection(pick)
+    || pick.external_player_feed === true
+    || isTeamCachePlayerProp(pick);
 }
 
 function isMlEraPlayerProp(pick: Pick): boolean {
@@ -1056,11 +1078,12 @@ function rebuildPicks(): void {
   teamCachePayloads.flatMap(researchFromCache).forEach(pick => researchById.set(pick.id, pick));
   teamPicks = sortPicks([...teamById.values()].filter(pick => !ARCHIVED_SPORTS.has(pick.sport)));
   researchPicks = sortPicks([...researchById.values()].filter(pick => !teamById.has(pick.id)));
-  // External player-prop feeds (scope=player rows in the team cache) render
-  // in Player mode alongside the in-house ML-era props; the
-  // scope routing above already keeps them out of Team mode and rankings.
+  // External player-prop feeds (scope=player rows in the team cache) and
+  // in-house team-cache player_props (NHL) render in Player mode alongside
+  // the ML-era prop buckets. Scope routing above keeps them out of Team
+  // mode so they cannot fill game-total columns.
   playerPicks = sortPicks([...playerById.values()].filter(
-    pick => !ARCHIVED_SPORTS.has(pick.sport) && (isMlEraPlayerProp(pick) || isFootballBaselineProjection(pick) || pick.external_player_feed === true),
+    pick => !ARCHIVED_SPORTS.has(pick.sport) && isVisiblePlayerBoardPick(pick),
   ));
 }
 
@@ -1313,6 +1336,7 @@ export function getResearchPicks(date?: string): Pick[] {
 }
 
 function bucketSport(key: string, bucket: ModelBucket = {}): string {
+  if (/nba[_-]?summer|summer_league/.test(key)) return 'NBA SUMMER';
   if (/(?:^|_)nba(?:_|$)/.test(key)) return 'NBA';
   if (key.includes('fifa')) return 'FIFA WC';
   for (const sport of ['cfb', 'nfl', 'nhl', 'mlb', 'wnba', 'mls', 'tennis', 'ipl']) {
