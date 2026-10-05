@@ -41,6 +41,10 @@ from scripts.team_prop_pregame_ledger import (  # noqa: E402
 # Buckets whose generated rows are frozen at kickoff: a refresh that runs after
 # a game started must not publish or re-decide that game.
 KICKOFF_FROZEN_MODEL_KEYS = set(TEAM_PROP_MODEL_KEYS)
+# NBA New wall-clock timeouts are ops-soft: keep the error on the nba bucket
+# but still commit mlb/nfl/nhl/etc that already finished. Other NBA failures
+# (parser, traceback) stay hard so CI cannot green a broken model.
+SOFT_FAIL_TIMEOUT_MODEL_KEYS = frozenset({"nba"})
 _START_FIELDS = ("game_start_time", "start_time", "startTime", "scheduled_start_time", "event_start_time")
 
 
@@ -256,6 +260,14 @@ def _is_transient_model_error(result: Any) -> bool:
     )
 
 
+def _is_soft_fail_timeout(key: str, result: Any) -> bool:
+    if str(key) not in SOFT_FAIL_TIMEOUT_MODEL_KEYS:
+        return False
+    if not isinstance(result, dict) or result.get("ok") is True:
+        return False
+    return "timed out" in str(result.get("error") or "").lower()
+
+
 def _run_model_job_with_retries(
     key: str,
     job: Callable[[], dict[str, Any]],
@@ -343,6 +355,7 @@ def main() -> int:
 
     results: dict[str, Any] = {}
     errors: list[str] = []
+    hard_errors: list[str] = []
     with ThreadPoolExecutor(max_workers=workers) as executor:
         future_map = {
             executor.submit(_run_model_job_with_retries, key, available[key]): key
@@ -358,7 +371,15 @@ def main() -> int:
             ok = bool(result.get("ok")) if isinstance(result, dict) else False
             pick_count = len(result.get("picks") or []) if isinstance(result, dict) else 0
             if not ok:
-                errors.append(f"{key}: {result.get('error') if isinstance(result, dict) else result}")
+                message = f"{key}: {result.get('error') if isinstance(result, dict) else result}"
+                errors.append(message)
+                if _is_soft_fail_timeout(key, result):
+                    print(
+                        f"::warning title=NBA model timeout::{key} timed out; "
+                        "other in-house models will still be committed."
+                    )
+                else:
+                    hard_errors.append(message)
             print(f"[model-cache] {key}: {'ok' if ok else 'error'} ({pick_count} pick(s))")
 
     payload = _write_json_cache(date_iso, _build_payload(date_iso, results, errors))
@@ -369,13 +390,14 @@ def main() -> int:
         print(f"[model-cache] wrote Firestore admin_picks/{date_iso}")
     print(f"[model-cache] wrote {MODEL_CACHE_DIR / f'{date_iso}.json'}")
     print(f"[model-cache] wrote {MODEL_CACHE_DIR / 'latest.json'}")
-    print(json.dumps({"ok": not errors, "date": date_iso, "models": selected, "errors": errors}, indent=2))
+    print(json.dumps({"ok": not hard_errors, "date": date_iso, "models": selected, "errors": errors}, indent=2))
     # Dated JSON is always written for debug. latest.json (and Firestore,
     # unless --skip-firestore) still receive that partial payload. Exit is
-    # nonzero whenever errors is non-empty so CI cannot green on a selected
-    # model that returned ok=False. model-cache-refresh.yml does not commit
-    # after this failure, so the partial latest.json is not published.
-    if errors:
+    # nonzero whenever hard errors is non-empty so CI cannot green on a
+    # selected model that returned ok=False. NBA New wall-clock timeouts are
+    # recorded but non-fatal so model-cache-refresh.yml can still commit
+    # models that finished. Other failures still skip the commit.
+    if hard_errors:
         return 1
     success_count = sum(
         1 for result in results.values()

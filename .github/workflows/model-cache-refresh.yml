@@ -33,6 +33,8 @@ jobs:
     env:
       PICKLEDGER_MLB_TIMEZONE: America/Chicago
       PICKLEDGER_MLB_MODEL_TIMEOUT_SECONDS: 1200
+      # NBA New often exceeds the built-in 420s (~7 min) cap on Actions runners.
+      PICKLEDGER_NBA_MODEL_TIMEOUT_SECONDS: 900
       PICKLEDGER_MLB_INNING_TIMEOUT_SECONDS: 240
       PICKLEDGER_MLB_INNING_LOOKAHEAD_DAYS: 0
       PICKLEDGER_RUN_WNBA: "true"

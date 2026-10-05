@@ -114,3 +114,157 @@ def test_partial_model_failures_exit_nonzero(monkeypatch, tmp_path):
     assert written["errors"] and "bad_model" in written["errors"][0]
     assert written["models"]["ok_model"]["ok"] is True
     assert written["models"]["bad_model"]["ok"] is False
+
+
+def _stub_refresh_jobs(monkeypatch, tmp_path, jobs: dict):
+    from types import SimpleNamespace
+
+    from scripts import refresh_model_cache as rmc
+
+    monkeypatch.setattr(rmc, "MODEL_CACHE_DIR", tmp_path)
+    monkeypatch.setattr(
+        rmc,
+        "_parse_args",
+        lambda: SimpleNamespace(
+            date="2026-10-01",
+            models=",".join(jobs),
+            max_workers=1,
+            skip_firestore=True,
+        ),
+    )
+    monkeypatch.setattr(rmc, "_model_jobs", lambda _date: {key: (lambda value=value: value) for key, value in jobs.items()})
+    monkeypatch.setattr(rmc, "_run_model_job_with_retries", lambda _key, job: job())
+    written: dict = {}
+
+    def _write(date_iso, payload):
+        written["date"] = date_iso
+        written["errors"] = list(payload.get("errors") or [])
+        written["models"] = dict(payload.get("models") or {})
+        (tmp_path / f"{date_iso}.json").write_text("{}")
+        return payload
+
+    monkeypatch.setattr(rmc, "_write_json_cache", _write)
+    monkeypatch.setattr(rmc.server, "_write_admin_picks_cache", lambda *_a, **_k: None)
+    monkeypatch.setattr(rmc.server, "_parse_model_date_arg", lambda _raw: ("2026-10-01", None))
+    return rmc, written
+
+
+def test_nba_timeout_soft_fails_so_other_models_still_publish(monkeypatch, tmp_path):
+    """NBA New wall-clock timeout must not block mlb/nfl/nhl publication."""
+    rmc, written = _stub_refresh_jobs(
+        monkeypatch,
+        tmp_path,
+        {
+            "mlb_new": {"ok": True, "picks": [{"id": "mlb"}]},
+            "nfl": {"ok": True, "picks": [{"id": "nfl"}]},
+            "nhl": {"ok": True, "picks": [{"id": "nhl"}]},
+            "nba": {"ok": False, "error": "NBA New timed out (15 min limit)", "picks": []},
+        },
+    )
+
+    assert rmc.main() == 0
+    assert written["models"]["mlb_new"]["ok"] is True
+    assert written["models"]["nfl"]["ok"] is True
+    assert written["models"]["nhl"]["ok"] is True
+    assert written["models"]["nba"]["ok"] is False
+    assert any("nba:" in line and "timed out" in line for line in written["errors"])
+
+
+def test_nba_non_timeout_error_still_exits_nonzero(monkeypatch, tmp_path):
+    rmc, written = _stub_refresh_jobs(
+        monkeypatch,
+        tmp_path,
+        {
+            "mlb_new": {"ok": True, "picks": [{"id": "mlb"}]},
+            "nba": {"ok": False, "error": "NBA New parser found no predictions", "picks": []},
+        },
+    )
+
+    assert rmc.main() == 1
+    assert written["models"]["mlb_new"]["ok"] is True
+    assert written["models"]["nba"]["ok"] is False
+
+
+def test_non_nba_timeout_still_exits_nonzero(monkeypatch, tmp_path):
+    rmc, written = _stub_refresh_jobs(
+        monkeypatch,
+        tmp_path,
+        {
+            "mlb_new": {"ok": True, "picks": [{"id": "mlb"}]},
+            "nhl": {"ok": False, "error": "NHL Model timed out (8 min limit)", "picks": []},
+        },
+    )
+
+    assert rmc.main() == 1
+    assert written["models"]["nhl"]["ok"] is False
+
+
+def test_nba_timeout_alone_still_exits_nonzero(monkeypatch, tmp_path):
+    """A refresh that only selected NBA and timed out must not look healthy."""
+    rmc, written = _stub_refresh_jobs(
+        monkeypatch,
+        tmp_path,
+        {"nba": {"ok": False, "error": "NBA New timed out (15 min limit)", "picks": []}},
+    )
+
+    assert rmc.main() == 1
+    assert written["models"]["nba"]["ok"] is False
+
+
+def test_nba_model_timeout_honors_env_override(monkeypatch):
+    import subprocess
+
+    import pickgrader_server as server
+
+    captured = {}
+    monkeypatch.setenv("PICKLEDGER_NBA_MODEL_TIMEOUT_SECONDS", "900")
+    monkeypatch.setattr(server, "_espn_event_count_for_date", lambda *_a, **_k: 5)
+    monkeypatch.setattr(server, "_resolve_python_bin", lambda *_a, **_k: "python")
+    monkeypatch.setattr(server, "_nba_model_extra_args", lambda *_a, **_k: ["--date", "2026-10-05"])
+
+    def fake_run_script(*_args, **kwargs):
+        captured["timeout"] = kwargs["timeout"]
+        raise subprocess.TimeoutExpired("run_live.py", kwargs["timeout"])
+
+    monkeypatch.setattr(server, "_run_script", fake_run_script)
+    result = server.run_nba_model("2026-10-05", "new")
+    assert captured["timeout"] == 900
+    assert result["ok"] is False
+    assert "timed out" in result["error"]
+    assert "15 min" in result["error"]
+
+
+def test_nba_model_timeout_default_remains_seven_minutes(monkeypatch):
+    import subprocess
+
+    import pickgrader_server as server
+
+    captured = {}
+    monkeypatch.delenv("PICKLEDGER_NBA_MODEL_TIMEOUT_SECONDS", raising=False)
+    monkeypatch.setattr(server, "_espn_event_count_for_date", lambda *_a, **_k: 5)
+    monkeypatch.setattr(server, "_resolve_python_bin", lambda *_a, **_k: "python")
+    monkeypatch.setattr(server, "_nba_model_extra_args", lambda *_a, **_k: ["--date", "2026-10-05"])
+
+    def fake_run_script(*_args, **kwargs):
+        captured["timeout"] = kwargs["timeout"]
+        raise subprocess.TimeoutExpired("run_live.py", kwargs["timeout"])
+
+    monkeypatch.setattr(server, "_run_script", fake_run_script)
+    result = server.run_nba_model("2026-10-05", "new")
+    assert captured["timeout"] == 420
+    assert "7 min" in result["error"]
+
+
+def test_actions_raises_nba_timeout_without_blanket_raise():
+    from pathlib import Path
+
+    workflow = (
+        Path(__file__).resolve().parents[2] / ".github" / "workflows" / "model-cache-refresh.yml"
+    ).read_text(encoding="utf-8")
+    assert "PICKLEDGER_NBA_MODEL_TIMEOUT_SECONDS: 900" in workflow
+    assert "PICKLEDGER_MLB_MODEL_TIMEOUT_SECONDS: 1200" in workflow
+    assert "PICKLEDGER_MLB_INNING_TIMEOUT_SECONDS: 240" in workflow
+    source = (
+        Path(__file__).resolve().parents[2] / "scripts" / "refresh_model_cache.py"
+    ).read_text(encoding="utf-8")
+    assert 'SOFT_FAIL_TIMEOUT_MODEL_KEYS = frozenset({"nba"})' in source
