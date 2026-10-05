@@ -4886,12 +4886,16 @@ def run_nba_model(date_str: str | None = None, variant: str = "new") -> dict[str
         }
         return _cache_result(result)
 
+    # Default 420s (~7 min) matches the historical local cap. GitHub Actions
+    # is slower; model-cache-refresh.yml raises this via env (15 min).
+    timeout_s = _env_timeout_seconds("PICKLEDGER_NBA_MODEL_TIMEOUT_SECONDS", 420)
+
     try:
         output = _run_script(
             python_bin,
             "run_live.py",
             NBA_MODEL_DIR,
-            timeout=420,
+            timeout=timeout_s,
             extra_args=_nba_model_extra_args(date_str, variant),
         )
         if "Traceback (most recent call last)" in output or "ModuleNotFoundError" in output:
@@ -4918,7 +4922,8 @@ def run_nba_model(date_str: str | None = None, variant: str = "new") -> dict[str
         result = {"ok": True, "picks": picks, "raw_lines": len(output.split("\n"))}
         return _cache_result(result)
     except subprocess.TimeoutExpired:
-        return {"ok": False, "error": f"{source_label} timed out (7 min limit)"}
+        timeout_min = max(1, round(timeout_s / 60))
+        return {"ok": False, "error": f"{source_label} timed out ({timeout_min} min limit)"}
     except Exception as e:
         return {"ok": False, "error": str(e)}
 
