@@ -589,15 +589,35 @@
   "errors": [
     "nba: NBA New timed out (15 min limit)"
   ],
-  "externalFeedsUpdatedAt": "2026-10-06T18:06:16.651607Z",
-  "external_feed_errors": [],
+  "externalFeedsUpdatedAt": "2026-10-06T18:25:13.896649Z",
+  "external_feed_errors": [
+    "sportytrader_cfb: cfb: empty parse despite nonempty official whitelist (No SportyTrader CFB picks parsed. | Diagnostics: listingPages=3 cards=0 officialMatchupCards=0.)",
+    "sportytrader_nba: nba: empty parse despite nonempty official whitelist (No SportyTrader NBA picks parsed. | Diagnostics: listingPages=4 cards=0 officialMatchupCards=0.)",
+    "sportsgambler_cfb: cfb: empty parse despite nonempty official whitelist (No picks found.)",
+    "sportsgambler_nba: nba: empty parse despite nonempty official whitelist (No picks found.)",
+    "forebet_mls: ForebetMLS: listing fetch blocked by Cloudflare",
+    "forebet_mlb: ForebetMLB: listing fetch blocked by Cloudflare",
+    "forebet_cfb: ForebetCFB: listing fetch blocked by Cloudflare",
+    "forebet_nhl: ForebetNHL: listing fetch blocked by Cloudflare",
+    "forebet_nba: ForebetNBA: listing fetch blocked by Cloudflare"
+  ],
   "external_feeds": {
     "forebet_cfb": {
       "date": "2026-10-06",
       "generatedAt": "2026-10-06T12:37:35.117123Z",
       "generatedBy": "local:external-feed-refresh",
-      "lastAttemptAt": "2026-10-06T12:37:35.117123Z",
+      "lastAttemptAt": "2026-10-06T18:25:13.896649Z",
       "lastAttemptDate": "2026-10-06",
+      "lastAttemptMeta": {
+        "blockedUrl": "https://www.forebet.com/en/american-football/usa/ncaa",
+        "blockedUrls": 1,
+        "matchedPicks": 0,
+        "missingMatchups": [
+          "Southern Miss Golden Eagles @ Troy Trojans"
+        ],
+        "officialMatchups": 1
+      },
+      "lastError": "ForebetCFB: listing fetch blocked by Cloudflare",
       "lastSuccessAt": "2026-10-06T12:37:35.117123Z",
       "meta": {
         "attemptedUrls": 1,
@@ -615,7 +635,7 @@
         "updatedAt": "2026-10-06T12:37:35.117123Z"
       },
       "note": "ForebetCFB matched 1 published prediction(s) against 1 official 2026-10-06 matchup(s).",
-      "ok": true,
+      "ok": false,
       "picks": [
         {
           "away_team": "Southern Miss Golden Eagles",
@@ -644,7 +664,7 @@
           "units": 0
         }
       ],
-      "refreshStatus": "ok",
+      "refreshStatus": "error",
       "scraped_tip_feed": true,
       "updatedAt": "2026-10-06T12:37:35.117123Z"
     },
@@ -652,8 +672,19 @@
       "date": "2026-10-06",
       "generatedAt": "2026-10-06T12:36:53.541866Z",
       "generatedBy": "local:external-feed-refresh",
-      "lastAttemptAt": "2026-10-06T12:36:53.541866Z",
+      "lastAttemptAt": "2026-10-06T18:25:13.896649Z",
       "lastAttemptDate": "2026-10-06",
+      "lastAttemptMeta": {
+        "blockedUrl": "https://www.forebet.com/en/baseball/usa/mlb",
+        "blockedUrls": 1,
+        "matchedPicks": 0,
+        "missingMatchups": [
+          "Los Angeles Dodgers @ Atlanta Braves",
+          "Milwaukee Brewers @ San Diego Padres"
+        ],
+        "officialMatchups": 2
+      },
+      "lastError": "ForebetMLB: listing fetch blocked by Cloudflare",
       "lastSuccessAt": "2026-10-06T12:36:53.541866Z",
       "meta": {
         "attemptedUrls": 1,
@@ -671,7 +702,7 @@
         "updatedAt": "2026-10-06T12:36:53.541866Z"
       },
       "note": "ForebetMLB matched 2 published prediction(s) against 2 official 2026-10-06 matchup(s).",
-      "ok": true,
+      "ok": false,
       "picks": [
         {
           "away_team": "Los Angeles Dodgers",
@@ -726,7 +757,7 @@
           "units": 0
         }
       ],
-      "refreshStatus": "ok",
+      "refreshStatus": "error",
       "scraped_tip_feed": true,
       "updatedAt": "2026-10-06T12:36:53.541866Z"
     },
@@ -734,8 +765,18 @@
       "date": "2026-10-06",
       "generatedAt": "2026-10-06T12:37:26.183994Z",
       "generatedBy": "local:external-feed-refresh",
-      "lastAttemptAt": "2026-10-06T12:37:26.183994Z",
+      "lastAttemptAt": "2026-10-06T18:25:13.896649Z",
       "lastAttemptDate": "2026-10-06",
+      "lastAttemptMeta": {
+        "blockedUrl": "https://www.forebet.com/en/football-tips-and-predictions-for-usa/mls",
+        "blockedUrls": 1,
+        "matchedPicks": 0,
+        "missingMatchups": [
+          "Vancouver Whitecaps @ Chicago Fire FC"
+        ],
+        "officialMatchups": 1
+      },
+      "lastError": "ForebetMLS: listing fetch blocked by Cloudflare",
       "lastSuccessAt": "2026-10-06T12:37:26.183994Z",
       "meta": {
         "attemptedUrls": 1,
@@ -753,7 +794,7 @@
         "updatedAt": "2026-10-06T12:37:26.183994Z"
       },
       "note": "ForebetMLS matched 1 published prediction(s) against 1 official 2026-10-06 matchup(s).",
-      "ok": true,
+      "ok": false,
       "picks": [
         {
           "away_team": "Vancouver Whitecaps",
@@ -785,7 +826,7 @@
           "units": 0
         }
       ],
-      "refreshStatus": "ok",
+      "refreshStatus": "error",
       "scraped_tip_feed": true,
       "updatedAt": "2026-10-06T12:37:26.183994Z"
     },
@@ -793,8 +834,21 @@
       "date": "2026-10-06",
       "generatedAt": "2026-10-06T12:38:06.130096Z",
       "generatedBy": "local:external-feed-refresh",
-      "lastAttemptAt": "2026-10-06T12:38:06.130096Z",
+      "lastAttemptAt": "2026-10-06T18:25:13.896649Z",
       "lastAttemptDate": "2026-10-06",
+      "lastAttemptMeta": {
+        "blockedUrl": "https://www.forebet.com/en/basketball/usa/nba",
+        "blockedUrls": 1,
+        "matchedPicks": 0,
+        "missingMatchups": [
+          "Brooklyn Nets @ Charlotte Hornets",
+          "New Orleans Pelicans @ Oklahoma City Thunder",
+          "Denver Nuggets @ Utah Jazz",
+          "Los Angeles Lakers @ Golden State Warriors"
+        ],
+        "officialMatchups": 4
+      },
+      "lastError": "ForebetNBA: listing fetch blocked by Cloudflare",
       "lastSuccessAt": "2026-10-06T12:38:06.130096Z",
       "meta": {
         "attemptedUrls": 1,
@@ -812,7 +866,7 @@
         "updatedAt": "2026-10-06T12:38:06.130096Z"
       },
       "note": "ForebetNBA matched 4 published prediction(s) against 4 official 2026-10-06 matchup(s).",
-      "ok": true,
+      "ok": false,
       "picks": [
         {
           "away_team": "Brooklyn Nets",
@@ -919,43 +973,61 @@
           "units": 0
         }
       ],
-      "refreshStatus": "ok",
+      "refreshStatus": "error",
       "scraped_tip_feed": true,
       "updatedAt": "2026-10-06T12:38:06.130096Z"
     },
     "forebet_nfl": {
       "date": "2026-10-06",
-      "generatedAt": "2026-10-06T12:37:49.472093Z",
-      "generatedBy": "local:external-feed-refresh",
-      "lastAttemptAt": "2026-10-06T12:37:49.472093Z",
+      "generatedAt": "2026-10-06T18:25:13.896649Z",
+      "generatedBy": "github-actions:external-feed-refresh",
+      "lastAttemptAt": "2026-10-06T18:25:13.896649Z",
       "lastAttemptDate": "2026-10-06",
-      "lastSuccessAt": "2026-10-06T12:37:49.472093Z",
+      "lastSuccessAt": "2026-10-06T18:25:13.896649Z",
       "meta": {
         "attemptedUrls": 0,
         "blockedUrls": 0,
         "date": "2026-10-06",
         "expectedMatchups": 0,
         "feed": "forebet_nfl",
-        "from": "local",
-        "leagues": "mlb,wnba,mls,cfb,nfl",
+        "from": "github-actions",
+        "leagues": "nba,mlb,wnba,cfb,nfl",
         "matchedPicks": 0,
         "missingMatchups": [],
         "officialMatchups": 0,
         "unpublishedMatchups": [],
-        "updatedAt": "2026-10-06T12:37:49.472093Z"
+        "updatedAt": "2026-10-06T18:25:13.896649Z"
       },
       "note": "ForebetNFL has no official 2026-10-06 matchups.",
       "ok": true,
       "picks": [],
       "refreshStatus": "ok",
-      "updatedAt": "2026-10-06T12:37:49.472093Z"
+      "updatedAt": "2026-10-06T18:25:13.896649Z"
     },
     "forebet_nhl": {
       "date": "2026-10-06",
       "generatedAt": "2026-10-06T12:37:56.281510Z",
       "generatedBy": "local:external-feed-refresh",
-      "lastAttemptAt": "2026-10-06T12:37:56.281510Z",
+      "lastAttemptAt": "2026-10-06T18:25:13.896649Z",
       "lastAttemptDate": "2026-10-06",
+      "lastAttemptMeta": {
+        "blockedUrl": "https://www.forebet.com/en/hockey/usa/nhl",
+        "blockedUrls": 1,
+        "matchedPicks": 0,
+        "missingMatchups": [
+          "Carolina Hurricanes @ Montreal Canadiens",
+          "Nashville Predators @ Toronto Maple Leafs",
+          "Ottawa Senators @ Detroit Red Wings",
+          "Utah Mammoth @ New Jersey Devils",
+          "Minnesota Wild @ Buffalo Sabres",
+          "New York Islanders @ New York Rangers",
+          "St. Louis Blues @ Chicago Blackhawks",
+          "Vegas Golden Knights @ Seattle Kraken",
+          "Florida Panthers @ Los Angeles Kings"
+        ],
+        "officialMatchups": 9
+      },
+      "lastError": "ForebetNHL: listing fetch blocked by Cloudflare",
       "lastSuccessAt": "2026-10-06T12:37:56.281510Z",
       "meta": {
         "attemptedUrls": 1,
@@ -973,7 +1045,7 @@
         "updatedAt": "2026-10-06T12:37:56.281510Z"
       },
       "note": "ForebetNHL matched 9 published prediction(s) against 9 official 2026-10-06 matchup(s).",
-      "ok": true,
+      "ok": false,
       "picks": [
         {
           "away_team": "Carolina Hurricanes",
@@ -1210,36 +1282,36 @@
           "units": 0
         }
       ],
-      "refreshStatus": "ok",
+      "refreshStatus": "error",
       "scraped_tip_feed": true,
       "updatedAt": "2026-10-06T12:37:56.281510Z"
     },
     "forebet_wnba": {
       "date": "2026-10-06",
-      "generatedAt": "2026-10-06T12:37:19.366070Z",
-      "generatedBy": "local:external-feed-refresh",
-      "lastAttemptAt": "2026-10-06T12:37:19.366070Z",
+      "generatedAt": "2026-10-06T18:25:13.896649Z",
+      "generatedBy": "github-actions:external-feed-refresh",
+      "lastAttemptAt": "2026-10-06T18:25:13.896649Z",
       "lastAttemptDate": "2026-10-06",
-      "lastSuccessAt": "2026-10-06T12:37:19.366070Z",
+      "lastSuccessAt": "2026-10-06T18:25:13.896649Z",
       "meta": {
         "attemptedUrls": 0,
         "blockedUrls": 0,
         "date": "2026-10-06",
         "expectedMatchups": 0,
         "feed": "forebet_wnba",
-        "from": "local",
-        "leagues": "mlb,wnba,mls,cfb,nfl",
+        "from": "github-actions",
+        "leagues": "nba,mlb,wnba,cfb,nfl",
         "matchedPicks": 0,
         "missingMatchups": [],
         "officialMatchups": 0,
         "unpublishedMatchups": [],
-        "updatedAt": "2026-10-06T12:37:19.366070Z"
+        "updatedAt": "2026-10-06T18:25:13.896649Z"
       },
       "note": "ForebetWNBA has no official 2026-10-06 matchups.",
       "ok": true,
       "picks": [],
       "refreshStatus": "ok",
-      "updatedAt": "2026-10-06T12:37:19.366070Z"
+      "updatedAt": "2026-10-06T18:25:13.896649Z"
     },
     "scores24_cfb": {
       "date": "2026-10-06",
@@ -1678,9 +1750,12 @@
     "sportsgambler_cfb": {
       "date": "2026-10-06",
       "error": "cfb: empty parse despite nonempty official whitelist (No picks found.)",
-      "generatedAt": "2026-10-06T12:31:22.791826Z",
+      "errors": [
+        "cfb: empty parse despite nonempty official whitelist (No picks found.)"
+      ],
+      "generatedAt": "2026-10-06T18:25:13.896649Z",
       "generatedBy": "github-actions:external-feed-refresh",
-      "lastAttemptAt": "2026-10-06T12:31:22.791826Z",
+      "lastAttemptAt": "2026-10-06T18:25:13.896649Z",
       "lastAttemptDate": "2026-10-06",
       "lastError": "cfb: empty parse despite nonempty official whitelist (No picks found.)",
       "meta": {
@@ -1696,14 +1771,16 @@
           "nba": 4
         },
         "optionalErrors": [
+          "nba: empty parse despite nonempty official whitelist (No picks found.)",
           "cfb: empty parse despite nonempty official whitelist (No picks found.)"
         ],
         "pick_count": 0,
         "provider": "sportsgambler",
         "sportErrors": {
-          "cfb": "cfb: empty parse despite nonempty official whitelist (No picks found.)"
+          "cfb": "cfb: empty parse despite nonempty official whitelist (No picks found.)",
+          "nba": "nba: empty parse despite nonempty official whitelist (No picks found.)"
         },
-        "updatedAt": "2026-10-06T12:31:22.791826Z",
+        "updatedAt": "2026-10-06T18:25:13.896649Z",
         "zeroSlateSports": [
           "wnba",
           "nfl"
@@ -1713,7 +1790,7 @@
       "ok": false,
       "picks": [],
       "refreshStatus": "error",
-      "updatedAt": "2026-10-06T12:31:22.791826Z"
+      "updatedAt": "2026-10-06T18:25:13.896649Z"
     },
     "sportsgambler_fifa_world_cup": {
       "date": "2026-07-19",
@@ -1745,40 +1822,40 @@
     },
     "sportsgambler_mlb": {
       "date": "2026-10-06",
-      "error": "nba: empty parse despite nonempty official whitelist (No picks found.)",
-      "generatedAt": "2026-10-06T12:31:22.791826Z",
+      "errors": [],
+      "generatedAt": "2026-10-06T18:25:13.896649Z",
       "generatedBy": "github-actions:external-feed-refresh",
-      "lastAttemptAt": "2026-10-06T12:31:22.791826Z",
+      "lastAttemptAt": "2026-10-06T18:25:13.896649Z",
       "lastAttemptDate": "2026-10-06",
-      "lastError": "nba: empty parse despite nonempty official whitelist (No picks found.)",
+      "lastSuccessAt": "2026-10-06T18:25:13.896649Z",
       "meta": {
         "date": "2026-10-06",
         "feed": "sportsgambler_mlb",
         "from": "github-actions",
         "leagues": "nba,mlb,wnba,cfb,nfl",
-        "matchedPicks": 2,
-        "missingMatchups": [],
         "officialMatchupCounts": {
           "cfb": 1,
           "mlb": 2,
           "nba": 4
         },
         "optionalErrors": [
+          "nba: empty parse despite nonempty official whitelist (No picks found.)",
           "cfb: empty parse despite nonempty official whitelist (No picks found.)"
         ],
         "pick_count": 2,
         "provider": "sportsgambler",
         "sportErrors": {
-          "cfb": "cfb: empty parse despite nonempty official whitelist (No picks found.)"
+          "cfb": "cfb: empty parse despite nonempty official whitelist (No picks found.)",
+          "nba": "nba: empty parse despite nonempty official whitelist (No picks found.)"
         },
-        "updatedAt": "2026-10-06T12:31:22.791826Z",
+        "updatedAt": "2026-10-06T18:25:13.896649Z",
         "zeroSlateSports": [
           "wnba",
           "nfl"
         ]
       },
       "note": "Scheduled sportsgambler_mlb refresh returned 2 pick(s).",
-      "ok": false,
+      "ok": true,
       "picks": [
         {
           "date": "2026-10-06",
@@ -1817,16 +1894,16 @@
           "units": 0
         }
       ],
-      "refreshStatus": "error",
+      "refreshStatus": "ok",
       "scraped_tip_feed": true,
-      "updatedAt": "2026-10-06T12:31:22.791826Z"
+      "updatedAt": "2026-10-06T18:25:13.896649Z"
     },
     "sportsgambler_nba": {
       "date": "2026-10-02",
       "errors": [],
       "generatedAt": "2026-10-02T18:29:53.562634Z",
       "generatedBy": "github-actions:external-feed-refresh",
-      "lastAttemptAt": "2026-10-06T12:31:22.791826Z",
+      "lastAttemptAt": "2026-10-06T18:25:13.896649Z",
       "lastAttemptDate": "2026-10-06",
       "lastError": "nba: empty parse despite nonempty official whitelist (No picks found.)",
       "lastSuccessAt": "2026-10-02T18:29:53.562634Z",
@@ -1851,7 +1928,7 @@
         ]
       },
       "note": "Scheduled sportsgambler_nba refresh returned 0 pick(s).",
-      "ok": true,
+      "ok": false,
       "picks": [],
       "refreshStatus": "error",
       "updatedAt": "2026-10-02T18:29:53.562634Z"
@@ -1886,90 +1963,93 @@
     },
     "sportsgambler_nfl": {
       "date": "2026-10-06",
-      "error": "nba: empty parse despite nonempty official whitelist (No picks found.)",
-      "generatedAt": "2026-10-06T12:31:22.791826Z",
+      "errors": [],
+      "generatedAt": "2026-10-06T18:25:13.896649Z",
       "generatedBy": "github-actions:external-feed-refresh",
-      "lastAttemptAt": "2026-10-06T12:31:22.791826Z",
+      "lastAttemptAt": "2026-10-06T18:25:13.896649Z",
       "lastAttemptDate": "2026-10-06",
-      "lastError": "nba: empty parse despite nonempty official whitelist (No picks found.)",
+      "lastSuccessAt": "2026-10-06T18:25:13.896649Z",
       "meta": {
         "date": "2026-10-06",
         "feed": "sportsgambler_nfl",
         "from": "github-actions",
         "leagues": "nba,mlb,wnba,cfb,nfl",
-        "matchedPicks": 0,
-        "missingMatchups": [],
         "officialMatchupCounts": {
           "cfb": 1,
           "mlb": 2,
           "nba": 4
         },
         "optionalErrors": [
+          "nba: empty parse despite nonempty official whitelist (No picks found.)",
           "cfb: empty parse despite nonempty official whitelist (No picks found.)"
         ],
         "pick_count": 0,
         "provider": "sportsgambler",
         "sportErrors": {
-          "cfb": "cfb: empty parse despite nonempty official whitelist (No picks found.)"
+          "cfb": "cfb: empty parse despite nonempty official whitelist (No picks found.)",
+          "nba": "nba: empty parse despite nonempty official whitelist (No picks found.)"
         },
-        "updatedAt": "2026-10-06T12:31:22.791826Z",
+        "updatedAt": "2026-10-06T18:25:13.896649Z",
         "zeroSlateSports": [
           "wnba",
           "nfl"
         ]
       },
       "note": "Scheduled sportsgambler_nfl refresh returned 0 pick(s).",
-      "ok": false,
+      "ok": true,
       "picks": [],
-      "refreshStatus": "error",
-      "updatedAt": "2026-10-06T12:31:22.791826Z"
+      "refreshStatus": "ok",
+      "updatedAt": "2026-10-06T18:25:13.896649Z"
     },
     "sportsgambler_wnba": {
       "date": "2026-10-06",
-      "error": "nba: empty parse despite nonempty official whitelist (No picks found.)",
-      "generatedAt": "2026-10-06T12:31:22.791826Z",
+      "errors": [],
+      "generatedAt": "2026-10-06T18:25:13.896649Z",
       "generatedBy": "github-actions:external-feed-refresh",
-      "lastAttemptAt": "2026-10-06T12:31:22.791826Z",
+      "lastAttemptAt": "2026-10-06T18:25:13.896649Z",
       "lastAttemptDate": "2026-10-06",
-      "lastError": "nba: empty parse despite nonempty official whitelist (No picks found.)",
+      "lastSuccessAt": "2026-10-06T18:25:13.896649Z",
       "meta": {
         "date": "2026-10-06",
         "feed": "sportsgambler_wnba",
         "from": "github-actions",
         "leagues": "nba,mlb,wnba,cfb,nfl",
-        "matchedPicks": 0,
-        "missingMatchups": [],
         "officialMatchupCounts": {
           "cfb": 1,
           "mlb": 2,
           "nba": 4
         },
         "optionalErrors": [
+          "nba: empty parse despite nonempty official whitelist (No picks found.)",
           "cfb: empty parse despite nonempty official whitelist (No picks found.)"
         ],
         "pick_count": 0,
         "provider": "sportsgambler",
         "sportErrors": {
-          "cfb": "cfb: empty parse despite nonempty official whitelist (No picks found.)"
+          "cfb": "cfb: empty parse despite nonempty official whitelist (No picks found.)",
+          "nba": "nba: empty parse despite nonempty official whitelist (No picks found.)"
         },
-        "updatedAt": "2026-10-06T12:31:22.791826Z",
+        "updatedAt": "2026-10-06T18:25:13.896649Z",
         "zeroSlateSports": [
           "wnba",
           "nfl"
         ]
       },
       "note": "Scheduled sportsgambler_wnba refresh returned 0 pick(s).",
-      "ok": false,
+      "ok": true,
       "picks": [],
-      "refreshStatus": "error",
-      "updatedAt": "2026-10-06T12:31:22.791826Z"
+      "refreshStatus": "ok",
+      "updatedAt": "2026-10-06T18:25:13.896649Z"
     },
     "sportytrader_cfb": {
       "date": "2026-10-06",
       "error": "cfb: empty parse despite nonempty official whitelist (No SportyTrader CFB picks parsed. | Diagnostics: listingPages=3 cards=0 officialMatchupCards=0.)",
-      "generatedAt": "2026-10-06T12:31:22.791826Z",
+      "errors": [
+        "cfb: empty parse despite nonempty official whitelist (No SportyTrader CFB picks parsed. | Diagnostics: listingPages=3 cards=0 officialMatchupCards=0.)"
+      ],
+      "generatedAt": "2026-10-06T18:25:13.896649Z",
       "generatedBy": "github-actions:external-feed-refresh",
-      "lastAttemptAt": "2026-10-06T12:31:22.791826Z",
+      "lastAttemptAt": "2026-10-06T18:25:13.896649Z",
       "lastAttemptDate": "2026-10-06",
       "lastError": "cfb: empty parse despite nonempty official whitelist (No SportyTrader CFB picks parsed. | Diagnostics: listingPages=3 cards=0 officialMatchupCards=0.)",
       "meta": {
@@ -1985,14 +2065,16 @@
           "nba": 4
         },
         "optionalErrors": [
+          "nba: empty parse despite nonempty official whitelist (No SportyTrader NBA picks parsed. | Diagnostics: listingPages=4 cards=0 officialMatchupCards=0.)",
           "cfb: empty parse despite nonempty official whitelist (No SportyTrader CFB picks parsed. | Diagnostics: listingPages=3 cards=0 officialMatchupCards=0.)"
         ],
         "pick_count": 0,
         "provider": "sportytrader",
         "sportErrors": {
-          "cfb": "cfb: empty parse despite nonempty official whitelist (No SportyTrader CFB picks parsed. | Diagnostics: listingPages=3 cards=0 officialMatchupCards=0.)"
+          "cfb": "cfb: empty parse despite nonempty official whitelist (No SportyTrader CFB picks parsed. | Diagnostics: listingPages=3 cards=0 officialMatchupCards=0.)",
+          "nba": "nba: empty parse despite nonempty official whitelist (No SportyTrader NBA picks parsed. | Diagnostics: listingPages=4 cards=0 officialMatchupCards=0.)"
         },
-        "updatedAt": "2026-10-06T12:31:22.791826Z",
+        "updatedAt": "2026-10-06T18:25:13.896649Z",
         "zeroSlateSports": [
           "wnba",
           "nfl"
@@ -2002,7 +2084,7 @@
       "ok": false,
       "picks": [],
       "refreshStatus": "error",
-      "updatedAt": "2026-10-06T12:31:22.791826Z"
+      "updatedAt": "2026-10-06T18:25:13.896649Z"
     },
     "sportytrader_fifa_world_cup": {
       "date": "2026-07-19",
@@ -2034,52 +2116,86 @@
     },
     "sportytrader_mlb": {
       "date": "2026-10-06",
-      "error": "nba: empty parse despite nonempty official whitelist (No SportyTrader NBA picks parsed. | Diagnostics: listingPages=1 cards=0 officialMatchupCards=0.); mlb: empty parse despite nonempty official whitelist (No SportyTrader MLB picks parsed. | Diagnostics: listingPages=1 cards=0 officialMatchupCards=0.)",
-      "generatedAt": "2026-10-06T12:31:22.791826Z",
+      "errors": [],
+      "generatedAt": "2026-10-06T18:25:13.896649Z",
       "generatedBy": "github-actions:external-feed-refresh",
-      "lastAttemptAt": "2026-10-06T12:31:22.791826Z",
+      "lastAttemptAt": "2026-10-06T18:25:13.896649Z",
       "lastAttemptDate": "2026-10-06",
-      "lastError": "nba: empty parse despite nonempty official whitelist (No SportyTrader NBA picks parsed. | Diagnostics: listingPages=1 cards=0 officialMatchupCards=0.); mlb: empty parse despite nonempty official whitelist (No SportyTrader MLB picks parsed. | Diagnostics: listingPages=1 cards=0 officialMatchupCards=0.)",
+      "lastSuccessAt": "2026-10-06T18:25:13.896649Z",
       "meta": {
         "date": "2026-10-06",
         "feed": "sportytrader_mlb",
         "from": "github-actions",
         "leagues": "nba,mlb,wnba,cfb,nfl",
-        "matchedPicks": 0,
-        "missingMatchups": [],
         "officialMatchupCounts": {
           "cfb": 1,
           "mlb": 2,
           "nba": 4
         },
         "optionalErrors": [
+          "nba: empty parse despite nonempty official whitelist (No SportyTrader NBA picks parsed. | Diagnostics: listingPages=4 cards=0 officialMatchupCards=0.)",
           "cfb: empty parse despite nonempty official whitelist (No SportyTrader CFB picks parsed. | Diagnostics: listingPages=3 cards=0 officialMatchupCards=0.)"
         ],
-        "pick_count": 0,
+        "pick_count": 2,
         "provider": "sportytrader",
         "sportErrors": {
-          "cfb": "cfb: empty parse despite nonempty official whitelist (No SportyTrader CFB picks parsed. | Diagnostics: listingPages=3 cards=0 officialMatchupCards=0.)"
+          "cfb": "cfb: empty parse despite nonempty official whitelist (No SportyTrader CFB picks parsed. | Diagnostics: listingPages=3 cards=0 officialMatchupCards=0.)",
+          "nba": "nba: empty parse despite nonempty official whitelist (No SportyTrader NBA picks parsed. | Diagnostics: listingPages=4 cards=0 officialMatchupCards=0.)"
         },
-        "updatedAt": "2026-10-06T12:31:22.791826Z",
+        "updatedAt": "2026-10-06T18:25:13.896649Z",
         "zeroSlateSports": [
           "wnba",
           "nfl"
         ]
       },
-      "note": "Scheduled sportytrader_mlb refresh returned 0 pick(s).",
-      "ok": false,
-      "picks": [],
-      "refreshStatus": "error",
-      "updatedAt": "2026-10-06T12:31:22.791826Z"
+      "note": "Scheduled sportytrader_mlb refresh returned 2 pick(s).",
+      "ok": true,
+      "picks": [
+        {
+          "date": "2026-10-06",
+          "decision": "PASS",
+          "edge": null,
+          "game": "Atlanta Braves vs Los Angeles Dodgers",
+          "matchup": "Atlanta Braves vs Los Angeles Dodgers",
+          "odds": -110,
+          "pick": "Under 6.5 (Braves vs Dodgers)",
+          "probability": null,
+          "scraped_tip_demoted": true,
+          "source": "SportyTraderMLB",
+          "source_decision": "BET",
+          "source_units": 1,
+          "sport": "MLB",
+          "units": 0
+        },
+        {
+          "date": "2026-10-06",
+          "decision": "PASS",
+          "edge": null,
+          "game": "San Diego Padres vs Milwaukee Brewers",
+          "matchup": "San Diego Padres vs Milwaukee Brewers",
+          "odds": -135,
+          "pick": "Padres ML (Padres vs Brewers)",
+          "probability": null,
+          "scraped_tip_demoted": true,
+          "source": "SportyTraderMLB",
+          "source_decision": "BET",
+          "source_units": 1,
+          "sport": "MLB",
+          "units": 0
+        }
+      ],
+      "refreshStatus": "ok",
+      "scraped_tip_feed": true,
+      "updatedAt": "2026-10-06T18:25:13.896649Z"
     },
     "sportytrader_nba": {
       "date": "2026-10-02",
       "errors": [],
       "generatedAt": "2026-10-02T18:29:53.562634Z",
       "generatedBy": "github-actions:external-feed-refresh",
-      "lastAttemptAt": "2026-10-06T12:31:22.791826Z",
+      "lastAttemptAt": "2026-10-06T18:25:13.896649Z",
       "lastAttemptDate": "2026-10-06",
-      "lastError": "nba: empty parse despite nonempty official whitelist (No SportyTrader NBA picks parsed. | Diagnostics: listingPages=1 cards=0 officialMatchupCards=0.); mlb: empty parse despite nonempty official whitelist (No SportyTrader MLB picks parsed. | Diagnostics: listingPages=1 cards=0 officialMatchupCards=0.)",
+      "lastError": "nba: empty parse despite nonempty official whitelist (No SportyTrader NBA picks parsed. | Diagnostics: listingPages=4 cards=0 officialMatchupCards=0.)",
       "lastSuccessAt": "2026-10-02T18:29:53.562634Z",
       "meta": {
         "date": "2026-10-02",
@@ -2106,7 +2222,7 @@
         ]
       },
       "note": "Scheduled sportytrader_nba refresh returned 0 pick(s).",
-      "ok": true,
+      "ok": false,
       "picks": [],
       "refreshStatus": "error",
       "updatedAt": "2026-10-02T18:29:53.562634Z"
@@ -2141,109 +2257,110 @@
     },
     "sportytrader_nfl": {
       "date": "2026-10-06",
-      "error": "nba: empty parse despite nonempty official whitelist (No SportyTrader NBA picks parsed. | Diagnostics: listingPages=1 cards=0 officialMatchupCards=0.); mlb: empty parse despite nonempty official whitelist (No SportyTrader MLB picks parsed. | Diagnostics: listingPages=1 cards=0 officialMatchupCards=0.)",
-      "generatedAt": "2026-10-06T12:31:22.791826Z",
+      "errors": [],
+      "generatedAt": "2026-10-06T18:25:13.896649Z",
       "generatedBy": "github-actions:external-feed-refresh",
-      "lastAttemptAt": "2026-10-06T12:31:22.791826Z",
+      "lastAttemptAt": "2026-10-06T18:25:13.896649Z",
       "lastAttemptDate": "2026-10-06",
-      "lastError": "nba: empty parse despite nonempty official whitelist (No SportyTrader NBA picks parsed. | Diagnostics: listingPages=1 cards=0 officialMatchupCards=0.); mlb: empty parse despite nonempty official whitelist (No SportyTrader MLB picks parsed. | Diagnostics: listingPages=1 cards=0 officialMatchupCards=0.)",
+      "lastSuccessAt": "2026-10-06T18:25:13.896649Z",
       "meta": {
         "date": "2026-10-06",
         "feed": "sportytrader_nfl",
         "from": "github-actions",
         "leagues": "nba,mlb,wnba,cfb,nfl",
-        "matchedPicks": 0,
-        "missingMatchups": [],
         "officialMatchupCounts": {
           "cfb": 1,
           "mlb": 2,
           "nba": 4
         },
         "optionalErrors": [
+          "nba: empty parse despite nonempty official whitelist (No SportyTrader NBA picks parsed. | Diagnostics: listingPages=4 cards=0 officialMatchupCards=0.)",
           "cfb: empty parse despite nonempty official whitelist (No SportyTrader CFB picks parsed. | Diagnostics: listingPages=3 cards=0 officialMatchupCards=0.)"
         ],
         "pick_count": 0,
         "provider": "sportytrader",
         "sportErrors": {
-          "cfb": "cfb: empty parse despite nonempty official whitelist (No SportyTrader CFB picks parsed. | Diagnostics: listingPages=3 cards=0 officialMatchupCards=0.)"
+          "cfb": "cfb: empty parse despite nonempty official whitelist (No SportyTrader CFB picks parsed. | Diagnostics: listingPages=3 cards=0 officialMatchupCards=0.)",
+          "nba": "nba: empty parse despite nonempty official whitelist (No SportyTrader NBA picks parsed. | Diagnostics: listingPages=4 cards=0 officialMatchupCards=0.)"
         },
-        "updatedAt": "2026-10-06T12:31:22.791826Z",
+        "updatedAt": "2026-10-06T18:25:13.896649Z",
         "zeroSlateSports": [
           "wnba",
           "nfl"
         ]
       },
       "note": "Scheduled sportytrader_nfl refresh returned 0 pick(s).",
-      "ok": false,
+      "ok": true,
       "picks": [],
-      "refreshStatus": "error",
-      "updatedAt": "2026-10-06T12:31:22.791826Z"
+      "refreshStatus": "ok",
+      "updatedAt": "2026-10-06T18:25:13.896649Z"
     },
     "sportytrader_wnba": {
       "date": "2026-10-06",
-      "error": "nba: empty parse despite nonempty official whitelist (No SportyTrader NBA picks parsed. | Diagnostics: listingPages=1 cards=0 officialMatchupCards=0.); mlb: empty parse despite nonempty official whitelist (No SportyTrader MLB picks parsed. | Diagnostics: listingPages=1 cards=0 officialMatchupCards=0.)",
-      "generatedAt": "2026-10-06T12:31:22.791826Z",
+      "errors": [],
+      "generatedAt": "2026-10-06T18:25:13.896649Z",
       "generatedBy": "github-actions:external-feed-refresh",
-      "lastAttemptAt": "2026-10-06T12:31:22.791826Z",
+      "lastAttemptAt": "2026-10-06T18:25:13.896649Z",
       "lastAttemptDate": "2026-10-06",
-      "lastError": "nba: empty parse despite nonempty official whitelist (No SportyTrader NBA picks parsed. | Diagnostics: listingPages=1 cards=0 officialMatchupCards=0.); mlb: empty parse despite nonempty official whitelist (No SportyTrader MLB picks parsed. | Diagnostics: listingPages=1 cards=0 officialMatchupCards=0.)",
+      "lastSuccessAt": "2026-10-06T18:25:13.896649Z",
       "meta": {
         "date": "2026-10-06",
         "feed": "sportytrader_wnba",
         "from": "github-actions",
         "leagues": "nba,mlb,wnba,cfb,nfl",
-        "matchedPicks": 0,
-        "missingMatchups": [],
         "officialMatchupCounts": {
           "cfb": 1,
           "mlb": 2,
           "nba": 4
         },
         "optionalErrors": [
+          "nba: empty parse despite nonempty official whitelist (No SportyTrader NBA picks parsed. | Diagnostics: listingPages=4 cards=0 officialMatchupCards=0.)",
           "cfb: empty parse despite nonempty official whitelist (No SportyTrader CFB picks parsed. | Diagnostics: listingPages=3 cards=0 officialMatchupCards=0.)"
         ],
         "pick_count": 0,
         "provider": "sportytrader",
         "sportErrors": {
-          "cfb": "cfb: empty parse despite nonempty official whitelist (No SportyTrader CFB picks parsed. | Diagnostics: listingPages=3 cards=0 officialMatchupCards=0.)"
+          "cfb": "cfb: empty parse despite nonempty official whitelist (No SportyTrader CFB picks parsed. | Diagnostics: listingPages=3 cards=0 officialMatchupCards=0.)",
+          "nba": "nba: empty parse despite nonempty official whitelist (No SportyTrader NBA picks parsed. | Diagnostics: listingPages=4 cards=0 officialMatchupCards=0.)"
         },
-        "updatedAt": "2026-10-06T12:31:22.791826Z",
+        "updatedAt": "2026-10-06T18:25:13.896649Z",
         "zeroSlateSports": [
           "wnba",
           "nfl"
         ]
       },
       "note": "Scheduled sportytrader_wnba refresh returned 0 pick(s).",
-      "ok": false,
+      "ok": true,
       "picks": [],
-      "refreshStatus": "error",
-      "updatedAt": "2026-10-06T12:31:22.791826Z"
+      "refreshStatus": "ok",
+      "updatedAt": "2026-10-06T18:25:13.896649Z"
     },
     "tennistonic_tennis": {
       "date": "2026-10-06",
-      "generatedAt": "2026-10-06T12:31:22.791826Z",
+      "generatedAt": "2026-10-06T18:25:13.896649Z",
       "generatedBy": "github-actions:external-feed-refresh",
-      "lastAttemptAt": "2026-10-06T12:31:22.791826Z",
+      "lastAttemptAt": "2026-10-06T18:25:13.896649Z",
       "lastAttemptDate": "2026-10-06",
-      "lastSuccessAt": "2026-10-06T12:31:22.791826Z",
+      "lastSuccessAt": "2026-10-06T18:25:13.896649Z",
       "meta": {
-        "attemptedUrls": 60,
+        "attemptedUrls": 58,
         "blockedUrls": 0,
         "date": "2026-10-06",
-        "expectedMatchups": 16,
+        "expectedMatchups": 8,
         "failedUrls": 0,
         "feed": "tennistonic_tennis",
         "from": "github-actions",
         "interrupted": false,
         "leagues": "nba,mlb,wnba,cfb,nfl",
-        "matchedPicks": 16,
+        "matchedPicks": 8,
         "missingMatchups": [],
-        "officialMatchups": 38,
+        "officialMatchups": 33,
         "timedOut": false,
         "unattemptedMatchups": [],
         "unavailableMatchups": [],
         "unpublishedMatchups": [
           "Jiri Lehecka vs Carlos Alcaraz",
+          "Alex de Minaur vs Novak Djokovic",
           "Naomi Osaka vs Karolina Muchova",
           "Nikola Bartunkova vs Sinja Kraus",
           "Ilia Simakin vs Te Rigele",
@@ -2260,46 +2377,19 @@
           "Mai Hontama vs Emerson Jones",
           "Tamara Korpatsch vs Lu Jia-Jing",
           "Ayla Aksu vs Emiliana Arango",
-          "Alicia Dudeney vs Antonia Ruzic",
           "Noma Noha Akugue vs Elena Micic",
-          "Alana Smith vs Bianca Andreescu",
-          "Caroline Werner vs Elvin Egribel",
-          "Ayla Aksu vs Alicia Dudeney"
+          "Alicia Dudeney vs Antonia Ruzic",
+          "Viktoria Hruncakova vs Aysegul Mert",
+          "Oksana Selekhmeteva vs Lola Radivojevic",
+          "Carole Monnet vs Lucrezia Stefanini",
+          "Melisa Ercan vs Simona Waltert",
+          "Alana Smith vs Bianca Andreescu"
         ],
-        "updatedAt": "2026-10-06T12:31:22.791826Z"
+        "updatedAt": "2026-10-06T18:25:13.896649Z"
       },
-      "note": "TennisTonic matched 16 tennis prediction(s) against 38 official 2026-10-06 singles matchup(s).",
+      "note": "TennisTonic matched 8 tennis prediction(s) against 33 official 2026-10-06 singles matchup(s).",
       "ok": true,
       "picks": [
-        {
-          "away_team": "Alex de Minaur",
-          "calibration_excluded": true,
-          "date": "2026-10-06",
-          "decision": "PASS",
-          "edge": null,
-          "espn_league": "atp",
-          "game": "Alex de Minaur vs Novak Djokovic",
-          "game_start_time": "2026-10-06T11:10Z",
-          "grade_supported": true,
-          "home_team": "Novak Djokovic",
-          "league": "ATP",
-          "market_type": "tennis_moneyline",
-          "matchup": "Alex de Minaur vs Novak Djokovic",
-          "odds": null,
-          "pick": "Novak Djokovic ML (Alex de Minaur vs Novak Djokovic)",
-          "probability": null,
-          "scraped_tip_demoted": true,
-          "selected_player": "Novak Djokovic",
-          "source": "TennisTonic",
-          "source_decision": "BET",
-          "source_units": 1,
-          "source_url": "https://tennistonic.com/head-to-head-compare/Alex-de-Minaur-Vs-Novak-Djokovic/",
-          "sport": "Tennis",
-          "start_time": "2026-10-06T11:10Z",
-          "tennis_sets_prediction": 3,
-          "tip": "Novak Djokovic to win",
-          "units": 0
-        },
         {
           "away_team": "Matteo Berrettini",
           "calibration_excluded": true,
@@ -2498,153 +2588,6 @@
           "units": 0
         },
         {
-          "away_team": "Viktoria Hruncakova",
-          "calibration_excluded": true,
-          "date": "2026-10-06",
-          "decision": "PASS",
-          "edge": null,
-          "espn_league": "wta",
-          "game": "Viktoria Hruncakova vs Aysegul Mert",
-          "game_start_time": "2026-10-06T10:30Z",
-          "grade_supported": true,
-          "home_team": "Aysegul Mert",
-          "league": "WTA",
-          "market_type": "tennis_moneyline",
-          "matchup": "Viktoria Hruncakova vs Aysegul Mert",
-          "odds": null,
-          "pick": "Viktoria Hruncakova ML (Viktoria Hruncakova vs Aysegul Mert)",
-          "probability": null,
-          "result": "win",
-          "scraped_tip_demoted": true,
-          "selected_player": "Viktoria Hruncakova",
-          "source": "TennisTonic",
-          "source_decision": "BET",
-          "source_units": 1,
-          "source_url": "https://tennistonic.com/head-to-head-compare/Viktoria-Hruncakova-Vs-Aysegul-Mert/",
-          "sport": "Tennis",
-          "start_time": "2026-10-06T10:30Z",
-          "tennis_sets_prediction": 2,
-          "tip": "Viktoria Hruncakova to win",
-          "units": 0
-        },
-        {
-          "away_team": "Oksana Selekhmeteva",
-          "calibration_excluded": true,
-          "date": "2026-10-06",
-          "decision": "PASS",
-          "edge": null,
-          "espn_league": "wta",
-          "game": "Oksana Selekhmeteva vs Lola Radivojevic",
-          "game_start_time": "2026-10-06T10:45Z",
-          "grade_supported": true,
-          "home_team": "Lola Radivojevic",
-          "league": "WTA",
-          "market_type": "tennis_moneyline",
-          "matchup": "Oksana Selekhmeteva vs Lola Radivojevic",
-          "odds": null,
-          "pick": "Oksana Selekhmeteva ML (Oksana Selekhmeteva vs Lola Radivojevic)",
-          "probability": null,
-          "result": "win",
-          "scraped_tip_demoted": true,
-          "selected_player": "Oksana Selekhmeteva",
-          "source": "TennisTonic",
-          "source_decision": "BET",
-          "source_units": 1,
-          "source_url": "https://tennistonic.com/head-to-head-compare/Oksana-Selekhmeteva-Vs-Lola-Radivojevic/",
-          "sport": "Tennis",
-          "start_time": "2026-10-06T10:45Z",
-          "tennis_sets_prediction": 3,
-          "tip": "Oksana Selekhmeteva to win",
-          "units": 0
-        },
-        {
-          "away_team": "Melisa Ercan",
-          "calibration_excluded": true,
-          "date": "2026-10-06",
-          "decision": "PASS",
-          "edge": null,
-          "espn_league": "wta",
-          "game": "Melisa Ercan vs Simona Waltert",
-          "game_start_time": "2026-10-06T13:30Z",
-          "grade_supported": true,
-          "home_team": "Simona Waltert",
-          "league": "WTA",
-          "market_type": "tennis_moneyline",
-          "matchup": "Melisa Ercan vs Simona Waltert",
-          "odds": null,
-          "pick": "Simona Waltert ML (Melisa Ercan vs Simona Waltert)",
-          "probability": null,
-          "scraped_tip_demoted": true,
-          "selected_player": "Simona Waltert",
-          "source": "TennisTonic",
-          "source_decision": "BET",
-          "source_units": 1,
-          "source_url": "https://tennistonic.com/head-to-head-compare/Melisa-Ercan-Vs-Simona-Waltert/",
-          "sport": "Tennis",
-          "start_time": "2026-10-06T13:30Z",
-          "tennis_sets_prediction": 2,
-          "tip": "Simona Waltert to win",
-          "units": 0
-        },
-        {
-          "away_team": "Carole Monnet",
-          "calibration_excluded": true,
-          "date": "2026-10-06",
-          "decision": "PASS",
-          "edge": null,
-          "espn_league": "wta",
-          "game": "Carole Monnet vs Lucrezia Stefanini",
-          "game_start_time": "2026-10-06T12:45Z",
-          "grade_supported": true,
-          "home_team": "Lucrezia Stefanini",
-          "league": "WTA",
-          "market_type": "tennis_moneyline",
-          "matchup": "Carole Monnet vs Lucrezia Stefanini",
-          "odds": null,
-          "pick": "Lucrezia Stefanini ML (Carole Monnet vs Lucrezia Stefanini)",
-          "probability": null,
-          "scraped_tip_demoted": true,
-          "selected_player": "Lucrezia Stefanini",
-          "source": "TennisTonic",
-          "source_decision": "BET",
-          "source_units": 1,
-          "source_url": "https://tennistonic.com/head-to-head-compare/Carole-Monnet-Vs-Lucrezia-Stefanini/",
-          "sport": "Tennis",
-          "start_time": "2026-10-06T12:45Z",
-          "tennis_sets_prediction": 2,
-          "tip": "Lucrezia Stefanini to win",
-          "units": 0
-        },
-        {
-          "away_team": "Anna Blinkova",
-          "calibration_excluded": true,
-          "date": "2026-10-06",
-          "decision": "PASS",
-          "edge": null,
-          "espn_league": "wta",
-          "game": "Anna Blinkova vs Elena Pridankina",
-          "game_start_time": "2026-10-06T14:30Z",
-          "grade_supported": true,
-          "home_team": "Elena Pridankina",
-          "league": "WTA",
-          "market_type": "tennis_moneyline",
-          "matchup": "Anna Blinkova vs Elena Pridankina",
-          "odds": null,
-          "pick": "Anna Blinkova ML (Anna Blinkova vs Elena Pridankina)",
-          "probability": null,
-          "scraped_tip_demoted": true,
-          "selected_player": "Anna Blinkova",
-          "source": "TennisTonic",
-          "source_decision": "BET",
-          "source_units": 1,
-          "source_url": "https://tennistonic.com/head-to-head-compare/Anna-Blinkova-Vs-Elena-Pridankina/",
-          "sport": "Tennis",
-          "start_time": "2026-10-06T14:30Z",
-          "tennis_sets_prediction": 3,
-          "tip": "Anna Blinkova to win",
-          "units": 0
-        },
-        {
           "away_team": "Linda Klimovicova",
           "calibration_excluded": true,
           "date": "2026-10-06",
@@ -2672,76 +2615,29 @@
           "tennis_sets_prediction": 2,
           "tip": "Linda Klimovicova to win",
           "units": 0
-        },
-        {
-          "away_team": "Mariam Bolkvadze",
-          "calibration_excluded": true,
-          "date": "2026-10-06",
-          "decision": "PASS",
-          "edge": null,
-          "espn_league": "wta",
-          "game": "Mariam Bolkvadze vs Leolia Jeanjean",
-          "game_start_time": "2026-10-07T04:00Z",
-          "grade_supported": true,
-          "home_team": "Leolia Jeanjean",
-          "league": "WTA",
-          "market_type": "tennis_moneyline",
-          "matchup": "Mariam Bolkvadze vs Leolia Jeanjean",
-          "odds": null,
-          "pick": "Leolia Jeanjean ML (Mariam Bolkvadze vs Leolia Jeanjean)",
-          "probability": null,
-          "scraped_tip_demoted": true,
-          "selected_player": "Leolia Jeanjean",
-          "source": "TennisTonic",
-          "source_decision": "BET",
-          "source_units": 1,
-          "source_url": "https://tennistonic.com/head-to-head-compare/Mariam-Bolkvadze-Vs-Leolia-Jeanjean/",
-          "sport": "Tennis",
-          "start_time": "2026-10-07T04:00Z",
-          "tennis_sets_prediction": 3,
-          "tip": "Leolia Jeanjean to win",
-          "units": 0
-        },
-        {
-          "away_team": "Dalma Galfi",
-          "calibration_excluded": true,
-          "date": "2026-10-06",
-          "decision": "PASS",
-          "edge": null,
-          "espn_league": "wta",
-          "game": "Dalma Galfi vs Polina Iatcenko",
-          "grade_supported": true,
-          "home_team": "Polina Iatcenko",
-          "league": "WTA",
-          "market_type": "tennis_moneyline",
-          "matchup": "Dalma Galfi vs Polina Iatcenko",
-          "odds": null,
-          "pick": "Dalma Galfi ML (Dalma Galfi vs Polina Iatcenko)",
-          "probability": null,
-          "scraped_tip_demoted": true,
-          "selected_player": "Dalma Galfi",
-          "source": "TennisTonic",
-          "source_decision": "BET",
-          "source_units": 1,
-          "source_url": "https://tennistonic.com/head-to-head-compare/Dalma-Galfi-Vs-Polina-Iatcenko/",
-          "sport": "Tennis",
-          "start_time": "2026-10-07T04:00Z",
-          "tennis_sets_prediction": 3,
-          "tip": "Dalma Galfi to win",
-          "units": 0
         }
       ],
       "refreshStatus": "ok",
       "scraped_tip_feed": true,
-      "updatedAt": "2026-10-06T12:31:22.791826Z"
+      "updatedAt": "2026-10-06T18:25:13.896649Z"
     }
   },
   "forebet_cfb": {
     "date": "2026-10-06",
     "generatedAt": "2026-10-06T12:37:35.117123Z",
     "generatedBy": "local:external-feed-refresh",
-    "lastAttemptAt": "2026-10-06T12:37:35.117123Z",
+    "lastAttemptAt": "2026-10-06T18:25:13.896649Z",
     "lastAttemptDate": "2026-10-06",
+    "lastAttemptMeta": {
+      "blockedUrl": "https://www.forebet.com/en/american-football/usa/ncaa",
+      "blockedUrls": 1,
+      "matchedPicks": 0,
+      "missingMatchups": [
+        "Southern Miss Golden Eagles @ Troy Trojans"
+      ],
+      "officialMatchups": 1
+    },
+    "lastError": "ForebetCFB: listing fetch blocked by Cloudflare",
     "lastSuccessAt": "2026-10-06T12:37:35.117123Z",
     "meta": {
       "attemptedUrls": 1,
@@ -2759,7 +2655,7 @@
       "updatedAt": "2026-10-06T12:37:35.117123Z"
     },
     "note": "ForebetCFB matched 1 published prediction(s) against 1 official 2026-10-06 matchup(s).",
-    "ok": true,
+    "ok": false,
     "picks": [
       {
         "away_team": "Southern Miss Golden Eagles",
@@ -2788,7 +2684,7 @@
         "units": 0
       }
     ],
-    "refreshStatus": "ok",
+    "refreshStatus": "error",
     "scraped_tip_feed": true,
     "updatedAt": "2026-10-06T12:37:35.117123Z"
   },
@@ -2796,8 +2692,19 @@
     "date": "2026-10-06",
     "generatedAt": "2026-10-06T12:36:53.541866Z",
     "generatedBy": "local:external-feed-refresh",
-    "lastAttemptAt": "2026-10-06T12:36:53.541866Z",
+    "lastAttemptAt": "2026-10-06T18:25:13.896649Z",
     "lastAttemptDate": "2026-10-06",
+    "lastAttemptMeta": {
+      "blockedUrl": "https://www.forebet.com/en/baseball/usa/mlb",
+      "blockedUrls": 1,
+      "matchedPicks": 0,
+      "missingMatchups": [
+        "Los Angeles Dodgers @ Atlanta Braves",
+        "Milwaukee Brewers @ San Diego Padres"
+      ],
+      "officialMatchups": 2
+    },
+    "lastError": "ForebetMLB: listing fetch blocked by Cloudflare",
     "lastSuccessAt": "2026-10-06T12:36:53.541866Z",
     "meta": {
       "attemptedUrls": 1,
@@ -2815,7 +2722,7 @@
       "updatedAt": "2026-10-06T12:36:53.541866Z"
     },
     "note": "ForebetMLB matched 2 published prediction(s) against 2 official 2026-10-06 matchup(s).",
-    "ok": true,
+    "ok": false,
     "picks": [
       {
         "away_team": "Los Angeles Dodgers",
@@ -2870,7 +2777,7 @@
         "units": 0
       }
     ],
-    "refreshStatus": "ok",
+    "refreshStatus": "error",
     "scraped_tip_feed": true,
     "updatedAt": "2026-10-06T12:36:53.541866Z"
   },
@@ -2878,8 +2785,18 @@
     "date": "2026-10-06",
     "generatedAt": "2026-10-06T12:37:26.183994Z",
     "generatedBy": "local:external-feed-refresh",
-    "lastAttemptAt": "2026-10-06T12:37:26.183994Z",
+    "lastAttemptAt": "2026-10-06T18:25:13.896649Z",
     "lastAttemptDate": "2026-10-06",
+    "lastAttemptMeta": {
+      "blockedUrl": "https://www.forebet.com/en/football-tips-and-predictions-for-usa/mls",
+      "blockedUrls": 1,
+      "matchedPicks": 0,
+      "missingMatchups": [
+        "Vancouver Whitecaps @ Chicago Fire FC"
+      ],
+      "officialMatchups": 1
+    },
+    "lastError": "ForebetMLS: listing fetch blocked by Cloudflare",
     "lastSuccessAt": "2026-10-06T12:37:26.183994Z",
     "meta": {
       "attemptedUrls": 1,
@@ -2897,7 +2814,7 @@
       "updatedAt": "2026-10-06T12:37:26.183994Z"
     },
     "note": "ForebetMLS matched 1 published prediction(s) against 1 official 2026-10-06 matchup(s).",
-    "ok": true,
+    "ok": false,
     "picks": [
       {
         "away_team": "Vancouver Whitecaps",
@@ -2929,7 +2846,7 @@
         "units": 0
       }
     ],
-    "refreshStatus": "ok",
+    "refreshStatus": "error",
     "scraped_tip_feed": true,
     "updatedAt": "2026-10-06T12:37:26.183994Z"
   },
@@ -2937,8 +2854,21 @@
     "date": "2026-10-06",
     "generatedAt": "2026-10-06T12:38:06.130096Z",
     "generatedBy": "local:external-feed-refresh",
-    "lastAttemptAt": "2026-10-06T12:38:06.130096Z",
+    "lastAttemptAt": "2026-10-06T18:25:13.896649Z",
     "lastAttemptDate": "2026-10-06",
+    "lastAttemptMeta": {
+      "blockedUrl": "https://www.forebet.com/en/basketball/usa/nba",
+      "blockedUrls": 1,
+      "matchedPicks": 0,
+      "missingMatchups": [
+        "Brooklyn Nets @ Charlotte Hornets",
+        "New Orleans Pelicans @ Oklahoma City Thunder",
+        "Denver Nuggets @ Utah Jazz",
+        "Los Angeles Lakers @ Golden State Warriors"
+      ],
+      "officialMatchups": 4
+    },
+    "lastError": "ForebetNBA: listing fetch blocked by Cloudflare",
     "lastSuccessAt": "2026-10-06T12:38:06.130096Z",
     "meta": {
       "attemptedUrls": 1,
@@ -2956,7 +2886,7 @@
       "updatedAt": "2026-10-06T12:38:06.130096Z"
     },
     "note": "ForebetNBA matched 4 published prediction(s) against 4 official 2026-10-06 matchup(s).",
-    "ok": true,
+    "ok": false,
     "picks": [
       {
         "away_team": "Brooklyn Nets",
@@ -3063,43 +2993,61 @@
         "units": 0
       }
     ],
-    "refreshStatus": "ok",
+    "refreshStatus": "error",
     "scraped_tip_feed": true,
     "updatedAt": "2026-10-06T12:38:06.130096Z"
   },
   "forebet_nfl": {
     "date": "2026-10-06",
-    "generatedAt": "2026-10-06T12:37:49.472093Z",
-    "generatedBy": "local:external-feed-refresh",
-    "lastAttemptAt": "2026-10-06T12:37:49.472093Z",
+    "generatedAt": "2026-10-06T18:25:13.896649Z",
+    "generatedBy": "github-actions:external-feed-refresh",
+    "lastAttemptAt": "2026-10-06T18:25:13.896649Z",
     "lastAttemptDate": "2026-10-06",
-    "lastSuccessAt": "2026-10-06T12:37:49.472093Z",
+    "lastSuccessAt": "2026-10-06T18:25:13.896649Z",
     "meta": {
       "attemptedUrls": 0,
       "blockedUrls": 0,
       "date": "2026-10-06",
       "expectedMatchups": 0,
       "feed": "forebet_nfl",
-      "from": "local",
-      "leagues": "mlb,wnba,mls,cfb,nfl",
+      "from": "github-actions",
+      "leagues": "nba,mlb,wnba,cfb,nfl",
       "matchedPicks": 0,
       "missingMatchups": [],
       "officialMatchups": 0,
       "unpublishedMatchups": [],
-      "updatedAt": "2026-10-06T12:37:49.472093Z"
+      "updatedAt": "2026-10-06T18:25:13.896649Z"
     },
     "note": "ForebetNFL has no official 2026-10-06 matchups.",
     "ok": true,
     "picks": [],
     "refreshStatus": "ok",
-    "updatedAt": "2026-10-06T12:37:49.472093Z"
+    "updatedAt": "2026-10-06T18:25:13.896649Z"
   },
   "forebet_nhl": {
     "date": "2026-10-06",
     "generatedAt": "2026-10-06T12:37:56.281510Z",
     "generatedBy": "local:external-feed-refresh",
-    "lastAttemptAt": "2026-10-06T12:37:56.281510Z",
+    "lastAttemptAt": "2026-10-06T18:25:13.896649Z",
     "lastAttemptDate": "2026-10-06",
+    "lastAttemptMeta": {
+      "blockedUrl": "https://www.forebet.com/en/hockey/usa/nhl",
+      "blockedUrls": 1,
+      "matchedPicks": 0,
+      "missingMatchups": [
+        "Carolina Hurricanes @ Montreal Canadiens",
+        "Nashville Predators @ Toronto Maple Leafs",
+        "Ottawa Senators @ Detroit Red Wings",
+        "Utah Mammoth @ New Jersey Devils",
+        "Minnesota Wild @ Buffalo Sabres",
+        "New York Islanders @ New York Rangers",
+        "St. Louis Blues @ Chicago Blackhawks",
+        "Vegas Golden Knights @ Seattle Kraken",
+        "Florida Panthers @ Los Angeles Kings"
+      ],
+      "officialMatchups": 9
+    },
+    "lastError": "ForebetNHL: listing fetch blocked by Cloudflare",
     "lastSuccessAt": "2026-10-06T12:37:56.281510Z",
     "meta": {
       "attemptedUrls": 1,
@@ -3117,7 +3065,7 @@
       "updatedAt": "2026-10-06T12:37:56.281510Z"
     },
     "note": "ForebetNHL matched 9 published prediction(s) against 9 official 2026-10-06 matchup(s).",
-    "ok": true,
+    "ok": false,
     "picks": [
       {
         "away_team": "Carolina Hurricanes",
@@ -3354,36 +3302,36 @@
         "units": 0
       }
     ],
-    "refreshStatus": "ok",
+    "refreshStatus": "error",
     "scraped_tip_feed": true,
     "updatedAt": "2026-10-06T12:37:56.281510Z"
   },
   "forebet_wnba": {
     "date": "2026-10-06",
-    "generatedAt": "2026-10-06T12:37:19.366070Z",
-    "generatedBy": "local:external-feed-refresh",
-    "lastAttemptAt": "2026-10-06T12:37:19.366070Z",
+    "generatedAt": "2026-10-06T18:25:13.896649Z",
+    "generatedBy": "github-actions:external-feed-refresh",
+    "lastAttemptAt": "2026-10-06T18:25:13.896649Z",
     "lastAttemptDate": "2026-10-06",
-    "lastSuccessAt": "2026-10-06T12:37:19.366070Z",
+    "lastSuccessAt": "2026-10-06T18:25:13.896649Z",
     "meta": {
       "attemptedUrls": 0,
       "blockedUrls": 0,
       "date": "2026-10-06",
       "expectedMatchups": 0,
       "feed": "forebet_wnba",
-      "from": "local",
-      "leagues": "mlb,wnba,mls,cfb,nfl",
+      "from": "github-actions",
+      "leagues": "nba,mlb,wnba,cfb,nfl",
       "matchedPicks": 0,
       "missingMatchups": [],
       "officialMatchups": 0,
       "unpublishedMatchups": [],
-      "updatedAt": "2026-10-06T12:37:19.366070Z"
+      "updatedAt": "2026-10-06T18:25:13.896649Z"
     },
     "note": "ForebetWNBA has no official 2026-10-06 matchups.",
     "ok": true,
     "picks": [],
     "refreshStatus": "ok",
-    "updatedAt": "2026-10-06T12:37:19.366070Z"
+    "updatedAt": "2026-10-06T18:25:13.896649Z"
   },
   "generatedAt": "2026-10-06T18:23:01.460128Z",
   "generatedBy": "github-actions:model-cache-refresh",
@@ -8504,8 +8452,18 @@
       "date": "2026-10-06",
       "generatedAt": "2026-10-06T12:37:35.117123Z",
       "generatedBy": "local:external-feed-refresh",
-      "lastAttemptAt": "2026-10-06T12:37:35.117123Z",
+      "lastAttemptAt": "2026-10-06T18:25:13.896649Z",
       "lastAttemptDate": "2026-10-06",
+      "lastAttemptMeta": {
+        "blockedUrl": "https://www.forebet.com/en/american-football/usa/ncaa",
+        "blockedUrls": 1,
+        "matchedPicks": 0,
+        "missingMatchups": [
+          "Southern Miss Golden Eagles @ Troy Trojans"
+        ],
+        "officialMatchups": 1
+      },
+      "lastError": "ForebetCFB: listing fetch blocked by Cloudflare",
       "lastSuccessAt": "2026-10-06T12:37:35.117123Z",
       "meta": {
         "attemptedUrls": 1,
@@ -8523,7 +8481,7 @@
         "updatedAt": "2026-10-06T12:37:35.117123Z"
       },
       "note": "ForebetCFB matched 1 published prediction(s) against 1 official 2026-10-06 matchup(s).",
-      "ok": true,
+      "ok": false,
       "picks": [
         {
           "away_team": "Southern Miss Golden Eagles",
@@ -8606,7 +8564,7 @@
           "units": 0.0
         }
       ],
-      "refreshStatus": "ok",
+      "refreshStatus": "error",
       "scraped_tip_feed": true,
       "updatedAt": "2026-10-06T12:37:35.117123Z"
     },
@@ -8614,8 +8572,19 @@
       "date": "2026-10-06",
       "generatedAt": "2026-10-06T12:36:53.541866Z",
       "generatedBy": "local:external-feed-refresh",
-      "lastAttemptAt": "2026-10-06T12:36:53.541866Z",
+      "lastAttemptAt": "2026-10-06T18:25:13.896649Z",
       "lastAttemptDate": "2026-10-06",
+      "lastAttemptMeta": {
+        "blockedUrl": "https://www.forebet.com/en/baseball/usa/mlb",
+        "blockedUrls": 1,
+        "matchedPicks": 0,
+        "missingMatchups": [
+          "Los Angeles Dodgers @ Atlanta Braves",
+          "Milwaukee Brewers @ San Diego Padres"
+        ],
+        "officialMatchups": 2
+      },
+      "lastError": "ForebetMLB: listing fetch blocked by Cloudflare",
       "lastSuccessAt": "2026-10-06T12:36:53.541866Z",
       "meta": {
         "attemptedUrls": 1,
@@ -8633,7 +8602,7 @@
         "updatedAt": "2026-10-06T12:36:53.541866Z"
       },
       "note": "ForebetMLB matched 2 published prediction(s) against 2 official 2026-10-06 matchup(s).",
-      "ok": true,
+      "ok": false,
       "picks": [
         {
           "away_team": "Los Angeles Dodgers",
@@ -8796,7 +8765,7 @@
           "units": 0.0
         }
       ],
-      "refreshStatus": "ok",
+      "refreshStatus": "error",
       "scraped_tip_feed": true,
       "updatedAt": "2026-10-06T12:36:53.541866Z"
     },
@@ -8804,8 +8773,18 @@
       "date": "2026-10-06",
       "generatedAt": "2026-10-06T12:37:26.183994Z",
       "generatedBy": "local:external-feed-refresh",
-      "lastAttemptAt": "2026-10-06T12:37:26.183994Z",
+      "lastAttemptAt": "2026-10-06T18:25:13.896649Z",
       "lastAttemptDate": "2026-10-06",
+      "lastAttemptMeta": {
+        "blockedUrl": "https://www.forebet.com/en/football-tips-and-predictions-for-usa/mls",
+        "blockedUrls": 1,
+        "matchedPicks": 0,
+        "missingMatchups": [
+          "Vancouver Whitecaps @ Chicago Fire FC"
+        ],
+        "officialMatchups": 1
+      },
+      "lastError": "ForebetMLS: listing fetch blocked by Cloudflare",
       "lastSuccessAt": "2026-10-06T12:37:26.183994Z",
       "meta": {
         "attemptedUrls": 1,
@@ -8823,7 +8802,7 @@
         "updatedAt": "2026-10-06T12:37:26.183994Z"
       },
       "note": "ForebetMLS matched 1 published prediction(s) against 1 official 2026-10-06 matchup(s).",
-      "ok": true,
+      "ok": false,
       "picks": [
         {
           "away_team": "Vancouver Whitecaps",
@@ -8862,7 +8841,7 @@
           "units": 0
         }
       ],
-      "refreshStatus": "ok",
+      "refreshStatus": "error",
       "scraped_tip_feed": true,
       "updatedAt": "2026-10-06T12:37:26.183994Z"
     },
@@ -8870,8 +8849,21 @@
       "date": "2026-10-06",
       "generatedAt": "2026-10-06T12:38:06.130096Z",
       "generatedBy": "local:external-feed-refresh",
-      "lastAttemptAt": "2026-10-06T12:38:06.130096Z",
+      "lastAttemptAt": "2026-10-06T18:25:13.896649Z",
       "lastAttemptDate": "2026-10-06",
+      "lastAttemptMeta": {
+        "blockedUrl": "https://www.forebet.com/en/basketball/usa/nba",
+        "blockedUrls": 1,
+        "matchedPicks": 0,
+        "missingMatchups": [
+          "Brooklyn Nets @ Charlotte Hornets",
+          "New Orleans Pelicans @ Oklahoma City Thunder",
+          "Denver Nuggets @ Utah Jazz",
+          "Los Angeles Lakers @ Golden State Warriors"
+        ],
+        "officialMatchups": 4
+      },
+      "lastError": "ForebetNBA: listing fetch blocked by Cloudflare",
       "lastSuccessAt": "2026-10-06T12:38:06.130096Z",
       "meta": {
         "attemptedUrls": 1,
@@ -8889,7 +8881,7 @@
         "updatedAt": "2026-10-06T12:38:06.130096Z"
       },
       "note": "ForebetNBA matched 4 published prediction(s) against 4 official 2026-10-06 matchup(s).",
-      "ok": true,
+      "ok": false,
       "picks": [
         {
           "away_team": "Brooklyn Nets",
@@ -9212,43 +9204,61 @@
           "units": 0.0
         }
       ],
-      "refreshStatus": "ok",
+      "refreshStatus": "error",
       "scraped_tip_feed": true,
       "updatedAt": "2026-10-06T12:38:06.130096Z"
     },
     "forebet_nfl": {
       "date": "2026-10-06",
-      "generatedAt": "2026-10-06T12:37:49.472093Z",
-      "generatedBy": "local:external-feed-refresh",
-      "lastAttemptAt": "2026-10-06T12:37:49.472093Z",
+      "generatedAt": "2026-10-06T18:25:13.896649Z",
+      "generatedBy": "github-actions:external-feed-refresh",
+      "lastAttemptAt": "2026-10-06T18:25:13.896649Z",
       "lastAttemptDate": "2026-10-06",
-      "lastSuccessAt": "2026-10-06T12:37:49.472093Z",
+      "lastSuccessAt": "2026-10-06T18:25:13.896649Z",
       "meta": {
         "attemptedUrls": 0,
         "blockedUrls": 0,
         "date": "2026-10-06",
         "expectedMatchups": 0,
         "feed": "forebet_nfl",
-        "from": "local",
-        "leagues": "mlb,wnba,mls,cfb,nfl",
+        "from": "github-actions",
+        "leagues": "nba,mlb,wnba,cfb,nfl",
         "matchedPicks": 0,
         "missingMatchups": [],
         "officialMatchups": 0,
         "unpublishedMatchups": [],
-        "updatedAt": "2026-10-06T12:37:49.472093Z"
+        "updatedAt": "2026-10-06T18:25:13.896649Z"
       },
       "note": "ForebetNFL has no official 2026-10-06 matchups.",
       "ok": true,
       "picks": [],
       "refreshStatus": "ok",
-      "updatedAt": "2026-10-06T12:37:49.472093Z"
+      "updatedAt": "2026-10-06T18:25:13.896649Z"
     },
     "forebet_nhl": {
       "date": "2026-10-06",
       "generatedAt": "2026-10-06T12:37:56.281510Z",
       "generatedBy": "local:external-feed-refresh",
-      "lastAttemptAt": "2026-10-06T12:37:56.281510Z",
+      "lastAttemptAt": "2026-10-06T18:25:13.896649Z",
       "lastAttemptDate": "2026-10-06",
+      "lastAttemptMeta": {
+        "blockedUrl": "https://www.forebet.com/en/hockey/usa/nhl",
+        "blockedUrls": 1,
+        "matchedPicks": 0,
+        "missingMatchups": [
+          "Carolina Hurricanes @ Montreal Canadiens",
+          "Nashville Predators @ Toronto Maple Leafs",
+          "Ottawa Senators @ Detroit Red Wings",
+          "Utah Mammoth @ New Jersey Devils",
+          "Minnesota Wild @ Buffalo Sabres",
+          "New York Islanders @ New York Rangers",
+          "St. Louis Blues @ Chicago Blackhawks",
+          "Vegas Golden Knights @ Seattle Kraken",
+          "Florida Panthers @ Los Angeles Kings"
+        ],
+        "officialMatchups": 9
+      },
+      "lastError": "ForebetNHL: listing fetch blocked by Cloudflare",
       "lastSuccessAt": "2026-10-06T12:37:56.281510Z",
       "meta": {
         "attemptedUrls": 1,
@@ -9266,7 +9276,7 @@
         "updatedAt": "2026-10-06T12:37:56.281510Z"
       },
       "note": "ForebetNHL matched 9 published prediction(s) against 9 official 2026-10-06 matchup(s).",
-      "ok": true,
+      "ok": false,
       "picks": [
         {
           "away_team": "Carolina Hurricanes",
@@ -9575,36 +9585,36 @@
           "units": 0
         }
       ],
-      "refreshStatus": "ok",
+      "refreshStatus": "error",
       "scraped_tip_feed": true,
       "updatedAt": "2026-10-06T12:37:56.281510Z"
     },
     "forebet_wnba": {
       "date": "2026-10-06",
-      "generatedAt": "2026-10-06T12:37:19.366070Z",
-      "generatedBy": "local:external-feed-refresh",
-      "lastAttemptAt": "2026-10-06T12:37:19.366070Z",
+      "generatedAt": "2026-10-06T18:25:13.896649Z",
+      "generatedBy": "github-actions:external-feed-refresh",
+      "lastAttemptAt": "2026-10-06T18:25:13.896649Z",
       "lastAttemptDate": "2026-10-06",
-      "lastSuccessAt": "2026-10-06T12:37:19.366070Z",
+      "lastSuccessAt": "2026-10-06T18:25:13.896649Z",
       "meta": {
         "attemptedUrls": 0,
         "blockedUrls": 0,
         "date": "2026-10-06",
         "expectedMatchups": 0,
         "feed": "forebet_wnba",
-        "from": "local",
-        "leagues": "mlb,wnba,mls,cfb,nfl",
+        "from": "github-actions",
+        "leagues": "nba,mlb,wnba,cfb,nfl",
         "matchedPicks": 0,
         "missingMatchups": [],
         "officialMatchups": 0,
         "unpublishedMatchups": [],
-        "updatedAt": "2026-10-06T12:37:19.366070Z"
+        "updatedAt": "2026-10-06T18:25:13.896649Z"
       },
       "note": "ForebetWNBA has no official 2026-10-06 matchups.",
       "ok": true,
       "picks": [],
       "refreshStatus": "ok",
-      "updatedAt": "2026-10-06T12:37:19.366070Z"
+      "updatedAt": "2026-10-06T18:25:13.896649Z"
     },
     "mlb_first_five": {
       "consensus_gate_version": "mlb_team_consensus_v1.2.0",
@@ -68696,9 +68706,12 @@
     "sportsgambler_cfb": {
       "date": "2026-10-06",
       "error": "cfb: empty parse despite nonempty official whitelist (No picks found.)",
-      "generatedAt": "2026-10-06T12:31:22.791826Z",
+      "errors": [
+        "cfb: empty parse despite nonempty official whitelist (No picks found.)"
+      ],
+      "generatedAt": "2026-10-06T18:25:13.896649Z",
       "generatedBy": "github-actions:external-feed-refresh",
-      "lastAttemptAt": "2026-10-06T12:31:22.791826Z",
+      "lastAttemptAt": "2026-10-06T18:25:13.896649Z",
       "lastAttemptDate": "2026-10-06",
       "lastError": "cfb: empty parse despite nonempty official whitelist (No picks found.)",
       "meta": {
@@ -68714,14 +68727,16 @@
           "nba": 4
         },
         "optionalErrors": [
+          "nba: empty parse despite nonempty official whitelist (No picks found.)",
           "cfb: empty parse despite nonempty official whitelist (No picks found.)"
         ],
         "pick_count": 0,
         "provider": "sportsgambler",
         "sportErrors": {
-          "cfb": "cfb: empty parse despite nonempty official whitelist (No picks found.)"
+          "cfb": "cfb: empty parse despite nonempty official whitelist (No picks found.)",
+          "nba": "nba: empty parse despite nonempty official whitelist (No picks found.)"
         },
-        "updatedAt": "2026-10-06T12:31:22.791826Z",
+        "updatedAt": "2026-10-06T18:25:13.896649Z",
         "zeroSlateSports": [
           "wnba",
           "nfl"
@@ -68731,44 +68746,44 @@
       "ok": false,
       "picks": [],
       "refreshStatus": "error",
-      "updatedAt": "2026-10-06T12:31:22.791826Z"
+      "updatedAt": "2026-10-06T18:25:13.896649Z"
     },
     "sportsgambler_mlb": {
       "date": "2026-10-06",
-      "error": "nba: empty parse despite nonempty official whitelist (No picks found.)",
-      "generatedAt": "2026-10-06T12:31:22.791826Z",
+      "errors": [],
+      "generatedAt": "2026-10-06T18:25:13.896649Z",
       "generatedBy": "github-actions:external-feed-refresh",
-      "lastAttemptAt": "2026-10-06T12:31:22.791826Z",
+      "lastAttemptAt": "2026-10-06T18:25:13.896649Z",
       "lastAttemptDate": "2026-10-06",
-      "lastError": "nba: empty parse despite nonempty official whitelist (No picks found.)",
+      "lastSuccessAt": "2026-10-06T18:25:13.896649Z",
       "meta": {
         "date": "2026-10-06",
         "feed": "sportsgambler_mlb",
         "from": "github-actions",
         "leagues": "nba,mlb,wnba,cfb,nfl",
-        "matchedPicks": 2,
-        "missingMatchups": [],
         "officialMatchupCounts": {
           "cfb": 1,
           "mlb": 2,
           "nba": 4
         },
         "optionalErrors": [
+          "nba: empty parse despite nonempty official whitelist (No picks found.)",
           "cfb: empty parse despite nonempty official whitelist (No picks found.)"
         ],
         "pick_count": 2,
         "provider": "sportsgambler",
         "sportErrors": {
-          "cfb": "cfb: empty parse despite nonempty official whitelist (No picks found.)"
+          "cfb": "cfb: empty parse despite nonempty official whitelist (No picks found.)",
+          "nba": "nba: empty parse despite nonempty official whitelist (No picks found.)"
         },
-        "updatedAt": "2026-10-06T12:31:22.791826Z",
+        "updatedAt": "2026-10-06T18:25:13.896649Z",
         "zeroSlateSports": [
           "wnba",
           "nfl"
         ]
       },
       "note": "Scheduled sportsgambler_mlb refresh returned 2 pick(s).",
-      "ok": false,
+      "ok": true,
       "picks": [
         {
           "date": "2026-10-06",
@@ -68867,16 +68882,16 @@
           "units": 0
         }
       ],
-      "refreshStatus": "error",
+      "refreshStatus": "ok",
       "scraped_tip_feed": true,
-      "updatedAt": "2026-10-06T12:31:22.791826Z"
+      "updatedAt": "2026-10-06T18:25:13.896649Z"
     },
     "sportsgambler_nba": {
       "date": "2026-10-02",
       "errors": [],
       "generatedAt": "2026-10-02T18:29:53.562634Z",
       "generatedBy": "github-actions:external-feed-refresh",
-      "lastAttemptAt": "2026-10-06T12:31:22.791826Z",
+      "lastAttemptAt": "2026-10-06T18:25:13.896649Z",
       "lastAttemptDate": "2026-10-06",
       "lastError": "nba: empty parse despite nonempty official whitelist (No picks found.)",
       "lastSuccessAt": "2026-10-02T18:29:53.562634Z",
@@ -68901,97 +68916,100 @@
         ]
       },
       "note": "Scheduled sportsgambler_nba refresh returned 0 pick(s).",
-      "ok": true,
+      "ok": false,
       "picks": [],
       "refreshStatus": "error",
       "updatedAt": "2026-10-02T18:29:53.562634Z"
     },
     "sportsgambler_nfl": {
       "date": "2026-10-06",
-      "error": "nba: empty parse despite nonempty official whitelist (No picks found.)",
-      "generatedAt": "2026-10-06T12:31:22.791826Z",
+      "errors": [],
+      "generatedAt": "2026-10-06T18:25:13.896649Z",
       "generatedBy": "github-actions:external-feed-refresh",
-      "lastAttemptAt": "2026-10-06T12:31:22.791826Z",
+      "lastAttemptAt": "2026-10-06T18:25:13.896649Z",
       "lastAttemptDate": "2026-10-06",
-      "lastError": "nba: empty parse despite nonempty official whitelist (No picks found.)",
+      "lastSuccessAt": "2026-10-06T18:25:13.896649Z",
       "meta": {
         "date": "2026-10-06",
         "feed": "sportsgambler_nfl",
         "from": "github-actions",
         "leagues": "nba,mlb,wnba,cfb,nfl",
-        "matchedPicks": 0,
-        "missingMatchups": [],
         "officialMatchupCounts": {
           "cfb": 1,
           "mlb": 2,
           "nba": 4
         },
         "optionalErrors": [
+          "nba: empty parse despite nonempty official whitelist (No picks found.)",
           "cfb: empty parse despite nonempty official whitelist (No picks found.)"
         ],
         "pick_count": 0,
         "provider": "sportsgambler",
         "sportErrors": {
-          "cfb": "cfb: empty parse despite nonempty official whitelist (No picks found.)"
+          "cfb": "cfb: empty parse despite nonempty official whitelist (No picks found.)",
+          "nba": "nba: empty parse despite nonempty official whitelist (No picks found.)"
         },
-        "updatedAt": "2026-10-06T12:31:22.791826Z",
+        "updatedAt": "2026-10-06T18:25:13.896649Z",
         "zeroSlateSports": [
           "wnba",
           "nfl"
         ]
       },
       "note": "Scheduled sportsgambler_nfl refresh returned 0 pick(s).",
-      "ok": false,
+      "ok": true,
       "picks": [],
-      "refreshStatus": "error",
-      "updatedAt": "2026-10-06T12:31:22.791826Z"
+      "refreshStatus": "ok",
+      "updatedAt": "2026-10-06T18:25:13.896649Z"
     },
     "sportsgambler_wnba": {
       "date": "2026-10-06",
-      "error": "nba: empty parse despite nonempty official whitelist (No picks found.)",
-      "generatedAt": "2026-10-06T12:31:22.791826Z",
+      "errors": [],
+      "generatedAt": "2026-10-06T18:25:13.896649Z",
       "generatedBy": "github-actions:external-feed-refresh",
-      "lastAttemptAt": "2026-10-06T12:31:22.791826Z",
+      "lastAttemptAt": "2026-10-06T18:25:13.896649Z",
       "lastAttemptDate": "2026-10-06",
-      "lastError": "nba: empty parse despite nonempty official whitelist (No picks found.)",
+      "lastSuccessAt": "2026-10-06T18:25:13.896649Z",
       "meta": {
         "date": "2026-10-06",
         "feed": "sportsgambler_wnba",
         "from": "github-actions",
         "leagues": "nba,mlb,wnba,cfb,nfl",
-        "matchedPicks": 0,
-        "missingMatchups": [],
         "officialMatchupCounts": {
           "cfb": 1,
           "mlb": 2,
           "nba": 4
         },
         "optionalErrors": [
+          "nba: empty parse despite nonempty official whitelist (No picks found.)",
           "cfb: empty parse despite nonempty official whitelist (No picks found.)"
         ],
         "pick_count": 0,
         "provider": "sportsgambler",
         "sportErrors": {
-          "cfb": "cfb: empty parse despite nonempty official whitelist (No picks found.)"
+          "cfb": "cfb: empty parse despite nonempty official whitelist (No picks found.)",
+          "nba": "nba: empty parse despite nonempty official whitelist (No picks found.)"
         },
-        "updatedAt": "2026-10-06T12:31:22.791826Z",
+        "updatedAt": "2026-10-06T18:25:13.896649Z",
         "zeroSlateSports": [
           "wnba",
           "nfl"
         ]
       },
       "note": "Scheduled sportsgambler_wnba refresh returned 0 pick(s).",
-      "ok": false,
+      "ok": true,
       "picks": [],
-      "refreshStatus": "error",
-      "updatedAt": "2026-10-06T12:31:22.791826Z"
+      "refreshStatus": "ok",
+      "updatedAt": "2026-10-06T18:25:13.896649Z"
     },
     "sportytrader_cfb": {
       "date": "2026-10-06",
       "error": "cfb: empty parse despite nonempty official whitelist (No SportyTrader CFB picks parsed. | Diagnostics: listingPages=3 cards=0 officialMatchupCards=0.)",
-      "generatedAt": "2026-10-06T12:31:22.791826Z",
+      "errors": [
+        "cfb: empty parse despite nonempty official whitelist (No SportyTrader CFB picks parsed. | Diagnostics: listingPages=3 cards=0 officialMatchupCards=0.)"
+      ],
+      "generatedAt": "2026-10-06T18:25:13.896649Z",
       "generatedBy": "github-actions:external-feed-refresh",
-      "lastAttemptAt": "2026-10-06T12:31:22.791826Z",
+      "lastAttemptAt": "2026-10-06T18:25:13.896649Z",
       "lastAttemptDate": "2026-10-06",
       "lastError": "cfb: empty parse despite nonempty official whitelist (No SportyTrader CFB picks parsed. | Diagnostics: listingPages=3 cards=0 officialMatchupCards=0.)",
       "meta": {
@@ -69007,14 +69025,16 @@
           "nba": 4
         },
         "optionalErrors": [
+          "nba: empty parse despite nonempty official whitelist (No SportyTrader NBA picks parsed. | Diagnostics: listingPages=4 cards=0 officialMatchupCards=0.)",
           "cfb: empty parse despite nonempty official whitelist (No SportyTrader CFB picks parsed. | Diagnostics: listingPages=3 cards=0 officialMatchupCards=0.)"
         ],
         "pick_count": 0,
         "provider": "sportytrader",
         "sportErrors": {
-          "cfb": "cfb: empty parse despite nonempty official whitelist (No SportyTrader CFB picks parsed. | Diagnostics: listingPages=3 cards=0 officialMatchupCards=0.)"
+          "cfb": "cfb: empty parse despite nonempty official whitelist (No SportyTrader CFB picks parsed. | Diagnostics: listingPages=3 cards=0 officialMatchupCards=0.)",
+          "nba": "nba: empty parse despite nonempty official whitelist (No SportyTrader NBA picks parsed. | Diagnostics: listingPages=4 cards=0 officialMatchupCards=0.)"
         },
-        "updatedAt": "2026-10-06T12:31:22.791826Z",
+        "updatedAt": "2026-10-06T18:25:13.896649Z",
         "zeroSlateSports": [
           "wnba",
           "nfl"
@@ -69024,56 +69044,156 @@
       "ok": false,
       "picks": [],
       "refreshStatus": "error",
-      "updatedAt": "2026-10-06T12:31:22.791826Z"
+      "updatedAt": "2026-10-06T18:25:13.896649Z"
     },
     "sportytrader_mlb": {
       "date": "2026-10-06",
-      "error": "nba: empty parse despite nonempty official whitelist (No SportyTrader NBA picks parsed. | Diagnostics: listingPages=1 cards=0 officialMatchupCards=0.); mlb: empty parse despite nonempty official whitelist (No SportyTrader MLB picks parsed. | Diagnostics: listingPages=1 cards=0 officialMatchupCards=0.)",
-      "generatedAt": "2026-10-06T12:31:22.791826Z",
+      "errors": [],
+      "generatedAt": "2026-10-06T18:25:13.896649Z",
       "generatedBy": "github-actions:external-feed-refresh",
-      "lastAttemptAt": "2026-10-06T12:31:22.791826Z",
+      "lastAttemptAt": "2026-10-06T18:25:13.896649Z",
       "lastAttemptDate": "2026-10-06",
-      "lastError": "nba: empty parse despite nonempty official whitelist (No SportyTrader NBA picks parsed. | Diagnostics: listingPages=1 cards=0 officialMatchupCards=0.); mlb: empty parse despite nonempty official whitelist (No SportyTrader MLB picks parsed. | Diagnostics: listingPages=1 cards=0 officialMatchupCards=0.)",
+      "lastSuccessAt": "2026-10-06T18:25:13.896649Z",
       "meta": {
         "date": "2026-10-06",
         "feed": "sportytrader_mlb",
         "from": "github-actions",
         "leagues": "nba,mlb,wnba,cfb,nfl",
-        "matchedPicks": 0,
-        "missingMatchups": [],
         "officialMatchupCounts": {
           "cfb": 1,
           "mlb": 2,
           "nba": 4
         },
         "optionalErrors": [
+          "nba: empty parse despite nonempty official whitelist (No SportyTrader NBA picks parsed. | Diagnostics: listingPages=4 cards=0 officialMatchupCards=0.)",
           "cfb: empty parse despite nonempty official whitelist (No SportyTrader CFB picks parsed. | Diagnostics: listingPages=3 cards=0 officialMatchupCards=0.)"
         ],
-        "pick_count": 0,
+        "pick_count": 2,
         "provider": "sportytrader",
         "sportErrors": {
-          "cfb": "cfb: empty parse despite nonempty official whitelist (No SportyTrader CFB picks parsed. | Diagnostics: listingPages=3 cards=0 officialMatchupCards=0.)"
+          "cfb": "cfb: empty parse despite nonempty official whitelist (No SportyTrader CFB picks parsed. | Diagnostics: listingPages=3 cards=0 officialMatchupCards=0.)",
+          "nba": "nba: empty parse despite nonempty official whitelist (No SportyTrader NBA picks parsed. | Diagnostics: listingPages=4 cards=0 officialMatchupCards=0.)"
         },
-        "updatedAt": "2026-10-06T12:31:22.791826Z",
+        "updatedAt": "2026-10-06T18:25:13.896649Z",
         "zeroSlateSports": [
           "wnba",
           "nfl"
         ]
       },
-      "note": "Scheduled sportytrader_mlb refresh returned 0 pick(s).",
-      "ok": false,
-      "picks": [],
-      "refreshStatus": "error",
-      "updatedAt": "2026-10-06T12:31:22.791826Z"
+      "note": "Scheduled sportytrader_mlb refresh returned 2 pick(s).",
+      "ok": true,
+      "picks": [
+        {
+          "date": "2026-10-06",
+          "decision": "PASS",
+          "edge": null,
+          "game": "Atlanta Braves vs Los Angeles Dodgers",
+          "market_line": 6.5,
+          "market_no_vig_selected_probability": 0.5,
+          "market_odds_captured_at": "2026-10-06T18:27:30.140132Z",
+          "market_odds_provider": "espn_scoreboard:DraftKings",
+          "market_over_odds": -110,
+          "market_under_odds": -110,
+          "market_updated_at": "2026-10-06T18:27:30.140132Z",
+          "matchup": "Atlanta Braves vs Los Angeles Dodgers",
+          "odds": -110,
+          "opposite_odds": -110,
+          "pick": "Under 6.5 (Braves vs Dodgers)",
+          "pregame_snapshot": {
+            "date": "2026-10-06",
+            "decision": "PASS",
+            "edge": null,
+            "game": "Atlanta Braves vs Los Angeles Dodgers",
+            "market_line": 6.5,
+            "market_no_vig_selected_probability": 0.5,
+            "market_odds_captured_at": "2026-10-06T18:27:30.140132Z",
+            "market_odds_provider": "espn_scoreboard:DraftKings",
+            "market_over_odds": -110,
+            "market_under_odds": -110,
+            "market_updated_at": "2026-10-06T18:27:30.140132Z",
+            "matchup": "Atlanta Braves vs Los Angeles Dodgers",
+            "odds": -110,
+            "opposite_odds": -110,
+            "pick": "Under 6.5 (Braves vs Dodgers)",
+            "probability": null,
+            "scraped_tip_demoted": true,
+            "selected_odds": -110,
+            "source": "SportyTraderMLB",
+            "source_decision": "BET",
+            "source_units": 1,
+            "sport": "MLB",
+            "units": 0
+          },
+          "probability": null,
+          "scraped_tip_demoted": true,
+          "selected_odds": -110,
+          "source": "SportyTraderMLB",
+          "source_decision": "BET",
+          "source_units": 1,
+          "sport": "MLB",
+          "units": 0
+        },
+        {
+          "date": "2026-10-06",
+          "decision": "PASS",
+          "edge": null,
+          "game": "San Diego Padres vs Milwaukee Brewers",
+          "market_away_odds": 118,
+          "market_home_odds": -142,
+          "market_no_vig_selected_probability": 0.561244,
+          "market_odds_captured_at": "2026-10-06T18:27:30.140132Z",
+          "market_odds_provider": "espn_scoreboard:DraftKings",
+          "market_updated_at": "2026-10-06T18:27:30.140132Z",
+          "matchup": "San Diego Padres vs Milwaukee Brewers",
+          "odds": -135,
+          "opposite_odds": 118,
+          "pick": "Padres ML (Padres vs Brewers)",
+          "pregame_snapshot": {
+            "date": "2026-10-06",
+            "decision": "PASS",
+            "edge": null,
+            "game": "San Diego Padres vs Milwaukee Brewers",
+            "market_away_odds": 118,
+            "market_home_odds": -142,
+            "market_no_vig_selected_probability": 0.561244,
+            "market_odds_captured_at": "2026-10-06T18:27:30.140132Z",
+            "market_odds_provider": "espn_scoreboard:DraftKings",
+            "market_updated_at": "2026-10-06T18:27:30.140132Z",
+            "matchup": "San Diego Padres vs Milwaukee Brewers",
+            "odds": -135,
+            "opposite_odds": 118,
+            "pick": "Padres ML (Padres vs Brewers)",
+            "probability": null,
+            "scraped_tip_demoted": true,
+            "selected_odds": -142,
+            "source": "SportyTraderMLB",
+            "source_decision": "BET",
+            "source_units": 1,
+            "sport": "MLB",
+            "units": 0
+          },
+          "probability": null,
+          "scraped_tip_demoted": true,
+          "selected_odds": -142,
+          "source": "SportyTraderMLB",
+          "source_decision": "BET",
+          "source_units": 1,
+          "sport": "MLB",
+          "units": 0
+        }
+      ],
+      "refreshStatus": "ok",
+      "scraped_tip_feed": true,
+      "updatedAt": "2026-10-06T18:25:13.896649Z"
     },
     "sportytrader_nba": {
       "date": "2026-10-02",
       "errors": [],
       "generatedAt": "2026-10-02T18:29:53.562634Z",
       "generatedBy": "github-actions:external-feed-refresh",
-      "lastAttemptAt": "2026-10-06T12:31:22.791826Z",
+      "lastAttemptAt": "2026-10-06T18:25:13.896649Z",
       "lastAttemptDate": "2026-10-06",
-      "lastError": "nba: empty parse despite nonempty official whitelist (No SportyTrader NBA picks parsed. | Diagnostics: listingPages=1 cards=0 officialMatchupCards=0.); mlb: empty parse despite nonempty official whitelist (No SportyTrader MLB picks parsed. | Diagnostics: listingPages=1 cards=0 officialMatchupCards=0.)",
+      "lastError": "nba: empty parse despite nonempty official whitelist (No SportyTrader NBA picks parsed. | Diagnostics: listingPages=4 cards=0 officialMatchupCards=0.)",
       "lastSuccessAt": "2026-10-02T18:29:53.562634Z",
       "meta": {
         "date": "2026-10-02",
@@ -69100,90 +69220,90 @@
         ]
       },
       "note": "Scheduled sportytrader_nba refresh returned 0 pick(s).",
-      "ok": true,
+      "ok": false,
       "picks": [],
       "refreshStatus": "error",
       "updatedAt": "2026-10-02T18:29:53.562634Z"
     },
     "sportytrader_nfl": {
       "date": "2026-10-06",
-      "error": "nba: empty parse despite nonempty official whitelist (No SportyTrader NBA picks parsed. | Diagnostics: listingPages=1 cards=0 officialMatchupCards=0.); mlb: empty parse despite nonempty official whitelist (No SportyTrader MLB picks parsed. | Diagnostics: listingPages=1 cards=0 officialMatchupCards=0.)",
-      "generatedAt": "2026-10-06T12:31:22.791826Z",
+      "errors": [],
+      "generatedAt": "2026-10-06T18:25:13.896649Z",
       "generatedBy": "github-actions:external-feed-refresh",
-      "lastAttemptAt": "2026-10-06T12:31:22.791826Z",
+      "lastAttemptAt": "2026-10-06T18:25:13.896649Z",
       "lastAttemptDate": "2026-10-06",
-      "lastError": "nba: empty parse despite nonempty official whitelist (No SportyTrader NBA picks parsed. | Diagnostics: listingPages=1 cards=0 officialMatchupCards=0.); mlb: empty parse despite nonempty official whitelist (No SportyTrader MLB picks parsed. | Diagnostics: listingPages=1 cards=0 officialMatchupCards=0.)",
+      "lastSuccessAt": "2026-10-06T18:25:13.896649Z",
       "meta": {
         "date": "2026-10-06",
         "feed": "sportytrader_nfl",
         "from": "github-actions",
         "leagues": "nba,mlb,wnba,cfb,nfl",
-        "matchedPicks": 0,
-        "missingMatchups": [],
         "officialMatchupCounts": {
           "cfb": 1,
           "mlb": 2,
           "nba": 4
         },
         "optionalErrors": [
+          "nba: empty parse despite nonempty official whitelist (No SportyTrader NBA picks parsed. | Diagnostics: listingPages=4 cards=0 officialMatchupCards=0.)",
           "cfb: empty parse despite nonempty official whitelist (No SportyTrader CFB picks parsed. | Diagnostics: listingPages=3 cards=0 officialMatchupCards=0.)"
         ],
         "pick_count": 0,
         "provider": "sportytrader",
         "sportErrors": {
-          "cfb": "cfb: empty parse despite nonempty official whitelist (No SportyTrader CFB picks parsed. | Diagnostics: listingPages=3 cards=0 officialMatchupCards=0.)"
+          "cfb": "cfb: empty parse despite nonempty official whitelist (No SportyTrader CFB picks parsed. | Diagnostics: listingPages=3 cards=0 officialMatchupCards=0.)",
+          "nba": "nba: empty parse despite nonempty official whitelist (No SportyTrader NBA picks parsed. | Diagnostics: listingPages=4 cards=0 officialMatchupCards=0.)"
         },
-        "updatedAt": "2026-10-06T12:31:22.791826Z",
+        "updatedAt": "2026-10-06T18:25:13.896649Z",
         "zeroSlateSports": [
           "wnba",
           "nfl"
         ]
       },
       "note": "Scheduled sportytrader_nfl refresh returned 0 pick(s).",
-      "ok": false,
+      "ok": true,
       "picks": [],
-      "refreshStatus": "error",
-      "updatedAt": "2026-10-06T12:31:22.791826Z"
+      "refreshStatus": "ok",
+      "updatedAt": "2026-10-06T18:25:13.896649Z"
     },
     "sportytrader_wnba": {
       "date": "2026-10-06",
-      "error": "nba: empty parse despite nonempty official whitelist (No SportyTrader NBA picks parsed. | Diagnostics: listingPages=1 cards=0 officialMatchupCards=0.); mlb: empty parse despite nonempty official whitelist (No SportyTrader MLB picks parsed. | Diagnostics: listingPages=1 cards=0 officialMatchupCards=0.)",
-      "generatedAt": "2026-10-06T12:31:22.791826Z",
+      "errors": [],
+      "generatedAt": "2026-10-06T18:25:13.896649Z",
       "generatedBy": "github-actions:external-feed-refresh",
-      "lastAttemptAt": "2026-10-06T12:31:22.791826Z",
+      "lastAttemptAt": "2026-10-06T18:25:13.896649Z",
       "lastAttemptDate": "2026-10-06",
-      "lastError": "nba: empty parse despite nonempty official whitelist (No SportyTrader NBA picks parsed. | Diagnostics: listingPages=1 cards=0 officialMatchupCards=0.); mlb: empty parse despite nonempty official whitelist (No SportyTrader MLB picks parsed. | Diagnostics: listingPages=1 cards=0 officialMatchupCards=0.)",
+      "lastSuccessAt": "2026-10-06T18:25:13.896649Z",
       "meta": {
         "date": "2026-10-06",
         "feed": "sportytrader_wnba",
         "from": "github-actions",
         "leagues": "nba,mlb,wnba,cfb,nfl",
-        "matchedPicks": 0,
-        "missingMatchups": [],
         "officialMatchupCounts": {
           "cfb": 1,
           "mlb": 2,
           "nba": 4
         },
         "optionalErrors": [
+          "nba: empty parse despite nonempty official whitelist (No SportyTrader NBA picks parsed. | Diagnostics: listingPages=4 cards=0 officialMatchupCards=0.)",
           "cfb: empty parse despite nonempty official whitelist (No SportyTrader CFB picks parsed. | Diagnostics: listingPages=3 cards=0 officialMatchupCards=0.)"
         ],
         "pick_count": 0,
         "provider": "sportytrader",
         "sportErrors": {
-          "cfb": "cfb: empty parse despite nonempty official whitelist (No SportyTrader CFB picks parsed. | Diagnostics: listingPages=3 cards=0 officialMatchupCards=0.)"
+          "cfb": "cfb: empty parse despite nonempty official whitelist (No SportyTrader CFB picks parsed. | Diagnostics: listingPages=3 cards=0 officialMatchupCards=0.)",
+          "nba": "nba: empty parse despite nonempty official whitelist (No SportyTrader NBA picks parsed. | Diagnostics: listingPages=4 cards=0 officialMatchupCards=0.)"
         },
-        "updatedAt": "2026-10-06T12:31:22.791826Z",
+        "updatedAt": "2026-10-06T18:25:13.896649Z",
         "zeroSlateSports": [
           "wnba",
           "nfl"
         ]
       },
       "note": "Scheduled sportytrader_wnba refresh returned 0 pick(s).",
-      "ok": false,
+      "ok": true,
       "picks": [],
-      "refreshStatus": "error",
-      "updatedAt": "2026-10-06T12:31:22.791826Z"
+      "refreshStatus": "ok",
+      "updatedAt": "2026-10-06T18:25:13.896649Z"
     },
     "tennis": {
       "date": "2026-10-06",
@@ -72339,29 +72459,30 @@
     },
     "tennistonic_tennis": {
       "date": "2026-10-06",
-      "generatedAt": "2026-10-06T12:31:22.791826Z",
+      "generatedAt": "2026-10-06T18:25:13.896649Z",
       "generatedBy": "github-actions:external-feed-refresh",
-      "lastAttemptAt": "2026-10-06T12:31:22.791826Z",
+      "lastAttemptAt": "2026-10-06T18:25:13.896649Z",
       "lastAttemptDate": "2026-10-06",
-      "lastSuccessAt": "2026-10-06T12:31:22.791826Z",
+      "lastSuccessAt": "2026-10-06T18:25:13.896649Z",
       "meta": {
-        "attemptedUrls": 60,
+        "attemptedUrls": 58,
         "blockedUrls": 0,
         "date": "2026-10-06",
-        "expectedMatchups": 16,
+        "expectedMatchups": 8,
         "failedUrls": 0,
         "feed": "tennistonic_tennis",
         "from": "github-actions",
         "interrupted": false,
         "leagues": "nba,mlb,wnba,cfb,nfl",
-        "matchedPicks": 16,
+        "matchedPicks": 8,
         "missingMatchups": [],
-        "officialMatchups": 38,
+        "officialMatchups": 33,
         "timedOut": false,
         "unattemptedMatchups": [],
         "unavailableMatchups": [],
         "unpublishedMatchups": [
           "Jiri Lehecka vs Carlos Alcaraz",
+          "Alex de Minaur vs Novak Djokovic",
           "Naomi Osaka vs Karolina Muchova",
           "Nikola Bartunkova vs Sinja Kraus",
           "Ilia Simakin vs Te Rigele",
@@ -72378,45 +72499,19 @@
           "Mai Hontama vs Emerson Jones",
           "Tamara Korpatsch vs Lu Jia-Jing",
           "Ayla Aksu vs Emiliana Arango",
-          "Alicia Dudeney vs Antonia Ruzic",
           "Noma Noha Akugue vs Elena Micic",
-          "Alana Smith vs Bianca Andreescu",
-          "Caroline Werner vs Elvin Egribel",
-          "Ayla Aksu vs Alicia Dudeney"
+          "Alicia Dudeney vs Antonia Ruzic",
+          "Viktoria Hruncakova vs Aysegul Mert",
+          "Oksana Selekhmeteva vs Lola Radivojevic",
+          "Carole Monnet vs Lucrezia Stefanini",
+          "Melisa Ercan vs Simona Waltert",
+          "Alana Smith vs Bianca Andreescu"
         ],
-        "updatedAt": "2026-10-06T12:31:22.791826Z"
+        "updatedAt": "2026-10-06T18:25:13.896649Z"
       },
-      "note": "TennisTonic matched 16 tennis prediction(s) against 38 official 2026-10-06 singles matchup(s).",
+      "note": "TennisTonic matched 8 tennis prediction(s) against 33 official 2026-10-06 singles matchup(s).",
       "ok": true,
       "picks": [
-        {
-          "away_team": "Alex de Minaur",
-          "calibration_excluded": true,
-          "date": "2026-10-06",
-          "decision": "PASS",
-          "edge": null,
-          "espn_league": "atp",
-          "game": "Alex de Minaur vs Novak Djokovic",
-          "grade_supported": true,
-          "home_team": "Novak Djokovic",
-          "league": "ATP",
-          "market_type": "tennis_moneyline",
-          "matchup": "Alex de Minaur vs Novak Djokovic",
-          "odds": null,
-          "pick": "Novak Djokovic ML (Alex de Minaur vs Novak Djokovic)",
-          "probability": null,
-          "scraped_tip_demoted": true,
-          "selected_player": "Novak Djokovic",
-          "source": "TennisTonic",
-          "source_decision": "BET",
-          "source_units": 1,
-          "source_url": "https://tennistonic.com/head-to-head-compare/Alex-de-Minaur-Vs-Novak-Djokovic/",
-          "sport": "Tennis",
-          "start_time": "2026-10-06T11:00Z",
-          "tennis_sets_prediction": 3,
-          "tip": "Novak Djokovic to win",
-          "units": 0
-        },
         {
           "away_team": "Matteo Berrettini",
           "calibration_excluded": true,
@@ -72614,146 +72709,6 @@
           "units": 0
         },
         {
-          "away_team": "Viktoria Hruncakova",
-          "calibration_excluded": true,
-          "date": "2026-10-06",
-          "decision": "PASS",
-          "edge": null,
-          "espn_league": "wta",
-          "game": "Viktoria Hruncakova vs Aysegul Mert",
-          "grade_supported": true,
-          "home_team": "Aysegul Mert",
-          "league": "WTA",
-          "market_type": "tennis_moneyline",
-          "matchup": "Viktoria Hruncakova vs Aysegul Mert",
-          "odds": null,
-          "pick": "Viktoria Hruncakova ML (Viktoria Hruncakova vs Aysegul Mert)",
-          "probability": null,
-          "scraped_tip_demoted": true,
-          "selected_player": "Viktoria Hruncakova",
-          "source": "TennisTonic",
-          "source_decision": "BET",
-          "source_units": 1,
-          "source_url": "https://tennistonic.com/head-to-head-compare/Viktoria-Hruncakova-Vs-Aysegul-Mert/",
-          "sport": "Tennis",
-          "start_time": "2026-10-06T08:30Z",
-          "tennis_sets_prediction": 2,
-          "tip": "Viktoria Hruncakova to win",
-          "units": 0
-        },
-        {
-          "away_team": "Oksana Selekhmeteva",
-          "calibration_excluded": true,
-          "date": "2026-10-06",
-          "decision": "PASS",
-          "edge": null,
-          "espn_league": "wta",
-          "game": "Oksana Selekhmeteva vs Lola Radivojevic",
-          "grade_supported": true,
-          "home_team": "Lola Radivojevic",
-          "league": "WTA",
-          "market_type": "tennis_moneyline",
-          "matchup": "Oksana Selekhmeteva vs Lola Radivojevic",
-          "odds": null,
-          "pick": "Oksana Selekhmeteva ML (Oksana Selekhmeteva vs Lola Radivojevic)",
-          "probability": null,
-          "scraped_tip_demoted": true,
-          "selected_player": "Oksana Selekhmeteva",
-          "source": "TennisTonic",
-          "source_decision": "BET",
-          "source_units": 1,
-          "source_url": "https://tennistonic.com/head-to-head-compare/Oksana-Selekhmeteva-Vs-Lola-Radivojevic/",
-          "sport": "Tennis",
-          "start_time": "2026-10-06T08:30Z",
-          "tennis_sets_prediction": 3,
-          "tip": "Oksana Selekhmeteva to win",
-          "units": 0
-        },
-        {
-          "away_team": "Melisa Ercan",
-          "calibration_excluded": true,
-          "date": "2026-10-06",
-          "decision": "PASS",
-          "edge": null,
-          "espn_league": "wta",
-          "game": "Melisa Ercan vs Simona Waltert",
-          "grade_supported": true,
-          "home_team": "Simona Waltert",
-          "league": "WTA",
-          "market_type": "tennis_moneyline",
-          "matchup": "Melisa Ercan vs Simona Waltert",
-          "odds": null,
-          "pick": "Simona Waltert ML (Melisa Ercan vs Simona Waltert)",
-          "probability": null,
-          "scraped_tip_demoted": true,
-          "selected_player": "Simona Waltert",
-          "source": "TennisTonic",
-          "source_decision": "BET",
-          "source_units": 1,
-          "source_url": "https://tennistonic.com/head-to-head-compare/Melisa-Ercan-Vs-Simona-Waltert/",
-          "sport": "Tennis",
-          "start_time": "2026-10-06T10:00Z",
-          "tennis_sets_prediction": 2,
-          "tip": "Simona Waltert to win",
-          "units": 0
-        },
-        {
-          "away_team": "Carole Monnet",
-          "calibration_excluded": true,
-          "date": "2026-10-06",
-          "decision": "PASS",
-          "edge": null,
-          "espn_league": "wta",
-          "game": "Carole Monnet vs Lucrezia Stefanini",
-          "grade_supported": true,
-          "home_team": "Lucrezia Stefanini",
-          "league": "WTA",
-          "market_type": "tennis_moneyline",
-          "matchup": "Carole Monnet vs Lucrezia Stefanini",
-          "odds": null,
-          "pick": "Lucrezia Stefanini ML (Carole Monnet vs Lucrezia Stefanini)",
-          "probability": null,
-          "scraped_tip_demoted": true,
-          "selected_player": "Lucrezia Stefanini",
-          "source": "TennisTonic",
-          "source_decision": "BET",
-          "source_units": 1,
-          "source_url": "https://tennistonic.com/head-to-head-compare/Carole-Monnet-Vs-Lucrezia-Stefanini/",
-          "sport": "Tennis",
-          "start_time": "2026-10-06T08:30Z",
-          "tennis_sets_prediction": 2,
-          "tip": "Lucrezia Stefanini to win",
-          "units": 0
-        },
-        {
-          "away_team": "Anna Blinkova",
-          "calibration_excluded": true,
-          "date": "2026-10-06",
-          "decision": "PASS",
-          "edge": null,
-          "espn_league": "wta",
-          "game": "Anna Blinkova vs Elena Pridankina",
-          "grade_supported": true,
-          "home_team": "Elena Pridankina",
-          "league": "WTA",
-          "market_type": "tennis_moneyline",
-          "matchup": "Anna Blinkova vs Elena Pridankina",
-          "odds": null,
-          "pick": "Anna Blinkova ML (Anna Blinkova vs Elena Pridankina)",
-          "probability": null,
-          "scraped_tip_demoted": true,
-          "selected_player": "Anna Blinkova",
-          "source": "TennisTonic",
-          "source_decision": "BET",
-          "source_units": 1,
-          "source_url": "https://tennistonic.com/head-to-head-compare/Anna-Blinkova-Vs-Elena-Pridankina/",
-          "sport": "Tennis",
-          "start_time": "2026-10-06T13:00Z",
-          "tennis_sets_prediction": 3,
-          "tip": "Anna Blinkova to win",
-          "units": 0
-        },
-        {
           "away_team": "Linda Klimovicova",
           "calibration_excluded": true,
           "date": "2026-10-06",
@@ -72780,67 +72735,11 @@
           "tennis_sets_prediction": 2,
           "tip": "Linda Klimovicova to win",
           "units": 0
-        },
-        {
-          "away_team": "Mariam Bolkvadze",
-          "calibration_excluded": true,
-          "date": "2026-10-06",
-          "decision": "PASS",
-          "edge": null,
-          "espn_league": "wta",
-          "game": "Mariam Bolkvadze vs Leolia Jeanjean",
-          "grade_supported": true,
-          "home_team": "Leolia Jeanjean",
-          "league": "WTA",
-          "market_type": "tennis_moneyline",
-          "matchup": "Mariam Bolkvadze vs Leolia Jeanjean",
-          "odds": null,
-          "pick": "Leolia Jeanjean ML (Mariam Bolkvadze vs Leolia Jeanjean)",
-          "probability": null,
-          "scraped_tip_demoted": true,
-          "selected_player": "Leolia Jeanjean",
-          "source": "TennisTonic",
-          "source_decision": "BET",
-          "source_units": 1,
-          "source_url": "https://tennistonic.com/head-to-head-compare/Mariam-Bolkvadze-Vs-Leolia-Jeanjean/",
-          "sport": "Tennis",
-          "start_time": "2026-10-06T11:30Z",
-          "tennis_sets_prediction": 3,
-          "tip": "Leolia Jeanjean to win",
-          "units": 0
-        },
-        {
-          "away_team": "Dalma Galfi",
-          "calibration_excluded": true,
-          "date": "2026-10-06",
-          "decision": "PASS",
-          "edge": null,
-          "espn_league": "wta",
-          "game": "Dalma Galfi vs Polina Iatcenko",
-          "grade_supported": true,
-          "home_team": "Polina Iatcenko",
-          "league": "WTA",
-          "market_type": "tennis_moneyline",
-          "matchup": "Dalma Galfi vs Polina Iatcenko",
-          "odds": null,
-          "pick": "Dalma Galfi ML (Dalma Galfi vs Polina Iatcenko)",
-          "probability": null,
-          "scraped_tip_demoted": true,
-          "selected_player": "Dalma Galfi",
-          "source": "TennisTonic",
-          "source_decision": "BET",
-          "source_units": 1,
-          "source_url": "https://tennistonic.com/head-to-head-compare/Dalma-Galfi-Vs-Polina-Iatcenko/",
-          "sport": "Tennis",
-          "start_time": "2026-10-07T04:00Z",
-          "tennis_sets_prediction": 3,
-          "tip": "Dalma Galfi to win",
-          "units": 0
         }
       ],
       "refreshStatus": "ok",
       "scraped_tip_feed": true,
-      "updatedAt": "2026-10-06T12:31:22.791826Z"
+      "updatedAt": "2026-10-06T18:25:13.896649Z"
     },
     "wnba": {
       "date": "2026-10-06",
@@ -126922,7 +126821,7 @@
     "standings_date": "2026-04-17",
     "team_totals_without_mean": 0
   },
-  "publishedAt": "2026-10-06T18:23:13.647820Z",
+  "publishedAt": "2026-10-06T18:27:30.971319Z",
   "scores24_cfb": {
     "date": "2026-10-06",
     "generatedAt": "2026-10-06T18:03:11.927470Z",
@@ -127233,9 +127132,12 @@
   "sportsgambler_cfb": {
     "date": "2026-10-06",
     "error": "cfb: empty parse despite nonempty official whitelist (No picks found.)",
-    "generatedAt": "2026-10-06T12:31:22.791826Z",
+    "errors": [
+      "cfb: empty parse despite nonempty official whitelist (No picks found.)"
+    ],
+    "generatedAt": "2026-10-06T18:25:13.896649Z",
     "generatedBy": "github-actions:external-feed-refresh",
-    "lastAttemptAt": "2026-10-06T12:31:22.791826Z",
+    "lastAttemptAt": "2026-10-06T18:25:13.896649Z",
     "lastAttemptDate": "2026-10-06",
     "lastError": "cfb: empty parse despite nonempty official whitelist (No picks found.)",
     "meta": {
@@ -127251,14 +127153,16 @@
         "nba": 4
       },
       "optionalErrors": [
+        "nba: empty parse despite nonempty official whitelist (No picks found.)",
         "cfb: empty parse despite nonempty official whitelist (No picks found.)"
       ],
       "pick_count": 0,
       "provider": "sportsgambler",
       "sportErrors": {
-        "cfb": "cfb: empty parse despite nonempty official whitelist (No picks found.)"
+        "cfb": "cfb: empty parse despite nonempty official whitelist (No picks found.)",
+        "nba": "nba: empty parse despite nonempty official whitelist (No picks found.)"
       },
-      "updatedAt": "2026-10-06T12:31:22.791826Z",
+      "updatedAt": "2026-10-06T18:25:13.896649Z",
       "zeroSlateSports": [
         "wnba",
         "nfl"
@@ -127268,44 +127172,44 @@
     "ok": false,
     "picks": [],
     "refreshStatus": "error",
-    "updatedAt": "2026-10-06T12:31:22.791826Z"
+    "updatedAt": "2026-10-06T18:25:13.896649Z"
   },
   "sportsgambler_mlb": {
     "date": "2026-10-06",
-    "error": "nba: empty parse despite nonempty official whitelist (No picks found.)",
-    "generatedAt": "2026-10-06T12:31:22.791826Z",
+    "errors": [],
+    "generatedAt": "2026-10-06T18:25:13.896649Z",
     "generatedBy": "github-actions:external-feed-refresh",
-    "lastAttemptAt": "2026-10-06T12:31:22.791826Z",
+    "lastAttemptAt": "2026-10-06T18:25:13.896649Z",
     "lastAttemptDate": "2026-10-06",
-    "lastError": "nba: empty parse despite nonempty official whitelist (No picks found.)",
+    "lastSuccessAt": "2026-10-06T18:25:13.896649Z",
     "meta": {
       "date": "2026-10-06",
       "feed": "sportsgambler_mlb",
       "from": "github-actions",
       "leagues": "nba,mlb,wnba,cfb,nfl",
-      "matchedPicks": 2,
-      "missingMatchups": [],
       "officialMatchupCounts": {
         "cfb": 1,
         "mlb": 2,
         "nba": 4
       },
       "optionalErrors": [
+        "nba: empty parse despite nonempty official whitelist (No picks found.)",
         "cfb: empty parse despite nonempty official whitelist (No picks found.)"
       ],
       "pick_count": 2,
       "provider": "sportsgambler",
       "sportErrors": {
-        "cfb": "cfb: empty parse despite nonempty official whitelist (No picks found.)"
+        "cfb": "cfb: empty parse despite nonempty official whitelist (No picks found.)",
+        "nba": "nba: empty parse despite nonempty official whitelist (No picks found.)"
       },
-      "updatedAt": "2026-10-06T12:31:22.791826Z",
+      "updatedAt": "2026-10-06T18:25:13.896649Z",
       "zeroSlateSports": [
         "wnba",
         "nfl"
       ]
     },
     "note": "Scheduled sportsgambler_mlb refresh returned 2 pick(s).",
-    "ok": false,
+    "ok": true,
     "picks": [
       {
         "date": "2026-10-06",
@@ -127340,16 +127244,16 @@
         "units": 0
       }
     ],
-    "refreshStatus": "error",
+    "refreshStatus": "ok",
     "scraped_tip_feed": true,
-    "updatedAt": "2026-10-06T12:31:22.791826Z"
+    "updatedAt": "2026-10-06T18:25:13.896649Z"
   },
   "sportsgambler_nba": {
     "date": "2026-10-02",
     "errors": [],
     "generatedAt": "2026-10-02T18:29:53.562634Z",
     "generatedBy": "github-actions:external-feed-refresh",
-    "lastAttemptAt": "2026-10-06T12:31:22.791826Z",
+    "lastAttemptAt": "2026-10-06T18:25:13.896649Z",
     "lastAttemptDate": "2026-10-06",
     "lastError": "nba: empty parse despite nonempty official whitelist (No picks found.)",
     "lastSuccessAt": "2026-10-02T18:29:53.562634Z",
@@ -127374,97 +127278,100 @@
       ]
     },
     "note": "Scheduled sportsgambler_nba refresh returned 0 pick(s).",
-    "ok": true,
+    "ok": false,
     "picks": [],
     "refreshStatus": "error",
     "updatedAt": "2026-10-02T18:29:53.562634Z"
   },
   "sportsgambler_nfl": {
     "date": "2026-10-06",
-    "error": "nba: empty parse despite nonempty official whitelist (No picks found.)",
-    "generatedAt": "2026-10-06T12:31:22.791826Z",
+    "errors": [],
+    "generatedAt": "2026-10-06T18:25:13.896649Z",
     "generatedBy": "github-actions:external-feed-refresh",
-    "lastAttemptAt": "2026-10-06T12:31:22.791826Z",
+    "lastAttemptAt": "2026-10-06T18:25:13.896649Z",
     "lastAttemptDate": "2026-10-06",
-    "lastError": "nba: empty parse despite nonempty official whitelist (No picks found.)",
+    "lastSuccessAt": "2026-10-06T18:25:13.896649Z",
     "meta": {
       "date": "2026-10-06",
       "feed": "sportsgambler_nfl",
       "from": "github-actions",
       "leagues": "nba,mlb,wnba,cfb,nfl",
-      "matchedPicks": 0,
-      "missingMatchups": [],
       "officialMatchupCounts": {
         "cfb": 1,
         "mlb": 2,
         "nba": 4
       },
       "optionalErrors": [
+        "nba: empty parse despite nonempty official whitelist (No picks found.)",
         "cfb: empty parse despite nonempty official whitelist (No picks found.)"
       ],
       "pick_count": 0,
       "provider": "sportsgambler",
       "sportErrors": {
-        "cfb": "cfb: empty parse despite nonempty official whitelist (No picks found.)"
+        "cfb": "cfb: empty parse despite nonempty official whitelist (No picks found.)",
+        "nba": "nba: empty parse despite nonempty official whitelist (No picks found.)"
       },
-      "updatedAt": "2026-10-06T12:31:22.791826Z",
+      "updatedAt": "2026-10-06T18:25:13.896649Z",
       "zeroSlateSports": [
         "wnba",
         "nfl"
       ]
     },
     "note": "Scheduled sportsgambler_nfl refresh returned 0 pick(s).",
-    "ok": false,
+    "ok": true,
     "picks": [],
-    "refreshStatus": "error",
-    "updatedAt": "2026-10-06T12:31:22.791826Z"
+    "refreshStatus": "ok",
+    "updatedAt": "2026-10-06T18:25:13.896649Z"
   },
   "sportsgambler_wnba": {
     "date": "2026-10-06",
-    "error": "nba: empty parse despite nonempty official whitelist (No picks found.)",
-    "generatedAt": "2026-10-06T12:31:22.791826Z",
+    "errors": [],
+    "generatedAt": "2026-10-06T18:25:13.896649Z",
     "generatedBy": "github-actions:external-feed-refresh",
-    "lastAttemptAt": "2026-10-06T12:31:22.791826Z",
+    "lastAttemptAt": "2026-10-06T18:25:13.896649Z",
     "lastAttemptDate": "2026-10-06",
-    "lastError": "nba: empty parse despite nonempty official whitelist (No picks found.)",
+    "lastSuccessAt": "2026-10-06T18:25:13.896649Z",
     "meta": {
       "date": "2026-10-06",
       "feed": "sportsgambler_wnba",
       "from": "github-actions",
       "leagues": "nba,mlb,wnba,cfb,nfl",
-      "matchedPicks": 0,
-      "missingMatchups": [],
       "officialMatchupCounts": {
         "cfb": 1,
         "mlb": 2,
         "nba": 4
       },
       "optionalErrors": [
+        "nba: empty parse despite nonempty official whitelist (No picks found.)",
         "cfb: empty parse despite nonempty official whitelist (No picks found.)"
       ],
       "pick_count": 0,
       "provider": "sportsgambler",
       "sportErrors": {
-        "cfb": "cfb: empty parse despite nonempty official whitelist (No picks found.)"
+        "cfb": "cfb: empty parse despite nonempty official whitelist (No picks found.)",
+        "nba": "nba: empty parse despite nonempty official whitelist (No picks found.)"
       },
-      "updatedAt": "2026-10-06T12:31:22.791826Z",
+      "updatedAt": "2026-10-06T18:25:13.896649Z",
       "zeroSlateSports": [
         "wnba",
         "nfl"
       ]
     },
     "note": "Scheduled sportsgambler_wnba refresh returned 0 pick(s).",
-    "ok": false,
+    "ok": true,
     "picks": [],
-    "refreshStatus": "error",
-    "updatedAt": "2026-10-06T12:31:22.791826Z"
+    "refreshStatus": "ok",
+    "updatedAt": "2026-10-06T18:25:13.896649Z"
   },
   "sportytrader_cfb": {
     "date": "2026-10-06",
     "error": "cfb: empty parse despite nonempty official whitelist (No SportyTrader CFB picks parsed. | Diagnostics: listingPages=3 cards=0 officialMatchupCards=0.)",
-    "generatedAt": "2026-10-06T12:31:22.791826Z",
+    "errors": [
+      "cfb: empty parse despite nonempty official whitelist (No SportyTrader CFB picks parsed. | Diagnostics: listingPages=3 cards=0 officialMatchupCards=0.)"
+    ],
+    "generatedAt": "2026-10-06T18:25:13.896649Z",
     "generatedBy": "github-actions:external-feed-refresh",
-    "lastAttemptAt": "2026-10-06T12:31:22.791826Z",
+    "lastAttemptAt": "2026-10-06T18:25:13.896649Z",
     "lastAttemptDate": "2026-10-06",
     "lastError": "cfb: empty parse despite nonempty official whitelist (No SportyTrader CFB picks parsed. | Diagnostics: listingPages=3 cards=0 officialMatchupCards=0.)",
     "meta": {
@@ -127480,14 +127387,16 @@
         "nba": 4
       },
       "optionalErrors": [
+        "nba: empty parse despite nonempty official whitelist (No SportyTrader NBA picks parsed. | Diagnostics: listingPages=4 cards=0 officialMatchupCards=0.)",
         "cfb: empty parse despite nonempty official whitelist (No SportyTrader CFB picks parsed. | Diagnostics: listingPages=3 cards=0 officialMatchupCards=0.)"
       ],
       "pick_count": 0,
       "provider": "sportytrader",
       "sportErrors": {
-        "cfb": "cfb: empty parse despite nonempty official whitelist (No SportyTrader CFB picks parsed. | Diagnostics: listingPages=3 cards=0 officialMatchupCards=0.)"
+        "cfb": "cfb: empty parse despite nonempty official whitelist (No SportyTrader CFB picks parsed. | Diagnostics: listingPages=3 cards=0 officialMatchupCards=0.)",
+        "nba": "nba: empty parse despite nonempty official whitelist (No SportyTrader NBA picks parsed. | Diagnostics: listingPages=4 cards=0 officialMatchupCards=0.)"
       },
-      "updatedAt": "2026-10-06T12:31:22.791826Z",
+      "updatedAt": "2026-10-06T18:25:13.896649Z",
       "zeroSlateSports": [
         "wnba",
         "nfl"
@@ -127497,56 +127406,90 @@
     "ok": false,
     "picks": [],
     "refreshStatus": "error",
-    "updatedAt": "2026-10-06T12:31:22.791826Z"
+    "updatedAt": "2026-10-06T18:25:13.896649Z"
   },
   "sportytrader_mlb": {
     "date": "2026-10-06",
-    "error": "nba: empty parse despite nonempty official whitelist (No SportyTrader NBA picks parsed. | Diagnostics: listingPages=1 cards=0 officialMatchupCards=0.); mlb: empty parse despite nonempty official whitelist (No SportyTrader MLB picks parsed. | Diagnostics: listingPages=1 cards=0 officialMatchupCards=0.)",
-    "generatedAt": "2026-10-06T12:31:22.791826Z",
+    "errors": [],
+    "generatedAt": "2026-10-06T18:25:13.896649Z",
     "generatedBy": "github-actions:external-feed-refresh",
-    "lastAttemptAt": "2026-10-06T12:31:22.791826Z",
+    "lastAttemptAt": "2026-10-06T18:25:13.896649Z",
     "lastAttemptDate": "2026-10-06",
-    "lastError": "nba: empty parse despite nonempty official whitelist (No SportyTrader NBA picks parsed. | Diagnostics: listingPages=1 cards=0 officialMatchupCards=0.); mlb: empty parse despite nonempty official whitelist (No SportyTrader MLB picks parsed. | Diagnostics: listingPages=1 cards=0 officialMatchupCards=0.)",
+    "lastSuccessAt": "2026-10-06T18:25:13.896649Z",
     "meta": {
       "date": "2026-10-06",
       "feed": "sportytrader_mlb",
       "from": "github-actions",
       "leagues": "nba,mlb,wnba,cfb,nfl",
-      "matchedPicks": 0,
-      "missingMatchups": [],
       "officialMatchupCounts": {
         "cfb": 1,
         "mlb": 2,
         "nba": 4
       },
       "optionalErrors": [
+        "nba: empty parse despite nonempty official whitelist (No SportyTrader NBA picks parsed. | Diagnostics: listingPages=4 cards=0 officialMatchupCards=0.)",
         "cfb: empty parse despite nonempty official whitelist (No SportyTrader CFB picks parsed. | Diagnostics: listingPages=3 cards=0 officialMatchupCards=0.)"
       ],
-      "pick_count": 0,
+      "pick_count": 2,
       "provider": "sportytrader",
       "sportErrors": {
-        "cfb": "cfb: empty parse despite nonempty official whitelist (No SportyTrader CFB picks parsed. | Diagnostics: listingPages=3 cards=0 officialMatchupCards=0.)"
+        "cfb": "cfb: empty parse despite nonempty official whitelist (No SportyTrader CFB picks parsed. | Diagnostics: listingPages=3 cards=0 officialMatchupCards=0.)",
+        "nba": "nba: empty parse despite nonempty official whitelist (No SportyTrader NBA picks parsed. | Diagnostics: listingPages=4 cards=0 officialMatchupCards=0.)"
       },
-      "updatedAt": "2026-10-06T12:31:22.791826Z",
+      "updatedAt": "2026-10-06T18:25:13.896649Z",
       "zeroSlateSports": [
         "wnba",
         "nfl"
       ]
     },
-    "note": "Scheduled sportytrader_mlb refresh returned 0 pick(s).",
-    "ok": false,
-    "picks": [],
-    "refreshStatus": "error",
-    "updatedAt": "2026-10-06T12:31:22.791826Z"
+    "note": "Scheduled sportytrader_mlb refresh returned 2 pick(s).",
+    "ok": true,
+    "picks": [
+      {
+        "date": "2026-10-06",
+        "decision": "PASS",
+        "edge": null,
+        "game": "Atlanta Braves vs Los Angeles Dodgers",
+        "matchup": "Atlanta Braves vs Los Angeles Dodgers",
+        "odds": -110,
+        "pick": "Under 6.5 (Braves vs Dodgers)",
+        "probability": null,
+        "scraped_tip_demoted": true,
+        "source": "SportyTraderMLB",
+        "source_decision": "BET",
+        "source_units": 1,
+        "sport": "MLB",
+        "units": 0
+      },
+      {
+        "date": "2026-10-06",
+        "decision": "PASS",
+        "edge": null,
+        "game": "San Diego Padres vs Milwaukee Brewers",
+        "matchup": "San Diego Padres vs Milwaukee Brewers",
+        "odds": -135,
+        "pick": "Padres ML (Padres vs Brewers)",
+        "probability": null,
+        "scraped_tip_demoted": true,
+        "source": "SportyTraderMLB",
+        "source_decision": "BET",
+        "source_units": 1,
+        "sport": "MLB",
+        "units": 0
+      }
+    ],
+    "refreshStatus": "ok",
+    "scraped_tip_feed": true,
+    "updatedAt": "2026-10-06T18:25:13.896649Z"
   },
   "sportytrader_nba": {
     "date": "2026-10-02",
     "errors": [],
     "generatedAt": "2026-10-02T18:29:53.562634Z",
     "generatedBy": "github-actions:external-feed-refresh",
-    "lastAttemptAt": "2026-10-06T12:31:22.791826Z",
+    "lastAttemptAt": "2026-10-06T18:25:13.896649Z",
     "lastAttemptDate": "2026-10-06",
-    "lastError": "nba: empty parse despite nonempty official whitelist (No SportyTrader NBA picks parsed. | Diagnostics: listingPages=1 cards=0 officialMatchupCards=0.); mlb: empty parse despite nonempty official whitelist (No SportyTrader MLB picks parsed. | Diagnostics: listingPages=1 cards=0 officialMatchupCards=0.)",
+    "lastError": "nba: empty parse despite nonempty official whitelist (No SportyTrader NBA picks parsed. | Diagnostics: listingPages=4 cards=0 officialMatchupCards=0.)",
     "lastSuccessAt": "2026-10-02T18:29:53.562634Z",
     "meta": {
       "date": "2026-10-02",
@@ -127573,116 +127516,117 @@
       ]
     },
     "note": "Scheduled sportytrader_nba refresh returned 0 pick(s).",
-    "ok": true,
+    "ok": false,
     "picks": [],
     "refreshStatus": "error",
     "updatedAt": "2026-10-02T18:29:53.562634Z"
   },
   "sportytrader_nfl": {
     "date": "2026-10-06",
-    "error": "nba: empty parse despite nonempty official whitelist (No SportyTrader NBA picks parsed. | Diagnostics: listingPages=1 cards=0 officialMatchupCards=0.); mlb: empty parse despite nonempty official whitelist (No SportyTrader MLB picks parsed. | Diagnostics: listingPages=1 cards=0 officialMatchupCards=0.)",
-    "generatedAt": "2026-10-06T12:31:22.791826Z",
+    "errors": [],
+    "generatedAt": "2026-10-06T18:25:13.896649Z",
     "generatedBy": "github-actions:external-feed-refresh",
-    "lastAttemptAt": "2026-10-06T12:31:22.791826Z",
+    "lastAttemptAt": "2026-10-06T18:25:13.896649Z",
     "lastAttemptDate": "2026-10-06",
-    "lastError": "nba: empty parse despite nonempty official whitelist (No SportyTrader NBA picks parsed. | Diagnostics: listingPages=1 cards=0 officialMatchupCards=0.); mlb: empty parse despite nonempty official whitelist (No SportyTrader MLB picks parsed. | Diagnostics: listingPages=1 cards=0 officialMatchupCards=0.)",
+    "lastSuccessAt": "2026-10-06T18:25:13.896649Z",
     "meta": {
       "date": "2026-10-06",
       "feed": "sportytrader_nfl",
       "from": "github-actions",
       "leagues": "nba,mlb,wnba,cfb,nfl",
-      "matchedPicks": 0,
-      "missingMatchups": [],
       "officialMatchupCounts": {
         "cfb": 1,
         "mlb": 2,
         "nba": 4
       },
       "optionalErrors": [
+        "nba: empty parse despite nonempty official whitelist (No SportyTrader NBA picks parsed. | Diagnostics: listingPages=4 cards=0 officialMatchupCards=0.)",
         "cfb: empty parse despite nonempty official whitelist (No SportyTrader CFB picks parsed. | Diagnostics: listingPages=3 cards=0 officialMatchupCards=0.)"
       ],
       "pick_count": 0,
       "provider": "sportytrader",
       "sportErrors": {
-        "cfb": "cfb: empty parse despite nonempty official whitelist (No SportyTrader CFB picks parsed. | Diagnostics: listingPages=3 cards=0 officialMatchupCards=0.)"
+        "cfb": "cfb: empty parse despite nonempty official whitelist (No SportyTrader CFB picks parsed. | Diagnostics: listingPages=3 cards=0 officialMatchupCards=0.)",
+        "nba": "nba: empty parse despite nonempty official whitelist (No SportyTrader NBA picks parsed. | Diagnostics: listingPages=4 cards=0 officialMatchupCards=0.)"
       },
-      "updatedAt": "2026-10-06T12:31:22.791826Z",
+      "updatedAt": "2026-10-06T18:25:13.896649Z",
       "zeroSlateSports": [
         "wnba",
         "nfl"
       ]
     },
     "note": "Scheduled sportytrader_nfl refresh returned 0 pick(s).",
-    "ok": false,
+    "ok": true,
     "picks": [],
-    "refreshStatus": "error",
-    "updatedAt": "2026-10-06T12:31:22.791826Z"
+    "refreshStatus": "ok",
+    "updatedAt": "2026-10-06T18:25:13.896649Z"
   },
   "sportytrader_wnba": {
     "date": "2026-10-06",
-    "error": "nba: empty parse despite nonempty official whitelist (No SportyTrader NBA picks parsed. | Diagnostics: listingPages=1 cards=0 officialMatchupCards=0.); mlb: empty parse despite nonempty official whitelist (No SportyTrader MLB picks parsed. | Diagnostics: listingPages=1 cards=0 officialMatchupCards=0.)",
-    "generatedAt": "2026-10-06T12:31:22.791826Z",
+    "errors": [],
+    "generatedAt": "2026-10-06T18:25:13.896649Z",
     "generatedBy": "github-actions:external-feed-refresh",
-    "lastAttemptAt": "2026-10-06T12:31:22.791826Z",
+    "lastAttemptAt": "2026-10-06T18:25:13.896649Z",
     "lastAttemptDate": "2026-10-06",
-    "lastError": "nba: empty parse despite nonempty official whitelist (No SportyTrader NBA picks parsed. | Diagnostics: listingPages=1 cards=0 officialMatchupCards=0.); mlb: empty parse despite nonempty official whitelist (No SportyTrader MLB picks parsed. | Diagnostics: listingPages=1 cards=0 officialMatchupCards=0.)",
+    "lastSuccessAt": "2026-10-06T18:25:13.896649Z",
     "meta": {
       "date": "2026-10-06",
       "feed": "sportytrader_wnba",
       "from": "github-actions",
       "leagues": "nba,mlb,wnba,cfb,nfl",
-      "matchedPicks": 0,
-      "missingMatchups": [],
       "officialMatchupCounts": {
         "cfb": 1,
         "mlb": 2,
         "nba": 4
       },
       "optionalErrors": [
+        "nba: empty parse despite nonempty official whitelist (No SportyTrader NBA picks parsed. | Diagnostics: listingPages=4 cards=0 officialMatchupCards=0.)",
         "cfb: empty parse despite nonempty official whitelist (No SportyTrader CFB picks parsed. | Diagnostics: listingPages=3 cards=0 officialMatchupCards=0.)"
       ],
       "pick_count": 0,
       "provider": "sportytrader",
       "sportErrors": {
-        "cfb": "cfb: empty parse despite nonempty official whitelist (No SportyTrader CFB picks parsed. | Diagnostics: listingPages=3 cards=0 officialMatchupCards=0.)"
+        "cfb": "cfb: empty parse despite nonempty official whitelist (No SportyTrader CFB picks parsed. | Diagnostics: listingPages=3 cards=0 officialMatchupCards=0.)",
+        "nba": "nba: empty parse despite nonempty official whitelist (No SportyTrader NBA picks parsed. | Diagnostics: listingPages=4 cards=0 officialMatchupCards=0.)"
       },
-      "updatedAt": "2026-10-06T12:31:22.791826Z",
+      "updatedAt": "2026-10-06T18:25:13.896649Z",
       "zeroSlateSports": [
         "wnba",
         "nfl"
       ]
     },
     "note": "Scheduled sportytrader_wnba refresh returned 0 pick(s).",
-    "ok": false,
+    "ok": true,
     "picks": [],
-    "refreshStatus": "error",
-    "updatedAt": "2026-10-06T12:31:22.791826Z"
+    "refreshStatus": "ok",
+    "updatedAt": "2026-10-06T18:25:13.896649Z"
   },
   "tennistonic_tennis": {
     "date": "2026-10-06",
-    "generatedAt": "2026-10-06T12:31:22.791826Z",
+    "generatedAt": "2026-10-06T18:25:13.896649Z",
     "generatedBy": "github-actions:external-feed-refresh",
-    "lastAttemptAt": "2026-10-06T12:31:22.791826Z",
+    "lastAttemptAt": "2026-10-06T18:25:13.896649Z",
     "lastAttemptDate": "2026-10-06",
-    "lastSuccessAt": "2026-10-06T12:31:22.791826Z",
+    "lastSuccessAt": "2026-10-06T18:25:13.896649Z",
     "meta": {
-      "attemptedUrls": 60,
+      "attemptedUrls": 58,
       "blockedUrls": 0,
       "date": "2026-10-06",
-      "expectedMatchups": 16,
+      "expectedMatchups": 8,
       "failedUrls": 0,
       "feed": "tennistonic_tennis",
       "from": "github-actions",
       "interrupted": false,
       "leagues": "nba,mlb,wnba,cfb,nfl",
-      "matchedPicks": 16,
+      "matchedPicks": 8,
       "missingMatchups": [],
-      "officialMatchups": 38,
+      "officialMatchups": 33,
       "timedOut": false,
       "unattemptedMatchups": [],
       "unavailableMatchups": [],
       "unpublishedMatchups": [
         "Jiri Lehecka vs Carlos Alcaraz",
+        "Alex de Minaur vs Novak Djokovic",
         "Naomi Osaka vs Karolina Muchova",
         "Nikola Bartunkova vs Sinja Kraus",
         "Ilia Simakin vs Te Rigele",
@@ -127699,45 +127643,19 @@
         "Mai Hontama vs Emerson Jones",
         "Tamara Korpatsch vs Lu Jia-Jing",
         "Ayla Aksu vs Emiliana Arango",
-        "Alicia Dudeney vs Antonia Ruzic",
         "Noma Noha Akugue vs Elena Micic",
-        "Alana Smith vs Bianca Andreescu",
-        "Caroline Werner vs Elvin Egribel",
-        "Ayla Aksu vs Alicia Dudeney"
+        "Alicia Dudeney vs Antonia Ruzic",
+        "Viktoria Hruncakova vs Aysegul Mert",
+        "Oksana Selekhmeteva vs Lola Radivojevic",
+        "Carole Monnet vs Lucrezia Stefanini",
+        "Melisa Ercan vs Simona Waltert",
+        "Alana Smith vs Bianca Andreescu"
       ],
-      "updatedAt": "2026-10-06T12:31:22.791826Z"
+      "updatedAt": "2026-10-06T18:25:13.896649Z"
     },
-    "note": "TennisTonic matched 16 tennis prediction(s) against 38 official 2026-10-06 singles matchup(s).",
+    "note": "TennisTonic matched 8 tennis prediction(s) against 33 official 2026-10-06 singles matchup(s).",
     "ok": true,
     "picks": [
-      {
-        "away_team": "Alex de Minaur",
-        "calibration_excluded": true,
-        "date": "2026-10-06",
-        "decision": "PASS",
-        "edge": null,
-        "espn_league": "atp",
-        "game": "Alex de Minaur vs Novak Djokovic",
-        "grade_supported": true,
-        "home_team": "Novak Djokovic",
-        "league": "ATP",
-        "market_type": "tennis_moneyline",
-        "matchup": "Alex de Minaur vs Novak Djokovic",
-        "odds": null,
-        "pick": "Novak Djokovic ML (Alex de Minaur vs Novak Djokovic)",
-        "probability": null,
-        "scraped_tip_demoted": true,
-        "selected_player": "Novak Djokovic",
-        "source": "TennisTonic",
-        "source_decision": "BET",
-        "source_units": 1,
-        "source_url": "https://tennistonic.com/head-to-head-compare/Alex-de-Minaur-Vs-Novak-Djokovic/",
-        "sport": "Tennis",
-        "start_time": "2026-10-06T11:00Z",
-        "tennis_sets_prediction": 3,
-        "tip": "Novak Djokovic to win",
-        "units": 0
-      },
       {
         "away_team": "Matteo Berrettini",
         "calibration_excluded": true,
@@ -127935,146 +127853,6 @@
         "units": 0
       },
       {
-        "away_team": "Viktoria Hruncakova",
-        "calibration_excluded": true,
-        "date": "2026-10-06",
-        "decision": "PASS",
-        "edge": null,
-        "espn_league": "wta",
-        "game": "Viktoria Hruncakova vs Aysegul Mert",
-        "grade_supported": true,
-        "home_team": "Aysegul Mert",
-        "league": "WTA",
-        "market_type": "tennis_moneyline",
-        "matchup": "Viktoria Hruncakova vs Aysegul Mert",
-        "odds": null,
-        "pick": "Viktoria Hruncakova ML (Viktoria Hruncakova vs Aysegul Mert)",
-        "probability": null,
-        "scraped_tip_demoted": true,
-        "selected_player": "Viktoria Hruncakova",
-        "source": "TennisTonic",
-        "source_decision": "BET",
-        "source_units": 1,
-        "source_url": "https://tennistonic.com/head-to-head-compare/Viktoria-Hruncakova-Vs-Aysegul-Mert/",
-        "sport": "Tennis",
-        "start_time": "2026-10-06T08:30Z",
-        "tennis_sets_prediction": 2,
-        "tip": "Viktoria Hruncakova to win",
-        "units": 0
-      },
-      {
-        "away_team": "Oksana Selekhmeteva",
-        "calibration_excluded": true,
-        "date": "2026-10-06",
-        "decision": "PASS",
-        "edge": null,
-        "espn_league": "wta",
-        "game": "Oksana Selekhmeteva vs Lola Radivojevic",
-        "grade_supported": true,
-        "home_team": "Lola Radivojevic",
-        "league": "WTA",
-        "market_type": "tennis_moneyline",
-        "matchup": "Oksana Selekhmeteva vs Lola Radivojevic",
-        "odds": null,
-        "pick": "Oksana Selekhmeteva ML (Oksana Selekhmeteva vs Lola Radivojevic)",
-        "probability": null,
-        "scraped_tip_demoted": true,
-        "selected_player": "Oksana Selekhmeteva",
-        "source": "TennisTonic",
-        "source_decision": "BET",
-        "source_units": 1,
-        "source_url": "https://tennistonic.com/head-to-head-compare/Oksana-Selekhmeteva-Vs-Lola-Radivojevic/",
-        "sport": "Tennis",
-        "start_time": "2026-10-06T08:30Z",
-        "tennis_sets_prediction": 3,
-        "tip": "Oksana Selekhmeteva to win",
-        "units": 0
-      },
-      {
-        "away_team": "Melisa Ercan",
-        "calibration_excluded": true,
-        "date": "2026-10-06",
-        "decision": "PASS",
-        "edge": null,
-        "espn_league": "wta",
-        "game": "Melisa Ercan vs Simona Waltert",
-        "grade_supported": true,
-        "home_team": "Simona Waltert",
-        "league": "WTA",
-        "market_type": "tennis_moneyline",
-        "matchup": "Melisa Ercan vs Simona Waltert",
-        "odds": null,
-        "pick": "Simona Waltert ML (Melisa Ercan vs Simona Waltert)",
-        "probability": null,
-        "scraped_tip_demoted": true,
-        "selected_player": "Simona Waltert",
-        "source": "TennisTonic",
-        "source_decision": "BET",
-        "source_units": 1,
-        "source_url": "https://tennistonic.com/head-to-head-compare/Melisa-Ercan-Vs-Simona-Waltert/",
-        "sport": "Tennis",
-        "start_time": "2026-10-06T10:00Z",
-        "tennis_sets_prediction": 2,
-        "tip": "Simona Waltert to win",
-        "units": 0
-      },
-      {
-        "away_team": "Carole Monnet",
-        "calibration_excluded": true,
-        "date": "2026-10-06",
-        "decision": "PASS",
-        "edge": null,
-        "espn_league": "wta",
-        "game": "Carole Monnet vs Lucrezia Stefanini",
-        "grade_supported": true,
-        "home_team": "Lucrezia Stefanini",
-        "league": "WTA",
-        "market_type": "tennis_moneyline",
-        "matchup": "Carole Monnet vs Lucrezia Stefanini",
-        "odds": null,
-        "pick": "Lucrezia Stefanini ML (Carole Monnet vs Lucrezia Stefanini)",
-        "probability": null,
-        "scraped_tip_demoted": true,
-        "selected_player": "Lucrezia Stefanini",
-        "source": "TennisTonic",
-        "source_decision": "BET",
-        "source_units": 1,
-        "source_url": "https://tennistonic.com/head-to-head-compare/Carole-Monnet-Vs-Lucrezia-Stefanini/",
-        "sport": "Tennis",
-        "start_time": "2026-10-06T08:30Z",
-        "tennis_sets_prediction": 2,
-        "tip": "Lucrezia Stefanini to win",
-        "units": 0
-      },
-      {
-        "away_team": "Anna Blinkova",
-        "calibration_excluded": true,
-        "date": "2026-10-06",
-        "decision": "PASS",
-        "edge": null,
-        "espn_league": "wta",
-        "game": "Anna Blinkova vs Elena Pridankina",
-        "grade_supported": true,
-        "home_team": "Elena Pridankina",
-        "league": "WTA",
-        "market_type": "tennis_moneyline",
-        "matchup": "Anna Blinkova vs Elena Pridankina",
-        "odds": null,
-        "pick": "Anna Blinkova ML (Anna Blinkova vs Elena Pridankina)",
-        "probability": null,
-        "scraped_tip_demoted": true,
-        "selected_player": "Anna Blinkova",
-        "source": "TennisTonic",
-        "source_decision": "BET",
-        "source_units": 1,
-        "source_url": "https://tennistonic.com/head-to-head-compare/Anna-Blinkova-Vs-Elena-Pridankina/",
-        "sport": "Tennis",
-        "start_time": "2026-10-06T13:00Z",
-        "tennis_sets_prediction": 3,
-        "tip": "Anna Blinkova to win",
-        "units": 0
-      },
-      {
         "away_team": "Linda Klimovicova",
         "calibration_excluded": true,
         "date": "2026-10-06",
@@ -128101,69 +127879,13 @@
         "tennis_sets_prediction": 2,
         "tip": "Linda Klimovicova to win",
         "units": 0
-      },
-      {
-        "away_team": "Mariam Bolkvadze",
-        "calibration_excluded": true,
-        "date": "2026-10-06",
-        "decision": "PASS",
-        "edge": null,
-        "espn_league": "wta",
-        "game": "Mariam Bolkvadze vs Leolia Jeanjean",
-        "grade_supported": true,
-        "home_team": "Leolia Jeanjean",
-        "league": "WTA",
-        "market_type": "tennis_moneyline",
-        "matchup": "Mariam Bolkvadze vs Leolia Jeanjean",
-        "odds": null,
-        "pick": "Leolia Jeanjean ML (Mariam Bolkvadze vs Leolia Jeanjean)",
-        "probability": null,
-        "scraped_tip_demoted": true,
-        "selected_player": "Leolia Jeanjean",
-        "source": "TennisTonic",
-        "source_decision": "BET",
-        "source_units": 1,
-        "source_url": "https://tennistonic.com/head-to-head-compare/Mariam-Bolkvadze-Vs-Leolia-Jeanjean/",
-        "sport": "Tennis",
-        "start_time": "2026-10-06T11:30Z",
-        "tennis_sets_prediction": 3,
-        "tip": "Leolia Jeanjean to win",
-        "units": 0
-      },
-      {
-        "away_team": "Dalma Galfi",
-        "calibration_excluded": true,
-        "date": "2026-10-06",
-        "decision": "PASS",
-        "edge": null,
-        "espn_league": "wta",
-        "game": "Dalma Galfi vs Polina Iatcenko",
-        "grade_supported": true,
-        "home_team": "Polina Iatcenko",
-        "league": "WTA",
-        "market_type": "tennis_moneyline",
-        "matchup": "Dalma Galfi vs Polina Iatcenko",
-        "odds": null,
-        "pick": "Dalma Galfi ML (Dalma Galfi vs Polina Iatcenko)",
-        "probability": null,
-        "scraped_tip_demoted": true,
-        "selected_player": "Dalma Galfi",
-        "source": "TennisTonic",
-        "source_decision": "BET",
-        "source_units": 1,
-        "source_url": "https://tennistonic.com/head-to-head-compare/Dalma-Galfi-Vs-Polina-Iatcenko/",
-        "sport": "Tennis",
-        "start_time": "2026-10-07T04:00Z",
-        "tennis_sets_prediction": 3,
-        "tip": "Dalma Galfi to win",
-        "units": 0
       }
     ],
     "refreshStatus": "ok",
     "scraped_tip_feed": true,
-    "updatedAt": "2026-10-06T12:31:22.791826Z"
+    "updatedAt": "2026-10-06T18:25:13.896649Z"
   },
-  "updatedAt": "2026-10-06T18:23:01.460128Z",
+  "updatedAt": "2026-10-06T18:25:13.896649Z",
   "wnba": {
     "date": "2026-10-06",
     "note": "No WNBA picks today \u2014 off-season or no edge found.",
