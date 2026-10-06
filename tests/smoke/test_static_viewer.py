@@ -319,7 +319,8 @@ def test_static_viewer_keeps_public_tabs_and_client_grading():
     assert "async function gradeDate(" in main
     assert "site.api.espn.com" in main
     assert "setLocalResult(pick.id" in main
-    assert "await loadAllData({ includeHistory: false });" in main
+    assert "await loadAllData({" in main
+    assert "onLatest: () => {" in main
     assert "DISPLAY_TIME_ZONE = 'America/Chicago'" in main
     assert "function centralDateKey(" in main
     assert "isOpenPick(pick) && pickDateKey(pick) === selectedDate" in main
