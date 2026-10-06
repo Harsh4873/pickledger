@@ -118,8 +118,8 @@ Detail
         ["Brooklyn Nets @ Charlotte Hornets"],
     )
     assert len(nba_rows) == 1
-    assert nba_rows[0]["home"] == "Charlotte Hornets"
-    assert nba_rows[0]["away"] == "Brooklyn Nets"
+    assert nba_rows[0]["home"] == "Brooklyn Nets"
+    assert nba_rows[0]["away"] == "Charlotte Hornets"
 
     us_cards = module._extract_nfl_us_text_cards(
         """
@@ -707,6 +707,16 @@ def test_sportsgambler_nba_pml_listing_and_detail(monkeypatch):
     </div>
     <div class="pml-row align-center padding-1">
       <div class="pml-game grid align-center">
+        <span class="pml-meta"><span>Saturday</span><span> - NBA</span></span>
+        <span class="pml-teams">Brooklyn Nets</span>
+        <span class="pml-teams">Charlotte Hornets</span>
+      </div>
+      <p id="tipid1b" class="pml-tip-text span_12">
+        <a href="/betting-tips/basketball/brooklyn-nets-vs-charlotte-hornets-prediction-odds-2026-10-04/">Other night</a>
+      </p>
+    </div>
+    <div class="pml-row align-center padding-1">
+      <div class="pml-game grid align-center">
         <span class="pml-meta"><span>16:00 Sun 04/10</span><span> - WNBA</span></span>
         <span class="pml-teams">Las Vegas Aces</span>
         <span class="pml-teams">Golden State Valkyries</span>
@@ -742,7 +752,7 @@ def test_sportsgambler_nba_pml_listing_and_detail(monkeypatch):
         {
             "datetime": "23:00 Mon 06/10",
             "league": "NBA",
-            "matchup": "Brooklyn Nets @ Charlotte Hornets",
+            "matchup": "Brooklyn Nets vs Charlotte Hornets",
             "tip": "Hornets -3.5",
             "odds": "-110",
             "href": detail_url,
@@ -750,6 +760,23 @@ def test_sportsgambler_nba_pml_listing_and_detail(monkeypatch):
     ]
     assert detail_url in requested
     assert module.NBA_URL in requested
+
+    short_listing = listing_html.replace("Brooklyn Nets", "Nets").replace("Charlotte Hornets", "Hornets")
+    requested.clear()
+
+    def fake_get_short(url, **_kwargs):
+        requested.append(url)
+        if url == detail_url:
+            return Response(detail_html)
+        return Response(short_listing)
+
+    monkeypatch.setattr(module.requests, "get", fake_get_short)
+    short_rows = module.scrape_nba(
+        date(2026, 10, 6),
+        ["Brooklyn Nets @ Charlotte Hornets"],
+    )
+    assert short_rows[0]["matchup"] == "Brooklyn Nets @ Charlotte Hornets"
+    assert short_rows[0]["tip"] == "Hornets -3.5"
 
 
 def test_sportsgambler_nba_summer_reuses_basketball_listings_with_whitelist(monkeypatch):

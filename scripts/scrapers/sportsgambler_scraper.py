@@ -145,14 +145,20 @@ def _matchup_from_detail_slug(detail_url: str) -> str:
     return " vs ".join(team.replace("-", " ") for team in slug.groups())
 
 
-def _whitelist_matchup(
+def _listing_matchup_for_expected(
     matchup: str,
     detail_url: str,
     expected: dict[tuple[str, str], str],
+    *,
+    use_slug_fallback: bool,
 ) -> str:
+    """Keep listing names when they already match; use the detail slug only for
+    abbreviated football/pml cards whose JSON-LD/row text is too short."""
     matchup_key = _matchup_key(matchup)
     if matchup_key in expected:
-        return expected[matchup_key]
+        return matchup
+    if not use_slug_fallback:
+        return ""
     slug_matchup = _matchup_from_detail_slug(detail_url)
     slug_key = _matchup_key(slug_matchup)
     if slug_key in expected:
@@ -173,12 +179,52 @@ def _pml_league_label(meta_text: str) -> str:
     return ""
 
 
+def _pml_matches_target(date_text: str, target: date | None) -> bool:
+    """Drop other-day pml cards for the same teams (NBA series leftovers)."""
+    if target is None:
+        return True
+    text = _norm(date_text)
+    if not text:
+        return True
+    numeric = re.search(r"\b(\d{1,2})/(\d{1,2})(?:/(\d{2,4}))?\b", text)
+    if numeric:
+        first, second = int(numeric.group(1)), int(numeric.group(2))
+        raw_year = numeric.group(3)
+        years = [target.year] if not raw_year else (
+            [2000 + int(raw_year)] if len(raw_year) == 2 else [int(raw_year)]
+        )
+        for year_value in years:
+            for month, day in ((second, first), (first, second)):
+                try:
+                    if date(year_value, month, day) == target:
+                        return True
+                except ValueError:
+                    continue
+        return False
+    weekday = target.strftime("%A").lower()
+    aliases = {
+        "monday": {"monday", "mon"},
+        "tuesday": {"tuesday", "tue", "tues"},
+        "wednesday": {"wednesday", "wed"},
+        "thursday": {"thursday", "thu", "thur", "thurs"},
+        "friday": {"friday", "fri"},
+        "saturday": {"saturday", "sat"},
+        "sunday": {"sunday", "sun"},
+    }
+    tokens = set(re.findall(r"[a-z]+", text.lower()))
+    present = tokens & set().union(*aliases.values())
+    if not present:
+        return True
+    return bool(present & aliases[weekday])
+
+
 def _collect_pml_articles(
     soup: BeautifulSoup,
     league: str,
     expected: dict[tuple[str, str], str],
     href_contains: str | None,
     seen: set[str],
+    target: date | None = None,
 ) -> list[dict]:
     """Current SportsGambler basketball listings use pml-game rows, not JSON-LD."""
     articles: list[dict] = []
@@ -199,14 +245,21 @@ def _collect_pml_articles(
         detail_url = _absolute_href(tip_link.get("href") if tip_link is not None else "")
         if href_contains and href_contains not in detail_url:
             continue
-        official = _whitelist_matchup(matchup, detail_url, expected)
-        if not detail_url or not official or detail_url in seen:
-            continue
-        seen.add(detail_url)
+        official = _listing_matchup_for_expected(
+            matchup,
+            detail_url,
+            expected,
+            use_slug_fallback=True,
+        )
         date_text = ""
         if meta is not None:
             spans = [_norm(span.get_text(" ", strip=True)) for span in meta.find_all("span", recursive=False)]
             date_text = next((span for span in spans if span and not span.startswith("-")), "")
+        if not detail_url or not official or detail_url in seen:
+            continue
+        if not _pml_matches_target(date_text, target):
+            continue
+        seen.add(detail_url)
         articles.append({"url": detail_url, "matchup": official, "date": date_text})
     return articles
 
@@ -249,12 +302,17 @@ def scrape_basketball(
                 matchup = _matchup_from_node(item)
                 if href_contains and href_contains not in detail_url:
                     continue
-                official = _whitelist_matchup(matchup, detail_url, expected)
+                official = _listing_matchup_for_expected(
+                    matchup,
+                    detail_url,
+                    expected,
+                    use_slug_fallback=href_contains in {CFB_DETAIL_PATH, NFL_DETAIL_PATH},
+                )
                 if not detail_url or not official or detail_url in seen:
                     continue
                 seen.add(detail_url)
                 articles.append({"url": detail_url, "matchup": official, "date": item.get("startDate", "")})
-        articles.extend(_collect_pml_articles(soup, league, expected, href_contains, seen))
+        articles.extend(_collect_pml_articles(soup, league, expected, href_contains, seen, target))
     if not loaded_listing:
         raise RuntimeError(
             f"unable to load {league} prediction listing(s): "
