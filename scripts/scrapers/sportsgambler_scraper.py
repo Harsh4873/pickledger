@@ -4,6 +4,7 @@ from __future__ import annotations
 import argparse, json, re, sys, unicodedata
 from datetime import date, datetime
 from typing import Any
+from urllib.parse import urljoin
 import requests
 from bs4 import BeautifulSoup
 
@@ -13,6 +14,14 @@ HEADERS = {
 }
 
 NBA_URL = "https://www.sportsgambler.com/betting-tips/basketball/nba-predictions/"
+# Dedicated NBA listing dropped JSON-LD SportsEvent cards; current tips live in
+# pml-game rows on that page and, on mixed days, the basketball hub. Keep both
+# so a CMS shuffle still finds matchup links. One working page is enough: NBA
+# is optional at the provider runner, like CFB/NFL.
+NBA_URLS = (
+    NBA_URL,
+    "https://www.sportsgambler.com/betting-tips/basketball/",
+)
 NBA_SUMMER_URLS = (
     NBA_URL,
     "https://www.sportsgambler.com/betting-tips/basketball/",
@@ -119,6 +128,88 @@ def _expected_matchup_whitelist(expected_matchups: list[str] | None) -> dict[tup
         expected[key] = matchup
     return expected
 
+SPORTSGAMBLER_ORIGIN = "https://www.sportsgambler.com"
+
+
+def _absolute_href(href: str) -> str:
+    return urljoin(SPORTSGAMBLER_ORIGIN, _norm(href))
+
+
+def _matchup_from_detail_slug(detail_url: str) -> str:
+    slug = re.search(
+        r"/(?:nfl|ncaaf|basketball)/(.+?)-vs-(.+?)-prediction",
+        _norm(detail_url),
+    )
+    if not slug:
+        return ""
+    return " vs ".join(team.replace("-", " ") for team in slug.groups())
+
+
+def _whitelist_matchup(
+    matchup: str,
+    detail_url: str,
+    expected: dict[tuple[str, str], str],
+) -> str:
+    matchup_key = _matchup_key(matchup)
+    if matchup_key in expected:
+        return expected[matchup_key]
+    slug_matchup = _matchup_from_detail_slug(detail_url)
+    slug_key = _matchup_key(slug_matchup)
+    if slug_key in expected:
+        return expected[slug_key]
+    return ""
+
+
+def _pml_league_label(meta_text: str) -> str:
+    text = _norm(meta_text).upper()
+    if "WNBA" in text:
+        return "WNBA"
+    if "SUMMER" in text:
+        return "NBA SUMMER"
+    if re.search(r"\bNCAA", text) or "COLLEGE" in text:
+        return "NCAAB"
+    if re.search(r"\bNBA\b", text):
+        return "NBA"
+    return ""
+
+
+def _collect_pml_articles(
+    soup: BeautifulSoup,
+    league: str,
+    expected: dict[tuple[str, str], str],
+    href_contains: str | None,
+    seen: set[str],
+) -> list[dict]:
+    """Current SportsGambler basketball listings use pml-game rows, not JSON-LD."""
+    articles: list[dict] = []
+    for game in soup.select("div.pml-game"):
+        meta = game.select_one(".pml-meta")
+        league_label = _pml_league_label(meta.get_text(" ", strip=True) if meta else "")
+        if league_label and league_label != league:
+            continue
+        teams = [_norm(node.get_text(" ", strip=True)) for node in game.select(".pml-teams")]
+        teams = [team for team in teams if team]
+        matchup = f"{teams[0]} vs {teams[1]}" if len(teams) >= 2 else ""
+        row = game.find_parent("div", class_=lambda value: bool(value and "pml-row" in value))
+        tip_link = row.select_one("p.pml-tip-text a[href]") if row else None
+        if tip_link is None:
+            tip_link = game.find_next("p", class_=lambda value: bool(value and "pml-tip-text" in value))
+            if tip_link is not None:
+                tip_link = tip_link.select_one("a[href]")
+        detail_url = _absolute_href(tip_link.get("href") if tip_link is not None else "")
+        if href_contains and href_contains not in detail_url:
+            continue
+        official = _whitelist_matchup(matchup, detail_url, expected)
+        if not detail_url or not official or detail_url in seen:
+            continue
+        seen.add(detail_url)
+        date_text = ""
+        if meta is not None:
+            spans = [_norm(span.get_text(" ", strip=True)) for span in meta.find_all("span", recursive=False)]
+            date_text = next((span for span in spans if span and not span.startswith("-")), "")
+        articles.append({"url": detail_url, "matchup": official, "date": date_text})
+    return articles
+
 def scrape_basketball(
     target: date | None,
     url: str | tuple[str, ...],
@@ -154,28 +245,16 @@ def scrape_basketball(
                 item = node.get("item")
                 if not isinstance(item, dict) or item.get("@type") != "SportsEvent":
                     continue
-                detail_url = _norm(item.get("url", ""))
+                detail_url = _absolute_href(item.get("url", ""))
                 matchup = _matchup_from_node(item)
-                if not detail_url or not matchup or detail_url in seen:
-                    continue
                 if href_contains and href_contains not in detail_url:
                     continue
-                matchup_key = _matchup_key(matchup)
-                if matchup_key not in expected and href_contains in {CFB_DETAIL_PATH, NFL_DETAIL_PATH}:
-                    # Football cards abbreviate names ("49ers vs Rams",
-                    # "Rutgers vs Boston College"); detail slugs retain the
-                    # full teams. Require an exact official pair from that
-                    # slug instead of accepting ambiguous mascot matches.
-                    slug = re.search(r"/(?:nfl|ncaaf)/(.+?)-vs-(.+?)-prediction-", detail_url)
-                    if slug:
-                        full_matchup = " vs ".join(team.replace("-", " ") for team in slug.groups())
-                        matchup_key = _matchup_key(full_matchup)
-                        if matchup_key in expected:
-                            matchup = expected[matchup_key]
-                if matchup_key not in expected:
+                official = _whitelist_matchup(matchup, detail_url, expected)
+                if not detail_url or not official or detail_url in seen:
                     continue
                 seen.add(detail_url)
-                articles.append({"url": detail_url, "matchup": matchup, "date": item.get("startDate", "")})
+                articles.append({"url": detail_url, "matchup": official, "date": item.get("startDate", "")})
+        articles.extend(_collect_pml_articles(soup, league, expected, href_contains, seen))
     if not loaded_listing:
         raise RuntimeError(
             f"unable to load {league} prediction listing(s): "
@@ -239,7 +318,13 @@ def scrape_basketball(
     return rows
 
 def scrape_nba(target: date | None, expected_matchups: list[str] | None = None) -> list[dict]:
-    return scrape_basketball(target, NBA_URL, "NBA", expected_matchups)
+    return scrape_basketball(
+        target,
+        NBA_URLS,
+        "NBA",
+        expected_matchups,
+        require_complete_listings=False,
+    )
 
 def scrape_nba_summer(target: date | None, expected_matchups: list[str] | None = None) -> list[dict]:
     return scrape_basketball(target, NBA_SUMMER_URLS, "NBA SUMMER", expected_matchups)

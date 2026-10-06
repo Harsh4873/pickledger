@@ -36,6 +36,18 @@ def test_source_health_distinguishes_partial_coverage_and_stale_features():
     assert any('ratings stale' in s for s in issues)
     assert any('unrated' in s for s in issues)
     assert not source_issues('cfb', {'ok': True, 'games': 0, 'picks': []}, '2026-09-20')
+    nba_issues = source_issues(
+        'sportsgambler_nba',
+        {'ok': True, 'refreshStatus': 'error', 'lastError': 'cloudflare', 'meta': {}},
+        '2026-10-06',
+    )
+    assert any('latest provider attempt failed' in issue for issue in nba_issues)
+    scores24_nba_issues = source_issues(
+        'scores24_nba',
+        {'ok': True, 'meta': {'expectedMatchups': 8, 'matchedPicks': 3}},
+        '2026-10-06',
+    )
+    assert any('partial provider coverage' in issue for issue in scores24_nba_issues)
 
 
 def test_prediction_version_changes_with_artifact_and_not_probability(tmp_path):

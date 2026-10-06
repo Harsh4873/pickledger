@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Publish Scores24 MLB/WNBA (required) plus CFB/NFL (soft-fail optional) from a
+# Publish Scores24 MLB/WNBA (required) plus CFB/NFL/NBA (soft-fail optional) from a
 # non-GitHub-Actions IP. FIFA and NBA Summer stay archived from the daily run.
 set -euo pipefail
 
@@ -25,9 +25,9 @@ DATE_ISO="${SCORES24_DATE:-$(TZ=America/Chicago date +%F)}"
 # MLB+WNBA remain the Scores24 publisher completeness gate (and can still
 # promote latest.json when complete). They are not a hard site_upcheck / Pages
 # deploy requirement: in-house team models alone are enough to publish.
-# CFB and NFL ride the same weekday morning/afternoon Scores24 run as soft-fail
+# CFB, NFL, and NBA ride the same weekday morning/afternoon Scores24 run as soft-fail
 # optional feeds: scrape when the slate exists, but incomplete/blocked/hung
-# CFB or NFL must not prevent publishing a complete MLB+WNBA slate, and must
+# CFB, NFL, or NBA must not prevent publishing a complete MLB+WNBA slate, and must
 # not gate latestUpdated. Optional feeds get a hard timeout and no block-retry
 # sleep budget so a Camoufox hang cannot delay the remaining feeds indefinitely.
 # NFL gets a larger cap for a 14-game Sunday slate. Afternoon reruns resume
@@ -35,9 +35,9 @@ DATE_ISO="${SCORES24_DATE:-$(TZ=America/Chicago date +%F)}"
 PUBLISH_FEEDS="${SCORES24_PUBLISH_FEEDS:-scores24_mlb,scores24_wnba}"
 # Canonical: SCORES24_OPTIONAL_FEEDS. Legacy OPTIONAL_FEEDS is accepted when the
 # SCORES24_ var is unset so morning soft-refresh callers that export OPTIONAL_FEEDS
-# still refresh CFB/NFL. Singles research stays on its own isolated publisher.
-OPTIONAL_FEEDS="${SCORES24_OPTIONAL_FEEDS:-${OPTIONAL_FEEDS:-scores24_cfb,scores24_nfl}}"
-PUBLISH_SPORTS="${SCORES24_PUBLISH_SPORTS:-mlb,wnba,cfb,nfl}"
+# still refresh CFB/NFL/NBA. Singles research stays on its own isolated publisher.
+OPTIONAL_FEEDS="${SCORES24_OPTIONAL_FEEDS:-${OPTIONAL_FEEDS:-scores24_cfb,scores24_nfl,scores24_nba}}"
+PUBLISH_SPORTS="${SCORES24_PUBLISH_SPORTS:-mlb,wnba,cfb,nfl,nba}"
 OPTIONAL_FEED_TIMEOUT="${SCORES24_OPTIONAL_FEED_TIMEOUT_SECONDS:-180}"
 NFL_OPTIONAL_FEED_TIMEOUT="${SCORES24_NFL_OPTIONAL_FEED_TIMEOUT_SECONDS:-420}"
 REQUEST_INTERVAL="${SCORES24_REQUEST_INTERVAL_SECONDS:-12}"
@@ -160,7 +160,7 @@ from pathlib import Path
 
 date_iso = os.environ["DATE_ISO"]
 # Completeness gate is PUBLISH_FEEDS only (default MLB+WNBA). Optional feeds
-# such as scores24_cfb and scores24_nfl are scraped after this check and must
+# such as scores24_cfb, scores24_nfl, and scores24_nba are scraped after this check and must
 # never fail it.
 required = tuple(
     feed.strip()
@@ -189,7 +189,7 @@ if failures:
     raise SystemExit("Scores24 refresh incomplete; refusing to publish:\n- " + "\n- ".join(failures))
 PY
 
-# MLB+WNBA are complete. CFB/NFL (and any other OPTIONAL_FEEDS) are best-effort:
+# MLB+WNBA are complete. CFB/NFL/NBA (and any other OPTIONAL_FEEDS) are best-effort:
 # a hang, Cloudflare block, or incomplete football slate must not prevent
 # publishing the required feeds. A hard timeout kills the Camoufox process
 # group and promotes any same-day checkpoint; yesterday's rows are never

@@ -445,6 +445,7 @@ const SOURCE_LABELS: Record<string, string> = {
   sportsgambler_cfb: 'SportsGamblerCFB',
   sportsgambler_nfl: 'SportsGamblerNFL',
   scores24_nba_summer: 'Scores24NBASummer',
+  scores24_nba: 'Scores24NBA',
   scores24_wnba: 'Scores24WNBA',
   scores24_mlb: 'Scores24MLB',
   scores24_fifa_world_cup: 'Scores24FIFAWorldCup',

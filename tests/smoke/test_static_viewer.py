@@ -34,6 +34,7 @@ def test_frontend_is_static_json_only():
     assert "sportytrader_nfl: 'SportyTraderNFL'" in data
     assert "sportsgambler_nfl: 'SportsGamblerNFL'" in data
     assert "scores24_nfl: 'Scores24NFL'" in data
+    assert "scores24_nba: 'Scores24NBA'" in data
 
 
 def test_viewer_paints_latest_picks_before_history_archive():

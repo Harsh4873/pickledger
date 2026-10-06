@@ -276,6 +276,7 @@ EXTERNAL_FEED_MODEL_KEYS = {
     "sportsgambler_cfb",
     "sportsgambler_nfl",
     "scores24_nba_summer",
+    "scores24_nba",
     "scores24_wnba",
     "scores24_mlb",
     "scores24_fifa_world_cup",

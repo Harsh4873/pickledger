@@ -3157,6 +3157,12 @@ _MODEL_CACHE_KEY_ALIASES: dict[str, tuple[str, ...]] = {
     "sportsgambler_fifa_world_cup": ("sportsgambler_fifa_world_cup",),
     "sportsgambler_cfb": ("sportsgambler_cfb",),
     "sportsgambler_nfl": ("sportsgambler_nfl",),
+    "scores24_nba": ("scores24_nba",),
+    "scores24_nba_summer": ("scores24_nba_summer",),
+    "scores24_wnba": ("scores24_wnba",),
+    "scores24_mlb": ("scores24_mlb",),
+    "scores24_cfb": ("scores24_cfb",),
+    "scores24_nfl": ("scores24_nfl",),
 }
 
 
@@ -6200,9 +6206,9 @@ def _external_feed_slate_whitelists(
     return expected_by_sport, zero_slate_sports, errors
 
 
-# CFB and NFL must not fail an otherwise successful MLB/WNBA provider refresh.
-# Tennis is a separate feed with the same idea.
-_EXTERNAL_FEED_OPTIONAL_SPORTS = frozenset({"cfb", "nfl", "nhl"})
+# CFB, NFL, NHL, and NBA must not fail an otherwise successful MLB/WNBA
+# provider refresh. Tennis is a separate feed with the same idea.
+_EXTERNAL_FEED_OPTIONAL_SPORTS = frozenset({"cfb", "nfl", "nhl", "nba"})
 
 
 def _partition_external_feed_errors(
@@ -6466,7 +6472,7 @@ def run_sportytrader_scraper(
         command = [python_bin, scraper_path, "--sport", sport_code, "--date", target_date]
         for matchup in expected_by_sport.get(sport_code, []):
             command.extend(["--expected-matchup", matchup])
-        sport_timeout = 300 if sport_code in {"cfb", "nfl"} else timeout_s
+        sport_timeout = 300 if sport_code in {"cfb", "nfl", "nba"} else timeout_s
         return _subprocess_run(
             command,
             cwd=BASE_DIR,
@@ -6486,7 +6492,7 @@ def run_sportytrader_scraper(
             try:
                 result = _invoke(sport_code)
             except subprocess.TimeoutExpired:
-                sport_timeout = 300 if sport_code in {"cfb", "nfl"} else timeout_s
+                sport_timeout = 300 if sport_code in {"cfb", "nfl", "nba"} else timeout_s
                 errors.append(f"{sport_code}: timed out after {sport_timeout}s")
                 continue
             output = (result.stdout or "") + (result.stderr or "")
@@ -6497,7 +6503,7 @@ def run_sportytrader_scraper(
                 try:
                     result = _invoke(sport_code)
                 except subprocess.TimeoutExpired:
-                    sport_timeout = 300 if sport_code in {"cfb", "nfl"} else timeout_s
+                    sport_timeout = 300 if sport_code in {"cfb", "nfl", "nba"} else timeout_s
                     errors.append(f"{sport_code}: timed out after {sport_timeout}s after Playwright install")
                     continue
                 output = (result.stdout or "") + (result.stderr or "")
@@ -6634,7 +6640,7 @@ def run_sportsgambler_scraper(
         command = [python_bin, scraper_path, "--sport", sport_code, "--date", target_date]
         for matchup in expected_by_sport.get(sport_code, []):
             command.extend(["--expected-matchup", matchup])
-        sport_timeout = 300 if sport_code in {"cfb", "nfl"} else timeout_s
+        sport_timeout = 300 if sport_code in {"cfb", "nfl", "nba"} else timeout_s
         return _subprocess_run(
             command,
             cwd=BASE_DIR,
@@ -6653,7 +6659,7 @@ def run_sportsgambler_scraper(
             try:
                 result = _invoke(sport_code)
             except subprocess.TimeoutExpired:
-                sport_timeout = 300 if sport_code in {"cfb", "nfl"} else timeout_s
+                sport_timeout = 300 if sport_code in {"cfb", "nfl", "nba"} else timeout_s
                 errors.append(f"{sport_code}: timed out after {sport_timeout}s")
                 continue
             output = (result.stdout or "") + (result.stderr or "")
