@@ -20,6 +20,18 @@ type CachePayload = Record<string, unknown>;
 
 const realFetch = globalThis.fetch;
 
+async function freshHistoryData(name: string) {
+  const url = new URL('../src/data.ts', import.meta.url);
+  url.searchParams.set('history-test', name);
+  return await import(url.href) as typeof import('../src/data.ts');
+}
+
+async function finishHistory(data: typeof import('../src/data.ts')) {
+  await new Promise<void>((resolve, reject) => {
+    void data.loadAllData({ onHistory: resolve }).catch(reject);
+  });
+}
+
 function installFetch(responses: Map<string, CachePayload>): string[] {
   const requests: string[] = [];
   globalThis.fetch = async (input: RequestInfo | URL): Promise<Response> => {
@@ -39,6 +51,63 @@ afterEach(() => {
   globalThis.fetch = realFetch;
   setHideScrapedPicks(false);
   setHideTennisPicks(false);
+});
+
+test('retries failed history without refetching successful dates or replacing fresh picks', { concurrency: false, timeout: 5000 }, async () => {
+  const data = await freshHistoryData('file-recovery');
+  const date = '2026-10-01';
+  const failedDate = '2026-01-15';
+  const loadedDate = '2026-01-16';
+  const current = (pick: string) => ({ date, models: { nfl: { ok: true, picks: [
+    { id: 'current-recovery', sport: 'NFL', pick, decision: 'BET' },
+  ] } } });
+  const responses = new Map<string, CachePayload>([
+    ['./data/model_cache/latest.json', current('Initial current pick')],
+    ['./data/model_cache/index.json', { files: [`${failedDate}.json`, `${loadedDate}.json`, `${date}.json`] }],
+    [`./data/model_cache/${loadedDate}.json`, { date: loadedDate, models: { nfl: { ok: true, picks: [
+      { id: 'loaded-recovery', sport: 'NFL', pick: 'Already loaded history', decision: 'BET' },
+    ] } } }],
+    ['./data/player_props_cache/index.json', { files: [] }],
+    ['./data/parlay_cards/index.json', { files: [] }],
+    ['./data/profit_desk/index.json', { files: [] }],
+  ]);
+  const requests = installFetch(responses);
+  await finishHistory(data);
+  assert.equal(data.isPickHistoryIncomplete(), true);
+  assert.equal(data.isPickHistoryLoading(), false);
+  assert.equal(data.getTeamPicks().some(pick => pick.date === failedDate), false);
+  responses.set('./data/model_cache/latest.json', current('Corrected current pick'));
+  responses.set(`./data/model_cache/${failedDate}.json`, { date: failedDate, models: { nfl: { ok: true, picks: [
+    { id: 'failed-recovery', sport: 'NFL', pick: 'Recovered history', decision: 'BET', result: 'loss' },
+  ] } } });
+  await finishHistory(data);
+  assert.equal(data.isPickHistoryIncomplete(), false);
+  assert.ok(data.getTeamPicks().some(pick => pick.pick === 'Recovered history' && pick.result === 'loss'));
+  assert.deepEqual(data.getTeamPicks().filter(pick => pick.date === date).map(pick => pick.pick), ['Corrected current pick']);
+  assert.equal(requests.filter(path => path === `./data/model_cache/${failedDate}.json`).length, 2);
+  assert.equal(requests.filter(path => path === `./data/model_cache/${loadedDate}.json`).length, 1);
+});
+
+test('does not mark history complete when a manifest request fails', { concurrency: false, timeout: 5000 }, async () => {
+  const data = await freshHistoryData('manifest-recovery');
+  const date = '2026-10-02';
+  const older = '2026-01-17';
+  const responses = new Map<string, CachePayload>([
+    ['./data/model_cache/latest.json', { date, models: {} }],
+    ['./data/player_props_cache/index.json', { files: [] }],
+    ['./data/parlay_cards/index.json', { files: [] }],
+    ['./data/profit_desk/index.json', { files: [] }],
+  ]);
+  installFetch(responses);
+  await finishHistory(data);
+  assert.equal(data.isPickHistoryIncomplete(), true);
+  responses.set('./data/model_cache/index.json', { files: [`${older}.json`, `${date}.json`] });
+  responses.set(`./data/model_cache/${older}.json`, { date: older, models: { nfl: { ok: true, picks: [
+    { id: 'manifest-recovery', sport: 'NFL', pick: 'Manifest recovered pick', decision: 'BET' },
+  ] } } });
+  await finishHistory(data);
+  assert.equal(data.isPickHistoryIncomplete(), false);
+  assert.ok(data.getTeamPicks().some(pick => pick.pick === 'Manifest recovered pick'));
 });
 
 test('loads a newer dated payload alongside latest.json', { concurrency: false }, async () => {
@@ -689,4 +758,3 @@ test('NBA regular-season picks appear on the main board while summer and FIFA st
   assert.equal(getSourceStatuses(date).find(source => source.key === 'nba_summer'), undefined);
   setPickMode('team');
 });
-

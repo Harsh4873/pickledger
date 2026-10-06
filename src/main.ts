@@ -15,6 +15,7 @@ import {
   didLatestCacheLoad,
   getPlayerSourceStatuses,
   isPickHistoryLoading,
+  isPickHistoryIncomplete,
   getParlayCardsPayload,
   getParlayCardPayloads,
   getProfitDeskPayload,
@@ -3398,7 +3399,9 @@ function dailyFilterRecordText(row: DailyFilterLedgerRow): string {
 
 function dailyFilterRecordsHtml(): string {
   const rows = computeDailyFilterLedger();
-  const historyNote = isPickHistoryLoading()
+  const historyNote = isPickHistoryIncomplete()
+    ? 'Some historical records could not load. These records are incomplete; use Refresh to retry.'
+    : isPickHistoryLoading()
     ? 'History is still loading, so these records will fill in.'
     : 'Every card each view showed, replayed from the full slate with the same rules and ranking cutovers. Research replays its strongest sit-outs and pricey favorites, not every PASS. Fade counts the other side.';
   const filterNote = dailyDecisionFilter === 'ALL'
@@ -4396,7 +4399,7 @@ async function refreshAutoGrades(): Promise<void> {
   const button = document.getElementById('refresh-btn') as HTMLButtonElement | null;
   if (button) button.disabled = true;
   try {
-    await loadAllData({ includeHistory: false });
+    await loadAllData({ onHistory: () => { updateSyncStatus(); render(); } });
     updateSyncStatus();
     render();
     if (!didLatestCacheLoad()) return;
@@ -4458,7 +4461,9 @@ function updateSyncStatus(): void {
     ? `Picks updated ${updatedAgoLabel(status.updatedAt)}${status.runTime ? ` • ${status.runTime}` : ''}`
     : 'Latest pick update time unavailable';
   syncStatus.classList.remove('ok', 'error');
-  syncStatus.textContent = isPickHistoryLoading() ? `${base} • loading records` : base;
+  syncStatus.textContent = isPickHistoryIncomplete()
+    ? `${base} • incomplete history — Refresh to retry`
+    : isPickHistoryLoading() ? `${base} • loading records` : base;
 }
 
 function switchPickMode(mode: PickMode): void {

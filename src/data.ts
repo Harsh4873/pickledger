@@ -581,7 +581,7 @@ let parlayPayloads: ParlayCardsPayload[] = [];
 let latestParlayPayload: ParlayCardsPayload | null = null;
 let profitDeskPayloads: ProfitDeskPayload[] = [];
 let latestProfitDeskPayload: ProfitDeskPayload | null = null;
-let pickHistoryStatus: 'idle' | 'loading' | 'ready' = 'idle';
+let pickHistoryStatus: 'idle' | 'loading' | 'partial' | 'ready' = 'idle';
 let pickHistoryLoaded = false;
 let pickHistoryPromise: Promise<void> | null = null;
 
@@ -1131,13 +1131,18 @@ async function loadLatestCaches(): Promise<void> {
   rebuildPicks();
 }
 
-async function loadHistoryCaches(): Promise<void> {
-  const [teamFiles, playerFiles, parlayFiles, profitFiles] = await Promise.all([
-    listDatedCacheFiles(MODEL_CACHE_INDEX),
-    listDatedCacheFiles(PLAYER_CACHE_INDEX),
-    listDatedCacheFiles(PARLAY_CACHE_INDEX),
-    listDatedCacheFiles(PROFIT_CACHE_INDEX),
+async function loadHistoryCaches(): Promise<boolean> {
+  const manifests = await Promise.all([
+    fetchJson<CacheManifest>(MODEL_CACHE_INDEX),
+    fetchJson<CacheManifest>(PLAYER_CACHE_INDEX),
+    fetchJson<CacheManifest>(PARLAY_CACHE_INDEX),
+    fetchJson<CacheManifest>(PROFIT_CACHE_INDEX),
   ]);
+  const [teamFiles, playerFiles, parlayFiles, profitFiles] = manifests.map(manifest => (
+    Array.isArray(manifest?.files)
+      ? manifest.files.filter(file => typeof file === 'string' && /^\d{4}-\d{2}-\d{2}\.json$/.test(file))
+      : []
+  ));
   const loadedTeam = new Set(teamCachePayloads.map(payload => String(payload.date || '')));
   const loadedPlayer = new Set(playerCachePayloads.map(payload => String(payload.date || payload.slate_date || '')));
   const loadedParlay = new Set(parlayPayloads.map(payload => String(payload.date || '')));
@@ -1187,6 +1192,8 @@ async function loadHistoryCaches(): Promise<void> {
   );
   latestProfitDeskPayload = profitDeskPayloads[profitDeskPayloads.length - 1] || latestProfitDeskPayload;
   rebuildPicks();
+  return manifests.every(manifest => Array.isArray(manifest?.files))
+    && [...teamIncoming, ...playerIncoming, ...parlayIncoming, ...profitIncoming].every(Boolean);
 }
 
 async function ensureHistory(): Promise<void> {
@@ -1194,13 +1201,14 @@ async function ensureHistory(): Promise<void> {
   if (!pickHistoryPromise) {
     pickHistoryStatus = 'loading';
     pickHistoryPromise = loadHistoryCaches()
-      .then(() => {
-        pickHistoryLoaded = true;
-        pickHistoryStatus = 'ready';
+      .then(complete => {
+        pickHistoryLoaded = complete;
+        pickHistoryStatus = complete ? 'ready' : 'partial';
+        pickHistoryPromise = null;
       })
       .catch(() => {
         pickHistoryPromise = null;
-        pickHistoryStatus = 'idle';
+        pickHistoryStatus = 'partial';
       });
   }
   return pickHistoryPromise;
@@ -1260,6 +1268,10 @@ export function getPickMode(): PickMode {
 
 export function isPickHistoryLoading(): boolean {
   return pickHistoryStatus === 'loading';
+}
+
+export function isPickHistoryIncomplete(): boolean {
+  return pickHistoryStatus === 'partial';
 }
 
 export async function loadAllData(options?: {
