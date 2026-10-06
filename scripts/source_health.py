@@ -45,7 +45,7 @@ def source_issues(key, bucket, day):
                     "tipster feed OK does not refresh ranking/points inputs"
                 )
     if key.startswith(("sportytrader_", "sportsgambler_")) and key.endswith(
-        ("_mlb", "_wnba", "_cfb", "_nfl", "_fifa_world_cup")
+        ("_nba", "_mlb", "_wnba", "_cfb", "_nfl", "_fifa_world_cup")
     ):
         if bucket.get("refreshStatus") == "error":
             issues.append(f"latest provider attempt failed: {bucket.get('lastError') or 'unknown error'}")

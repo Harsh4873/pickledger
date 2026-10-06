@@ -39,9 +39,21 @@ SPORT_CONFIG = {
     "nba": {
         "aliases": {"nba", "basketball"},
         "league": "USA - NBA",
-        "league_aliases": {"USA - NBA"},
+        "league_aliases": {
+            "USA - NBA",
+            "NBA",
+        },
         "title": "NBA",
         "url": "https://www.sportytrader.com/us/picks/basketball/usa/nba-306/",
+        # Dedicated nba-306 is often a futures/preview page without daily cards.
+        # EN league + mixed basketball listings carry the editorial cards;
+        # the official matchup whitelist keeps Euroleague/WNBA out.
+        "fallback_urls": (
+            "https://www.sportytrader.com/en/betting-tips/basketball/usa/nba-306/",
+            "https://www.sportytrader.com/us/picks/basketball/",
+            "https://www.sportytrader.com/en/betting-tips/basketball/",
+        ),
+        "allow_partial_listings": True,
     },
     "nba_summer": {
         "aliases": {"nba_summer", "nba_summer_league", "summer_league"},
@@ -424,8 +436,9 @@ def _extract_nfl_us_text_cards(
     body_text: str,
     listing_url: str,
     expected_matchups: list[str],
+    expected_league: str = "USA - NFL",
 ) -> list[dict[str, str]]:
-    """Read the US football listing's ``Team Team Picks`` editorial cards."""
+    """Read the US listing's ``Team Team Picks`` editorial cards."""
     raw_lines = [_normalize_line(line) for line in body_text.splitlines()]
     lines: list[str] = []
     for line in raw_lines:
@@ -471,7 +484,7 @@ def _extract_nfl_us_text_cards(
             (i for i in range(len(preceding) - 1, -1, -1) if preceding[i].startswith("USA - ")),
             None,
         )
-        if league_index is None or preceding[league_index] != "USA - NFL":
+        if league_index is None or preceding[league_index] != expected_league:
             continue
         date_text = preceding[league_index - 1] if league_index > 0 else ""
         if not _parse_english_datetime(date_text):
@@ -503,7 +516,7 @@ def _extract_nfl_us_text_cards(
         )
         rows.append({
             "datetime": date_text,
-            "league": "USA - NFL",
+            "league": expected_league,
             "home": display_teams[0],
             "away": display_teams[1],
             "tip": tip,
@@ -631,9 +644,14 @@ def main() -> None:
                 cards.extend(
                     _extract_text_cards(page_text, target_url, expected_matchups)
                 )
-                if sport_key == "nfl":
+                if sport_key in {"nfl", "nba"}:
                     cards.extend(
-                        _extract_nfl_us_text_cards(page_text, target_url, expected_matchups)
+                        _extract_nfl_us_text_cards(
+                            page_text,
+                            target_url,
+                            expected_matchups,
+                            expected_league=sport_config["league"],
+                        )
                     )
                 page_texts.append(page_text)
         finally:

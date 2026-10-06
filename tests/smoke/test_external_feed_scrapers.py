@@ -44,6 +44,99 @@ def test_sportytrader_wnba_config_and_card_extraction():
     assert rows[0]["tip"] == "Indiana Fever -9.5"
 
 
+def test_sportytrader_nba_config_fallbacks_and_card_extraction():
+    module = _load_module(
+        "sportytrader_nba_scraper_test",
+        ROOT / "scripts" / "scrapers" / "sportytrader_scraper.py",
+    )
+    config = module.SPORT_CONFIG["nba"]
+    assert config["url"].endswith("/basketball/usa/nba-306/")
+    assert config["allow_partial_listings"] is True
+    assert config["fallback_urls"][0].endswith("/en/betting-tips/basketball/usa/nba-306/")
+    assert any(url.endswith("/en/betting-tips/basketball/") for url in config["fallback_urls"])
+    assert "NBA" in config["league_aliases"]
+    rows = module._extract_rows(
+        [
+            {
+                "datetime": "Oct 6, 2026, 7:00 PM",
+                "league": "USA - NBA",
+                "home": "Charlotte Hornets",
+                "away": "Brooklyn Nets",
+                "tip": "Charlotte Hornets -3.5",
+                "odds": "-110",
+                "href": "https://www.sportytrader.com/us/picks/brooklyn-charlotte-1/",
+            },
+            {
+                "datetime": "Oct 6, 2026, 8:00 PM",
+                "league": "USA - WNBA",
+                "home": "Indiana Fever",
+                "away": "Chicago Sky",
+                "tip": "Indiana Fever -9.5",
+                "odds": "-112",
+                "href": "https://www.sportytrader.com/us/picks/chicago-indiana-2/",
+            },
+        ],
+        module._parse_target_date("2026-10-06"),
+        "nba",
+        ["Brooklyn Nets @ Charlotte Hornets"],
+    )
+    assert len(rows) == 1
+    assert rows[0]["league"] == "USA - NBA"
+    assert rows[0]["tip"] == "Charlotte Hornets -3.5"
+
+    body_text = """
+06 Oct 2026, 19:00
+USA - NBA
+Brooklyn Nets
+Brooklyn Nets
+-
+Charlotte Hornets
+Charlotte Hornets
+Brooklyn Nets vs Charlotte Hornets Prediction
+Charlotte Hornets -3.5
+Detail
+06 Oct 2026, 20:00
+USA - WNBA
+Chicago Sky
+Chicago Sky
+-
+Indiana Fever
+Indiana Fever
+Chicago Sky vs Indiana Fever Prediction
+Indiana Fever -9.5
+Detail
+"""
+    cards = module._extract_text_cards(
+        body_text,
+        config["url"],
+        ["Brooklyn Nets @ Charlotte Hornets", "Chicago Sky @ Indiana Fever"],
+    )
+    nba_rows = module._extract_rows(
+        cards,
+        module._parse_target_date("2026-10-06"),
+        "nba",
+        ["Brooklyn Nets @ Charlotte Hornets"],
+    )
+    assert len(nba_rows) == 1
+    assert nba_rows[0]["home"] == "Brooklyn Nets"
+    assert nba_rows[0]["away"] == "Charlotte Hornets"
+
+    us_cards = module._extract_nfl_us_text_cards(
+        """
+06 Oct 2026, 19:00
+USA - NBA
+Brooklyn Nets Charlotte Hornets Picks
+Charlotte Hornets -3.5
+Odds -110
+""",
+        config["url"],
+        ["Brooklyn Nets @ Charlotte Hornets"],
+        expected_league="USA - NBA",
+    )
+    assert len(us_cards) == 1
+    assert us_cards[0]["tip"] == "Charlotte Hornets -3.5"
+
+
 def test_sportytrader_nba_summer_uses_official_matchup_identity():
     module = _load_module(
         "sportytrader_nba_summer_scraper_test",
@@ -588,6 +681,102 @@ def test_sportsgambler_wnba_listing_and_detail(monkeypatch):
             "href": late_url,
         },
     ]
+
+
+def test_sportsgambler_nba_pml_listing_and_detail(monkeypatch):
+    module = _load_module(
+        "sportsgambler_nba_pml_scraper_test",
+        ROOT / "scripts" / "scrapers" / "sportsgambler_scraper.py",
+    )
+    assert module.NBA_URLS[0] == module.NBA_URL
+    assert module.NBA_URLS[1].endswith("/betting-tips/basketball/")
+    detail_url = (
+        "https://www.sportsgambler.com/betting-tips/basketball/"
+        "brooklyn-nets-vs-charlotte-hornets-prediction-odds-2026-10-06/"
+    )
+    listing_html = f"""
+    <div class="pml-row align-center padding-1">
+      <div class="pml-game grid align-center">
+        <span class="pml-meta"><span>23:00 Mon 06/10</span><span> - NBA</span></span>
+        <span class="pml-teams">Brooklyn Nets</span>
+        <span class="pml-teams">Charlotte Hornets</span>
+      </div>
+      <p id="tipid1" class="pml-tip-text span_12">
+        <a href="/betting-tips/basketball/brooklyn-nets-vs-charlotte-hornets-prediction-odds-2026-10-06/">Hornets cover</a>
+      </p>
+    </div>
+    <div class="pml-row align-center padding-1">
+      <div class="pml-game grid align-center">
+        <span class="pml-meta"><span>Saturday</span><span> - NBA</span></span>
+        <span class="pml-teams">Brooklyn Nets</span>
+        <span class="pml-teams">Charlotte Hornets</span>
+      </div>
+      <p id="tipid1b" class="pml-tip-text span_12">
+        <a href="/betting-tips/basketball/brooklyn-nets-vs-charlotte-hornets-prediction-odds-2026-10-04/">Other night</a>
+      </p>
+    </div>
+    <div class="pml-row align-center padding-1">
+      <div class="pml-game grid align-center">
+        <span class="pml-meta"><span>16:00 Sun 04/10</span><span> - WNBA</span></span>
+        <span class="pml-teams">Las Vegas Aces</span>
+        <span class="pml-teams">Golden State Valkyries</span>
+      </div>
+      <p id="tipid2" class="pml-tip-text span_12">
+        <a href="/betting-tips/basketball/las-vegas-aces-vs-golden-state-valkyries-prediction-odds-2026-10-04/">Over 161.5</a>
+      </p>
+    </div>
+    """
+    detail_html = (
+        '<div class="tpbot_container"><div class="tpbot_title">Our Game Prediction</div>'
+        '<a class="tpbot_tip"><span>Pick</span><span>Hornets -3.5 @ -110</span></a></div>'
+    )
+    requested: list[str] = []
+
+    class Response:
+        def __init__(self, text: str):
+            self.text = text
+            self.status_code = 200
+
+    def fake_get(url, **_kwargs):
+        requested.append(url)
+        if url == detail_url:
+            return Response(detail_html)
+        return Response(listing_html)
+
+    monkeypatch.setattr(module.requests, "get", fake_get)
+    rows = module.scrape_nba(
+        date(2026, 10, 6),
+        ["Brooklyn Nets @ Charlotte Hornets"],
+    )
+    assert rows == [
+        {
+            "datetime": "23:00 Mon 06/10",
+            "league": "NBA",
+            "matchup": "Brooklyn Nets vs Charlotte Hornets",
+            "tip": "Hornets -3.5",
+            "odds": "-110",
+            "href": detail_url,
+        }
+    ]
+    assert detail_url in requested
+    assert module.NBA_URL in requested
+
+    short_listing = listing_html.replace("Brooklyn Nets", "Nets").replace("Charlotte Hornets", "Hornets")
+    requested.clear()
+
+    def fake_get_short(url, **_kwargs):
+        requested.append(url)
+        if url == detail_url:
+            return Response(detail_html)
+        return Response(short_listing)
+
+    monkeypatch.setattr(module.requests, "get", fake_get_short)
+    short_rows = module.scrape_nba(
+        date(2026, 10, 6),
+        ["Brooklyn Nets @ Charlotte Hornets"],
+    )
+    assert short_rows[0]["matchup"] == "Brooklyn Nets @ Charlotte Hornets"
+    assert short_rows[0]["tip"] == "Hornets -3.5"
 
 
 def test_sportsgambler_nba_summer_reuses_basketball_listings_with_whitelist(monkeypatch):
@@ -1332,6 +1521,7 @@ def test_empty_slate_on_nonempty_cfb_whitelist_is_soft_error(monkeypatch):
     cases = (
         ("cfb", "2026-09-04", "Toledo Rockets @ Michigan State Spartans"),
         ("nfl", "2026-09-10", "New England Patriots @ Seattle Seahawks"),
+        ("nba", "2026-10-06", "Brooklyn Nets @ Charlotte Hornets"),
     )
     for sport_code, target_date, football_matchup in cases:
         def fake_matchups(_date, sport, sport_code=sport_code, football_matchup=football_matchup):
@@ -1569,6 +1759,10 @@ def test_external_feed_aliases_keep_football_as_fifa_and_ncaaf_as_cfb():
     assert "sportytrader_nfl" in EXTERNAL_FEED_MODEL_KEYS
     assert "sportsgambler_nfl" in EXTERNAL_FEED_MODEL_KEYS
     assert "scores24_nfl" in EXTERNAL_FEED_MODEL_KEYS
+    assert "scores24_nba" in EXTERNAL_FEED_MODEL_KEYS
+    assert server.external_feed_model_key("sportytrader", "nba") == "sportytrader_nba"
+    assert server.external_feed_source_label("sportsgambler", "NBA") == "SportsGamblerNBA"
+    assert "nba" in server._EXTERNAL_FEED_OPTIONAL_SPORTS
 
 
 def test_external_provider_scrapers_return_confirmed_zero_slate_without_launching(monkeypatch):
@@ -2617,9 +2811,10 @@ def test_scores24_cfb_is_wired_soft_fail_across_the_pipeline():
     workflow = (ROOT / ".github" / "workflows" / "external-feed-refresh.yml").read_text(encoding="utf-8")
     assert "scores24_cfb" not in workflow
     assert "scores24_nfl" not in workflow
+    assert "scores24_nba" not in workflow
 
     publisher = (ROOT / "scripts" / "scrapers" / "scores24_publish.sh").read_text(encoding="utf-8")
-    assert 'OPTIONAL_FEEDS="${SCORES24_OPTIONAL_FEEDS:-${OPTIONAL_FEEDS:-scores24_cfb,scores24_nfl}}"' in publisher
+    assert 'OPTIONAL_FEEDS="${SCORES24_OPTIONAL_FEEDS:-${OPTIONAL_FEEDS:-scores24_cfb,scores24_nfl,scores24_nba}}"' in publisher
     assert 'PUBLISH_FEEDS="${SCORES24_PUBLISH_FEEDS:-scores24_mlb,scores24_wnba}"' in publisher
     assert "will not block MLB+WNBA publish" in publisher
     assert "OPTIONAL_FEED_TIMEOUT" in publisher
@@ -2751,13 +2946,151 @@ def test_scores24_nfl_is_wired_soft_fail_across_the_pipeline():
 
     publisher = (ROOT / "scripts" / "scrapers" / "scores24_publish.sh").read_text(encoding="utf-8")
     assert "scores24_nfl" in publisher
-    assert 'OPTIONAL_FEEDS="${SCORES24_OPTIONAL_FEEDS:-${OPTIONAL_FEEDS:-scores24_cfb,scores24_nfl}}"' in publisher
+    assert 'OPTIONAL_FEEDS="${SCORES24_OPTIONAL_FEEDS:-${OPTIONAL_FEEDS:-scores24_cfb,scores24_nfl,scores24_nba}}"' in publisher
     assert 'PUBLISH_FEEDS="${SCORES24_PUBLISH_FEEDS:-scores24_mlb,scores24_wnba}"' in publisher
     assert "will not block MLB+WNBA publish" in publisher
     assert "scores24_optional_publish.py" in publisher
     assert 'NFL_OPTIONAL_FEED_TIMEOUT="${SCORES24_NFL_OPTIONAL_FEED_TIMEOUT_SECONDS:-420}"' in publisher
     assert 'if [[ "${feed_key}" == "scores24_nfl" ]]; then' in publisher
     assert 'OPTIONAL_FEED_TIMEOUT="${feed_timeout}"' in publisher
+
+
+def test_scores24_nba_config_listing_urls_and_official_matchup_scrape():
+    module = _load_module(
+        "scores24_nba_test",
+        ROOT / "scripts" / "scrapers" / "scores24_scraper.py",
+    )
+    config = module.SPORT_CONFIG["nba"]
+    assert config["espn_sport"] == "basketball"
+    assert config["espn_league"] == "nba"
+    assert config["scores24_sport"] == "basketball"
+    assert config["source"] == "Scores24NBA"
+    assert config["label"] == "NBA"
+    assert config["cache_keys"] == ("nba",)
+    assert config["listing_url"].endswith("/l-usa-nba/predictions")
+    assert config["listing_urls"] == (
+        "https://scores24.live/en/basketball/l-usa-nba/predictions",
+        "https://scores24.live/en/predictions/basketball",
+        "https://scores24.live/en/predictions/basketball/today",
+    )
+    espn_url = module._espn_scoreboard_url(config, "2026-10-06")
+    assert espn_url.endswith("/basketball/nba/scoreboard?dates=20261006")
+    assert callable(module.run_scores24_nba)
+    assert module.sport_key_for_feed("scores24_nba") == "nba"
+    assert "nba" in module.CHECKPOINT_RESUME_SPORTS
+    clippers = {"away": "Golden State Warriors", "home": "LA Clippers"}
+    urls = module.candidate_prediction_urls("nba", "2026-10-06", clippers)
+    assert any("los-angeles-clippers" in url for url in urls)
+    assert any("la-clippers" in url for url in urls)
+
+    nba_listing = (
+        "https://scores24.live/en/basketball/"
+        "m-06-10-2026-charlotte-hornets-brooklyn-nets-prediction"
+    )
+    listing_pages = {
+        config["listing_urls"][0]: f'<a href="{nba_listing}">Charlotte Hornets Brooklyn Nets</a>',
+        config["listing_urls"][1]: "<html><body>sport</body></html>",
+        config["listing_urls"][2]: "<html><body>today</body></html>",
+    }
+    details = {
+        nba_listing: """
+        <html><head><title>Charlotte Hornets vs Brooklyn Nets Prediction</title></head>
+        <body><script>window.__DATA__ = "{\\"prediction\\":[\\"one_two\\",\\"w1\\"],\\"predictionValue\\":\\"1.83\\"}";</script></body>
+        </html>
+        """,
+    }
+
+    class Client:
+        def __init__(self):
+            self.listing_urls = []
+
+        def get_html(self, url: str, attempts: int = 3):
+            if url in listing_pages:
+                self.listing_urls.append(url)
+                return listing_pages[url], 200, False
+            if url in details:
+                return details[url], 200, False
+            return "", 404, False
+
+        def close(self):
+            return None
+
+    client = Client()
+    result = module.scrape_scores24(
+        "nba",
+        "2026-10-06",
+        client=client,
+        matchups=[
+            {
+                "away": "Brooklyn Nets",
+                "home": "Charlotte Hornets",
+                "start_time": "2026-10-07T03:00:00Z",
+            }
+        ],
+    )
+    assert result["ok"] is True
+    assert result["picks"][0]["source"] == "Scores24NBA"
+    assert result["picks"][0]["sport"] == "NBA"
+    assert "Charlotte Hornets" in result["picks"][0]["pick"]
+    assert client.listing_urls == list(config["listing_urls"])
+
+
+def test_scores24_nba_empty_official_slate_is_ok():
+    module = _load_module(
+        "scores24_nba_offday_test",
+        ROOT / "scripts" / "scrapers" / "scores24_scraper.py",
+    )
+    result = module.scrape_scores24(
+        "nba",
+        "2026-08-01",
+        client=module.Scores24Client(browser_fallback=False),
+        matchups=[],
+    )
+    assert result["ok"] is True
+    assert result["picks"] == []
+    assert result["meta"]["officialMatchups"] == 0
+    assert result["meta"]["expectedMatchups"] == 0
+    assert result["meta"]["matchedPicks"] == 0
+
+
+def test_scores24_nba_is_wired_soft_fail_across_the_pipeline():
+    key = "scores24_nba"
+
+    refresh = _load_module("refresh_external_feeds_nba_test", ROOT / "scripts" / "refresh_external_feeds.py")
+    assert key in refresh.FEED_RUNNERS
+    assert key not in refresh.SPLIT_PROVIDER_FEEDS
+    assert "sportytrader_nba" in refresh.NON_NBA_SPLIT_FEEDS
+    assert "sportsgambler_nba" in refresh.NON_NBA_SPLIT_FEEDS
+
+    merge = _load_module("merge_external_feed_nba_test", ROOT / "scripts" / "merge_external_feed_cache_payload.py")
+    assert key in merge.EXTERNAL_FEED_MODEL_KEYS
+    model_merge = _load_module("merge_model_cache_nba_test", ROOT / "scripts" / "merge_model_cache_payload.py")
+    assert key in model_merge.EXTERNAL_FEED_MODEL_KEYS
+
+    site_upcheck = _load_module("site_upcheck_nba_test", ROOT / "scripts" / "site_upcheck.py")
+    assert key not in site_upcheck.REQUIRED_SCORES24_FEED_KEYS
+    assert "nba" in site_upcheck.REQUIRED_MODEL_KEYS
+
+    data_ts = (ROOT / "src" / "data.ts").read_text(encoding="utf-8")
+    assert "scores24_nba: 'Scores24NBA'" in data_ts
+    assert "nba: 'NBA New'" in data_ts
+
+    parlay = (ROOT / "scripts" / "build_parlay_cards.py").read_text(encoding="utf-8")
+    assert '"scores24_nba": "Scores24NBA"' in parlay
+
+    workflow = (ROOT / ".github" / "workflows" / "external-feed-refresh.yml").read_text(encoding="utf-8")
+    assert "scores24_nba" not in workflow
+
+    publisher = (ROOT / "scripts" / "scrapers" / "scores24_publish.sh").read_text(encoding="utf-8")
+    assert "scores24_nba" in publisher
+    assert 'OPTIONAL_FEEDS="${SCORES24_OPTIONAL_FEEDS:-${OPTIONAL_FEEDS:-scores24_cfb,scores24_nfl,scores24_nba}}"' in publisher
+    assert 'PUBLISH_FEEDS="${SCORES24_PUBLISH_FEEDS:-scores24_mlb,scores24_wnba}"' in publisher
+    assert 'PUBLISH_SPORTS="${SCORES24_PUBLISH_SPORTS:-mlb,wnba,cfb,nfl,nba}"' in publisher
+    assert "will not block MLB+WNBA publish" in publisher
+    assert "scores24_optional_publish.py" in publisher
+
+    ensure = (ROOT / "scripts" / "automation" / "ensure_external_feeds.py").read_text(encoding="utf-8")
+    assert "scores24_nba" in ensure
 
 
 def test_scores24_retries_blocked_matchup_without_hammering_candidates(monkeypatch):
@@ -3293,6 +3626,7 @@ def test_local_scores24_publisher_registers_separate_models():
     publisher = (ROOT / "scripts" / "scrapers" / "scores24_publish.sh").read_text(encoding="utf-8")
     for model_key in (
         "scores24_nba_summer",
+        "scores24_nba",
         "scores24_wnba",
         "scores24_mlb",
         "scores24_fifa_world_cup",
@@ -3304,16 +3638,19 @@ def test_local_scores24_publisher_registers_separate_models():
         assert model_key in publisher
     assert "scores24_cfb" in publisher  # optional same-run scrape, not the completeness gate
     assert "scores24_nfl" in publisher
+    assert "scores24_nba" in publisher
     for model_key in ("scores24_nba_summer", "scores24_fifa_world_cup"):
         assert model_key not in publisher  # archived from the daily local publish
     for model_key in (
         "sportytrader_mlb",
+        "sportytrader_nba",
         "sportytrader_nba_summer",
         "sportytrader_wnba",
         "sportytrader_fifa_world_cup",
         "sportytrader_cfb",
         "sportytrader_nfl",
         "sportsgambler_mlb",
+        "sportsgambler_nba",
         "sportsgambler_nba_summer",
         "sportsgambler_wnba",
         "sportsgambler_fifa_world_cup",
@@ -3326,12 +3663,13 @@ def test_local_scores24_publisher_registers_separate_models():
     assert "scores24_fifa_world_cup" not in workflow
     assert "scores24_cfb" not in workflow
     assert "scores24_nfl" not in workflow
+    assert "scores24_nba" not in workflow
     assert 'GH_BIN="$(command -v gh || true)"' in publisher
     assert "SCORES24_BROWSER_FALLBACK=true" in publisher
     assert 'SCORES24_CAMOUFOX_FALLBACK="${CAMOUFOX_FALLBACK}"' in publisher
     assert 'scores24_camoufox.py" warmup' in publisher
     assert 'PUBLISH_FEEDS="${SCORES24_PUBLISH_FEEDS:-scores24_mlb,scores24_wnba}"' in publisher
-    assert 'OPTIONAL_FEEDS="${SCORES24_OPTIONAL_FEEDS:-${OPTIONAL_FEEDS:-scores24_cfb,scores24_nfl}}"' in publisher
+    assert 'OPTIONAL_FEEDS="${SCORES24_OPTIONAL_FEEDS:-${OPTIONAL_FEEDS:-scores24_cfb,scores24_nfl,scores24_nba}}"' in publisher
     assert 'SCORES24_REQUEST_INTERVAL_SECONDS="${REQUEST_INTERVAL}"' in publisher
     assert 'SCORES24_REQUEST_ATTEMPTS="${REQUEST_ATTEMPTS}"' in publisher
     assert 'SCORES24_ATTEMPT_RETRY_DELAY_SECONDS="${ATTEMPT_RETRY_DELAY}"' in publisher

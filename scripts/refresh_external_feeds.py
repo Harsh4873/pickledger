@@ -34,6 +34,7 @@ from scripts.scrapers.scores24_scraper import (  # noqa: E402
     run_scores24_cfb,
     run_scores24_fifa_world_cup,
     run_scores24_mlb,
+    run_scores24_nba,
     run_scores24_nba_summer,
     run_scores24_nfl,
     run_scores24_wnba,
@@ -48,6 +49,7 @@ FEED_RUNNERS: dict[str, Callable[[str, list[str]], dict[str, Any]]] = {
     "sportytrader": server.run_sportytrader_scraper,
     "sportsgambler": server.run_sportsgambler_scraper,
     "scores24_nba_summer": run_scores24_nba_summer,
+    "scores24_nba": run_scores24_nba,
     "scores24_wnba": run_scores24_wnba,
     "scores24_mlb": run_scores24_mlb,
     "scores24_fifa_world_cup": run_scores24_fifa_world_cup,
@@ -87,7 +89,7 @@ SPLIT_PROVIDER_MODEL_KEYS = {
 NON_NBA_SPLIT_FEEDS = {
     f"{provider}_{sport}"
     for provider in SPLIT_PROVIDER_FEEDS
-    for sport in ("mlb", "wnba", "fifa_world_cup", "cfb", "nfl")
+    for sport in ("nba", "mlb", "wnba", "fifa_world_cup", "cfb", "nfl")
 }
 
 
@@ -428,11 +430,11 @@ def _record_tennistonic_attempt(
 
 
 def _incomplete_scores24_football_bucket(bucket: Any, date_iso: str) -> bool:
-    """True for same-day optional Scores24 CFB/NFL/tennis buckets still filling.
+    """True for same-day optional Scores24 CFB/NFL/NBA/tennis buckets still filling.
 
     Tennis soft-timeouts used to set expectedMatchups=len(picks), which hid the
     gap versus officialMatchups and let salvage treat a 2-pick checkpoint as
-    complete. Count tennis (and CFB/NFL) incomplete whenever the official slate
+    complete. Count tennis (and CFB/NFL/NBA) incomplete whenever the official slate
     outruns matched picks, missing rows remain, or timedOut/interrupted is set.
     """
     if not isinstance(bucket, dict) or str(bucket.get("date") or "") != date_iso:
@@ -442,8 +444,8 @@ def _incomplete_scores24_football_bucket(bucket: Any, date_iso: str) -> bool:
     feed = str(meta.get("feed") or "")
     sources = {str(pick.get("source") or "") for pick in picks}
     is_optional = (
-        feed in {"scores24_cfb", "scores24_nfl", "scores24_tennis"}
-        or bool(sources & {"Scores24CFB", "Scores24NFL", "Scores24Tennis"})
+        feed in {"scores24_cfb", "scores24_nfl", "scores24_nba", "scores24_tennis"}
+        or bool(sources & {"Scores24CFB", "Scores24NFL", "Scores24NBA", "Scores24Tennis"})
     )
     if not is_optional:
         return False

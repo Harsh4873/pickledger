@@ -34,6 +34,7 @@ EXTERNAL_FEED_MODEL_KEYS = {
     "sportsgambler_cfb",
     "sportsgambler_nfl",
     "scores24_nba_summer",
+    "scores24_nba",
     "scores24_wnba",
     "scores24_mlb",
     "scores24_fifa_world_cup",
@@ -95,10 +96,10 @@ EXTERNAL_FEED_SOURCE_LABELS = {
 # CFB-only, FIFA/NBA Summer, and other feed-only days still must not promote
 # — that is what left 2026-07-25 showing a tennis-only slate.
 #
-# Scores24 CFB and NFL are scraped on the same weekday morning/afternoon run
+# Scores24 CFB, NFL, and NBA are scraped on the same weekday morning/afternoon run
 # as MLB+WNBA, but they remain soft-fail external feeds. Incomplete, blocked,
-# or hung Scores24 CFB/NFL must not prevent publishing a complete MLB+WNBA
-# slate; the in-house CFB and NFL models are still part of the required
+# or hung Scores24 CFB/NFL/NBA must not prevent publishing a complete MLB+WNBA
+# slate; the in-house CFB, NFL, and NBA models are still part of the required
 # team-model set below.
 #
 # Keep this identical to site_upcheck.REQUIRED_MODEL_KEYS and to the required
@@ -542,9 +543,9 @@ def _scores24_mlb_wnba_complete(payload: dict[str, Any], date_iso: str) -> bool:
 
     Used as one side of latestUpdated (team_ready or scores24_ready). Complete
     Scores24 can first-paint without in-house models; in-house models can
-    publish without Scores24. Tennis, CFB, NFL, FIFA, and NBA Summer must still
-    not promote latest.json on their own. scores24_cfb and scores24_nfl are
-    scraped best-effort on the same local run; their absence or failure must
+    publish without Scores24. Tennis, CFB, NFL, NBA, FIFA, and NBA Summer must still
+    not promote latest.json on their own. scores24_cfb, scores24_nfl, and scores24_nba
+    are scraped best-effort on the same local run; their absence or failure must
     not block this helper.
     """
     for key in ("scores24_mlb", "scores24_wnba"):

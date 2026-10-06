@@ -49,6 +49,26 @@ SPORT_CONFIG = {
         "label": "NBA SUMMER",
         "cache_keys": ("nba_summer",),
     },
+    # Sport key `nba` matches the in-house NBA Model bucket; the feed cache key
+    # is scores24_nba. USA NBA and sport-wide basketball listings cover
+    # complementary days, so scrape_scores24 walks the full listing_urls tuple.
+    # Regular-season NBA is a soft-fail optional feed on the local publisher,
+    # same pattern as CFB/NFL: scrape when the slate exists, but Cloudflare /
+    # empty official slate / parse miss must not block MLB+WNBA publish.
+    "nba": {
+        "espn_sport": "basketball",
+        "espn_league": "nba",
+        "scores24_sport": "basketball",
+        "listing_url": f"{BASE_URL}/en/basketball/l-usa-nba/predictions",
+        "listing_urls": (
+            f"{BASE_URL}/en/basketball/l-usa-nba/predictions",
+            f"{BASE_URL}/en/predictions/basketball",
+            f"{BASE_URL}/en/predictions/basketball/today",
+        ),
+        "source": "Scores24NBA",
+        "label": "NBA",
+        "cache_keys": ("nba",),
+    },
     "wnba": {
         "espn_sport": "basketball",
         "espn_league": "wnba",
@@ -142,6 +162,7 @@ TEAM_TEXT_ALIASES = {
     "miami fl": "miami florida",
     "miami oh": "miami ohio",
     "miami redhawks": "miami ohio",
+    "la clippers": "los angeles clippers",
 }
 TEAM_SLUG_ALIASES = {
     "Cleveland Guardians": ("Cleveland Gardians",),
@@ -153,6 +174,8 @@ TEAM_SLUG_ALIASES = {
     "USC Trojans": ("USC", "Southern California"),
     "Miami Hurricanes": ("Miami FL", "Miami Florida", "Miami (FL)"),
     "Miami (OH) RedHawks": ("Miami OH", "Miami Ohio", "Miami (OH)"),
+    "LA Clippers": ("Los Angeles Clippers",),
+    "Los Angeles Clippers": ("LA Clippers",),
 }
 
 
@@ -171,9 +194,10 @@ def _env_float(name: str, default: float, minimum: float = 0.0) -> float:
     return max(minimum, value)
 
 
-# Optional Scores24 feeds (CFB/NFL) set SCORES24_SCRAPE_TIMEOUT_SECONDS so a
+# Optional Scores24 feeds (CFB/NFL/NBA) set SCORES24_SCRAPE_TIMEOUT_SECONDS so a
 # hung Camoufox challenge cannot burn the publisher's outer kill-switch. The
 # timer starts at scrape_scores24() after the official slate is resolved.
+CHECKPOINT_RESUME_SPORTS = frozenset({"cfb", "nfl", "nba"})
 _SCRAPE_MONOTONIC_START: float | None = None
 
 
@@ -526,7 +550,7 @@ def _load_checkpoint(
     # A partial football bucket may have been published from another host, or
     # before the local checkpoint directory existed. Recover its verified
     # same-day rows so a later run still spends its budget on missing games.
-    if path is not None and sport_key in {"cfb", "nfl"}:
+    if path is not None and sport_key in CHECKPOINT_RESUME_SPORTS:
         feed_key = f"scores24_{sport_key}"
         for cache_path in (MODEL_CACHE_DIR / f"{date_iso}.json", MODEL_CACHE_DIR / "latest.json"):
             try:
@@ -1358,7 +1382,7 @@ def scrape_scores24(
     detail_matchup_keys: set[tuple[str, str]] = set()
     checkpointed = _load_checkpoint(sport_key, date_iso, expected)
     picks: list[dict[str, Any]] = list(checkpointed.values())
-    if picks and sport_key in {"cfb", "nfl"}:
+    if picks and sport_key in CHECKPOINT_RESUME_SPORTS:
         _save_checkpoint(sport_key, date_iso, picks)
     remaining = [
         matchup
@@ -1617,7 +1641,7 @@ def scrape_scores24(
                 "listingUrlsAttempted": listing_urls_attempted,
             },
         }
-    if sport_key in {"cfb", "nfl"} and timeout_missing:
+    if sport_key in CHECKPOINT_RESUME_SPORTS and timeout_missing:
         return {
             "ok": False,
             "date": date_iso,
@@ -1671,6 +1695,10 @@ def run_scores24_wnba(date_iso: str, _sports: list[str] | None = None) -> dict[s
 
 def run_scores24_nba_summer(date_iso: str, _sports: list[str] | None = None) -> dict[str, Any]:
     return scrape_scores24("nba_summer", date_iso)
+
+
+def run_scores24_nba(date_iso: str, _sports: list[str] | None = None) -> dict[str, Any]:
+    return scrape_scores24("nba", date_iso)
 
 
 def run_scores24_mlb(date_iso: str, _sports: list[str] | None = None) -> dict[str, Any]:

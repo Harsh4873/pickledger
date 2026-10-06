@@ -82,8 +82,8 @@ REQUIRED_SCORES24_FEED_KEYS = {
 # Watched Scores24 MLB+WNBA buckets: warn when missing/stale/incomplete, and a
 # complete today's slate can still first-paint latest.json / allow deploy when
 # in-house models are not ready yet. They are not a hard Pages / --data-only
-# gate. scores24_cfb and scores24_nfl are scraped on the same local Scores24
-# run but are never freshness/upcheck requirements (soft-fail like tennis).
+# gate. scores24_cfb, scores24_nfl, and scores24_nba are scraped on the same local
+# Scores24 run but are never freshness/upcheck requirements (soft-fail like tennis).
 TEAM_VISIBLE_DECISIONS = {"BET", "LEAN"}
 PLAYER_VISIBLE_DECISIONS = {"BET", "LEAN", "PASS"}
 LEGACY_PUBLIC_PLAYER_PROP_SUFFIXES = (
