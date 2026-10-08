@@ -249,6 +249,7 @@ def _split_provider_result(
     }
     meta = result.get("meta") if isinstance(result.get("meta"), dict) else {}
     sport_errors = meta.get("sportErrors") if isinstance(meta.get("sportErrors"), dict) else {}
+    no_preview_evidence = meta.get("noPreviewEvidence") or {}
 
     for raw_pick in result.get("picks") or []:
         if not isinstance(raw_pick, dict):
@@ -281,6 +282,10 @@ def _split_provider_result(
             bucket["ok"] = False
             bucket["error"] = sport_error
         bucket["note"] = f"Scheduled {split_key} refresh returned {len(bucket['picks'])} pick(s)."
+        if not sport_error and not bucket["picks"] and no_preview_evidence.get(sport_key):
+            reasons = "; ".join(item["reason"] for item in no_preview_evidence[sport_key])
+            bucket["note"] = f"No previews published for {split_key} on {date_iso}: {reasons}"
+            bucket["meta"]["providerStatus"] = "no_previews_published"
         bucket["meta"] = {
             **(bucket.get("meta") if isinstance(bucket.get("meta"), dict) else {}),
             "pick_count": len(bucket["picks"]),

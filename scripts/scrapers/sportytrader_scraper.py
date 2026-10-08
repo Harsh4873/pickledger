@@ -9,11 +9,14 @@ SportyTrader and prints structured pick blocks for the backend parser.
 from __future__ import annotations
 
 import argparse
+import json
 import os
 import re
 import sys
 import unicodedata
 from datetime import datetime, timedelta
+
+from bs4 import BeautifulSoup
 
 
 def _default_playwright_browsers_path() -> str:
@@ -108,7 +111,7 @@ SPORT_CONFIG = {
         # No numeric league id analogous to mlb-597 is published; NFL is nfl-598.
         "url": "https://www.sportytrader.com/us/picks/football/usa/ncaa/",
         "fallback_urls": (
-            "https://www.sportytrader.com/en/betting-tips/american-football/usa/ncaa/",
+            "https://www.sportytrader.com/us/picks/football/",
             "https://www.sportytrader.com/en/betting-tips/american-football/",
         ),
         # Mixed American-football fallbacks may 403 independently of the NCAA
@@ -332,7 +335,9 @@ window.chrome = window.chrome || { runtime: {} };
 
 
 def _load_cards(page, url: str) -> tuple[list[dict[str, str]], str]:
-    page.goto(url, timeout=45000, wait_until="domcontentloaded")
+    response = page.goto(url, timeout=45000, wait_until="domcontentloaded")
+    if response is not None and response.status != 200:
+        raise RuntimeError(f"HTTP {response.status} loading {url}")
     last_title = ""
     last_text = ""
     for attempt in range(4):
@@ -344,8 +349,30 @@ def _load_cards(page, url: str) -> tuple[list[dict[str, str]], str]:
             if isinstance(cards, list):
                 return cards, last_text
         if attempt < 3:
-            page.reload(timeout=45000, wait_until="domcontentloaded")
+            response = page.reload(timeout=45000, wait_until="domcontentloaded")
+            if response is not None and response.status != 200:
+                raise RuntimeError(f"HTTP {response.status} reloading {url}")
     return [], last_text
+
+
+def _unpublished_listing_reason(html: str, url: str, sport_key: str) -> str:
+    """Accept the provider's explicit empty state on a dedicated league page."""
+    config = SPORT_CONFIG[sport_key]
+    dedicated_urls = {config["url"]}
+    if sport_key == "nba":
+        dedicated_urls.update(url for url in config.get("fallback_urls", ()) if "/usa/nba-306/" in url)
+    if url not in dedicated_urls:
+        return ""
+    soup = BeautifulSoup(html, "html.parser")
+    if soup.select_one('.pronostics-wrapper .card, [data-trans^="tips.our.tip.card"]'):
+        return ""
+    notice = soup.select_one('[data-trans="tips.no.tips.variable"]')
+    message = _normalize_line(notice.get_text(" ", strip=True)) if notice else ""
+    if message == "There are no previews at the moment for this competition" or (
+        message.startswith(f"Our {config['title']} predictions and betting tips will be available soon.")
+    ):
+        return message
+    return ""
 
 
 def _extract_text_cards(
@@ -623,6 +650,7 @@ def main() -> None:
         cards: list[dict[str, str]] = []
         page_texts: list[str] = []
         load_errors: list[str] = []
+        unpublished_evidence: list[dict[str, str]] = []
         try:
             visited_urls: set[str] = set()
             target_index = 0
@@ -644,7 +672,7 @@ def main() -> None:
                 cards.extend(
                     _extract_text_cards(page_text, target_url, expected_matchups)
                 )
-                if sport_key in {"nfl", "nba"}:
+                if sport_key in {"nfl", "nba", "cfb"}:
                     cards.extend(
                         _extract_nfl_us_text_cards(
                             page_text,
@@ -654,6 +682,9 @@ def main() -> None:
                         )
                     )
                 page_texts.append(page_text)
+                reason = _unpublished_listing_reason(page.content(), page.url, sport_key)
+                if reason:
+                    unpublished_evidence.append({"url": page.url, "reason": reason})
         finally:
             page.close()
             browser.close()
@@ -705,6 +736,13 @@ def main() -> None:
             f"Diagnostics: listingPages={len(page_texts)} cards={len(cards)} "
             f"officialMatchupCards={official_card_count}."
         )
+        if unpublished_evidence and not official_card_count and not load_errors and not blocked_page_count:
+            print("Provider status: " + json.dumps({
+                "status": "no_previews_published",
+                "sport": sport_key,
+                "date": target_date.date().isoformat() if target_date else None,
+                "evidence": unpublished_evidence,
+            }))
         return
 
     for row in rows:

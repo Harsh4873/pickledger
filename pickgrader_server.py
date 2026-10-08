@@ -5432,12 +5432,16 @@ def run_mlb_model(date_str: str | None = None, variant: str = "old") -> dict[str
         picks = _parse_mlb_output(output, source_label=source_label)
         _stamp_mlb_game_start_times(picks, date_str)
         if not picks:
-            if "No MLB games found for" in output:
+            no_regular_games = "No eligible regular-season MLB games found for" in output
+            if no_regular_games or "No MLB games found for" in output:
                 result = {
                     "ok": True,
                     "picks": [],
                     "raw_lines": len(output.split("\n")),
-                    "note": f"No MLB games found for requested date ({source_label})",
+                    "note": (
+                        f"No eligible regular-season MLB games for requested date ({source_label})."
+                        if no_regular_games else f"No MLB games found for requested date ({source_label})"
+                    ),
                 }
                 if artifact_status is not None:
                     result["model_stack"] = artifact_status["stack"]
@@ -6276,8 +6280,37 @@ def _external_provider_run_result(
     }
     if zero_slate_sports and not expected_by_sport:
         result["note"] = f"No official matchups for selected sports on {target_date}."
+    elif meta.get("noPreviewEvidence") and not all_picks and not errors:
+        sports = ", ".join(meta["noPreviewEvidence"])
+        result["note"] = f"No previews published for {sports} on {target_date}."
     _save_external_feed_admin_docs(provider, result, target_date)
     return result
+
+
+def _provider_no_preview_evidence(output: str, sport: str, target_date: str) -> list[dict[str, str]]:
+    """Require the scraper's explicit, dated evidence; a bare empty parse is not enough."""
+    for line in output.splitlines():
+        if not line.startswith("Provider status: "):
+            continue
+        try:
+            status = json.loads(line.removeprefix("Provider status: "))
+        except ValueError:
+            continue
+        if not isinstance(status, dict) or (
+            status.get("status") != "no_previews_published"
+            or status.get("sport") != sport
+            or status.get("date") != target_date
+        ):
+            continue
+        evidence = status.get("evidence")
+        if isinstance(evidence, list) and evidence and all(
+            isinstance(item, dict)
+            and isinstance(item.get("url"), str) and item["url"].startswith("https://")
+            and isinstance(item.get("reason"), str) and item["reason"].strip()
+            for item in evidence
+        ):
+            return evidence
+    return []
 
 
 def _external_team_market_selection(pick_text: str) -> str:
@@ -6477,6 +6510,7 @@ def run_sportytrader_scraper(
     )
     slate_meta = {
         "zeroSlateSports": zero_slate_sports,
+        "noPreviewEvidence": {},
         "officialMatchupCounts": {
             sport_code: len(matchups)
             for sport_code, matchups in expected_by_sport.items()
@@ -6568,8 +6602,10 @@ def run_sportytrader_scraper(
                 errors.append(f"{sport_code}: scraper exited {result.returncode} ({_compact_error_text(output)})")
                 continue
             if not picks:
-                # Scrapers run only for nonempty whitelists. Exit 0 + an empty-slate
-                # line is a real off-day only when that whitelist is missing or empty.
+                evidence = _provider_no_preview_evidence(output, sport_code, target_date)
+                if result.returncode == 0 and evidence:
+                    slate_meta["noPreviewEvidence"][sport_code] = evidence
+                    continue
                 reported_empty = (
                     result.returncode == 0 and _scraper_reported_empty_slate(output)
                 )
@@ -6645,6 +6681,7 @@ def run_sportsgambler_scraper(
     )
     slate_meta = {
         "zeroSlateSports": zero_slate_sports,
+        "noPreviewEvidence": {},
         "officialMatchupCounts": {
             sport_code: len(matchups)
             for sport_code, matchups in expected_by_sport.items()
@@ -6725,8 +6762,10 @@ def run_sportsgambler_scraper(
                 errors.append(f"{sport_code}: scraper exited {result.returncode} ({_compact_error_text(output)})")
                 continue
             if not picks:
-                # Scrapers run only for nonempty whitelists. Exit 0 + an empty-slate
-                # line is a real off-day only when that whitelist is missing or empty.
+                evidence = _provider_no_preview_evidence(output, sport_code, target_date)
+                if result.returncode == 0 and evidence:
+                    slate_meta["noPreviewEvidence"][sport_code] = evidence
+                    continue
                 reported_empty = (
                     result.returncode == 0 and _scraper_reported_empty_slate(output)
                 )

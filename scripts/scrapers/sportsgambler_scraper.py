@@ -229,6 +229,8 @@ def _collect_pml_articles(
     """Current SportsGambler basketball listings use pml-game rows, not JSON-LD."""
     articles: list[dict] = []
     for game in soup.select("div.pml-game"):
+        if _pml_game_expired(game):
+            continue
         meta = game.select_one(".pml-meta")
         league_label = _pml_league_label(meta.get_text(" ", strip=True) if meta else "")
         if league_label and league_label != league:
@@ -263,6 +265,25 @@ def _collect_pml_articles(
         articles.append({"url": detail_url, "matchup": official, "date": date_text})
     return articles
 
+
+def _pml_game_expired(game) -> bool:
+    control = game.select_one("a.read_tip")
+    return control is not None and _norm(control.get_text()).casefold() == "expired"
+
+
+def _nba_listing_counts(soup: BeautifulSoup) -> tuple[int, int]:
+    games = [
+        game for game in soup.select("div.pml-game")
+        if (meta := game.select_one(".pml-meta")) is not None
+        and _pml_league_label(meta.get_text(" ", strip=True)) == "NBA"
+    ]
+    current = sum(
+        _pml_league_label(label.get_text(" ", strip=True)) == "NBA"
+        for label in soup.select("a.betlist-item .betlist-league")
+    )
+    return len(games) + current, sum(_pml_game_expired(game) for game in games)
+
+
 def scrape_basketball(
     target: date | None,
     url: str | tuple[str, ...],
@@ -271,12 +292,15 @@ def scrape_basketball(
     *,
     href_contains: str | None = None,
     require_complete_listings: bool = True,
+    diagnostics: dict | None = None,
 ) -> list[dict]:
     expected = _expected_matchup_whitelist(expected_matchups)
     articles, seen = [], set()
     listing_urls = (url,) if isinstance(url, str) else url
     listing_failures: list[str] = []
     loaded_listing = False
+    unpublished_evidence: list[dict[str, str]] = []
+    active_nba_games = 0
     for listing_url in dict.fromkeys(listing_urls):
         try:
             response = requests.get(listing_url, headers=HEADERS, timeout=30)
@@ -293,11 +317,22 @@ def scrape_basketball(
             continue
         loaded_listing = True
         soup = BeautifulSoup(html, "html.parser")
+        if league == "NBA":
+            listed, expired = _nba_listing_counts(soup)
+            active_nba_games += listed - expired
+            if listing_url == NBA_URL and listed and listed == expired:
+                unpublished_evidence.append({
+                    "url": listing_url,
+                    "reason": f"All {listed} NBA previews are marked Expired by the provider.",
+                })
         for obj in _json_ld(soup):
             for node in _iter_nodes(obj):
                 item = node.get("item")
                 if not isinstance(item, dict) or item.get("@type") != "SportsEvent":
                     continue
+                location = item.get("location") or {}
+                if league == "NBA" and isinstance(location, dict) and _pml_league_label(location.get("name", "")) == "NBA":
+                    active_nba_games += 1
                 detail_url = _absolute_href(item.get("url", ""))
                 matchup = _matchup_from_node(item)
                 if href_contains and href_contains not in detail_url:
@@ -373,15 +408,26 @@ def scrape_basketball(
             f"partial {league} scrape: parsed {len(rows)} of {len(articles)} listed prediction page(s); "
             f"missing {', '.join(missing[:3])}"
         )
+    if (diagnostics is not None and not rows and not articles and unpublished_evidence
+            and not active_nba_games and not listing_failures):
+        diagnostics.update({
+            "status": "no_previews_published",
+            "sport": "nba",
+            "date": target.isoformat() if target else None,
+            "evidence": unpublished_evidence,
+        })
     return rows
 
-def scrape_nba(target: date | None, expected_matchups: list[str] | None = None) -> list[dict]:
+def scrape_nba(
+    target: date | None, expected_matchups: list[str] | None = None, *, diagnostics: dict | None = None,
+) -> list[dict]:
     return scrape_basketball(
         target,
         NBA_URLS,
         "NBA",
         expected_matchups,
         require_complete_listings=False,
+        diagnostics=diagnostics,
     )
 
 def scrape_nba_summer(target: date | None, expected_matchups: list[str] | None = None) -> list[dict]:
@@ -466,9 +512,10 @@ def main() -> None:
         sys.exit(1)
     sport = args.sport.strip().lower()
     target = _parse_date(args.date) if args.date else None
+    diagnostics: dict = {}
     try:
         if sport in ("nba", "basketball"):
-            rows = scrape_nba(target, expected_matchups)
+            rows = scrape_nba(target, expected_matchups, diagnostics=diagnostics)
         elif sport in ("nba_summer", "nba_summer_league", "summer_league"):
             rows = scrape_nba_summer(target, expected_matchups)
         elif sport == "wnba":
@@ -491,6 +538,8 @@ def main() -> None:
         sys.exit(1)
     if not rows:
         print("No picks found.")
+        if diagnostics:
+            print("Provider status: " + json.dumps(diagnostics))
         sys.exit(0)
     for r in rows:
         print("\n" + "━" * 32)
