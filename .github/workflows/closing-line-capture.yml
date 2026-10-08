@@ -28,6 +28,7 @@ concurrency:
 jobs:
   capture:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -75,9 +76,15 @@ jobs:
               exit 0
             fi
             echo "Push rejected on attempt ${attempt}; resyncing and re-capturing."
+            if [ "$attempt" -eq 5 ]; then break; fi
+            # A game may start before the retry; retain the observed prices.
+            GENERATED_CLOSING_LINES=$(mktemp -d "${RUNNER_TEMP}/closing-lines.XXXXXX")
+            if [ -d data/closing_lines ]; then
+              cp -R data/closing_lines/. "$GENERATED_CLOSING_LINES/"
+            fi
             git fetch origin "$BRANCH"
             git reset --hard "origin/${BRANCH}"
-            python3 scripts/capture_closing_lines.py --date "${{ inputs.date }}"
+            python3 scripts/capture_closing_lines.py --date "${{ inputs.date }}" --merge-from "$GENERATED_CLOSING_LINES"
           done
           echo "::error::Unable to publish closing lines after 5 attempts."
           exit 1

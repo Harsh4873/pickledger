@@ -150,6 +150,17 @@ def _default_slate_date(now: datetime) -> str:
     return now.astimezone(ZoneInfo("America/Chicago")).date().isoformat()
 
 
+def merge_saved_closing_lines(directory: Path) -> int:
+    """Union observations saved before a publication retry without refetching prices."""
+    added = 0
+    for path in sorted(directory.glob("20??-??-??.json")):
+        payload = _read_json(path)
+        if payload is None or not isinstance(payload.get("rows"), list):
+            raise ValueError(f"Invalid saved closing-line ledger: {path}")
+        added += _append_ledger(path.stem, payload["rows"])
+    return added
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Capture near-closing prices for imminent picks.")
     parser.add_argument("--date", default="", help="Slate date YYYY-MM-DD (default: today America/Chicago).")
@@ -162,7 +173,15 @@ def main() -> int:
     parser.add_argument(
         "--dry-run", action="store_true", help="Report imminent picks without fetching or writing."
     )
+    parser.add_argument(
+        "--merge-from", type=Path,
+        help="Merge a saved closing_lines directory before capturing the current slate.",
+    )
     args = parser.parse_args()
+
+    if args.merge_from and not args.dry_run:
+        added = merge_saved_closing_lines(args.merge_from)
+        print(f"[closing-lines] restored {added} saved closing row(s)")
 
     now = datetime.now(timezone.utc)
     date_iso = args.date.strip() or _default_slate_date(now)
