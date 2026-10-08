@@ -326,7 +326,8 @@ def test_backfill_captures_missing_nfl_cache_rows_only(tmp_path):
     (cache / "2026-09-24.json").write_text(json.dumps(payload))
     summary = backfill_team_prop_pregame_from_cache(cache, repo_root=tmp_path, model_keys={"nfl"})
     assert summary["added"] == 1
-    ledger = json.loads((tmp_path / "data" / "calibration" / "team_prop_pregame_ledger.json").read_text())
+    from scripts.team_prop_pregame_ledger import load_team_prop_pregame_ledger
+    ledger = load_team_prop_pregame_ledger(tmp_path)
     assert [row["model_key"] for row in ledger["records"]] == ["nfl"]
     assert ledger["records"][0]["shadow_decision"] == "LEAN"
     repeated = backfill_team_prop_pregame_from_cache(cache, repo_root=tmp_path, model_keys={"nfl"})

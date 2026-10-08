@@ -11,7 +11,7 @@ PickLedger is a public, automated sports-pick viewer deployed on GitHub Pages. T
 | Player props | Dated files in `data/player_props_cache/` |
 | Rankings | Calculated in the browser from committed, graded JSON |
 | Background grading | `.github/workflows/auto-grade.yml` + `scripts/auto_grade_picks.py` |
-| Certified team-model evidence | `data/calibration/team_prop_pregame_ledger.json` |
+| Certified team-model evidence | Daily shards and index in `data/calibration/team_prop_pregame_ledger/` |
 | Live refresh | Client-side ESPN scoreboard grading, stored locally until Actions commits an authoritative grade |
 
 ## Published Picks and Research

@@ -5,7 +5,7 @@ Scope: the in-house team models that publish to `data/model_cache/`
 `mls`, `wnba`, `nba`, `nba_playoffs`). Tennis was out of scope and untouched.
 
 Evidence: the 108 dated cache files (2026-06-04 … 2026-09-19, ~15k rows),
-`data/calibration/team_prop_pregame_ledger.json`, `data/profit_desk/`, the
+`data/calibration/team_prop_pregame_ledger/`, `data/profit_desk/`, the
 committed training artifacts, and walk-forward backtests re-run on the newest
 nflverse / SportsDataverse data. Every ROI below is flat 1u at the recorded
 posted price; rows priced at a house-assumed number are called out as such and

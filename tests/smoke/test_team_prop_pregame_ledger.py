@@ -1,6 +1,9 @@
 from __future__ import annotations
 
+import copy
 import json
+
+import pytest
 
 from scripts.pick_calibration import build_outcome_ledger
 from scripts.team_prop_pregame_ledger import (
@@ -95,6 +98,61 @@ def test_capture_keeps_pass_for_probability_evaluation_without_staking(tmp_path)
     record = load_team_prop_pregame_ledger(tmp_path)["records"][0]
     assert record["decision"] == "PASS"
     assert record["stake"] == 0
+
+
+def test_quote_clock_refresh_does_not_append_or_rewrite_prior_evidence(tmp_path):
+    payload = _payload()
+    stamp_team_prop_pregame_timing(payload)
+    pick = payload["models"]["mlb_new"]["picks"][0]
+    # Some generators retain their clock inside the raw snapshot as well.
+    pick["pregame_snapshot"] = copy.deepcopy(pick)
+    capture_team_prop_pregame_snapshots(payload, repo_root=tmp_path)
+    before = load_team_prop_pregame_ledger(tmp_path)
+    revised = copy.deepcopy(payload)
+    pick = revised["models"]["mlb_new"]["picks"][0]
+    for target in (pick, pick["pregame_snapshot"]):
+        target["market_updated_at"] = "2026-07-10T20:25:00Z"
+        target["certification_timing"]["published_at"] = "2026-07-10T20:30:00Z"
+        target["certification_timing"]["data_as_of"] = "2026-07-10T20:30:00Z"
+    assert capture_team_prop_pregame_snapshots(revised, repo_root=tmp_path)["added"] == 0
+    assert load_team_prop_pregame_ledger(tmp_path) == before
+
+
+def test_price_returning_to_an_earlier_value_still_appends_a_revision(tmp_path):
+    payload = _payload()
+    stamp_team_prop_pregame_timing(payload)
+    pick = payload["models"]["mlb_new"]["picks"][0]
+    for odds, minute in [(-110, 55), (-115, 56), (-110, 57)]:
+        pick.update(odds=odds, market_updated_at=f"2026-07-10T19:{minute}:00Z")
+        assert capture_team_prop_pregame_snapshots(payload, repo_root=tmp_path)["added"] == 1
+    assert [row["price"]["odds"] for row in load_team_prop_pregame_ledger(tmp_path)["records"]] == [-110, -115, -110]
+    pick["market_updated_at"] = "2026-07-10T19:58:00Z"
+    assert capture_team_prop_pregame_snapshots(payload, repo_root=tmp_path)["added"] == 0
+@pytest.mark.parametrize("change", ["odds", "probability", "features", "decision", "provenance", "quote_eligibility"])
+def test_clock_churn_filter_keeps_material_changes_and_evidence_transitions(tmp_path, change):
+    payload = _payload()
+    stamp_team_prop_pregame_timing(payload)
+    capture_team_prop_pregame_snapshots(payload, repo_root=tmp_path)
+    before = load_team_prop_pregame_ledger(tmp_path)["records"][0]
+    pick = payload["models"]["mlb_new"]["picks"][0]
+    pick["market_updated_at"] = "2026-07-10T19:56:00Z"
+    if change == "odds":
+        pick["odds"] = -115
+    elif change == "probability":
+        pick["probability"] += 0.01
+    elif change == "features":
+        pick["features"]["home_starter_era"] += 0.00000001
+    elif change == "decision":
+        pick["decision"] = "LEAN"
+    elif change == "provenance":
+        pick["odds_source"] = "another_sportsbook"
+    else:
+        pick["market_updated_at"] = "2026-07-08T19:55:00Z"
+    assert capture_team_prop_pregame_snapshots(payload, repo_root=tmp_path)["added"] == 1
+    records = load_team_prop_pregame_ledger(tmp_path)["records"]
+    assert records[0] == before
+    if change == "quote_eligibility":
+        assert records[1]["financial_eligibility_reason"] == "stale_quote"
 
 
 def test_assumed_and_untrusted_rows_never_become_financial_or_calibration_evidence(tmp_path):

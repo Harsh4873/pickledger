@@ -84,9 +84,39 @@ published side is the model's favourite.
 For the audited in-house team-model buckets (`mlb_new`, `mlb_first_five`,
 `mlb_inning`, `fifa_world_cup`, and `nba_summer`), the model refresh also
 stores an immutable first-publication/revision record in
-`data/calibration/team_prop_pregame_ledger.json`. Certification requires a
+`data/calibration/team_prop_pregame_ledger/`. Certification requires a
 trusted per-pick publication timestamp earlier than the scheduled start.
 Legacy cache rows remain visible but are not promoted into certified evidence.
+
+The ledger uses compact daily JSON shards selected by `slate_date`, then the
+date of `game_start_time` or `published_at`, with `undated` as the fallback.
+Each line wraps an unchanged record with its global insertion sequence;
+`index.json` stores the original root metadata and shard counts. Dates split
+into numbered parts before 8 MB. Load through
+`scripts.team_prop_pregame_ledger.load_team_prop_pregame_ledger()` to retain
+the original payload shape and ordering.
+
+Run `python -m scripts.team_prop_pregame_ledger --migrate` to migrate or retry
+a migration after updating the checkout. The loader also unions a recreated
+legacy `data/calibration/team_prop_pregame_ledger.json` by record ID. Settlement
+retractions outrank old binary grades; attached results outrank pending copies;
+explicit record update times break ties, then the sharded copy wins. A root
+publication timestamp is not a grade timestamp. Missing or damaged shards
+raise an error so incomplete history cannot silently enter approvals.
+
+The writer atomically replaces only files whose bytes changed, installs the
+index last, and removes the monolith after success. Interrupted initial
+migrations retain the monolith and can be rerun. Model refresh saves the whole
+directory, then uses `--merge-from SAVED_REPO_ROOT` after resyncing to union
+concurrent records and grades. Calibration refresh excludes this input ledger
+from its artifact restore. `python scripts/check_data_file_sizes.py` checks
+versioned and new nonignored JSON under `data/` against 50 MB, and ledger files
+against 10 MB; Dev Checks and model publication run it.
+
+Quote and publication clock changes alone do not create a material revision
+when certification and eligibility are unchanged. Actual prices, picks,
+features, model versions, provenance, and eligibility changes still count;
+historical snapshots and their hashes are never rewritten by this comparison.
 
 The certified ledger separates three concepts:
 

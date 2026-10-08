@@ -25,6 +25,7 @@ sys.path.insert(0, str(REPO_ROOT))
 
 from scripts.model_scorecard_stats import binary_score, clustered_roi_interval  # noqa: E402
 from scripts.price_clock import QUOTE_FIELDS  # noqa: E402
+from scripts.team_prop_pregame_ledger import load_team_prop_pregame_ledger  # noqa: E402
 from scripts.team_prop_model_evaluator import (  # noqa: E402
     SUPPORTED_MODEL_KEYS,
     evaluate_team_prop_ledger,
@@ -457,7 +458,7 @@ def build_scorecard(
         "minimum_priced_settled_for_review": MIN_PRICED_SETTLED,
         "promotion_note": "A positive historical scorecard is not an untouched holdout or automatic staking approval.",
         "sources": {
-            "team": "data/calibration/team_prop_pregame_ledger.json",
+            "team": "data/calibration/team_prop_pregame_ledger/",
             "player_props": "data/player_props_snapshots/YYYY-MM-DD/*.json",
             "prop_outcomes": "data/calibration/outcome_ledger.json (result join only)",
         },
@@ -476,7 +477,7 @@ def main() -> int:
     args = parser.parse_args()
     root = args.repo_root
     report = build_scorecard(
-        _read(root / "data/calibration/team_prop_pregame_ledger.json"),
+        load_team_prop_pregame_ledger(root),
         _read(root / "data/calibration/outcome_ledger.json"),
         root / "data/player_props_snapshots",
     )

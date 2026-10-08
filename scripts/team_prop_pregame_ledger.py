@@ -14,21 +14,28 @@ enough to certify an old row retroactively.
 
 from __future__ import annotations
 
+import argparse
 import copy
 import hashlib
 import json
 import math
+import os
 import re
-from datetime import datetime, timezone
+import tempfile
+from collections import Counter, defaultdict
+from datetime import date, datetime, timezone
 from pathlib import Path
 from typing import Any, Iterable, Mapping
 
-from scripts.price_clock import observed_quote_timing
+from scripts.price_clock import QUOTE_FIELDS, observed_quote_timing
 from scripts.settlement_support import settlement_exclusion_reason
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 LEDGER_RELATIVE_PATH = Path("data") / "calibration" / "team_prop_pregame_ledger.json"
+SHARD_RELATIVE_PATH = LEDGER_RELATIVE_PATH.with_suffix("")
+SHARD_MAX_BYTES = 8_000_000
+_SHARD_NAME = re.compile(r"(?:\d{4}-\d{2}-\d{2}|undated)(?:-\d{3,})?\.json")
 SCHEMA_VERSION = 1
 TIMING_FIELD = "certification_timing"
 
@@ -105,21 +112,19 @@ def _empty_ledger() -> dict[str, Any]:
     }
 
 
-def load_team_prop_pregame_ledger(repo_root: Path | str | None = None) -> dict[str, Any]:
-    """Load the canonical team-pick snapshot ledger without mutating it.
-
-    A missing or malformed file behaves like a new empty ledger.  Consumers
-    can rely on ``records`` always being a list.
-    """
-
-    path = _ledger_path(repo_root)
+def _load_legacy(path: Path, *, strict: bool = False) -> dict[str, Any]:
     try:
         payload = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError):
+    except FileNotFoundError:
         return _empty_ledger()
+    except (OSError, json.JSONDecodeError):
+        if strict:
+            raise
+        return _empty_ledger()
+    if strict and (not isinstance(payload, dict) or not isinstance(payload.get("records"), list)):
+        raise ValueError(f"Invalid legacy team ledger: {path}")
     if not isinstance(payload, dict):
         return _empty_ledger()
-
     loaded = dict(payload)
     loaded.setdefault("schema_version", SCHEMA_VERSION)
     loaded.setdefault("kind", "team_prop_pregame_snapshot_ledger")
@@ -128,14 +133,136 @@ def load_team_prop_pregame_ledger(repo_root: Path | str | None = None) -> dict[s
     return loaded
 
 
+def _record_precedence(record: Any) -> tuple:
+    if not isinstance(record, dict):
+        return (False, False, "", False)
+    # The grader can retract a binary grade for unsupported fractional lines.
+    # Such corrections must survive a merge with an older settled copy.
+    result = str(record.get("result") or "pending").strip().lower()
+    corrected = bool(record.get("settlement_exclusion_reason")) and result == "pending"
+    settled = result in {"win", "loss", "push", "void", "cancelled"}
+    timestamps = [
+        parsed.isoformat() for field in ("graded_at", "result_updated_at", "updated_at")
+        if (parsed := _parse_timestamp(record.get(field))) is not None
+    ]
+    return (corrected, settled, max(timestamps, default=""), bool(record.get("start_time")))
+
+
+def merge_team_prop_pregame_ledgers(primary: dict[str, Any], incoming: dict[str, Any]) -> dict[str, Any]:
+    """Union by id in first-seen order, retaining corrections and attached grades.
+
+    Explicit record update times break grade ties; otherwise the primary copy
+    wins. Publication-level updated_at is not a grade clock. No record fields
+    are combined or regenerated. Anonymous legacy rows retain their occurrences.
+    """
+    merged = {**incoming, **primary}
+    if str(incoming.get("updated_at") or "") > str(primary.get("updated_at") or ""):
+        merged.update({key: value for key, value in incoming.items() if key != "records"})
+    records: list[Any] = []
+    positions: dict[tuple, int] = {}
+    for payload in (primary, incoming):
+        anonymous: Counter = Counter()
+        for record in payload["records"]:
+            record_id = record.get("id") if isinstance(record, dict) else None
+            if record_id:
+                key = ("id", str(record_id))
+            else:
+                fingerprint = _hash(record)
+                key = ("anonymous", fingerprint, anonymous[fingerprint])
+                anonymous[fingerprint] += 1
+            if key not in positions:
+                positions[key] = len(records)
+                records.append(record)
+            elif _record_precedence(record) > _record_precedence(records[positions[key]]):
+                records[positions[key]] = record
+    merged["records"] = records
+    return merged
+
+
+def load_team_prop_pregame_ledger(repo_root: Path | str | None = None) -> dict[str, Any]:
+    """Return the original payload shape and global insertion order.
+
+    Legacy-only missing/malformed files retain their empty-ledger behavior.
+    Shard corruption or a missing indexed shard raises instead of silently
+    turning incomplete certified evidence into an empty or truncated ledger.
+    """
+    legacy_path = _ledger_path(repo_root)
+    directory = legacy_path.with_suffix("")
+    index_path = directory / "index.json"
+    paths = {path.name: path for path in directory.glob("*.json") if _SHARD_NAME.fullmatch(path.name)}
+    index = json.loads(index_path.read_text(encoding="utf-8")) if index_path.exists() else None
+    if index is not None:
+        if (
+            not isinstance(index, dict) or index.get("storage_version") != 1
+            or not isinstance(index.get("metadata"), dict) or not isinstance(index.get("shards"), list)
+            or type(index.get("record_count")) is not int or index["record_count"] < 0
+        ):
+            raise ValueError(f"Invalid team ledger index: {index_path}")
+        for shard in index["shards"]:
+            if shard["file"] not in paths:
+                raise ValueError(f"Missing team ledger shard: {shard['file']}")
+    entries = []
+    for name, path in sorted(paths.items()):
+        rows = json.loads(path.read_text(encoding="utf-8"))
+        if not isinstance(rows, list):
+            raise ValueError(f"Invalid team ledger shard: {path}")
+        for row in rows:
+            if not isinstance(row, dict) or type(row.get("sequence")) is not int or row["sequence"] < 0 or "record" not in row:
+                raise ValueError(f"Invalid team ledger entry: {path}")
+            entries.append((row["sequence"], name, row["record"]))
+    if index is not None:
+        sequences = {sequence for sequence, _, _ in entries}
+        if any(sequence not in sequences for sequence in range(index["record_count"])):
+            raise ValueError(f"Incomplete team ledger history: {index_path}")
+    sharded = {**_empty_ledger(), **(index["metadata"] if index else {})}
+    sharded["records"] = [row for _, _, row in sorted(entries, key=lambda entry: entry[:2])]
+    legacy = _load_legacy(legacy_path)
+    # Before the first index is installed, the complete monolith still owns
+    # ordering; this also makes interrupted initial migrations safe to retry.
+    if index is None and legacy_path.exists():
+        return merge_team_prop_pregame_ledgers(legacy, sharded)
+    return merge_team_prop_pregame_ledgers(sharded, legacy)
+
+
+def _shard_date(record: Any) -> str:
+    if isinstance(record, dict):
+        for field in ("slate_date", "game_start_time", "published_at"):
+            candidate = str(record.get(field) or "")[:10]
+            try:
+                return date.fromisoformat(candidate).isoformat()
+            except ValueError:
+                continue
+    return "undated"
+
+
+def _atomic_write_changed(path: Path, rendered: bytes) -> bool:
+    if path.exists() and path.read_bytes() == rendered:
+        return False
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temporary = None
+    try:
+        with tempfile.NamedTemporaryFile(dir=path.parent, prefix=f".{path.name}.", suffix=".tmp", delete=False) as stream:
+            temporary = Path(stream.name)
+            stream.write(rendered)
+            stream.flush()
+            os.fsync(stream.fileno())
+        temporary.replace(path)
+    finally:
+        if temporary is not None:
+            temporary.unlink(missing_ok=True)
+    return True
+
+
 def write_team_prop_pregame_ledger(
     payload: dict[str, Any],
     repo_root: Path | str | None = None,
 ) -> bool:
-    """Persist a canonical ledger payload and return whether its bytes changed.
+    """Atomically replace changed daily shards, then the index; report changes.
 
-    The writer never creates or rewrites individual records; append-only
-    behavior is enforced by :func:`capture_team_prop_pregame_snapshots`.
+    Sequence numbers live outside each untouched record to retain insertion
+    order across dates. A busy date splits into numbered parts before 8 MB.
+    Existing history is unioned in, including any late legacy publication.
+    The monolith is removed only after every shard and the index succeeds.
     """
 
     if not isinstance(payload, dict) or not isinstance(payload.get("records"), list):
@@ -144,19 +271,49 @@ def write_team_prop_pregame_ledger(
     normalized = dict(payload)
     normalized.setdefault("schema_version", SCHEMA_VERSION)
     normalized.setdefault("kind", "team_prop_pregame_snapshot_ledger")
-    rendered = json.dumps(normalized, indent=2, sort_keys=True, default=str) + "\n"
     path = _ledger_path(repo_root)
-    try:
-        if path.read_text(encoding="utf-8") == rendered:
-            return False
-    except OSError:
-        pass
-
-    path.parent.mkdir(parents=True, exist_ok=True)
-    temporary = path.with_suffix(path.suffix + ".tmp")
-    temporary.write_text(rendered, encoding="utf-8")
-    temporary.replace(path)
-    return True
+    _load_legacy(path, strict=True)  # Never delete unreadable legacy evidence.
+    normalized = merge_team_prop_pregame_ledgers(normalized, load_team_prop_pregame_ledger(repo_root))
+    directory = path.with_suffix("")
+    buckets: dict[str, list[bytes]] = defaultdict(list)
+    for sequence, record in enumerate(normalized["records"]):
+        line = json.dumps({"sequence": sequence, "record": record}, sort_keys=True, separators=(",", ":"), default=str).encode("utf-8")
+        if len(line) + 5 > SHARD_MAX_BYTES:
+            raise ValueError("One team ledger record exceeds the shard size limit")
+        buckets[_shard_date(record)].append(line)
+    rendered_shards: dict[str, bytes] = {}
+    shards = []
+    for day, lines in sorted(buckets.items()):
+        parts: list[list[bytes]] = [[]]
+        size = 4
+        for line in lines:
+            if size + len(line) + 2 > SHARD_MAX_BYTES and parts[-1]:
+                parts.append([])
+                size = 4
+            parts[-1].append(line)
+            size += len(line) + 2
+        for part, contents in enumerate(parts, 1):
+            name = f"{day}.json" if part == 1 else f"{day}-{part:03d}.json"
+            rendered_shards[name] = b"[\n" + b",\n".join(contents) + b"\n]\n"
+            shards.append({"file": name, "record_count": len(contents)})
+    index = {
+        "storage_version": 1,
+        "metadata": {key: value for key, value in normalized.items() if key != "records"},
+        "record_count": len(normalized["records"]),
+        "shards": shards,
+    }
+    changed = False
+    for name, rendered in rendered_shards.items():
+        changed |= _atomic_write_changed(directory / name, rendered)
+    changed |= _atomic_write_changed(directory / "index.json", (json.dumps(index, indent=2, sort_keys=True, default=str) + "\n").encode("utf-8"))
+    for old in directory.glob("*.json"):
+        if _SHARD_NAME.fullmatch(old.name) and old.name not in rendered_shards:
+            old.unlink()
+            changed = True
+    if path.exists():
+        path.unlink()
+        changed = True
+    return changed
 
 
 def stamp_team_prop_pregame_timing(
@@ -787,6 +944,35 @@ def _snapshot_record(
     }
 
 
+def _material_signature(record: Mapping[str, Any]) -> str:
+    """Ignore quote/publication clock churn only when evidence eligibility agrees.
+
+    Stored snapshots and their original hashes remain exact audit evidence.
+    Features, probabilities, prices, model versions and provenance stay exact;
+    no floating-point rounding or blanket timestamp removal is applied.
+    """
+    material = {key: record.get(key) for key in (
+        "model_key", "model_version", "game_id", "game_start_time", "slate_date",
+        "market", "selection", "raw_probability", "displayed_probability",
+        "decision", "stake", "feature_hash", "feature_snapshot", "certification",
+        "financial_eligible", "financial_eligibility_reason", "market_benchmark_eligible",
+        "market_benchmark_eligibility_reason", "calibration_eligible", "calibration_eligibility_reason",
+        "settlement_exclusion_reason",
+    )}
+    for field in ("price", "pregame_snapshot"):
+        value = record.get(field)
+        material[field] = {
+            key: item for key, item in value.items()
+            if key not in QUOTE_FIELDS
+        } if isinstance(value, dict) else value
+        if isinstance(value, dict) and isinstance(value.get(TIMING_FIELD), dict):
+            material[field][TIMING_FIELD] = {
+                key: item for key, item in value[TIMING_FIELD].items()
+                if key not in {"published_at", "data_as_of"}
+            }
+    return _hash(material)
+
+
 def capture_team_prop_pregame_snapshots(
     payload: dict[str, Any],
     *,
@@ -807,6 +993,7 @@ def capture_team_prop_pregame_snapshots(
     unchanged = 0
     team_picks = 0
     seen_in_payload: set[tuple[str, str]] = set()
+    material_signatures: dict[str, str] = {}
 
     for raw_model_key, bucket in models.items():
         model_key = str(raw_model_key)
@@ -832,16 +1019,28 @@ def capture_team_prop_pregame_snapshots(
                 existing=records,
             )
             key = (str(record["stable_id"]), str(record["snapshot_hash"]))
-            if key in seen_in_payload or any(
-                current.get("stable_id") == record["stable_id"]
-                and current.get("snapshot_hash") == record["snapshot_hash"]
-                for current in records
-                if isinstance(current, dict)
+            material = _material_signature(record)
+            same_slot = [
+                current for current in records
+                if isinstance(current, dict) and current.get("stable_id") == record["stable_id"]
+            ]
+            prior = max(same_slot, key=lambda current: int(current.get("revision") or 0), default=None)
+            clock_only = False
+            if prior is not None:
+                prior_id = str(prior.get("id"))
+                if prior_id not in material_signatures:
+                    material_signatures[prior_id] = _material_signature(prior)
+                clock_only = material_signatures[prior_id] == material
+            # Compare clock churn only to the latest revision: a real price
+            # moving away and then back to an earlier value is still material.
+            if key in seen_in_payload or clock_only or any(
+                current.get("snapshot_hash") == record["snapshot_hash"] for current in same_slot
             ):
                 unchanged += 1
                 seen_in_payload.add(key)
                 continue
             records.append(record)
+            material_signatures[str(record["id"])] = material
             seen_in_payload.add(key)
             added += 1
 
@@ -898,7 +1097,34 @@ __all__ = [
     "backfill_team_prop_pregame_from_cache",
     "capture_team_prop_pregame_snapshots",
     "load_team_prop_pregame_ledger",
+    "merge_team_prop_pregame_ledgers",
     "refresh_trusted_publication_clock",
     "stamp_team_prop_pregame_timing",
     "write_team_prop_pregame_ledger",
 ]
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description="Migrate and merge certified team ledger history into daily shards.")
+    parser.add_argument("--migrate", action="store_true", required=True)
+    parser.add_argument("--repo-root", type=Path, default=REPO_ROOT)
+    parser.add_argument("--merge-from", type=Path, help="Saved repository root to union after resyncing a workflow checkout.")
+    args = parser.parse_args()
+    ledger = load_team_prop_pregame_ledger(args.repo_root)
+    if args.merge_from:
+        # Do not silently skip an unreadable legacy file in a saved checkout.
+        _load_legacy(_ledger_path(args.merge_from), strict=True)
+        ledger = merge_team_prop_pregame_ledgers(ledger, load_team_prop_pregame_ledger(args.merge_from))
+    changed = write_team_prop_pregame_ledger(ledger, args.repo_root)
+    directory = args.repo_root / SHARD_RELATIVE_PATH
+    sizes = [path.stat().st_size for path in directory.glob("*.json") if _SHARD_NAME.fullmatch(path.name)]
+    print(json.dumps({
+        "changed": changed, "records": len(ledger["records"]), "shards": len(sizes),
+        "largest_shard_bytes": max(sizes, default=0),
+        "total_bytes": sum(sizes) + (directory / "index.json").stat().st_size,
+    }, sort_keys=True))
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

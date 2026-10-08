@@ -18,6 +18,8 @@ The active production automation uses GitHub Actions plus local Codex morning an
 | `rebuild_pick_outcome_ledger.py` | Deduplicates all model and player-prop picks into `data/calibration/outcome_ledger.json`. |
 | `train_pick_calibration.py` | Evaluates a shrinkage-based probability calibrator against the active champion. |
 | `pick_calibration.py` | Preserves immutable pregame snapshots and applies the promoted calibrator to refresh payloads. |
+| `team_prop_pregame_ledger.py` | Loads ordered certified history from daily shards; migrate with `python -m scripts.team_prop_pregame_ledger --migrate`. |
+| `check_data_file_sizes.py` | Checks Git-visible `data/**/*.json` against 50 MB and team ledger shards against 10 MB before publication. |
 | `cache_manifest.py` | Maintains `data/model_cache/index.json` for the static frontend. |
 | `scrapers/scores24_publish_local.sh` | Mac wrapper for `scrapers/scores24_publish.sh` (Scores24 blocks GitHub-hosted runner IPs). |
 | `scrapers/scores24_publish.sh` | Portable Scores24 publisher for local Mac or Cursor Cloud automations. |

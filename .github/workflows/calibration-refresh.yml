@@ -75,7 +75,14 @@ jobs:
           GENERATED_CALIBRATION="${RUNNER_TEMP}/calibration-artifacts"
           rm -rf "$GENERATED_CALIBRATION"
           mkdir -p "$GENERATED_CALIBRATION"
-          cp -R data/calibration/. "$GENERATED_CALIBRATION"/
+          # The team ledger is input, not training output. A stale backup must
+          # never overwrite concurrent publications or grades after resync.
+          for artifact in data/calibration/*; do
+            case "$artifact" in
+              data/calibration/team_prop_pregame_ledger|data/calibration/team_prop_pregame_ledger.json) continue ;;
+            esac
+            cp -R "$artifact" "$GENERATED_CALIBRATION"/
+          done
           for attempt in 1 2 3 4 5; do
             git add data/calibration
             if git diff --cached --quiet; then

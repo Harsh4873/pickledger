@@ -10,6 +10,8 @@ import sys
 import pytest
 import yaml
 
+from scripts.team_prop_pregame_ledger import SHARD_RELATIVE_PATH, write_team_prop_pregame_ledger
+
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -40,6 +42,7 @@ def test_model_workflow_preserves_written_results_before_reporting_failure():
     assert refresh["continue-on-error"] == "true"
     assert artifact["uses"] == "actions/upload-artifact@v4"
     assert "data/model_cache/latest.json" in artifact["with"]["path"]
+    assert "data/calibration/team_prop_pregame_ledger/" in artifact["with"]["path"]
     assert steps.index(refresh) < steps.index(artifact) < steps.index(commit) < steps.index(report)
     assert steps.index(by_name["Deploy updated model cache"]) < steps.index(report)
     assert "continue-on-error" not in commit
@@ -101,11 +104,9 @@ def test_commit_step_recovers_from_remote_errors_and_stays_bounded(tmp_path, fai
     steps = workflow("model-cache-refresh.yml")["jobs"]["refresh"]["steps"]
     command = next(step["run"] for step in steps if step["name"] == "Commit cache JSON if changed")
     cache = tmp_path / "data/model_cache/latest.json"
-    ledger = tmp_path / "data/calibration/team_prop_pregame_ledger.json"
     cache.parent.mkdir(parents=True)
-    ledger.parent.mkdir(parents=True)
     cache.write_text('{"date":"2026-10-07","models":{}}')
-    ledger.write_text('{}')
+    write_team_prop_pregame_ledger({"records": [{"id": "generated", "slate_date": "2026-10-07"}]}, tmp_path)
     bin_dir = tmp_path / "bin"
     bin_dir.mkdir()
     stub = f"#!{sys.executable}\n" + '''import json, os, pathlib, sys
@@ -144,8 +145,41 @@ elif name == "python" and args[0] == "-c":
     assert sum(call[:2] == ["python", "scripts/merge_model_cache_payload.py"] for call in calls) == attempts
     assert [int(call[1]) for call in calls if call[0] == "sleep"] == delays
     assert (runner_temp / "model-cache-latest.json").read_bytes() == cache.read_bytes()
-    assert (runner_temp / "team-prop-pregame-ledger.json").read_bytes() == ledger.read_bytes()
+    for path in (tmp_path / SHARD_RELATIVE_PATH).glob("*.json"):
+        assert (runner_temp / "team-prop-pregame-ledger" / SHARD_RELATIVE_PATH / path.name).read_bytes() == path.read_bytes()
+    assert sum(call[:5] == ["python", "-m", "scripts.team_prop_pregame_ledger", "--migrate", "--merge-from"] for call in calls) == attempts
+    assert all("-A" in call and "data/calibration/team_prop_pregame_ledger*" in call for call in calls if call[:2] == ["git", "add"])
     if expected_exit == 0:
         assert "changed=true" in output.read_text()
     else:
         assert not output.exists()
+
+
+def test_calibration_backup_excludes_team_history(tmp_path):
+    command = next(step["run"] for step in workflow("calibration-refresh.yml")["jobs"]["calibrate"]["steps"] if step.get("id") == "commit-calibration")
+    # Execute the actual backup loop without the publication commands.
+    backup_loop = command[command.index("for artifact in data/calibration/*;"):command.index("for attempt in")]
+    calibration = tmp_path / "data/calibration"
+    calibration.mkdir(parents=True)
+    (calibration / "active.json").write_text('{"version":1}')
+    (calibration / "team_prop_pregame_ledger.json").write_text('{"records":[]}')
+    (calibration / "team_prop_pregame_ledger").mkdir()
+    (calibration / "team_prop_pregame_ledger/index.json").write_text('{}')
+    generated = tmp_path / "generated"
+    generated.mkdir()
+    subprocess.run(["bash", "-e", "-c", backup_loop], cwd=tmp_path, env={**os.environ, "GENERATED_CALIBRATION": str(generated)}, check=True)
+    assert [path.name for path in generated.iterdir()] == ["active.json"]
+
+
+def test_publication_pathspec_stages_shards_and_removes_legacy(tmp_path):
+    subprocess.run(["git", "init", "-q", str(tmp_path)], check=True)
+    legacy = tmp_path / "data/calibration/team_prop_pregame_ledger.json"
+    legacy.parent.mkdir(parents=True)
+    legacy.write_text('{"records":[]}')
+    subprocess.run(["git", "add", str(legacy)], cwd=tmp_path, check=True)
+    write_team_prop_pregame_ledger({"records": [{"id": "new", "slate_date": "2026-10-08"}]}, tmp_path)
+    for _ in range(2):
+        # Also works once the monolith is no longer tracked at all.
+        subprocess.run(["git", "add", "-A", "data/calibration/team_prop_pregame_ledger*"], cwd=tmp_path, check=True)
+        paths = subprocess.check_output(["git", "ls-files"], cwd=tmp_path, text=True).splitlines()
+        assert paths == ["data/calibration/team_prop_pregame_ledger/2026-10-08.json", "data/calibration/team_prop_pregame_ledger/index.json"]

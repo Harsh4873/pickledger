@@ -81,6 +81,10 @@ jobs:
             --max-workers 3 \
             --skip-firestore
 
+      - name: Migrate certified team ledger
+        if: ${{ !cancelled() && steps.refresh-models.outputs.cache_written == 'true' }}
+        run: python -m scripts.team_prop_pregame_ledger --migrate
+
       - name: Preserve generated model cache
         if: ${{ !cancelled() && steps.refresh-models.outputs.cache_written == 'true' }}
         uses: actions/upload-artifact@v4
@@ -92,7 +96,7 @@ jobs:
           path: |
             data/model_cache/latest.json
             data/model_cache/${{ steps.refresh-models.outputs.cache_date }}.json
-            data/calibration/team_prop_pregame_ledger.json
+            data/calibration/team_prop_pregame_ledger/
 
       - name: Rebuild parlay cards
         run: python scripts/build_parlay_cards.py --date "${{ github.event.inputs.date || '' }}"
@@ -121,24 +125,30 @@ jobs:
           git config user.email "${ACTOR_EMAIL}"
           # Always publish the canonical Pages branch, including manual runs.
           BRANCH="main"
-          if [ -z "$(git status --porcelain -- data/model_cache data/parlay_cards data/profit_desk data/calibration/team_prop_pregame_ledger.json)" ]; then
+          python -m scripts.team_prop_pregame_ledger --migrate
+          if [ -z "$(git status --porcelain -- data/model_cache data/parlay_cards data/profit_desk 'data/calibration/team_prop_pregame_ledger*')" ]; then
             echo "No model-cache, parlay-card, Profit Desk, or team-prop ledger change — skipping commit."
             echo "changed=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
           GENERATED_CACHE="${RUNNER_TEMP}/model-cache-latest.json"
-          GENERATED_TEAM_LEDGER="${RUNNER_TEMP}/team-prop-pregame-ledger.json"
+          GENERATED_TEAM_LEDGER="${RUNNER_TEMP}/team-prop-pregame-ledger"
           cp data/model_cache/latest.json "$GENERATED_CACHE"
-          cp data/calibration/team_prop_pregame_ledger.json "$GENERATED_TEAM_LEDGER"
+          mkdir -p "$GENERATED_TEAM_LEDGER/data/calibration"
+          cp -R data/calibration/team_prop_pregame_ledger "$GENERATED_TEAM_LEDGER/data/calibration/"
           for attempt in 1 2 3 4 5; do
             git fetch origin "$BRANCH"
             git reset --hard "origin/${BRANCH}"
             python scripts/merge_model_cache_payload.py "$GENERATED_CACHE"
-            cp "$GENERATED_TEAM_LEDGER" data/calibration/team_prop_pregame_ledger.json
+            # Union generated history with concurrent publications and grades.
+            python -m scripts.team_prop_pregame_ledger --migrate --merge-from "$GENERATED_TEAM_LEDGER"
             CACHE_DATE=$(python -c "import json; print(json.load(open('data/model_cache/latest.json'))['date'])")
             python scripts/build_parlay_cards.py --date "$CACHE_DATE"
             python scripts/build_profit_desk.py --date "$CACHE_DATE"
-            git add data/model_cache data/parlay_cards data/profit_desk data/calibration/team_prop_pregame_ledger.json
+            # Dev Checks enforces the size budget; here it only warns so an
+            # unrelated large file cannot block model publication.
+            python scripts/check_data_file_sizes.py || echo "::warning::Committed data JSON exceeds the size budget; see the size check output above."
+            git add -A data/model_cache data/parlay_cards data/profit_desk 'data/calibration/team_prop_pregame_ledger*'
             if git diff --cached --quiet; then
               echo "No staged cache change after merge — skipping commit."
               echo "changed=false" >> "$GITHUB_OUTPUT"
