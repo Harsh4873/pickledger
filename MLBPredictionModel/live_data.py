@@ -296,6 +296,17 @@ def build_live_dataframe(
     validated, pregame-lineup-safe promotion path.
     """
     target_date = target_date or get_mlb_slate_date()
+    # Check coverage before fetching full-season player stats and game history.
+    # The serving model currently supports regular-season games only.
+    games = statsapi.schedule(
+        start_date=_schedule_date(target_date),
+        end_date=_schedule_date(target_date),
+        sportId=1,
+    )
+    games = [game for game in games if str(game.get("game_type", "")).upper() == "R"]
+    if not games:
+        return pd.DataFrame()
+
     season = _season_for_date(target_date)
     previous_season = season - 1
 
@@ -316,15 +327,8 @@ def build_live_dataframe(
     prior_fip_constant = compute_fip_constant(prior_pitching)
     team_hitting = _group_hitting_by_team(season_hitting)
 
-    games = statsapi.schedule(
-        start_date=_schedule_date(target_date),
-        end_date=_schedule_date(target_date),
-        sportId=1,
-    )
     rows: list[dict[str, Any]] = []
     for game in games:
-        if str(game.get("game_type", "")).upper() != "R":
-            continue
         game_pk = safe_int(game.get("game_id"))
         payload = client.get_game_feed(game_pk)
         game_data = payload.get("gameData") or {}

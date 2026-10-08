@@ -70,7 +70,7 @@ def main(argv: list[str] | None = None) -> int:
         market_odds_map = fetch_mlb_market_odds_for_date(target_date)
         live_frame = build_live_dataframe(target_date, market_odds_map=market_odds_map)
         if live_frame.empty:
-            print(f"No MLB games found for {target_date.isoformat()}.")
+            print(f"No eligible regular-season MLB games found for {target_date.isoformat()}.")
             return 0
 
         if args.variant == "new":
