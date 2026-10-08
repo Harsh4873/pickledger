@@ -1,16 +1,19 @@
 from __future__ import annotations
 
 import json
+import copy
 import os
 from pathlib import Path
 import re
 import subprocess
 import sys
+import shutil
 
 import pytest
 import yaml
 
 from scripts.team_prop_pregame_ledger import SHARD_RELATIVE_PATH, write_team_prop_pregame_ledger
+from scripts.merge_pick_outcome_ledger import merge_outcome_ledgers
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -143,6 +146,7 @@ elif name == "python" and args[0] == "-c":
     calls = [json.loads(line) for line in (tmp_path / "calls.jsonl").read_text().splitlines()]
     assert sum(call[:2] == ["git", "push"] for call in calls) == attempts
     assert sum(call[:2] == ["python", "scripts/merge_model_cache_payload.py"] for call in calls) == attempts
+    assert [call[1] for call in calls if call[0] == "python" and call[1].startswith("scripts/build_")] == ["scripts/build_parlay_cards.py", "scripts/build_profit_desk.py"] * attempts
     assert [int(call[1]) for call in calls if call[0] == "sleep"] == delays
     assert (runner_temp / "model-cache-latest.json").read_bytes() == cache.read_bytes()
     for path in (tmp_path / SHARD_RELATIVE_PATH).glob("*.json"):
@@ -162,6 +166,7 @@ def test_calibration_backup_excludes_team_history(tmp_path):
     calibration = tmp_path / "data/calibration"
     calibration.mkdir(parents=True)
     (calibration / "active.json").write_text('{"version":1}')
+    (calibration / "outcome_ledger.json").write_text('{"records":[]}')
     (calibration / "team_prop_pregame_ledger.json").write_text('{"records":[]}')
     (calibration / "team_prop_pregame_ledger").mkdir()
     (calibration / "team_prop_pregame_ledger/index.json").write_text('{}')
@@ -183,3 +188,166 @@ def test_publication_pathspec_stages_shards_and_removes_legacy(tmp_path):
         subprocess.run(["git", "add", "-A", "data/calibration/team_prop_pregame_ledger*"], cwd=tmp_path, check=True)
         paths = subprocess.check_output(["git", "ls-files"], cwd=tmp_path, text=True).splitlines()
         assert paths == ["data/calibration/team_prop_pregame_ledger/2026-10-08.json", "data/calibration/team_prop_pregame_ledger/index.json"]
+
+
+@pytest.fixture(scope="module")
+def publication_outcomes():
+    # Reuse published rows, prices and grades; only simulate the pre-grade state.
+    published = json.loads((ROOT / "data/calibration/outcome_ledger.json").read_text())
+    props = [row for row in published["records"] if row["cache_type"] == "player_props_cache" and row["result"] in {"win", "loss"}]
+    team = next(row for row in published["records"] if row["cache_type"] == "team_prop_pregame_ledger" and row["result"] == "win")
+    push = next(row for row in published["records"] if row["result"] == "push")
+    def pending(row):
+        return {**row, "result": "pending", "outcome": None, "profit": None}
+    current = {"schema_version": published["schema_version"], "records": [props[0], team, push, props[1], pending(props[2])]}
+    generated = {"schema_version": published["schema_version"], "records": [pending(props[0]), pending(team), pending(push), props[2], props[3]]}
+    expected = sorted([props[0], team, push, props[1], props[2], props[3]], key=lambda row: (row["date"], row["model_key"], row["id"]))
+    return current, generated, expected
+
+
+def test_outcome_union_preserves_whole_rows_grades_order_and_is_idempotent(publication_outcomes):
+    current, generated, expected = copy.deepcopy(publication_outcomes)
+    merged = merge_outcome_ledgers(current, generated)
+    assert merged["records"] == expected
+    assert merged["summary"] == {
+        "total_picks": len(expected),
+        "decided_picks": sum(row["result"] in {"win", "loss"} for row in expected),
+        "pending_picks": 0,
+        "trainable_decided_picks": sum(row["result"] in {"win", "loss"} and row["raw_probability"] is not None and row["calibration_eligible"] is True for row in expected),
+    }
+    assert merge_outcome_ledgers(merged, generated) == merged
+    assert "updated_at" not in merged
+    # Current rows remain authoritative when both copies have a result.
+    old = copy.deepcopy(current)
+    old["records"][0]["pregame_snapshot"].pop("ranking_updated_at", None)
+    assert merge_outcome_ledgers(current, old)["records"] == sorted(current["records"], key=lambda row: (row["date"], row["model_key"], row["id"]))
+
+
+def test_outcome_union_takes_fresh_generated_row_when_both_are_pending(publication_outcomes):
+    current, _, _ = copy.deepcopy(publication_outcomes)
+    stale = {**current["records"][4], "pregame_snapshot": {**current["records"][4]["pregame_snapshot"], "odds": -110}}
+    fresh = {**current["records"][4], "pregame_snapshot": {**current["records"][4]["pregame_snapshot"], "odds": -125}}
+    excluded = {**current["records"][1], "result": "pending", "settlement_exclusion_reason": "fractional_line"}
+    current["records"][4] = stale
+    current["records"][1] = excluded
+    generated = {"schema_version": current["schema_version"], "records": [fresh, {**excluded, "settlement_exclusion_reason": None}]}
+    rows = {row["id"]: row for row in merge_outcome_ledgers(current, generated)["records"]}
+    assert rows[fresh["id"]]["pregame_snapshot"]["odds"] == -125
+    # A grader retraction on the current row is never undone by a saved copy.
+    assert rows[excluded["id"]]["settlement_exclusion_reason"] == "fractional_line"
+
+
+@pytest.mark.parametrize("failure", ["schema", "missing-id", "duplicate"])
+def test_outcome_union_rejects_ambiguous_input(publication_outcomes, failure):
+    current, generated, _ = copy.deepcopy(publication_outcomes)
+    if failure == "schema":
+        generated["schema_version"] += 1
+    elif failure == "missing-id":
+        generated["records"][0].pop("id")
+    else:
+        generated["records"].append(generated["records"][0])
+    with pytest.raises(ValueError):
+        merge_outcome_ledgers(current, generated)
+
+
+@pytest.mark.parametrize("filename,job,step_id,failed_pushes,attempts,exit_code", [
+    ("calibration-refresh.yml", "calibrate", "commit-calibration", 0, 1, 0),
+    ("calibration-refresh.yml", "calibrate", "commit-calibration", 2, 3, 0),
+    ("calibration-refresh.yml", "calibrate", "commit-calibration", 5, 5, 1),
+    ("player-props-refresh.yml", "refresh", "commit-props", 0, 1, 0),
+    ("player-props-refresh.yml", "refresh", "commit-props", 2, 3, 0),
+    ("player-props-refresh.yml", "refresh", "commit-props", 3, 3, 1),
+])
+def test_outcome_publication_recovers_rows_and_grades_after_reset(
+    tmp_path, publication_outcomes, filename, job, step_id, failed_pushes, attempts, exit_code,
+):
+    command = next(step["run"] for step in workflow(filename)["jobs"][job]["steps"] if step.get("id") == step_id)
+    current, generated, expected = publication_outcomes
+    ledger = Path("data/calibration/outcome_ledger.json")
+    remote = tmp_path / "remote"
+    for root, payload in ((tmp_path, generated), (remote, current)):
+        (root / ledger).parent.mkdir(parents=True)
+        (root / ledger).write_text(json.dumps(payload))
+    trained = (ROOT / "data/calibration/state.json").read_bytes()
+    (tmp_path / "data/calibration/state.json").write_bytes(trained)
+    cache = json.loads((ROOT / "data/player_props_cache/latest.json").read_text())
+    cache_date = cache["date"]
+    cache_dir = tmp_path / "data/player_props_cache"
+    cache_dir.mkdir()
+    (cache_dir / f"{cache_date}.json").write_text(json.dumps(cache))
+    snapshots = Path("data/player_props_snapshots")
+    archived = sorted((ROOT / snapshots).glob("20??-??-??/*.json"))[-1]
+    fresh_snapshot = json.dumps(cache)
+    fresh_path = snapshots / cache_date / "generated.json"
+    (tmp_path / fresh_path).parent.mkdir(parents=True, exist_ok=True)
+    (tmp_path / fresh_path).write_text(fresh_snapshot)
+    existing_path = archived.relative_to(ROOT)
+    for root in (tmp_path, remote):
+        (root / existing_path).parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(archived, root / existing_path)
+    # A saved snapshot predates the grades present on the remote branch.
+    stale = json.loads(archived.read_text())
+    for bucket in stale["models"].values():
+        for row in bucket.get("picks", []):
+            row["result"] = "pending"
+    (tmp_path / existing_path).write_text(json.dumps(stale))
+    for relative in ("data/player_props_training/market_history_2026.jsonl", "data/player_props_training/outcome_history_2022_2026.jsonl.gz", "player_props/artifacts/metadata.json"):
+        path = tmp_path / relative
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.touch()
+    runner = tmp_path / "runner"
+    runner.mkdir()
+    bin_dir = tmp_path / "bin"
+    bin_dir.mkdir()
+    stub = f"#!{sys.executable}\n" + '''import json, os, pathlib, runpy, shutil, sys
+name, args = pathlib.Path(sys.argv[0]).name, sys.argv[1:]
+root = pathlib.Path(os.environ["FIXTURE_ROOT"])
+with (root / "calls.jsonl").open("a") as stream:
+    stream.write(json.dumps([name, *args]) + "\\n")
+if name == "git":
+    if args[0] == "status":
+        print(" M data/calibration/outcome_ledger.json")
+    elif args[0] == "diff":
+        sys.exit(1)
+    elif args[0] == "reset":
+        shutil.rmtree(root / "data")
+        shutil.copytree(root / "remote/data", root / "data")
+    elif args[0] == "push":
+        path = root / "push-count"
+        count = int(path.read_text()) + 1 if path.exists() else 1
+        path.write_text(str(count))
+        sys.exit(1 if count <= int(os.environ["FAILED_PUSHES"]) else 0)
+elif args[0] == "scripts/merge_pick_outcome_ledger.py":
+    sys.argv = [args[0], args[1], "--ledger", str(root / "data/calibration/outcome_ledger.json")]
+    runpy.run_path(str(pathlib.Path(os.environ["SOURCE_ROOT"]) / args[0]), run_name="__main__")
+elif args[0] == "scripts/merge_player_props_cache_payload.py":
+    cache = root / "data/player_props_cache/latest.json"
+    cache.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copyfile(args[1], cache)
+elif args[0] == "-c":
+    print(os.environ["CACHE_DATE"])
+'''
+    for name in ("git", "python"):
+        path = bin_dir / name
+        path.write_text(stub)
+        path.chmod(0o755)
+    command = command.replace("${{ steps.target-date.outputs.date }}", cache_date)
+    env = {**os.environ, "PATH": str(bin_dir) + os.pathsep + os.environ["PATH"],
+           "FIXTURE_ROOT": str(tmp_path), "SOURCE_ROOT": str(ROOT), "FAILED_PUSHES": str(failed_pushes),
+           "RUNNER_TEMP": str(runner), "GITHUB_ACTOR": "fixture", "CACHE_DATE": cache_date,
+           "GITHUB_OUTPUT": str(tmp_path / "github-output")}
+    result = subprocess.run(["bash", "-e", "-c", command], cwd=tmp_path, env=env, capture_output=True, text=True, timeout=20)
+    assert result.returncode == exit_code, result.stdout + result.stderr
+    calls = [json.loads(line) for line in (tmp_path / "calls.jsonl").read_text().splitlines()]
+    assert sum(call[:2] == ["git", "push"] for call in calls) == attempts
+    resets = attempts if job == "refresh" else attempts - 1
+    assert sum(call[:2] == ["git", "reset"] for call in calls) == resets
+    assert sum(call[:2] == ["python", "scripts/merge_pick_outcome_ledger.py"] for call in calls) == resets
+    actual = json.loads((tmp_path / ledger).read_text())
+    assert actual["records"] == (expected if resets else generated["records"])
+    if job == "refresh":
+        assert (tmp_path / fresh_path).read_text() == fresh_snapshot
+        assert (tmp_path / existing_path).read_bytes() == archived.read_bytes()
+        assert [call[1] for call in calls if call[0] == "python" and call[1].startswith("scripts/build_")] == ["scripts/build_parlay_cards.py", "scripts/build_profit_desk.py"] * attempts
+    else:
+        assert (tmp_path / "data/calibration/state.json").read_bytes() == trained

@@ -159,10 +159,11 @@ jobs:
             git reset --hard "origin/${BRANCH}"
             python scripts/merge_player_props_cache_payload.py "$GENERATED_CACHE"
             mkdir -p player_props/artifacts data/calibration data/player_props_training data/player_props_snapshots
-            cp "$GENERATED_LEDGER" data/calibration/outcome_ledger.json
+            python scripts/merge_pick_outcome_ledger.py "$GENERATED_LEDGER"
             cp "$GENERATED_HISTORY" data/player_props_training/market_history_2026.jsonl
             cp "$GENERATED_OUTCOMES" data/player_props_training/outcome_history_2022_2026.jsonl.gz
-            cp -R "$GENERATED_SNAPSHOTS"/. data/player_props_snapshots/
+            # Existing snapshots may have been graded since checkout.
+            cp -R --update=none "$GENERATED_SNAPSHOTS"/. data/player_props_snapshots/
             cp -R "$GENERATED_ARTIFACTS"/. player_props/artifacts/
             CACHE_DATE=$(python -c "import json; print(json.load(open('data/player_props_cache/latest.json'))['date'])")
             python scripts/build_parlay_cards.py --date "$CACHE_DATE"

@@ -73,13 +73,15 @@ jobs:
           # re-training, which would risk the job timeout and could flip the
           # active_changed result evaluated above).
           GENERATED_CALIBRATION="${RUNNER_TEMP}/calibration-artifacts"
+          GENERATED_LEDGER="${RUNNER_TEMP}/calibration-outcome-ledger.json"
+          cp data/calibration/outcome_ledger.json "$GENERATED_LEDGER"
           rm -rf "$GENERATED_CALIBRATION"
           mkdir -p "$GENERATED_CALIBRATION"
-          # The team ledger is input, not training output. A stale backup must
-          # never overwrite concurrent publications or grades after resync.
+          # Team history is input. Merge outcome rows separately so saved
+          # training artifacts cannot overwrite concurrent publications or grades.
           for artifact in data/calibration/*; do
             case "$artifact" in
-              data/calibration/team_prop_pregame_ledger|data/calibration/team_prop_pregame_ledger.json) continue ;;
+              data/calibration/team_prop_pregame_ledger|data/calibration/team_prop_pregame_ledger.json|data/calibration/outcome_ledger.json) continue ;;
             esac
             cp -R "$artifact" "$GENERATED_CALIBRATION"/
           done
@@ -96,10 +98,12 @@ jobs:
               exit 0
             fi
             echo "Push rejected on attempt ${attempt} (origin/${BRANCH} advanced); re-applying calibration artifacts onto latest."
+            if [ "$attempt" -eq 5 ]; then break; fi
             git fetch origin "$BRANCH"
             git reset --hard "origin/${BRANCH}"
             mkdir -p data/calibration
             cp -R "$GENERATED_CALIBRATION"/. data/calibration/
+            python scripts/merge_pick_outcome_ledger.py "$GENERATED_LEDGER"
           done
           echo "::error::Unable to publish calibration artifacts after 5 attempts due to persistent push contention on ${BRANCH}."
           exit 1
