@@ -1,0 +1,41 @@
+name: Player Prop Consensus Check
+
+on:
+  workflow_run:
+    workflows: [Daily Refresh]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: player-prop-consensus-check
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      PYTHONUNBUFFERED: "1"
+    steps:
+      - name: Checkout published history
+        uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install Python dependencies
+        run: pip install -r requirements.txt
+
+      - name: Evaluate four-model consensus challenger
+        # Verification trains temporary candidates but never replaces serving artifacts.
+        timeout-minutes: 10
+        run: python scripts/train_player_prop_consensus_ml.py --verify-only

@@ -43,7 +43,8 @@ jobs:
 
   deploy:
     needs: [models, props, feeds]
-    if: ${{ !cancelled() && needs.models.result == 'success' && needs.props.result == 'success' && needs.feeds.result == 'success' }}
+    # Failed sources remain failed jobs, but must not strand healthy published caches.
+    if: ${{ !cancelled() && (needs.models.outputs.published == 'true' || needs.models.result == 'success' || needs.props.result == 'success' || needs.feeds.result == 'success') }}
     runs-on: ubuntu-latest
     steps:
       - name: Deploy the latest published cache
