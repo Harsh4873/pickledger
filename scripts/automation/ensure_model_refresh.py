@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import subprocess
 from datetime import datetime, time, timedelta, timezone
 from pathlib import Path
@@ -34,18 +35,42 @@ def latest_slot(now):
     return max((slot for slot in due if slot <= central), default=None)
 
 
+def nba_transport_failure(key, bucket):
+    """Match the NBA-only operational exception used by site_upcheck."""
+    return key == "nba" and isinstance(bucket, dict) and bucket.get("ok") is not True and (
+        bucket.get("error_kind") in {"upstream_unavailable", "model_timeout"}
+        or re.fullmatch(r"NBA New timed out \(\d+ min limit\)", str(bucket.get("error") or "")) is not None
+    )
+
+
+def current_window(payload, now):
+    slot = latest_slot(now)
+    generated = timestamp(payload.get("generatedAt"))
+    # External-feed writes update updatedAt; only model generation counts here.
+    return bool(slot and generated and slot <= generated <= now
+                and payload.get("date") == now.astimezone(CENTRAL).date().isoformat())
+
+
+def blocking_models(payload, now):
+    models = payload.get("models") if isinstance(payload.get("models"), dict) else {}
+    target = now.astimezone(CENTRAL).date().isoformat()
+    return sorted(key for key in REQUIRED if not nba_transport_failure(key, models.get(key)) and (
+        not isinstance(models.get(key), dict)
+        or models[key].get("ok") is not True
+        or models[key].get("date") not in (None, "", target)
+    ))
+
+
 def refresh_decision(payload, runs, now):
     slot = latest_slot(now)
     if slot is None:
         return "idle", "Before the first refresh window"
-    target = now.astimezone(CENTRAL).date().isoformat()
     if any(run.get("status") in ACTIVE for run in runs):
         return "active", "Model refresh already queued or running"
     models = payload.get("models") if isinstance(payload.get("models"), dict) else {}
-    generated = timestamp(payload.get("generatedAt"))
-    healthy = all(isinstance(models.get(key), dict) and models[key].get("ok") is True for key in REQUIRED)
-    # External-feed writes update updatedAt; only model generation counts here.
-    if payload.get("date") == target and healthy and generated and slot <= generated <= now:
+    if current_window(payload, now) and not blocking_models(payload, now):
+        if nba_transport_failure("nba", models.get("nba")):
+            return "degraded", f"Model cache covers the {slot.isoformat()} refresh window; NBA source unavailable; no recovery needed"
         return "fresh", f"Model cache covers the {slot.isoformat()} refresh window"
     attempts = [run for run in runs if (timestamp(run.get("createdAt")) or datetime.min.replace(tzinfo=timezone.utc)) >= slot]
     manual = [run for run in attempts if run.get("event") == "workflow_dispatch"]
@@ -71,12 +96,8 @@ def refresh_runs():
 
 def recovery_models(payload, now):
     """Retry only failed core models after an otherwise current window ran."""
-    slot = latest_slot(now)
-    generated = timestamp(payload.get("generatedAt"))
-    if (slot and generated and slot <= generated <= now
-            and payload.get("date") == now.astimezone(CENTRAL).date().isoformat()):
-        models = payload.get("models") if isinstance(payload.get("models"), dict) else {}
-        return sorted(key for key in REQUIRED if not isinstance(models.get(key), dict) or models[key].get("ok") is not True)
+    if current_window(payload, now):
+        return blocking_models(payload, now)
     return []
 
 
@@ -85,7 +106,7 @@ def dispatch_recovery(payload, now):
         target = now.astimezone(CENTRAL).date().isoformat()
         gh("workflow", "run", WORKFLOW, "--repo", REPO, "--ref", "main",
            "-f", f"date={target}", "-f", f"models={','.join(models)}")
-    else:
+    elif not current_window(payload, now):
         gh("workflow", "run", DAILY_WORKFLOW, "--repo", REPO, "--ref", "main")
 
 
@@ -128,6 +149,8 @@ def main():
     runs = refresh_runs()
     state, reason = refresh_decision(payload, runs, now)
     print(f"{state}: {reason}", flush=True)
+    if state == "degraded":
+        print(f"::warning::{reason}", flush=True)
     if output := os.environ.get("GITHUB_OUTPUT"):
         with open(output, "a", encoding="utf-8") as stream:
             stream.write(f"state={state}\n")

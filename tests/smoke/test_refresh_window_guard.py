@@ -62,6 +62,107 @@ def test_current_window_retries_only_failed_models():
     assert recovery_models(payload, now("2026-09-09T18:10:00Z")) == []
 
 
+@pytest.mark.parametrize("failure", [
+    {"ok": False, "error_kind": "upstream_unavailable", "error": "request exhausted"},
+    {"ok": False, "error_kind": "model_timeout", "error": "outer budget exhausted"},
+    {"ok": False, "error": "NBA New timed out (15 min limit)"},
+    {"ok": False, "error": "NBA New timed out (7 min limit)"},
+])
+def test_current_nba_outage_warns_without_repeated_dispatches(monkeypatch, failure):
+    from datetime import timedelta
+    from scripts.automation import ensure_model_refresh as guard
+
+    payload = cache()
+    payload["models"]["nba"] = failure
+    runs = [{"status": "completed", "event": "workflow_dispatch", "createdAt": "2026-09-09T11:36:00Z"}] * 3
+    monkeypatch.setattr(guard, "gh", lambda *_a: pytest.fail("NBA outage must not dispatch recovery"))
+    for offset in range(0, 360, 15):
+        check_time = now() + timedelta(minutes=offset)
+        state, reason = refresh_decision(payload, runs, check_time)
+        assert state == "degraded"
+        assert "NBA source unavailable" in reason
+        assert recovery_models(payload, check_time) == []
+        guard.dispatch_recovery(payload, check_time)
+
+
+@pytest.mark.parametrize("change", ["yesterday", "before_slot", "missing_timestamp", "future_timestamp", "stale_bucket"])
+def test_nba_exception_cannot_hide_staleness(change):
+    payload = cache()
+    payload["models"]["nba"] = {"ok": False, "error_kind": "model_timeout"}
+    if change == "yesterday":
+        payload["date"] = "2026-09-08"
+    elif change == "before_slot":
+        payload["generatedAt"] = "2026-09-09T11:00:00Z"
+    elif change == "missing_timestamp":
+        payload.pop("generatedAt")
+    elif change == "future_timestamp":
+        payload["generatedAt"] = "2026-09-09T12:00:00Z"
+    else:
+        payload["models"]["mlb_new"]["date"] = "2026-09-08"
+    payload["updatedAt"] = "2026-09-09T11:49:00Z"
+    assert refresh_decision(payload, [], now())[0] == "dispatch"
+    runs = [{"status": "completed", "event": "workflow_dispatch", "createdAt": "2026-09-09T11:36:00Z"}] * 3
+    assert refresh_decision(payload, runs, now())[0] == "exhausted"
+
+
+@pytest.mark.parametrize("key,bucket", [
+    ("nba", {"ok": False, "error": "unknown parser failure"}),
+    ("nba", {"ok": False, "error": "NBA New timed out (15 min limit); parser failure"}),
+    ("nba", None),
+    ("mlb_new", {"ok": False, "error_kind": "upstream_unavailable"}),
+    ("nba_playoffs", {"ok": False, "error_kind": "model_timeout"}),
+])
+def test_non_transport_failures_remain_blocking(key, bucket):
+    payload = cache()
+    payload["models"][key] = bucket
+    assert refresh_decision(payload, [], now())[0] == "dispatch"
+    assert recovery_models(payload, now()) == [key]
+
+
+def test_other_failed_models_recover_without_retrying_nba_outage(monkeypatch):
+    from scripts.automation import ensure_model_refresh as guard
+
+    calls = []
+    monkeypatch.setattr(guard, "gh", lambda *args: calls.append(args))
+    payload = cache()
+    payload["models"]["nba"] = {"ok": False, "error_kind": "upstream_unavailable"}
+    payload["models"]["cfb"]["ok"] = False
+    guard.dispatch_recovery(payload, now())
+    assert len(calls) == 1 and "models=cfb" in calls[0]
+    assert refresh_decision(payload, [{"status": "queued"}], now())[0] == "active"
+
+
+def test_degraded_cli_succeeds_emits_warning_and_never_dispatches(monkeypatch, tmp_path, capsys):
+    from scripts.automation import ensure_model_refresh as guard
+
+    payload = cache()
+    payload["models"]["nba"] = {"ok": False, "error_kind": "model_timeout"}
+    monkeypatch.setattr(guard.Path, "read_text", lambda *_a, **_kw: json.dumps(payload))
+    class Clock(datetime):
+        @classmethod
+        def now(cls, tz=None):
+            return now()
+    monkeypatch.setattr(guard, "datetime", Clock)
+    monkeypatch.setattr(guard, "refresh_runs", lambda: [])
+    monkeypatch.setattr(guard, "gh", lambda *_a: pytest.fail("Unexpected dispatch"))
+    monkeypatch.setattr("sys.argv", ["guard", "--dispatch"])
+    output = tmp_path / "output"
+    monkeypatch.setenv("GITHUB_OUTPUT", str(output))
+    assert guard.main() == 0
+    assert "::warning::" in capsys.readouterr().out
+    with output.open() as stream:
+        assert stream.read() == "state=degraded\n"
+
+
+def test_degraded_models_allow_independent_player_props_recovery():
+    from pathlib import Path
+
+    workflow = Path(__file__).resolve().parents[2] / ".github/workflows/model-cache-freshness-guard.yml"
+    step = workflow.read_text().split("- name: Dispatch player-props refresh if stale", 1)[1]
+    assert "steps.models.outputs.state == 'degraded'" in step
+    assert '"${DISPATCHES_TODAY:-0}" -gt 0' in step
+
+
 def test_before_first_window_is_idle():
     assert refresh_decision({}, [], now("2026-09-09T10:00:00Z"))[0] == "idle"
 
