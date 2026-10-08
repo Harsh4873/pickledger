@@ -60,6 +60,11 @@ ENGINE_CUTOVER_DATE = "2026-07-10"
 FIRST_LIVE_DATE = "2026-07-11"
 
 VISIBLE_DECISIONS = {"BET", "LEAN"}
+# scripts/model_stake_policy.py publishes every unapproved in-house BET/LEAN as
+# PASS @ 0u and keeps the proposal in shadow_decision. Those rows are still the
+# desk's research input: they are evaluated and accrue evidence, but they can
+# never stake here (the approval gate already said no).
+SHADOW_STAKING_POLICY = "awaiting_approved_holdout"
 MAX_PRICE_AGE_HOURS = 24.0
 MAX_PUBLISH_CLOCK_SKEW_MINUTES = 5.0
 
@@ -747,6 +752,24 @@ class RecordContext:
     fallback_date: str
 
 
+def _desk_decision(record: Mapping[str, Any]) -> tuple[str | None, bool]:
+    """Return (effective decision, shadow_only) for desk input, else (None, False)."""
+
+    if record.get("shadow_mode") is True:
+        return None, False
+    decision = _text(record.get("decision")).upper()
+    if decision in VISIBLE_DECISIONS:
+        return decision, False
+    shadow = _text(record.get("shadow_decision")).upper()
+    if (
+        decision == "PASS"
+        and shadow in VISIBLE_DECISIONS
+        and _text(record.get("staking_policy")) == SHADOW_STAKING_POLICY
+    ):
+        return shadow, True
+    return None, False
+
+
 def _iter_records(payload: Mapping[str, Any] | None, mode: str) -> Iterable[RecordContext]:
     if not isinstance(payload, Mapping):
         return
@@ -957,9 +980,7 @@ class EvidenceBook:
                     record_date = _record_date(record, context.fallback_date)
                     if not record_date or record_date >= date_iso:
                         continue
-                    if _text(record.get("decision")).upper() not in VISIBLE_DECISIONS:
-                        continue
-                    if record.get("shadow_mode") is True:
+                    if _desk_decision(record)[0] is None:
                         continue
                     result = _result(record.get("result"))
                     if result not in {"win", "loss"}:
@@ -1188,9 +1209,12 @@ class RawCandidate:
     grade_supported: bool
     grade_support_source: str
     base_blockers: list[str]
+    shadow_only: bool = False
 
 
-def _raw_candidate(context: RecordContext, date_iso: str) -> RawCandidate:
+def _raw_candidate(
+    context: RecordContext, date_iso: str, *, shadow_only: bool = False
+) -> RawCandidate:
     record = context.record
     sport = _text(record.get("sport"))
     odds = _american_int(record.get("odds"))
@@ -1280,6 +1304,7 @@ def _raw_candidate(context: RecordContext, date_iso: str) -> RawCandidate:
         grade_supported=grade_supported,
         grade_support_source=grade_support_source,
         base_blockers=list(dict.fromkeys(blockers)),
+        shadow_only=shadow_only,
     )
 
 
@@ -1427,12 +1452,16 @@ def _candidate_payload(
     lane_qualified = edge_qualified or value_qualified
     # Research backfill never stakes. A live slate stakes only when
     # staking_approvals.json names this source, market family, and model.
-    approved = (not live_slate) or _stake_approved(
-        approvals, context.source_key, raw.market_family, model_version
+    # Shadow rows were already refused by the publication gate; they stay 0u.
+    approved = (not live_slate) or (
+        not raw.shadow_only
+        and _stake_approved(approvals, context.source_key, raw.market_family, model_version)
     )
     approval_blockers: list[str] = []
     if live_slate and lane_qualified and not approved:
         approval_blockers.append("staking_approval_required")
+    if raw.shadow_only:
+        approval_blockers.append(SHADOW_STAKING_POLICY)
     if edge_qualified and not approval_blockers:
         tier = "edge"
         lane = "edge"
@@ -1490,6 +1519,8 @@ def _candidate_payload(
         "policyVersion": policy_version,
         "pick": raw.pick,
         "decision": _text(record.get("decision")).upper(),
+        "shadowOnly": raw.shadow_only,
+        "shadowDecision": _text(record.get("shadow_decision")).upper() or None,
         "result": _result(record.get("result")),
         "game": raw.game,
         "canonicalGame": raw.canonical_game,
@@ -1766,12 +1797,11 @@ def build_profit_desk_payload(
             record = context.record
             if _record_date(record, context.fallback_date) != date_iso:
                 continue
-            if _text(record.get("decision")).upper() not in VISIBLE_DECISIONS:
-                continue
-            if record.get("shadow_mode") is True:
+            decision, shadow_only = _desk_decision(record)
+            if decision is None:
                 continue
             input_count += 1
-            raw_candidates.append(_raw_candidate(context, date_iso))
+            raw_candidates.append(_raw_candidate(context, date_iso, shadow_only=shadow_only))
 
     live_slate = date_iso >= FIRST_LIVE_DATE
     candidates = [
@@ -1877,6 +1907,7 @@ def build_profit_desk_payload(
             "Raw model probability and consensus are display context only and never create edge.",
             "Evidence uses settled, executable-priced rows dated strictly before the target slate.",
             f"Live staking begins {FIRST_LIVE_DATE}; earlier slates rebuild as zero-stake research.",
+            "Unapproved in-house BET/LEAN rows (staking_policy awaiting_approved_holdout) are evaluated and accrue evidence as 0u WATCH; no approval can revive them here.",
         ],
     }
     summary = {

@@ -1130,3 +1130,74 @@ def test_settled_desk_result_converges_when_cache_grade_corrects(tmp_path):
     for row in synced["candidates"] + synced["portfolio"]["live"] + synced["portfolio"]["all"]:
         assert row["result"] == "loss"
         assert row["resultCorrectedFrom"] == "win"
+
+
+def _shadowed(pick: dict) -> dict:
+    """Mirror scripts/model_stake_policy.py demoting an unapproved BET/LEAN."""
+
+    gated = dict(pick)
+    gated["shadow_decision"] = gated["decision"]
+    gated["shadow_units"] = gated.get("units", 1)
+    gated["decision"] = "PASS"
+    gated["units"] = 0
+    gated["staking_policy"] = "awaiting_approved_holdout"
+    return gated
+
+
+def test_shadowed_model_rows_are_research_input_but_never_stake():
+    history = history_payloads(
+        wins_per_date=5, losses_per_date=3, days=20, target_date=LIVE_DATE, market="moneyline",
+    )
+    candidate_pick = _shadowed(make_pick(
+        pick="Same Market ML", market="moneyline", slate_date=LIVE_DATE, no_vig=None,
+    ))
+    built = desk.build_profit_desk_payload(
+        LIVE_DATE,
+        make_payload([candidate_pick], slate_date=LIVE_DATE),
+        None,
+        team_history=history,
+        prop_history=[],
+        # Even an exact approval cannot revive a row the publication gate refused.
+        approvals=moneyline_approval(),
+    )
+    assert built["summary"]["inputPicks"] == 1
+    candidate = built["candidates"][0]
+    assert candidate["shadowOnly"] is True
+    assert candidate["decision"] == "PASS"
+    assert candidate["valueQualified"] is True
+    assert candidate["liveQualified"] is False
+    assert candidate["stakeUnits"] == 0
+    assert candidate["tier"] == "watch"
+    assert "awaiting_approved_holdout" in candidate["blockers"]
+    assert built["portfolio"]["live"] == []
+
+
+def test_plain_pass_rows_still_never_enter_the_desk():
+    built = desk.build_profit_desk_payload(
+        LIVE_DATE,
+        make_payload([make_pick(decision="PASS", slate_date=LIVE_DATE)], slate_date=LIVE_DATE),
+        None,
+        team_history=[],
+        prop_history=[],
+    )
+    assert built["summary"]["inputPicks"] == 0
+
+
+def test_shadowed_history_rows_keep_accruing_evidence():
+    history = history_payloads(
+        wins_per_date=5, losses_per_date=3, days=20, target_date=LIVE_DATE, market="moneyline",
+    )
+    for payload in history:
+        for bucket in payload["models"].values():
+            bucket["picks"] = [_shadowed(pick) for pick in bucket["picks"]]
+    candidate_pick = make_pick(
+        pick="Same Market ML", market="moneyline", slate_date=LIVE_DATE, no_vig=None,
+    )
+    built = desk.build_profit_desk_payload(
+        LIVE_DATE,
+        make_payload([candidate_pick], slate_date=LIVE_DATE),
+        None,
+        team_history=history,
+        prop_history=[],
+    )
+    assert built["candidates"][0]["evidence"]["marketFamilySamples"] == 160
