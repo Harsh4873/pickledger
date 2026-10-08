@@ -6,6 +6,8 @@ import sys
 import time
 from types import SimpleNamespace
 
+import pytest
+
 from scripts import refresh_external_feeds as refresh
 
 
@@ -20,11 +22,69 @@ def _configure(monkeypatch, tmp_path, feeds, *, date="2026-09-06"):
         lambda: SimpleNamespace(date=date, feeds=",".join(feeds), sports="mlb,cfb", skip_firestore=True),
     )
     monkeypatch.delenv("GITHUB_STEP_SUMMARY", raising=False)
+    monkeypatch.delenv("GITHUB_ACTIONS", raising=False)
 
 
 def _write_previous(tmp_path, bucket, *, date="2026-09-06"):
     payload = {"date": date, "models": {}, "external_feeds": {"forebet_mlb": bucket}}
     (tmp_path / "latest.json").write_text(json.dumps(payload))
+
+
+@pytest.mark.parametrize("hosted,expected", [(True, 0), (False, 1)])
+def test_forebet_only_cloudflare_run_warns_on_hosted_runner(monkeypatch, tmp_path, capsys, hosted, expected):
+    feeds = {
+        key: (lambda *_args: {
+            "ok": False, "picks": [], "error": "ForebetMLB: listing fetch blocked by Cloudflare",
+            "meta": {"blockedUrls": 1, "officialMatchups": 1, "missingMatchups": ["Cubs @ Padres"]},
+        })
+        for key in ("forebet_mlb", "forebet_wnba", "forebet_cfb", "forebet_nhl", "forebet_nba")
+    }
+    _configure(monkeypatch, tmp_path, feeds)
+    monkeypatch.setenv("GITHUB_ACTIONS", str(hosted).lower())
+    assert refresh.main() == expected
+    published = json.loads((tmp_path / "latest.json").read_text())
+    assert len(published["external_feed_errors"]) == len(feeds)
+    for key in feeds:
+        bucket = published["external_feeds"][key]
+        assert bucket["ok"] is False
+        assert bucket["picks"] == []
+        assert bucket["refreshStatus"] == "error"
+        assert "Cloudflare" in bucket["lastError"]
+    output = capsys.readouterr().out
+    assert '"ok": false' in output
+    assert f'"warning_only": {str(hosted).lower()}' in output
+    if hosted:
+        assert output.count("::warning::") == len(feeds)
+
+
+@pytest.mark.parametrize("other_key,error,meta", [
+    ("forebet_wnba", "Parser found no predictions", {}),
+    ("forebet_wnba", "ForebetWNBA: listing fetch blocked by Cloudflare", {}),
+    ("forebet_wnba", "Cloudflare parser crashed", {"blockedUrls": 1}),
+    ("sportytrader", "ForebetMLB: listing fetch blocked by Cloudflare", {"blockedUrls": 1}),
+])
+def test_forebet_block_does_not_mask_other_failures(monkeypatch, tmp_path, other_key, error, meta):
+    _configure(monkeypatch, tmp_path, {
+        "forebet_mlb": lambda *_args: {
+            "ok": False, "error": "ForebetMLB: listing blocked by Cloudflare", "meta": {"blockedUrls": 1},
+        },
+        other_key: lambda *_args: {"ok": False, "error": error, "meta": meta},
+    })
+    monkeypatch.setenv("GITHUB_ACTIONS", "true")
+    assert refresh.main() == 1
+    assert (tmp_path / "latest.json").exists()
+
+
+def test_forebet_warning_only_does_not_mask_publication_failure(monkeypatch, tmp_path):
+    _configure(monkeypatch, tmp_path, {"forebet_mlb": lambda *_args: {
+        "ok": False, "error": "ForebetMLB: listing blocked by Cloudflare", "meta": {"blockedUrls": 1},
+    }})
+    monkeypatch.setenv("GITHUB_ACTIONS", "true")
+    def fail_write(*_args):
+        raise OSError("disk full")
+    monkeypatch.setattr(refresh, "_write_json_cache", fail_write)
+    with pytest.raises(OSError, match="disk full"):
+        refresh.main()
 
 
 def test_refresh_publishes_outage_diagnostics_without_redating_last_good_picks(monkeypatch, tmp_path):

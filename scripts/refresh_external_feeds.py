@@ -612,6 +612,19 @@ def _write_json_cache(date_iso: str, payload: dict[str, Any]) -> dict[str, Any]:
     return merged
 
 
+def _forebet_cloudflare_block(feed_key: str, result: dict[str, Any]) -> bool:
+    """Recognize the scraper's explicit listing-block result, before retention."""
+    meta = result.get("meta") if isinstance(result.get("meta"), dict) else {}
+    blocked = meta.get("blockedUrls")
+    error = str(result.get("error") or "").lower()
+    return (
+        feed_key.startswith("forebet_")
+        and result.get("ok") is False
+        and isinstance(blocked, int) and blocked > 0
+        and error.endswith((": listing fetch blocked by cloudflare", ": listing blocked by cloudflare"))
+    )
+
+
 def main() -> int:
     args = _parse_args()
     date_iso, _ = server._parse_model_date_arg(args.date or None)  # noqa: SLF001
@@ -636,6 +649,7 @@ def main() -> int:
 
     errors: list[str] = []
     success_count = 0
+    forebet_blocks = 0
     results: dict[str, Any] = {}
     for feed_key in feeds:
         try:
@@ -652,6 +666,8 @@ def main() -> int:
         print(f"[external-feeds] {feed_key}: {'ok' if ok else 'error'} ({pick_count} pick(s))")
         if ok:
             success_count += 1
+        elif _forebet_cloudflare_block(feed_key, result):
+            forebet_blocks += 1
         if feed_key in SPLIT_PROVIDER_FEEDS:
             payload["models"].pop(feed_key, None)
             payload.pop(feed_key, None)
@@ -697,8 +713,13 @@ def main() -> int:
         print(f"[external-feeds] wrote Firestore admin_picks/{date_iso}")
     print(f"[external-feeds] wrote {MODEL_CACHE_DIR / f'{date_iso}.json'}")
     print(f"[external-feeds] wrote {MODEL_CACHE_DIR / 'latest.json'}")
-    print(json.dumps({"ok": success_count > 0, "date": date_iso, "feeds": feeds, "errors": errors}, indent=2))
-    return 0 if success_count else 1
+    # Forebet blocks hosted runners. A targeted retry must publish its warnings
+    # without failing solely because it selected no other providers. Local
+    # publishers still need a failed exit status to detect an unsuccessful fetch.
+    warning_only = _runtime_origin() == "github-actions" and forebet_blocks == len(feeds)
+    print(json.dumps({"ok": success_count > 0, "warning_only": warning_only,
+                      "date": date_iso, "feeds": feeds, "errors": errors}, indent=2))
+    return 0 if success_count or warning_only else 1
 
 
 if __name__ == "__main__":
