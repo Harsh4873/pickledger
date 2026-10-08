@@ -7,6 +7,10 @@ on:
         description: "Let the caller deploy after all refresh jobs succeed"
         type: boolean
         default: false
+    outputs:
+      published:
+        description: "Whether this run committed model cache updates to main"
+        value: ${{ jobs.refresh.outputs.published }}
   workflow_dispatch:
     inputs:
       date:
@@ -30,10 +34,13 @@ jobs:
   refresh:
     runs-on: ubuntu-latest
     timeout-minutes: 90
+    outputs:
+      published: ${{ steps.commit-cache.outputs.changed }}
     env:
+      PYTHONUNBUFFERED: "1"
       PICKLEDGER_MLB_TIMEZONE: America/Chicago
       PICKLEDGER_MLB_MODEL_TIMEOUT_SECONDS: 1200
-      # NBA New often exceeds the built-in 420s (~7 min) cap on Actions runners.
+      # Outer guard; the NBA transport bounds individual requests and retries.
       PICKLEDGER_NBA_MODEL_TIMEOUT_SECONDS: 900
       PICKLEDGER_MLB_INNING_TIMEOUT_SECONDS: 240
       PICKLEDGER_MLB_INNING_LOOKAHEAD_DAYS: 0
@@ -65,12 +72,27 @@ jobs:
           restore-keys: ${{ runner.os }}-tennis-results-v1-
 
       - name: Refresh model caches
+        id: refresh-models
+        continue-on-error: true
         run: |
           python scripts/refresh_model_cache.py \
             --date "${{ github.event.inputs.date || '' }}" \
             --models "${{ github.event.inputs.models || 'mlb_new,mlb_inning,mlb_first_five,mlb_team_total,wnba,nba,nba_playoffs,mls,nfl,cfb,nhl,tennis' }}" \
             --max-workers 3 \
             --skip-firestore
+
+      - name: Preserve generated model cache
+        if: ${{ !cancelled() && steps.refresh-models.outputs.cache_written == 'true' }}
+        uses: actions/upload-artifact@v4
+        continue-on-error: true
+        with:
+          name: model-cache-${{ github.run_id }}-${{ github.run_attempt }}
+          retention-days: 7
+          if-no-files-found: error
+          path: |
+            data/model_cache/latest.json
+            data/model_cache/${{ steps.refresh-models.outputs.cache_date }}.json
+            data/calibration/team_prop_pregame_ledger.json
 
       - name: Rebuild parlay cards
         run: python scripts/build_parlay_cards.py --date "${{ github.event.inputs.date || '' }}"
@@ -92,6 +114,7 @@ jobs:
 
       - name: Commit cache JSON if changed
         id: commit-cache
+        if: ${{ !cancelled() && steps.refresh-models.outputs.publishable == 'true' }}
         run: |
           ACTOR_EMAIL="${GITHUB_ACTOR_ID:-41898282}+${GITHUB_ACTOR}@users.noreply.github.com"
           git config user.name  "${GITHUB_ACTOR}"
@@ -107,7 +130,7 @@ jobs:
           GENERATED_TEAM_LEDGER="${RUNNER_TEMP}/team-prop-pregame-ledger.json"
           cp data/model_cache/latest.json "$GENERATED_CACHE"
           cp data/calibration/team_prop_pregame_ledger.json "$GENERATED_TEAM_LEDGER"
-          for attempt in 1 2 3; do
+          for attempt in 1 2 3 4 5; do
             git fetch origin "$BRANCH"
             git reset --hard "origin/${BRANCH}"
             python scripts/merge_model_cache_payload.py "$GENERATED_CACHE"
@@ -127,12 +150,15 @@ jobs:
               exit 0
             fi
             echo "Push failed on attempt ${attempt}; retrying merge on latest origin/${BRANCH}."
+            if [ "$attempt" -lt 5 ]; then
+              sleep "$((attempt * 10))"
+            fi
           done
           echo "Unable to publish model cache after retrying latest origin/${BRANCH}."
           exit 1
 
       - name: Deploy updated model cache
-        if: ${{ !inputs.skip_deploy && steps.commit-cache.outputs.changed == 'true' }}
+        if: ${{ !cancelled() && !inputs.skip_deploy && steps.commit-cache.outcome == 'success' && steps.commit-cache.outputs.changed == 'true' }}
         env:
           GH_TOKEN: ${{ github.token }}
         run: gh workflow run deploy-pages.yml --ref main
@@ -150,3 +176,9 @@ jobs:
       - name: Warn if Profit Desk notification dispatch failed
         if: steps.notify-profit-desk.outcome == 'failure'
         run: echo "::warning::Profit Desk notification dispatch failed after cache publication; inspect its log."
+
+      - name: Report model refresh failure after publication
+        if: ${{ !cancelled() && steps.refresh-models.outcome == 'failure' }}
+        run: |
+          echo "::error::Model refresh failed. Any healthy model results were eligible for publication; inspect the refresh and commit steps and the retained artifact."
+          exit 1

@@ -468,7 +468,15 @@ def main() -> int:
         if not isinstance(bucket, dict):
             failures.append(f"model bucket {key} is missing")
         elif bucket.get("ok") is not True:
-            failures.append(f"model bucket {key} failed: {bucket.get('error') or 'unknown error'}")
+            message = f"model bucket {key} failed: {bucket.get('error') or 'unknown error'}"
+            nba_transport_failure = key == "nba" and (
+                bucket.get("error_kind") in {"upstream_unavailable", "model_timeout"}
+                or re.fullmatch(r"NBA New timed out \(\d+ min limit\)", str(bucket.get("error") or ""))
+            )
+            if nba_transport_failure:
+                warnings.append(message + " (NBA source unavailable; healthy caches can deploy)")
+            else:
+                failures.append(message)
 
     # Scores24 MLB/WNBA still first-paint latest.json when complete, but they are
     # not a Pages requirement. CI cannot scrape Scores24, so missing, errored,

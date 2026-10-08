@@ -147,6 +147,48 @@ def test_data_only_readiness_passes_without_build_or_cannon(tmp_path: Path):
     assert "Cannon" not in result.stdout
 
 
+@pytest.mark.parametrize("bucket", [
+    {"ok": False, "picks": [], "error": "NBA New timed out (15 min limit)"},
+    {"ok": False, "picks": [], "error": "request exhausted", "error_kind": "upstream_unavailable"},
+    {"ok": False, "picks": [], "error": "outer budget exhausted", "error_kind": "model_timeout"},
+])
+def test_nba_transport_outage_does_not_block_healthy_cache_deployment(tmp_path, bucket):
+    today = datetime.now(ZoneInfo("America/Chicago")).strftime("%Y-%m-%d")
+    script = _upcheck_repo(tmp_path, today)
+    path = tmp_path / "data/model_cache/latest.json"
+    payload = json.loads(path.read_text())
+    payload.pop("external_feeds")
+    payload["models"]["nba"] = bucket
+    _write_json(path, payload)
+    _write_json(path.with_name(f"{today}.json"), payload)
+    result = subprocess.run([sys.executable, str(script), "--data-only"], cwd=tmp_path,
+                            capture_output=True, text=True, check=False)
+    assert result.returncode == 0, result.stdout
+    assert "warning: model bucket nba failed:" in result.stdout
+    assert "NBA source unavailable; healthy caches can deploy" in result.stdout
+    assert json.loads(path.read_text())["models"]["nba"] == bucket
+
+
+@pytest.mark.parametrize("key,bucket", [
+    ("nba", {"ok": False, "error": "NBA New parser found no predictions"}),
+    ("nba", {"ok": False, "error": "unknown failure"}),
+    ("nba", None),
+    ("mlb_new", {"ok": False, "error": "request exhausted", "error_kind": "upstream_unavailable"}),
+])
+def test_nba_ops_exception_keeps_other_readiness_failures_hard(tmp_path, key, bucket):
+    today = datetime.now(ZoneInfo("America/Chicago")).strftime("%Y-%m-%d")
+    script = _upcheck_repo(tmp_path, today)
+    path = tmp_path / "data/model_cache/latest.json"
+    payload = json.loads(path.read_text())
+    payload.pop("external_feeds")
+    payload["models"][key] = bucket
+    _write_json(path, payload)
+    result = subprocess.run([sys.executable, str(script), "--data-only"], cwd=tmp_path,
+                            capture_output=True, text=True, check=False)
+    assert result.returncode == 1
+    assert f"waiting: model bucket {key}" in result.stdout
+
+
 def test_data_only_readiness_allows_truly_empty_mlb_player_prop_slate(tmp_path: Path):
     today = datetime.now(ZoneInfo("America/Chicago")).strftime("%Y-%m-%d")
     script = _upcheck_repo(tmp_path, today)

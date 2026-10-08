@@ -268,3 +268,55 @@ def test_actions_raises_nba_timeout_without_blanket_raise():
         Path(__file__).resolve().parents[2] / "scripts" / "refresh_model_cache.py"
     ).read_text(encoding="utf-8")
     assert 'SOFT_FAIL_TIMEOUT_MODEL_KEYS = frozenset({"nba"})' in source
+
+
+@pytest.mark.parametrize("failure", [
+    {"ok": False, "error": "NBA New timed out (15 min limit)"},
+    {"ok": False, "error": "NHL Model timed out (8 min limit)"},
+    {"ok": False, "error": "ReadTimeout after bounded HTTP retries", "retryable": False},
+])
+def test_exhausted_model_or_fetch_budget_is_never_retried(monkeypatch, failure):
+    from scripts import refresh_model_cache as rmc
+
+    calls = []
+    monkeypatch.setattr(rmc.time, "sleep", lambda _seconds: pytest.fail("Unexpected model retry"))
+    assert rmc._run_model_job_with_retries("nba", lambda: calls.append(1) or failure) == failure
+    assert calls == [1]
+
+
+@pytest.mark.parametrize("jobs,exit_code,status,publishable", [
+    ({"nba": {"ok": False, "error": "NBA New timed out (15 min limit)"}}, 1, "failed", "false"),
+    ({"nhl": {"ok": True, "picks": []}}, 0, "success", "true"),
+    ({"nhl": {"ok": True}, "nba": {"ok": False, "error": "bad parser"}}, 1, "partial", "true"),
+    ({"nhl": {"ok": True}, "nba": {"ok": False, "error": "fetch unavailable",
+                                       "error_kind": "upstream_unavailable", "retryable": False}}, 0, "partial", "true"),
+])
+def test_refresh_outputs_publish_healthy_siblings_and_report_actual_status(monkeypatch, tmp_path, capsys,
+                                                                         jobs, exit_code, status, publishable):
+    rmc, written = _stub_refresh_jobs(monkeypatch, tmp_path, jobs)
+    output = tmp_path / "outputs"
+    monkeypatch.setenv("GITHUB_OUTPUT", str(output))
+    assert rmc.main() == exit_code
+    values = dict(line.split("=", 1) for line in output.read_text().splitlines())
+    assert values == {"cache_written": "true", "publishable": publishable, "cache_date": "2026-10-01"}
+    summary = json.loads("{" + capsys.readouterr().out.rsplit("\n{", 1)[1])
+    assert summary["ok"] is (exit_code == 0)
+    assert summary["status"] == status
+    assert summary["successful_models"] == sum(bool(job.get("ok")) for job in jobs.values())
+    assert written["models"] == jobs
+
+
+def test_cache_write_failure_cannot_authorize_publication(monkeypatch, tmp_path):
+    rmc, _ = _stub_refresh_jobs(monkeypatch, tmp_path, {"nhl": {"ok": True}})
+    output = tmp_path / "outputs"
+    monkeypatch.setenv("GITHUB_OUTPUT", str(output))
+
+    def fail_write(*_args):
+        raise OSError("disk full")
+
+    monkeypatch.setattr(rmc, "_write_json_cache", fail_write)
+    with pytest.raises(OSError, match="disk full"):
+        rmc.main()
+    values = dict(line.split("=", 1) for line in output.read_text().splitlines())
+    assert values["cache_written"] == "false"
+    assert values["publishable"] == "false"

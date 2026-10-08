@@ -1,0 +1,92 @@
+#!/usr/bin/env python3
+"""Run the unchanged NBA entry point with bounded stats.nba.com transport."""
+
+from __future__ import annotations
+
+import runpy
+import sys
+import time
+from pathlib import Path
+from urllib.parse import urlsplit
+
+import requests
+
+
+FAILURE_MARKER = "NBA_FETCH_UNAVAILABLE:"
+CONNECT_TIMEOUT = 5.0
+READ_TIMEOUT = 15.0
+MAX_ATTEMPTS = 2
+RETRY_STATUSES = {429, 500, 502, 503, 504}
+
+
+class NBAFetchUnavailable(SystemExit):
+    """Stop this child before model-level exception handlers retry or fill gaps."""
+
+
+def _bounded_timeout(value: object) -> tuple[float, float]:
+    connect, read = value if isinstance(value, tuple) and len(value) == 2 else (value, value)
+
+    def bound(part: object, limit: float) -> float:
+        return min(float(part), limit) if isinstance(part, (int, float)) and part > 0 else limit
+
+    return bound(connect, CONNECT_TIMEOUT), bound(read, READ_TIMEOUT)
+
+
+class BoundedNBAStatsSession(requests.Session):
+    """Keep NBA request headers/parameters and successful response bytes intact."""
+
+    def request(self, method: str, url: str, **kwargs) -> requests.Response:
+        endpoint = urlsplit(url)
+        if endpoint.hostname != "stats.nba.com" or method.upper() != "GET":
+            return super().request(method, url, **kwargs)
+        kwargs["timeout"] = _bounded_timeout(kwargs.get("timeout"))
+        label = f"{endpoint.hostname}{endpoint.path}"
+        for attempt in range(1, MAX_ATTEMPTS + 1):
+            started = time.monotonic()
+            print(f"[nba-fetch] {label} attempt {attempt}/{MAX_ATTEMPTS}", file=sys.stderr, flush=True)
+            response = None
+            try:
+                response = super().request(method, url, **kwargs)
+                response.raise_for_status()
+                # HTML block pages sometimes arrive with HTTP 200. Do not let
+                # those trigger the model's per-team retry/fallback loops.
+                response.json()
+            except (requests.RequestException, ValueError) as exc:
+                retryable = response is None or response.status_code in RETRY_STATUSES
+                reason = f"HTTP {response.status_code}" if response is not None else type(exc).__name__
+                if response is not None and response.ok:
+                    reason = f"invalid JSON (HTTP {response.status_code})"
+                print(f"[nba-fetch] {label} {reason} after {time.monotonic() - started:.1f}s", file=sys.stderr, flush=True)
+                if response is not None:
+                    response.close()
+                if retryable and attempt < MAX_ATTEMPTS:
+                    time.sleep(1)
+                    continue
+                # SystemExit intentionally crosses broad `except Exception`
+                # blocks in the frozen model. No partial predictions are used.
+                raise NBAFetchUnavailable(f"{FAILURE_MARKER} {label} {reason}; stopped after {attempt} attempt(s)") from None
+            print(f"[nba-fetch] {label} HTTP {response.status_code} in {time.monotonic() - started:.1f}s", file=sys.stderr, flush=True)
+            return response
+        raise AssertionError("NBA request attempts exhausted without a result")
+
+
+def main() -> int:
+    from nba_api.stats.library.http import NBAStatsHTTP
+
+    model_dir = Path(__file__).resolve().parents[1] / "NBAPredictionModel"
+    entrypoint = model_dir / "run_live.py"
+    sys.path.insert(0, str(model_dir))
+    sys.argv[0] = str(entrypoint)
+    # nba_api exposes this session hook. Only this isolated model child uses it.
+    with BoundedNBAStatsSession() as session:
+        NBAStatsHTTP.set_session(session)
+        try:
+            runpy.run_path(str(entrypoint), run_name="__main__")
+        except NBAFetchUnavailable as exc:
+            print(str(exc), file=sys.stderr, flush=True)
+            return 75
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

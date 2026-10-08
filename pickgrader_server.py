@@ -4899,11 +4899,19 @@ def run_nba_model(date_str: str | None = None, variant: str = "new") -> dict[str
     try:
         output = _run_script(
             python_bin,
-            "run_live.py",
+            os.path.join(BASE_DIR, "scripts", "run_nba_model.py"),
             NBA_MODEL_DIR,
             timeout=timeout_s,
             extra_args=_nba_model_extra_args(date_str, variant),
         )
+        from scripts.run_nba_model import FAILURE_MARKER
+
+        if FAILURE_MARKER in output:
+            diagnostic = next(line.strip() for line in output.splitlines() if FAILURE_MARKER in line)
+            return {
+                "ok": False, "error": f"{source_label} upstream unavailable ({diagnostic})",
+                "error_kind": "upstream_unavailable", "retryable": False,
+            }
         if "Traceback (most recent call last)" in output or "ModuleNotFoundError" in output:
             tail = " | ".join((output.strip().splitlines() or ["no output"])[-12:])
             return {"ok": False, "error": f"{source_label} runtime failed ({tail})"}
@@ -4927,9 +4935,16 @@ def run_nba_model(date_str: str | None = None, variant: str = "new") -> dict[str
 
         result = {"ok": True, "picks": picks, "raw_lines": len(output.split("\n"))}
         return _cache_result(result)
-    except subprocess.TimeoutExpired:
+    except subprocess.TimeoutExpired as exc:
         timeout_min = max(1, round(timeout_s / 60))
-        return {"ok": False, "error": f"{source_label} timed out ({timeout_min} min limit)"}
+        def _text(value: Any) -> str:
+            return value.decode("utf-8", errors="replace") if isinstance(value, bytes) else str(value or "")
+
+        tail = _compact_error_text(_text(exc.stdout) + "\n" + _text(exc.stderr))
+        return {
+            "ok": False, "error": f"{source_label} timed out ({timeout_min} min limit)",
+            "error_kind": "model_timeout", "retryable": False, "diagnostic": tail,
+        }
     except Exception as e:
         return {"ok": False, "error": str(e)}
 

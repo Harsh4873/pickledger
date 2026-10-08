@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
 import sys
 import time
@@ -41,7 +42,7 @@ from scripts.team_prop_pregame_ledger import (  # noqa: E402
 # Buckets whose generated rows are frozen at kickoff: a refresh that runs after
 # a game started must not publish or re-decide that game.
 KICKOFF_FROZEN_MODEL_KEYS = set(TEAM_PROP_MODEL_KEYS)
-# NBA New wall-clock timeouts are ops-soft: keep the error on the nba bucket
+# NBA New fetch failures and wall-clock timeouts are ops-soft: keep the error on the nba bucket
 # but still commit mlb/nfl/nhl/etc that already finished. Other NBA failures
 # (parser, traceback) stay hard so CI cannot green a broken model.
 SOFT_FAIL_TIMEOUT_MODEL_KEYS = frozenset({"nba"})
@@ -243,6 +244,10 @@ def _is_transient_model_error(result: Any) -> bool:
     if not isinstance(result, dict) or result.get("ok") is True:
         return False
     error = str(result.get("error") or "").lower()
+    # A subprocess that exhausted its wall-clock budget will just consume the
+    # same budget again. Fetch wrappers already own their bounded HTTP retries.
+    if result.get("retryable") is False or re.search(r"timed out \([^)]*limit\)", error):
+        return False
     return bool(re.search(r"\b(?:429|500|502|503|504)\s+(?:server error|client error|error|bad gateway|service unavailable|gateway timeout)", error)) or any(
         marker in error
         for marker in (
@@ -265,7 +270,10 @@ def _is_soft_fail_timeout(key: str, result: Any) -> bool:
         return False
     if not isinstance(result, dict) or result.get("ok") is True:
         return False
-    return "timed out" in str(result.get("error") or "").lower()
+    return (
+        result.get("error_kind") == "upstream_unavailable"
+        or "timed out" in str(result.get("error") or "").lower()
+    )
 
 
 def _run_model_job_with_retries(
@@ -276,10 +284,13 @@ def _run_model_job_with_retries(
     max_attempts = max(1, attempts)
     result: dict[str, Any] = {"ok": False, "error": "model did not run"}
     for attempt in range(1, max_attempts + 1):
+        started = time.monotonic()
+        print(f"[model-cache] {key}: starting attempt {attempt}/{max_attempts}", flush=True)
         try:
             result = job()
         except Exception as exc:  # pragma: no cover - defensive for scheduled jobs
             result = {"ok": False, "error": str(exc)}
+        print(f"[model-cache] {key}: attempt {attempt} finished in {time.monotonic() - started:.1f}s", flush=True)
         if not _is_transient_model_error(result) or attempt >= max_attempts:
             return result
         print(f"[model-cache] {key}: transient failure on attempt {attempt}; retrying")
@@ -345,11 +356,19 @@ def _write_json_cache(date_iso: str, payload: dict[str, Any]) -> dict[str, Any]:
     return merged
 
 
+def _workflow_outputs(**values: Any) -> None:
+    if output := os.environ.get("GITHUB_OUTPUT"):
+        with open(output, "a", encoding="utf-8") as handle:
+            for key, value in values.items():
+                handle.write(f"{key}={str(value).lower() if isinstance(value, bool) else value}\n")
+
+
 def main() -> int:
     args = _parse_args()
     date_iso, _ = server._parse_model_date_arg(args.date or None)  # noqa: SLF001
     available = _model_jobs(date_iso)
     selected = _selected_model_keys(args.models, available)
+    _workflow_outputs(cache_written=False, publishable=False, cache_date=date_iso)
     workers = max(1, min(int(args.max_workers or 1), len(selected) or 1))
     print(f"[model-cache] refreshing {', '.join(selected)} for {date_iso} with {workers} worker(s)")
 
@@ -375,14 +394,22 @@ def main() -> int:
                 errors.append(message)
                 if _is_soft_fail_timeout(key, result):
                     print(
-                        f"::warning title=NBA model timeout::{key} timed out; "
-                        "other in-house models will still be committed."
+                        f"::warning title=NBA model unavailable::{message}. "
+                        "Healthy model results remain eligible for publication."
                     )
                 else:
                     hard_errors.append(message)
+                    print(f"::warning title=Model refresh failed::{message}")
             print(f"[model-cache] {key}: {'ok' if ok else 'error'} ({pick_count} pick(s))")
 
     payload = _write_json_cache(date_iso, _build_payload(date_iso, results, errors))
+    success_count = sum(
+        1 for result in results.values()
+        if isinstance(result, dict) and result.get("ok")
+    )
+    # Set only after the complete cache and ledger write. A crashed writer must
+    # never cause the workflow to commit an old or partly written cache.
+    _workflow_outputs(cache_written=True, publishable=success_count > 0)
     if args.skip_firestore:
         print("[model-cache] skipped Firestore write")
     else:
@@ -390,20 +417,15 @@ def main() -> int:
         print(f"[model-cache] wrote Firestore admin_picks/{date_iso}")
     print(f"[model-cache] wrote {MODEL_CACHE_DIR / f'{date_iso}.json'}")
     print(f"[model-cache] wrote {MODEL_CACHE_DIR / 'latest.json'}")
-    print(json.dumps({"ok": not hard_errors, "date": date_iso, "models": selected, "errors": errors}, indent=2))
-    # Dated JSON is always written for debug. latest.json (and Firestore,
-    # unless --skip-firestore) still receive that partial payload. Exit is
-    # nonzero whenever hard errors is non-empty so CI cannot green on a
-    # selected model that returned ok=False. NBA New wall-clock timeouts are
-    # recorded but non-fatal so model-cache-refresh.yml can still commit
-    # models that finished. Other failures still skip the commit.
-    if hard_errors:
-        return 1
-    success_count = sum(
-        1 for result in results.values()
-        if isinstance(result, dict) and result.get("ok")
-    )
-    return 0 if success_count else 1
+    exit_code = 1 if hard_errors or not success_count else 0
+    status = "failed" if not success_count else "partial" if errors else "success"
+    print(json.dumps({
+        "ok": exit_code == 0, "status": status, "date": date_iso,
+        "models": selected, "successful_models": success_count, "errors": errors,
+    }, indent=2))
+    # Hard failures still fail the run, after the workflow publishes healthy
+    # siblings. An NBA-only outage must report failure even with a retained slate.
+    return exit_code
 
 
 if __name__ == "__main__":
