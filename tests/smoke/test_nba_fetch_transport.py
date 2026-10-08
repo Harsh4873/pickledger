@@ -11,6 +11,13 @@ from scripts import run_nba_model as runner
 URL = "https://stats.nba.com/stats/teamplayeronoffsummary"
 
 
+@pytest.fixture(autouse=True)
+def isolated_ci_transport(monkeypatch):
+    monkeypatch.setenv("CI", "true")
+    for setting in ("CONNECT_TIMEOUT", "READ_TIMEOUT", "ATTEMPTS"):
+        monkeypatch.delenv(f"PICKLEDGER_NBA_HTTP_{setting}", raising=False)
+
+
 def response(status=200, body=b'{"resultSets": []}'):
     result = requests.Response()
     result.status_code = status
@@ -26,6 +33,57 @@ def response(status=200, body=b'{"resultSets": []}'):
 ])
 def test_nba_requests_cap_both_timeouts_without_lengthening_shorter_limits(original, expected):
     assert runner._bounded_timeout(original) == expected
+
+
+@pytest.mark.parametrize("ci,read", [(None, 30), ("false", 30), ("0", 30), ("true", 15), ("1", 15)])
+def test_transport_defaults_preserve_local_read_allowance(monkeypatch, ci, read):
+    if ci is None:
+        monkeypatch.delenv("CI", raising=False)
+    else:
+        monkeypatch.setenv("CI", ci)
+    calls = []
+    monkeypatch.setattr(requests.Session, "send", lambda *_a, **kw: calls.append(kw) or response())
+    with runner.BoundedNBAStatsSession() as session:
+        session.get(URL, timeout=60)
+        assert session.max_attempts == 2
+    assert calls[0]["timeout"] == (5, read)
+
+
+@pytest.mark.parametrize("attempts", [1, 3])
+def test_environment_controls_timeout_bounds_and_retry_budget(monkeypatch, attempts):
+    monkeypatch.setenv("PICKLEDGER_NBA_HTTP_CONNECT_TIMEOUT", "7.5")
+    monkeypatch.setenv("PICKLEDGER_NBA_HTTP_READ_TIMEOUT", "45")
+    monkeypatch.setenv("PICKLEDGER_NBA_HTTP_ATTEMPTS", str(attempts))
+    calls, sleeps = [], []
+
+    def send(_session, _request, **kwargs):
+        calls.append(kwargs["timeout"])
+        raise requests.ReadTimeout("fixture outage")
+
+    monkeypatch.setattr(requests.Session, "send", send)
+    monkeypatch.setattr(runner.time, "sleep", sleeps.append)
+    with runner.BoundedNBAStatsSession() as session:
+        with pytest.raises(runner.NBAFetchUnavailable, match=f"stopped after {attempts} attempt"):
+            session.get(URL, timeout=60)
+        assert runner._bounded_timeout((2, 3), session.connect_timeout, session.read_timeout) == (2, 3)
+    assert calls == [(7.5, 45)] * attempts
+    assert sleeps == [1] * (attempts - 1)
+
+
+@pytest.mark.parametrize("value", ["", "nope", "0", "-1", "nan", "inf", "-inf", "1e999"])
+def test_invalid_environment_settings_warn_and_keep_finite_defaults(monkeypatch, capsys, value):
+    for setting in ("CONNECT_TIMEOUT", "READ_TIMEOUT", "ATTEMPTS"):
+        monkeypatch.setenv(f"PICKLEDGER_NBA_HTTP_{setting}", value)
+    with runner.BoundedNBAStatsSession() as session:
+        assert (session.connect_timeout, session.read_timeout, session.max_attempts) == (5, 15, 2)
+    assert capsys.readouterr().err.count("Invalid PICKLEDGER_NBA_HTTP_") == 3
+
+
+def test_fractional_attempt_count_is_rejected(monkeypatch, capsys):
+    monkeypatch.setenv("PICKLEDGER_NBA_HTTP_ATTEMPTS", "1.5")
+    with runner.BoundedNBAStatsSession() as session:
+        assert session.max_attempts == 2
+    assert "Invalid PICKLEDGER_NBA_HTTP_ATTEMPTS" in capsys.readouterr().err
 
 
 def test_success_preserves_response_bytes_headers_and_parameters(monkeypatch):

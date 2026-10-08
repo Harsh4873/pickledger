@@ -4,6 +4,8 @@
 from __future__ import annotations
 
 import runpy
+import math
+import os
 import sys
 import time
 from pathlib import Path
@@ -23,27 +25,50 @@ class NBAFetchUnavailable(SystemExit):
     """Stop this child before model-level exception handlers retry or fill gaps."""
 
 
-def _bounded_timeout(value: object) -> tuple[float, float]:
+def _positive_setting(name: str, default, parse):
+    value = os.environ.get(name)
+    if value is None:
+        return default
+    try:
+        parsed = parse(value)
+        if math.isfinite(parsed) and parsed > 0:
+            return parsed
+    except (ValueError, OverflowError):
+        pass
+    print(f"[nba-fetch] Invalid {name}={value!r}; using {default}", file=sys.stderr, flush=True)
+    return default
+
+
+def _bounded_timeout(value: object, connect_timeout: float = CONNECT_TIMEOUT,
+                     read_timeout: float = READ_TIMEOUT) -> tuple[float, float]:
     connect, read = value if isinstance(value, tuple) and len(value) == 2 else (value, value)
 
     def bound(part: object, limit: float) -> float:
         return min(float(part), limit) if isinstance(part, (int, float)) and part > 0 else limit
 
-    return bound(connect, CONNECT_TIMEOUT), bound(read, READ_TIMEOUT)
+    return bound(connect, connect_timeout), bound(read, read_timeout)
 
 
 class BoundedNBAStatsSession(requests.Session):
     """Keep NBA request headers/parameters and successful response bytes intact."""
 
+    def __init__(self):
+        super().__init__()
+        ci = os.environ.get("CI", "").strip().lower() not in {"", "0", "false", "no"}
+        self.connect_timeout = _positive_setting("PICKLEDGER_NBA_HTTP_CONNECT_TIMEOUT", CONNECT_TIMEOUT, float)
+        # Keep nba_api's 30s read allowance locally; hosted runners fail faster.
+        self.read_timeout = _positive_setting("PICKLEDGER_NBA_HTTP_READ_TIMEOUT", READ_TIMEOUT if ci else 30.0, float)
+        self.max_attempts = _positive_setting("PICKLEDGER_NBA_HTTP_ATTEMPTS", MAX_ATTEMPTS, int)
+
     def request(self, method: str, url: str, **kwargs) -> requests.Response:
         endpoint = urlsplit(url)
         if endpoint.hostname != "stats.nba.com" or method.upper() != "GET":
             return super().request(method, url, **kwargs)
-        kwargs["timeout"] = _bounded_timeout(kwargs.get("timeout"))
+        kwargs["timeout"] = _bounded_timeout(kwargs.get("timeout"), self.connect_timeout, self.read_timeout)
         label = f"{endpoint.hostname}{endpoint.path}"
-        for attempt in range(1, MAX_ATTEMPTS + 1):
+        for attempt in range(1, self.max_attempts + 1):
             started = time.monotonic()
-            print(f"[nba-fetch] {label} attempt {attempt}/{MAX_ATTEMPTS}", file=sys.stderr, flush=True)
+            print(f"[nba-fetch] {label} attempt {attempt}/{self.max_attempts}", file=sys.stderr, flush=True)
             response = None
             try:
                 response = super().request(method, url, **kwargs)
@@ -59,7 +84,7 @@ class BoundedNBAStatsSession(requests.Session):
                 print(f"[nba-fetch] {label} {reason} after {time.monotonic() - started:.1f}s", file=sys.stderr, flush=True)
                 if response is not None:
                     response.close()
-                if retryable and attempt < MAX_ATTEMPTS:
+                if retryable and attempt < self.max_attempts:
                     time.sleep(1)
                     continue
                 # SystemExit intentionally crosses broad `except Exception`
