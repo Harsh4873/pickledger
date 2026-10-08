@@ -380,6 +380,51 @@ export interface ProfitDeskSourceCard {
   liveToday?: number;
 }
 
+export interface ProfitDeskResearchRow {
+  id?: string;
+  rank?: number;
+  label?: string;
+  stakeUnits?: number;
+  modelApproved?: boolean;
+  mode?: PickMode | string;
+  sport?: string;
+  sourceKey?: string;
+  source?: string;
+  modelVersion?: string;
+  pick?: string;
+  game?: string;
+  market?: string;
+  player?: string | null;
+  oddsAmerican?: number | null;
+  decimalOdds?: number | null;
+  modelProbability?: number | null;
+  probabilityField?: string;
+  baselineKind?: 'no_vig' | 'break_even' | string;
+  baselineProbability?: number | null;
+  breakEvenProbability?: number | null;
+  edge?: number | null;
+  edgePp?: number | null;
+  modelEvAtPrice?: number | null;
+  startTime?: string | null;
+  priceUpdatedAt?: string | null;
+  priceSource?: string | null;
+  websiteDecision?: string;
+  shadowDecision?: string | null;
+  singleOnly?: boolean;
+  notes?: string[];
+}
+
+export interface ProfitDeskResearchShortlist {
+  label?: string;
+  stakeUnits?: number;
+  liveStaking?: boolean;
+  rows?: ProfitDeskResearchRow[];
+  eligibleRows?: number;
+  excluded?: Record<string, number>;
+  criteria?: Record<string, unknown>;
+  notes?: string[];
+}
+
 export interface ProfitDeskPayload {
   schemaVersion?: string | number;
   date: string;
@@ -391,6 +436,7 @@ export interface ProfitDeskPayload {
   candidates?: ProfitDeskCandidate[];
   portfolio?: Partial<Record<PickMode | 'all', ProfitDeskCandidate[]>>;
   sources?: ProfitDeskSourceCard[];
+  desk_research_shortlist?: ProfitDeskResearchShortlist;
   [key: string]: unknown;
 }
 

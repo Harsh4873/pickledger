@@ -32,6 +32,7 @@ import {
   type ProfitDeskCandidate,
   type ProfitDeskModeSummary,
   type ProfitDeskPayload,
+  type ProfitDeskResearchRow,
 } from './data';
 import {
   LEGACY_RECORD_SOURCES,
@@ -95,7 +96,7 @@ type WeekdaySourceForm = {
 };
 
 type DailyView = 'featured' | 'picks' | 'consensus' | 'sources' | 'research' | 'dayform' | 'fade';
-type ProfitView = 'card' | 'watchlist' | 'method';
+type ProfitView = 'card' | 'watchlist' | 'research' | 'method';
 type ParlayView = string;
 type DailySort = 'time' | 'percentage';
 type ResultMode = 'pending' | 'all' | 'settled';
@@ -3146,6 +3147,44 @@ function formatProfitGateValue(value: unknown): string {
   return String(value);
 }
 
+const PROFIT_RESEARCH_LABEL = 'RESEARCH/ENTERTAINMENT — NO VERIFIED EDGE';
+
+function profitDeskResearchRows(payload: ProfitDeskPayload | null): ProfitDeskResearchRow[] {
+  const rows = payload?.desk_research_shortlist?.rows;
+  return Array.isArray(rows)
+    ? rows.filter((row): row is ProfitDeskResearchRow => Boolean(row) && typeof row === 'object')
+    : [];
+}
+
+function profitDeskResearchCard(row: ProfitDeskResearchRow): string {
+  const meta = [row.game, row.player, row.market, row.startTime ? formatStart(row.startTime) : ''].filter(Boolean).join(' • ');
+  const baselineLabel = row.baselineKind === 'no_vig' ? 'Market no-vig' : 'Break-even (vig)';
+  const edgePp = row.edgePp == null || !Number.isFinite(Number(row.edgePp)) ? '--' : `${Number(row.edgePp) >= 0 ? '+' : ''}${Number(row.edgePp).toFixed(1)} pp`;
+  const notes = Array.isArray(row.notes) ? row.notes.filter(Boolean) : [];
+  return `<article class="profit-candidate tier-watch profit-research" aria-label="${escapeHtml(row.pick || 'Research shortlist row')}">
+    <div class="profit-candidate-head">
+      <div><div class="profit-candidate-kicker">${row.rank == null ? '' : `#${escapeHtml(row.rank)} • `}${escapeHtml(row.sport || 'SPORT')} • ${escapeHtml(row.source || row.sourceKey || 'IN-HOUSE MODEL')}</div><h3>${escapeHtml(row.pick || 'Unnamed row')}</h3><p>${escapeHtml(meta || 'Game details unavailable')}</p></div>
+      <div class="profit-shadow-stake"><span>RESEARCH</span><strong>0u</strong><small>NOT MODEL-APPROVED</small></div>
+    </div>
+    <div class="profit-research-label">${escapeHtml(row.label || PROFIT_RESEARCH_LABEL)}</div>
+    <div class="profit-price-row"><span>${escapeHtml(formatAmericanOddsValue(row.oddsAmerican))} price</span><span>${escapeHtml(row.priceSource || 'observed price')}</span><span>${row.singleOnly ? 'Single only • never a filler leg' : 'Website decision ' + escapeHtml(row.websiteDecision || 'PASS')}</span></div>
+    <div class="profit-metric-grid">
+      <div class="primary"><span>Model probability</span><strong>${escapeHtml(formatProbabilityValue(row.modelProbability))}</strong></div>
+      <div><span>${escapeHtml(baselineLabel)}</span><strong>${escapeHtml(formatProbabilityValue(row.baselineProbability))}</strong></div>
+      <div><span>Model gap</span><strong>${escapeHtml(edgePp)}</strong></div>
+    </div>
+    ${notes.length ? `<div class="profit-shadow-warning">${notes.map(note => escapeHtml(note)).join(' ')}</div>` : ''}
+  </article>`;
+}
+
+function profitDeskResearchSection(payload: ProfitDeskPayload | null, rows: ProfitDeskResearchRow[]): string {
+  const shortlist = payload?.desk_research_shortlist;
+  const label = shortlist?.label || PROFIT_RESEARCH_LABEL;
+  return `<section class="profit-section"><div class="profit-section-head"><div><div class="profit-section-kicker">${escapeHtml(label)}</div><h2>Research Shortlist</h2><p>Highest model-probability rows from priced, pregame in-house models where the model is not below the market. Display only: every row is 0u, none is model-approved, and none enters the live card or staking approvals. Excludes NHL, tennis, NBA preseason, and scraped feeds.</p></div><span>${rows.length} ROW${rows.length === 1 ? '' : 'S'} • 0U</span></div>${rows.length
+    ? `<div class="profit-candidate-grid">${rows.map(profitDeskResearchCard).join('')}</div>`
+    : `<div class="profit-empty"><strong>No research rows on this slate</strong><span>${payload ? (shortlist ? 'No priced pregame in-house row cleared the research filters.' : 'This artifact predates the research shortlist.') : 'No dated Profit Desk artifact was published.'}</span></div>`}</section>`;
+}
+
 function profitDeskMethodHtml(payload: ProfitDeskPayload | null): string {
   const gates = payload?.policy?.gates && typeof payload.policy.gates === 'object' ? Object.entries(payload.policy.gates) : [];
   const notes = Array.isArray(payload?.policy?.notes) ? payload.policy.notes : [];
@@ -3442,7 +3481,7 @@ function setDailyView(view: string): void {
 }
 
 function setProfitView(view: string): void {
-  if (view === 'card' || view === 'watchlist' || view === 'method') {
+  if (view === 'card' || view === 'watchlist' || view === 'research' || view === 'method') {
     profitView = view;
     renderProfit();
   }
@@ -3613,12 +3652,15 @@ function renderProfit(): void {
   const watchCandidates = filteredCandidates
     .filter(candidate => (candidate.blockers?.length || 0) > 0 || candidate.tier === 'watch' || candidate.tier === 'avoid')
     .sort(compareProfitDeskCandidate);
+  const researchRows = profitDeskResearchRows(payload)
+    .filter(row => profitDeskSport === 'ALL' || row.sport === profitDeskSport);
   const modeSummary = profitDeskModeSummary(payload);
   const researchQualified = numericSummary(modeSummary?.researchQualified ?? modeSummary?.shadowQualified, modeCandidates.filter(candidate => candidate.tier === 'edge' || candidate.tier === 'value').length);
   const liveQualified = numericSummary(modeSummary?.liveQualified, 0);
   const viewOptions: Array<{ key: ProfitView; label: string; count: number; description: string }> = [
     { key: 'card', label: 'Card', count: cardCandidates.length, description: 'Qualified picks with real stakes' },
     { key: 'watchlist', label: 'Watchlist', count: watchCandidates.length, description: 'Blocked, with exact reasons' },
+    { key: 'research', label: 'Research', count: researchRows.length, description: 'Research/entertainment shortlist, 0u, no verified edge' },
     { key: 'method', label: 'Method', count: 4, description: 'How a pick earns a stake' },
   ];
   const activeView = viewOptions.find(option => option.key === profitView) || viewOptions[0];
@@ -3638,7 +3680,9 @@ function renderProfit(): void {
         'No blocked candidates in this scope',
         payload ? 'Try All Sports or clear a Home sport/source filter.' : 'The pipeline must publish this date before a watchlist can be evaluated.',
       )
-      : profitDeskMethodHtml(payload);
+      : profitView === 'research'
+        ? profitDeskResearchSection(payload, researchRows)
+        : profitDeskMethodHtml(payload);
   const summary = payload?.summary;
   const record = summary?.liveRecordToDate || summary?.liveRecord;
   const decisionTitle = liveQualified > 0 ? `${liveQualified} live pick${liveQualified === 1 ? '' : 's'}` : 'Sit out';

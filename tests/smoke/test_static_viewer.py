@@ -422,7 +422,12 @@ def test_profit_desk_is_its_own_precomputed_decision_first_tab():
     for section in ("Live Card", "Watchlist & Rejections", "How a pick earns promotion"):
         assert section in main
     assert 'id="profit-container"' in html
-    assert "type ProfitView = 'card' | 'watchlist' | 'method'" in main
+    assert "type ProfitView = 'card' | 'watchlist' | 'research' | 'method'" in main
+    # The research shortlist is a separate 0u view, never part of the live card.
+    assert "function profitDeskResearchSection(" in main
+    assert "RESEARCH/ENTERTAINMENT — NO VERIFIED EDGE" in main
+    assert "NOT MODEL-APPROVED" in main
+    assert "desk_research_shortlist?: ProfitDeskResearchShortlist" in data
     assert "let profitView: ProfitView = 'card'" in main
     assert "function renderProfit(" in main
     assert "getProfitDeskPayload(key)" in main

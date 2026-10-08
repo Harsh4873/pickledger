@@ -1769,6 +1769,267 @@ def _deterministic_generated_at(
     return f"{date_iso}T00:00:00Z"
 
 
+# ---------------------------------------------------------------------------
+# Research shortlist (0u, never staked)
+# ---------------------------------------------------------------------------
+
+# The desk above answers "does evidence support a positive return at this
+# price?"  On thin boards the honest answer is usually no, which leaves the
+# owner's research desk with nothing to look at.  The shortlist answers a
+# different, explicitly weaker question: which priced, pregame, in-house model
+# rows have the highest model win probability without the model rating them
+# below the market?  It is display-only research.  Rows are always 0u, never
+# enter the portfolio or staking_approvals.json, and never change a stake.
+RESEARCH_SHORTLIST_LABEL = "RESEARCH/ENTERTAINMENT — NO VERIFIED EDGE"
+RESEARCH_SHORTLIST_MAX_ROWS = 3
+# Price band mirrors the real-price leg band the parlay-card engine already
+# enforces (-320..+160).  Anything at or shorter than -175 is flagged single
+# only: the owner's desk guide bans ~-175-or-shorter filler legs.
+RESEARCH_SHORTLIST_MIN_ODDS = -320
+RESEARCH_SHORTLIST_MAX_ODDS = 160
+RESEARCH_SHORTLIST_FILLER_ODDS = -175
+# A model that disagrees with the market baseline by more than this is far more
+# likely to be miscalibrated than right; such rows are not a "floor".
+RESEARCH_SHORTLIST_MAX_EDGE = 0.15
+# NHL is shadow-only, tennis is excluded from the desk, mlb_inning is live-only.
+RESEARCH_SHORTLIST_EXCLUDED_SPORTS = frozenset({"nhl", "tennis", "atp", "wta"})
+RESEARCH_SHORTLIST_EXCLUDED_SOURCE_PREFIXES = ("nhl", "tennis", "mlb_inning")
+# WNBA props are permanently research-only after the -24% flat-ROI audit.
+RESEARCH_SHORTLIST_EXCLUDED_PROP_SPORTS = frozenset({"wnba"})
+_PRESEASON_SEASON_TYPES = frozenset(
+    {"pre", "preseason", "exhibition", "spring_training", "spring training", "spring", "1"}
+)
+_NBA_VERIFIED_SEASON_TYPES = frozenset(
+    {"reg", "regular", "regular_season", "regular season", "post", "postseason", "playoffs", "2", "3"}
+)
+
+
+def _shortlist_season_type(record: Mapping[str, Any]) -> str:
+    return _norm(_first(record, "season_type", "seasonType", "game_type", "gameType"))
+
+
+def _shortlist_probability(record: Mapping[str, Any], mode: str) -> tuple[float | None, str]:
+    for key in ("calibrated_probability", "calibrated_model_probability"):
+        value = normalize_probability(record.get(key))
+        if value is not None:
+            return value, key
+    if mode == "player":
+        # Prop probabilities are uncalibrated; only a consensus-qualified prop
+        # has cleared enough independent checks to be ranked at all.
+        if record.get("consensus_qualified") is not True:
+            return None, ""
+    for key in ("probability", "model_probability"):
+        value = normalize_probability(record.get(key))
+        if value is not None:
+            return value, key
+    return None, ""
+
+
+def _shortlist_exclusion(context: RecordContext, sport: str) -> str | None:
+    record = context.record
+    source_key = _text(context.source_key).lower()
+    sport_key = _norm(sport)
+    if _is_scraped_odds_source(context.source_key):
+        return "scraped_only_feed"
+    if record.get("shadow_mode") is True or context.bucket.get("shadow_mode") is True:
+        return "shadow_model"
+    if sport_key in RESEARCH_SHORTLIST_EXCLUDED_SPORTS or source_key.startswith(
+        RESEARCH_SHORTLIST_EXCLUDED_SOURCE_PREFIXES
+    ):
+        return f"excluded_sport:{sport_key or source_key}"
+    if context.mode == "player" and sport_key in RESEARCH_SHORTLIST_EXCLUDED_PROP_SPORTS:
+        return "research_only_props"
+    season_type = _shortlist_season_type(record)
+    if season_type in _PRESEASON_SEASON_TYPES:
+        return "preseason"
+    if (
+        sport_key == "nba"
+        and not source_key.startswith("nba_playoffs")
+        and season_type not in _NBA_VERIFIED_SEASON_TYPES
+    ):
+        # The regular-season NBA model has no preseason coverage, and its rows
+        # do not stamp a season type, so an unmarked NBA row is not trusted.
+        return "nba_preseason_or_unverified_season"
+    return None
+
+
+def build_desk_research_shortlist(
+    date_iso: str,
+    team_payload: Mapping[str, Any] | None,
+    prop_payload: Mapping[str, Any] | None,
+    *,
+    max_rows: int = RESEARCH_SHORTLIST_MAX_ROWS,
+) -> dict[str, Any]:
+    """Rank today's highest-floor in-house rows as 0u research (never staked)."""
+
+    excluded: dict[str, int] = defaultdict(int)
+    eligible: list[dict[str, Any]] = []
+    for mode, payload in (("team", team_payload), ("player", prop_payload)):
+        for context in _iter_records(payload, mode):
+            record = context.record
+            if _record_date(record, context.fallback_date) != date_iso:
+                continue
+            sport = _text(_first(record, "sport", "league")) or _text(
+                context.bucket.get("sport")
+            )
+            reason = _shortlist_exclusion(context, sport)
+            if reason is None and _result(record.get("result")) != "pending":
+                reason = "already_settled"
+            odds = _american_int(record.get("odds"))
+            decimal = american_to_decimal(odds)
+            executable = False
+            timing: dict[str, Any] = {}
+            if reason is None:
+                executable, price_source, _field, _blockers = _price_provenance(
+                    record, context.source_key
+                )
+                if not executable or decimal is None:
+                    reason = "no_observed_price"
+            if reason is None:
+                timing = _timing(record, context.bucket, context.payload)
+                if not timing["freshPregame"]:
+                    reason = "not_fresh_pregame"
+            if reason is None and not (
+                RESEARCH_SHORTLIST_MIN_ODDS <= odds <= RESEARCH_SHORTLIST_MAX_ODDS
+            ):
+                reason = "outside_price_band"
+            probability, probability_field = (None, "")
+            if reason is None:
+                probability, probability_field = _shortlist_probability(record, context.mode)
+                if probability is None:
+                    reason = "no_trusted_model_probability"
+            if reason is not None:
+                excluded[reason.split(":", 1)[0]] += 1
+                continue
+            assert decimal is not None and probability is not None
+            break_even = 1.0 / decimal
+            no_vig = derive_no_vig_probability(record)
+            if no_vig.verified and no_vig.probability is not None:
+                baseline, baseline_kind = no_vig.probability, "no_vig"
+            else:
+                baseline, baseline_kind = break_even, "break_even"
+            edge = probability - baseline
+            if edge < 0:
+                excluded["negative_edge"] += 1
+                continue
+            if edge > RESEARCH_SHORTLIST_MAX_EDGE:
+                excluded["implausible_model_gap"] += 1
+                continue
+            single_only = odds <= RESEARCH_SHORTLIST_FILLER_ODDS
+            notes = [
+                "0u research only: not model-approved, not a Profit Desk stake, "
+                "never written to staking_approvals.json.",
+            ]
+            if single_only:
+                notes.append(
+                    f"Priced at or shorter than {RESEARCH_SHORTLIST_FILLER_ODDS}: "
+                    "single only, never a parlay filler leg."
+                )
+            if baseline_kind == "break_even":
+                notes.append("One-sided price: edge is versus vigged break-even, not no-vig.")
+            decision = _text(record.get("decision")).upper() or "PASS"
+            shadow_decision = _text(record.get("shadow_decision")).upper() or None
+            eligible.append(
+                {
+                    "label": RESEARCH_SHORTLIST_LABEL,
+                    "stakeUnits": 0,
+                    "modelApproved": False,
+                    "date": date_iso,
+                    "mode": context.mode,
+                    "sport": sport,
+                    "sourceKey": context.source_key,
+                    "source": context.source,
+                    "modelVersion": _version(context, "model"),
+                    "pick": _pick_text(record),
+                    "game": _game_label(record),
+                    "canonicalGame": canonical_game_key(record, sport, date_iso),
+                    "market": _text(_first(record, "market_type", "market", "stat_label"))
+                    or _market_family(record),
+                    "player": _player(record) or None,
+                    "oddsAmerican": odds,
+                    "decimalOdds": round(decimal, 6),
+                    "modelProbability": round(probability, 6),
+                    "probabilityField": probability_field,
+                    "baselineKind": baseline_kind,
+                    "baselineProbability": round(baseline, 6),
+                    "breakEvenProbability": round(break_even, 6),
+                    "edge": round(edge, 6),
+                    "edgePp": round(edge * 100.0, 2),
+                    "modelEvAtPrice": round(probability * decimal - 1.0, 6),
+                    "startTime": timing.get("startTime"),
+                    "priceUpdatedAt": timing.get("timestamp"),
+                    "priceSource": _text(
+                        _first(record, "market_odds_provider", "odds_source", "price_source")
+                    )
+                    or None,
+                    "websiteDecision": decision,
+                    "shadowDecision": shadow_decision,
+                    "singleOnly": single_only,
+                    "notes": notes,
+                }
+            )
+
+    eligible.sort(
+        key=lambda row: (
+            -row["modelProbability"],
+            -row["edge"],
+            row["sourceKey"],
+            row["pick"],
+        )
+    )
+    rows: list[dict[str, Any]] = []
+    seen_games: set[str] = set()
+    for row in eligible:
+        # One row per game: same game + same side is one exposure, and the
+        # highest-floor market for that game is the one worth researching.
+        if row["canonicalGame"] in seen_games:
+            excluded["same_game_lower_floor"] += 1
+            continue
+        seen_games.add(row["canonicalGame"])
+        rows.append(row)
+        if len(rows) >= max_rows:
+            break
+    for rank, row in enumerate(rows, start=1):
+        row["rank"] = rank
+        row["id"] = "research-" + _stable_hash(
+            {"date": date_iso, "source": row["sourceKey"], "pick": row["pick"], "odds": row["oddsAmerican"]},
+            20,
+        )
+    return {
+        "label": RESEARCH_SHORTLIST_LABEL,
+        "stakeUnits": 0,
+        "liveStaking": False,
+        "rows": rows,
+        "eligibleRows": len(eligible),
+        "excluded": dict(sorted(excluded.items())),
+        "criteria": {
+            "rankedBy": "model probability (calibrated where published), then edge",
+            "requiresObservedPregamePrice": True,
+            "edgeBaseline": "two-sided no-vig when verified, else posted break-even (vig included)",
+            "minimumEdge": 0.0,
+            "maximumEdge": RESEARCH_SHORTLIST_MAX_EDGE,
+            "priceBandAmerican": [RESEARCH_SHORTLIST_MIN_ODDS, RESEARCH_SHORTLIST_MAX_ODDS],
+            "singleOnlyAtOrShorterThan": RESEARCH_SHORTLIST_FILLER_ODDS,
+            "maximumRows": max_rows,
+            "oneRowPerGame": True,
+            "excludes": [
+                "scraped-only feeds",
+                "NHL (shadow model)",
+                "tennis",
+                "NBA preseason / unmarked NBA season",
+                "mlb_inning (live-only)",
+                "WNBA props (research-only)",
+                "props that are not consensus-qualified",
+            ],
+        },
+        "notes": [
+            "Research/entertainment only. No row is model-approved or staked.",
+            "Rows never enter the Profit Desk portfolio or staking_approvals.json.",
+            "A high model probability is not a verified edge at the current price; modelEvAtPrice uses the raw model probability and is unverified.",
+        ],
+    }
+
+
 def build_profit_desk_payload(
     date_iso: str,
     team_payload: Mapping[str, Any] | None,
@@ -1855,6 +2116,7 @@ def build_profit_desk_payload(
             "evidenceRows": mode_evidence_rows,
         }
 
+    research_shortlist = build_desk_research_shortlist(date_iso, team_payload, prop_payload)
     live_record = _flat_record(portfolio["live"], stake_weighted=True)
     research_record = _flat_record(portfolio["all"])
     source_cards = _source_report_cards(evidence_book, candidates)
@@ -1908,6 +2170,7 @@ def build_profit_desk_payload(
             "Evidence uses settled, executable-priced rows dated strictly before the target slate.",
             f"Live staking begins {FIRST_LIVE_DATE}; earlier slates rebuild as zero-stake research.",
             "Unapproved in-house BET/LEAN rows (staking_policy awaiting_approved_holdout) are evaluated and accrue evidence as 0u WATCH; no approval can revive them here.",
+            "The research shortlist ranks priced pregame in-house rows by model probability at 0u; it is labeled research/entertainment with no verified edge.",
         ],
     }
     summary = {
@@ -1933,6 +2196,7 @@ def build_profit_desk_payload(
         "shadowRecord": research_record,
         "researchRecord": research_record,
         "liveRecord": live_record,
+        "researchShortlist": len(research_shortlist["rows"]),
     }
     notices = [
         "Qualified picks carry real flat stakes: EDGE 1.0u, VALUE 0.5u; everything else stays 0u.",
@@ -1946,6 +2210,10 @@ def build_profit_desk_payload(
         )
     if not qualified:
         notices.append("No candidates cleared a qualification lane on this slate; zero action is a valid result.")
+    notices.append(
+        "The research shortlist is 0u research/entertainment with no verified edge; "
+        "it never stakes and never feeds the portfolio."
+    )
 
     return {
         "schemaVersion": 2,
@@ -1961,6 +2229,7 @@ def build_profit_desk_payload(
         "candidates": candidates,
         "sources": source_cards,
         "notices": notices,
+        "desk_research_shortlist": research_shortlist,
     }
 
 

@@ -1201,3 +1201,98 @@ def test_shadowed_history_rows_keep_accruing_evidence():
         prop_history=[],
     )
     assert built["candidates"][0]["evidence"]["marketFamilySamples"] == 160
+
+
+def _research_row(**overrides) -> dict:
+    row = make_pick(
+        decision="PASS", slate_date=LIVE_DATE, sport="CFB", raw_probability=0.58,
+        no_vig=0.55, odds=-130,
+    )
+    row["calibrated_probability"] = row.pop("probability")
+    row.update(overrides)
+    return row
+
+
+def test_research_shortlist_ranks_highest_floor_rows_at_zero_units():
+    rows = [
+        _research_row(pick="Alpha ML", matchup="Alpha @ Bravo", calibrated_probability=0.62, market_no_vig_selected_probability=0.58, odds=-150),
+        _research_row(pick="Charlie ML", matchup="Charlie @ Delta", calibrated_probability=0.56, market_no_vig_selected_probability=0.52),
+        _research_row(pick="Echo ML", matchup="Echo @ Foxtrot", calibrated_probability=0.60, market_no_vig_selected_probability=0.57, odds=-140),
+        _research_row(pick="Golf ML", matchup="Golf @ Hotel", calibrated_probability=0.55, market_no_vig_selected_probability=0.50, odds=-105),
+    ]
+    built = desk.build_profit_desk_payload(
+        LIVE_DATE,
+        make_payload(rows, slate_date=LIVE_DATE, source_key="cfb"),
+        None,
+        team_history=[],
+        prop_history=[],
+        approvals=moneyline_approval(),
+    )
+    shortlist = built["desk_research_shortlist"]
+    assert [row["pick"] for row in shortlist["rows"]] == ["Alpha ML", "Echo ML", "Charlie ML"]
+    assert [row["rank"] for row in shortlist["rows"]] == [1, 2, 3]
+    for row in shortlist["rows"]:
+        assert row["label"] == "RESEARCH/ENTERTAINMENT — NO VERIFIED EDGE"
+        assert row["stakeUnits"] == 0
+        assert row["modelApproved"] is False
+        assert row["edge"] >= 0
+    assert shortlist["stakeUnits"] == 0 and shortlist["liveStaking"] is False
+    assert built["summary"]["researchShortlist"] == 3
+    # The shortlist is display-only: PASS rows never become desk candidates,
+    # and nothing reaches the live portfolio even with an approval on file.
+    assert built["summary"]["inputPicks"] == 0
+    assert built["candidates"] == []
+    assert built["portfolio"]["live"] == [] and built["portfolio"]["all"] == []
+
+
+def test_research_shortlist_exclusions():
+    keep = _research_row(pick="Keep ML", matchup="Keep @ Mid", calibrated_probability=0.57)
+    payload = {
+        "date": LIVE_DATE,
+        "generatedAt": f"{LIVE_DATE}T12:00:00Z",
+        "models": {
+            "cfb": {"ok": True, "picks": [
+                keep,
+                _research_row(pick="Negative ML", matchup="Neg @ Edge", calibrated_probability=0.50, market_no_vig_selected_probability=0.55),
+                _research_row(pick="Chalk ML", matchup="Chalk @ Dog", calibrated_probability=0.90, market_no_vig_selected_probability=0.88, odds=-600),
+                _research_row(pick="Longshot ML", matchup="Long @ Shot", calibrated_probability=0.45, market_no_vig_selected_probability=0.30, odds=200),
+                _research_row(pick="Wild ML", matchup="Wild @ Gap", calibrated_probability=0.80, market_no_vig_selected_probability=0.55),
+                _research_row(pick="Assumed ML", matchup="Ass @ Umed", calibrated_probability=0.70, odds_source="user_assumed_-110", market_priced=False),
+                _research_row(pick="Started ML", matchup="Start @ Ed", calibrated_probability=0.70, start_time=f"{LIVE_DATE}T09:00:00Z"),
+                _research_row(pick="Settled ML", matchup="Set @ Tled", calibrated_probability=0.70, result="win"),
+                _research_row(pick="Keep -3.5", matchup="Keep @ Mid", calibrated_probability=0.53, market_no_vig_selected_probability=0.50, market_type="spread"),
+            ]},
+            "nhl": {"ok": True, "picks": [_research_row(pick="Puck ML", matchup="Puck @ Ice", sport="NHL", calibrated_probability=0.70)]},
+            "tennis": {"ok": True, "picks": [_research_row(pick="Ace", matchup="Ace v Net", sport="Tennis", calibrated_probability=0.70)]},
+            "nba": {"ok": True, "picks": [_research_row(pick="Hoop ML", matchup="Hoop @ Net", sport="NBA", calibrated_probability=0.70)]},
+            "mlb_inning": {"ok": True, "picks": [_research_row(pick="Inning", matchup="Inn @ Ing", sport="MLB", calibrated_probability=0.70)]},
+            "scores24_cfb": {"ok": True, "picks": [_research_row(pick="Tip ML", matchup="Tip @ Ster", calibrated_probability=0.70)]},
+        },
+    }
+    props = make_payload([
+        _research_row(pick="Unqualified Over 0.5", matchup="Prop @ One", sport="MLB", scope="player", player_name="A", calibrated_probability=None, probability=0.70),
+        _research_row(pick="Qualified Over 0.5", matchup="Prop @ Two", sport="MLB", scope="player", player_name="B", calibrated_probability=None, probability=0.56, consensus_qualified=True),
+    ], slate_date=LIVE_DATE, source_key="mlb_player_props")
+    shortlist = desk.build_desk_research_shortlist(LIVE_DATE, payload, props)
+    assert [row["pick"] for row in shortlist["rows"]] == ["Keep ML", "Qualified Over 0.5"]
+    excluded = shortlist["excluded"]
+    for reason in (
+        "negative_edge", "outside_price_band", "implausible_model_gap", "no_observed_price",
+        "not_fresh_pregame", "already_settled", "same_game_lower_floor", "excluded_sport",
+        "nba_preseason_or_unverified_season", "scraped_only_feed", "no_trusted_model_probability",
+    ):
+        assert excluded.get(reason, 0) >= 1, reason
+    assert excluded["outside_price_band"] == 2
+
+
+def test_research_shortlist_flags_short_chalk_as_single_only_and_allows_regular_season_nba():
+    nba_regular = _research_row(
+        pick="Hoop ML", matchup="Hoop @ Net", sport="NBA", season_type="REG",
+        calibrated_probability=0.74, market_no_vig_selected_probability=0.72, odds=-260,
+    )
+    shortlist = desk.build_desk_research_shortlist(
+        LIVE_DATE, make_payload([nba_regular], slate_date=LIVE_DATE, source_key="nba"), None,
+    )
+    [row] = shortlist["rows"]
+    assert row["singleOnly"] is True
+    assert any("single only" in note for note in row["notes"])
