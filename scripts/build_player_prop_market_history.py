@@ -623,11 +623,13 @@ def main() -> int:
     existing, completed_dates = _load_existing(args.output) if not args.no_resume else ([], set())
     rows = list(existing)
     failures: list[str] = []
+    history_written = False
     if "CFB" in sports:
         try:
             archived_rows = _cfb_snapshot_rows(DirectApiClient(), start.isoformat(), end.isoformat())
             rows.extend(archived_rows)
             rows = _write_rows(args.output, rows, max_bytes=max(0, int(args.max_output_bytes)))
+            history_written = True
             print(f"[market-history] CFB immutable snapshots: {len(archived_rows)} graded market(s)")
         except Exception as exc:
             failures.append(f"CFB snapshot grading: {exc}")
@@ -656,7 +658,11 @@ def main() -> int:
                         failures.append(f"{sport} {date_iso} {event.get('id')}: {exc}")
             rows.extend(day_rows)
             completed_dates.add((sport, date_iso))
-            rows = _write_rows(args.output, rows, max_bytes=max(0, int(args.max_output_bytes)))
+            # Normalize/prune once even with no new markets. Later empty days
+            # cannot change the corpus and need no repeated full-file rewrite.
+            if day_rows or not history_written:
+                rows = _write_rows(args.output, rows, max_bytes=max(0, int(args.max_output_bytes)))
+                history_written = True
             print(f"[market-history] {sport} {date_iso}: {len(day_rows)} graded market(s)")
     summary = {
         "ok": not failures,
