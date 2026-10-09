@@ -14,6 +14,7 @@ import yaml
 
 from scripts.team_prop_pregame_ledger import SHARD_RELATIVE_PATH, write_team_prop_pregame_ledger
 from scripts.merge_pick_outcome_ledger import merge_outcome_ledgers
+from scripts.outcome_ledger_store import load_outcome_ledger, write_outcome_ledger
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -167,6 +168,8 @@ def test_calibration_backup_excludes_team_history(tmp_path):
     calibration.mkdir(parents=True)
     (calibration / "active.json").write_text('{"version":1}')
     (calibration / "outcome_ledger.json").write_text('{"records":[]}')
+    (calibration / "outcome_ledger").mkdir()
+    (calibration / "outcome_ledger/index.json").write_text('{}')
     (calibration / "team_prop_pregame_ledger.json").write_text('{"records":[]}')
     (calibration / "team_prop_pregame_ledger").mkdir()
     (calibration / "team_prop_pregame_ledger/index.json").write_text('{}')
@@ -193,7 +196,7 @@ def test_publication_pathspec_stages_shards_and_removes_legacy(tmp_path):
 @pytest.fixture(scope="module")
 def publication_outcomes():
     # Reuse published rows, prices and grades; only simulate the pre-grade state.
-    published = json.loads((ROOT / "data/calibration/outcome_ledger.json").read_text())
+    published = load_outcome_ledger(ROOT)
     props = [row for row in published["records"] if row["cache_type"] == "player_props_cache" and row["result"] in {"win", "loss"}]
     team = next(row for row in published["records"] if row["cache_type"] == "team_prop_pregame_ledger" and row["result"] == "win")
     push = next(row for row in published["records"] if row["result"] == "push")
@@ -258,16 +261,22 @@ def test_outcome_union_rejects_ambiguous_input(publication_outcomes, failure):
     ("player-props-refresh.yml", "refresh", "commit-props", 2, 3, 0),
     ("player-props-refresh.yml", "refresh", "commit-props", 3, 3, 1),
 ])
+@pytest.mark.parametrize("generated_shards,current_shards", [(False, False), (True, False), (False, True), (True, True)])
 def test_outcome_publication_recovers_rows_and_grades_after_reset(
     tmp_path, publication_outcomes, filename, job, step_id, failed_pushes, attempts, exit_code,
+    generated_shards, current_shards,
 ):
     command = next(step["run"] for step in workflow(filename)["jobs"][job]["steps"] if step.get("id") == step_id)
     current, generated, expected = publication_outcomes
     ledger = Path("data/calibration/outcome_ledger.json")
     remote = tmp_path / "remote"
-    for root, payload in ((tmp_path, generated), (remote, current)):
+    for root, payload, sharded in ((tmp_path, generated, generated_shards), (remote, current, current_shards)):
         (root / ledger).parent.mkdir(parents=True)
-        (root / ledger).write_text(json.dumps(payload))
+        if sharded:
+            ordered = {**payload, "records": sorted(payload["records"], key=lambda row: (row["date"], row["model_key"], row["id"]))}
+            write_outcome_ledger(ordered, root)
+        else:
+            (root / ledger).write_text(json.dumps(payload))
     trained = (ROOT / "data/calibration/state.json").read_bytes()
     (tmp_path / "data/calibration/state.json").write_bytes(trained)
     cache = json.loads((ROOT / "data/player_props_cache/latest.json").read_text())
@@ -343,8 +352,9 @@ elif args[0] == "-c":
     resets = attempts if job == "refresh" else attempts - 1
     assert sum(call[:2] == ["git", "reset"] for call in calls) == resets
     assert sum(call[:2] == ["python", "scripts/merge_pick_outcome_ledger.py"] for call in calls) == resets
-    actual = json.loads((tmp_path / ledger).read_text())
-    assert actual["records"] == (expected if resets else generated["records"])
+    actual = load_outcome_ledger(tmp_path)
+    expected_records = expected if resets else generated["records"]
+    assert sorted(actual["records"], key=lambda row: row["id"]) == sorted(expected_records, key=lambda row: row["id"])
     if job == "refresh":
         assert (tmp_path / fresh_path).read_text() == fresh_snapshot
         assert (tmp_path / existing_path).read_bytes() == archived.read_bytes()

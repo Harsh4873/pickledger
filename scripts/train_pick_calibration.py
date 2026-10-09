@@ -25,6 +25,9 @@ from scripts.pick_calibration import (  # noqa: E402
 )
 
 
+from scripts.outcome_ledger_store import load_outcome_ledger
+
+
 TRIGGER_INTERVAL = 100
 MIN_TRAINABLE_ROWS = 40
 TRAINING_CONTRACT_VERSION = 2
@@ -212,7 +215,7 @@ def _active_mapping(active: dict[str, Any] | None, samples: int) -> dict[str, An
 
 
 def run_training(calibration_dir: Path, *, force: bool = False) -> dict[str, Any]:
-    ledger = read_json(calibration_dir / "outcome_ledger.json")
+    ledger = load_outcome_ledger(path=calibration_dir / "outcome_ledger.json")
     if not ledger:
         raise SystemExit("Missing calibration outcome ledger; run rebuild_pick_outcome_ledger.py first")
     state = read_json(calibration_dir / "state.json") or {}

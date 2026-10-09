@@ -23,6 +23,7 @@ from typing import Any, Mapping
 REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT))
 
+from scripts.outcome_ledger_store import load_outcome_ledger
 from scripts.model_scorecard_stats import binary_score, clustered_roi_interval  # noqa: E402
 from scripts.price_clock import QUOTE_FIELDS  # noqa: E402
 from scripts.team_prop_pregame_ledger import load_team_prop_pregame_ledger  # noqa: E402
@@ -478,7 +479,7 @@ def main() -> int:
     root = args.repo_root
     report = build_scorecard(
         load_team_prop_pregame_ledger(root),
-        _read(root / "data/calibration/outcome_ledger.json"),
+        load_outcome_ledger(root) or {},
         root / "data/player_props_snapshots",
     )
     rendered = json.dumps(report, indent=2, sort_keys=True) + "\n"

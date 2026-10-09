@@ -15,6 +15,7 @@ from typing import Any
 
 from player_props.schema import edge_basis_mode, kelly
 from scripts.devig import no_vig_selected_probability
+from scripts.outcome_ledger_store import load_outcome_ledger
 from scripts.pick_calibration import american_implied_probability, normalize_probability
 
 
@@ -265,7 +266,7 @@ def _closing_ledger_cache_get(date_iso: str, loader) -> dict[str, Any]:
 
 
 def _walk_forward_performance(ledger_path: Path = OUTCOME_LEDGER_PATH) -> dict[tuple[str, str], dict[str, Any]]:
-    ledger = _read_json(ledger_path) or {}
+    ledger = load_outcome_ledger(path=ledger_path) or {}
     records = ledger.get("records") if isinstance(ledger.get("records"), list) else []
     groups: dict[tuple[str, str], dict[str, Any]] = {}
     for record in records:

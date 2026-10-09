@@ -12,6 +12,7 @@ from typing import Any, Iterator
 
 from player_props.era import is_ml_era_pick
 from scripts.settlement_support import binary_settlement_supported
+from scripts.outcome_ledger_store import write_outcome_ledger
 from scripts.team_prop_pregame_ledger import (
     TEAM_PROP_MODEL_KEYS,
     load_team_prop_pregame_ledger,
@@ -682,7 +683,7 @@ def rebuild_outcome_ledger(
 ) -> tuple[dict[str, Any], bool]:
     ledger = build_outcome_ledger(repo_root)
     path = output_path or repo_root / "data" / "calibration" / "outcome_ledger.json"
-    changed = write_json_if_changed(path, ledger)
+    changed = write_outcome_ledger(ledger, path=path)
 
     state_path = repo_root / "data" / "calibration" / "state.json"
     state = read_json(state_path)

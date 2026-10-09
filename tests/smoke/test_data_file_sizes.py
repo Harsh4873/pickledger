@@ -17,6 +17,7 @@ def test_size_guard_includes_tracked_and_new_files_but_ignores_deleted_and_ignor
         ("deleted.json", 1),
         ("ignored.json", MAX_JSON_BYTES + 1),
         ("calibration/team_prop_pregame_ledger/2026-10-08.json", MAX_LEDGER_SHARD_BYTES + 1),
+        ("calibration/outcome_ledger/2026-10-08.json", MAX_LEDGER_SHARD_BYTES + 1),
     ):
         path = tmp_path / "data" / name
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -26,4 +27,5 @@ def test_size_guard_includes_tracked_and_new_files_but_ignores_deleted_and_ignor
     (tmp_path / "data/deleted.json").unlink()
     assert {name for name, _, _ in oversized_data_files(tmp_path)} == {
         "data/tracked.json", "data/new.json", "data/calibration/team_prop_pregame_ledger/2026-10-08.json",
+        "data/calibration/outcome_ledger/2026-10-08.json",
     }

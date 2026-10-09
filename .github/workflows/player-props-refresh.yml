@@ -133,19 +133,25 @@ jobs:
           git config user.email "${ACTOR_EMAIL}"
           # Always publish the canonical Pages branch, including manual runs.
           BRANCH="main"
-          if [ -z "$(git status --porcelain -- data/player_props_cache data/player_props_snapshots data/player_props_training data/calibration/outcome_ledger.json data/parlay_cards data/profit_desk player_props/artifacts)" ]; then
+          if [ -z "$(git status --porcelain -- data/player_props_cache data/player_props_snapshots data/player_props_training data/calibration/outcome_ledger data/calibration/outcome_ledger.json data/parlay_cards data/profit_desk player_props/artifacts)" ]; then
             echo "No player-props cache, parlay-card, Profit Desk, or ML artifact change; skipping commit."
             echo "changed=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
           GENERATED_CACHE="${RUNNER_TEMP}/player-props-latest.json"
-          GENERATED_LEDGER="${RUNNER_TEMP}/player-props-outcome-ledger.json"
+          LEDGER_BACKUP=$(mktemp -d "${RUNNER_TEMP}/player-props-outcome-ledger.XXXXXX")
+          GENERATED_LEDGER="${LEDGER_BACKUP}/outcome_ledger"
           GENERATED_HISTORY="${RUNNER_TEMP}/player-props-market-history.jsonl"
           GENERATED_OUTCOMES="${RUNNER_TEMP}/player-props-outcome-history.jsonl.gz"
           GENERATED_SNAPSHOTS="${RUNNER_TEMP}/player-props-snapshots"
           GENERATED_ARTIFACTS="${RUNNER_TEMP}/player-props-artifacts"
           cp "data/player_props_cache/${{ steps.target-date.outputs.date }}.json" "$GENERATED_CACHE"
-          cp data/calibration/outcome_ledger.json "$GENERATED_LEDGER"
+          if [ -d data/calibration/outcome_ledger ]; then
+            cp -R data/calibration/outcome_ledger "$GENERATED_LEDGER"
+          fi
+          if [ -f data/calibration/outcome_ledger.json ]; then
+            cp data/calibration/outcome_ledger.json "${GENERATED_LEDGER}.json"
+          fi
           cp data/player_props_training/market_history_2026.jsonl "$GENERATED_HISTORY"
           cp data/player_props_training/outcome_history_2022_2026.jsonl.gz "$GENERATED_OUTCOMES"
           mkdir -p "$GENERATED_SNAPSHOTS"
@@ -168,7 +174,8 @@ jobs:
             CACHE_DATE=$(python -c "import json; print(json.load(open('data/player_props_cache/latest.json'))['date'])")
             python scripts/build_parlay_cards.py --date "$CACHE_DATE"
             python scripts/build_profit_desk.py --date "$CACHE_DATE"
-            git add data/player_props_cache data/player_props_snapshots data/player_props_training data/calibration/outcome_ledger.json data/parlay_cards data/profit_desk player_props/artifacts
+            git add data/player_props_cache data/player_props_snapshots data/player_props_training data/parlay_cards data/profit_desk player_props/artifacts
+            git add -A -- 'data/calibration/outcome_ledger*'
             if git diff --cached --quiet; then
               echo "No staged player-props change after merge; skipping commit."
               echo "changed=false" >> "$GITHUB_OUTPUT"

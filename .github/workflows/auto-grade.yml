@@ -52,7 +52,10 @@ jobs:
           from pathlib import Path
 
           calibration = Path("data/calibration")
-          ledger = json.loads((calibration / "outcome_ledger.json").read_text())
+          from scripts.outcome_ledger_store import load_outcome_ledger
+          ledger = load_outcome_ledger(path=calibration / "outcome_ledger.json")
+          if ledger is None:
+              raise SystemExit("Missing calibration outcome ledger")
           state_path = calibration / "state.json"
           state = json.loads(state_path.read_text()) if state_path.exists() else {}
           decided = int(ledger.get("summary", {}).get("decided_picks") or 0)

@@ -73,15 +73,21 @@ jobs:
           # re-training, which would risk the job timeout and could flip the
           # active_changed result evaluated above).
           GENERATED_CALIBRATION="${RUNNER_TEMP}/calibration-artifacts"
-          GENERATED_LEDGER="${RUNNER_TEMP}/calibration-outcome-ledger.json"
-          cp data/calibration/outcome_ledger.json "$GENERATED_LEDGER"
+          LEDGER_BACKUP=$(mktemp -d "${RUNNER_TEMP}/calibration-outcome-ledger.XXXXXX")
+          GENERATED_LEDGER="${LEDGER_BACKUP}/outcome_ledger"
+          if [ -d data/calibration/outcome_ledger ]; then
+            cp -R data/calibration/outcome_ledger "$GENERATED_LEDGER"
+          fi
+          if [ -f data/calibration/outcome_ledger.json ]; then
+            cp data/calibration/outcome_ledger.json "${GENERATED_LEDGER}.json"
+          fi
           rm -rf "$GENERATED_CALIBRATION"
           mkdir -p "$GENERATED_CALIBRATION"
           # Team history is input. Merge outcome rows separately so saved
           # training artifacts cannot overwrite concurrent publications or grades.
           for artifact in data/calibration/*; do
             case "$artifact" in
-              data/calibration/team_prop_pregame_ledger|data/calibration/team_prop_pregame_ledger.json|data/calibration/outcome_ledger.json) continue ;;
+              data/calibration/team_prop_pregame_ledger|data/calibration/team_prop_pregame_ledger.json|data/calibration/outcome_ledger|data/calibration/outcome_ledger.json) continue ;;
             esac
             cp -R "$artifact" "$GENERATED_CALIBRATION"/
           done

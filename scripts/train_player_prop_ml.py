@@ -24,7 +24,8 @@ from player_props.ml import (  # noqa: E402
     market_family_for_stat,
 )
 from player_props.schema import american_implied_probability, safe_float  # noqa: E402
-from scripts.pick_calibration import rebuild_outcome_ledger, read_json  # noqa: E402
+from scripts.pick_calibration import rebuild_outcome_ledger  # noqa: E402
+from scripts.outcome_ledger_store import load_outcome_ledger  # noqa: E402
 
 
 MLB_FAMILIES = [
@@ -85,7 +86,7 @@ def _ledger_rows(
     sport: str,
     season: int,
 ) -> tuple[list[list[float]], list[int], list[str], list[float], list[float]]:
-    ledger = read_json(repo_root / "data" / "calibration" / "outcome_ledger.json") or {}
+    ledger = load_outcome_ledger(repo_root) or {}
     rows: list[list[float]] = []
     labels: list[int] = []
     dates: list[str] = []

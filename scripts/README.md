@@ -15,7 +15,7 @@ The active production automation uses GitHub Actions plus local Codex morning an
 | `archive_player_prop_snapshot.py` | Freezes every published prop slate so later refreshes cannot rewrite its measured record. |
 | `auto_grade_picks.py` | Grades completed games through ESPN and rebuilds the universal outcome ledger. |
 | `settlement_support.py` | Keeps MLS total/handicap settlement restricted to verified whole and half goal lines. |
-| `rebuild_pick_outcome_ledger.py` | Deduplicates all model and player-prop picks into `data/calibration/outcome_ledger.json`. |
+| `rebuild_pick_outcome_ledger.py` | Deduplicates all model and player-prop picks into daily shards in `data/calibration/outcome_ledger/`. |
 | `train_pick_calibration.py` | Evaluates a shrinkage-based probability calibrator against the active champion. |
 | `pick_calibration.py` | Preserves immutable pregame snapshots and applies the promoted calibrator to refresh payloads. |
 | `team_prop_pregame_ledger.py` | Loads ordered certified history from daily shards; migrate with `python -m scripts.team_prop_pregame_ledger --migrate`. |
@@ -47,3 +47,23 @@ python3 scripts/train_pick_calibration.py
 python3 scripts/nfl_staking_approval.py --output /tmp/nfl-staking-status.json
 python3 -m pytest tests/smoke/test_static_viewer.py -q
 ```
+
+The outcome ledger lives in `data/calibration/outcome_ledger/`. Its index stores
+the original root metadata, including schema and summary, and lists daily JSON
+arrays with one compact record per line. Readers use
+`scripts.outcome_ledger_store.load_outcome_ledger`; writers use
+`write_outcome_ledger`. Records retain canonical `(date, model_key, id)` order.
+Days exceeding 8 MB split into numbered parts; the repository size check caps
+each shard at 10 MB. No sequence wrapper is needed.
+
+Migrate a legacy monolith with `python -m scripts.outcome_ledger_store --migrate`.
+Add `--merge-from ROOT` to union a saved repository's ledger, preserving current
+settled rows and grader retractions. Both commands are idempotent. Reads also
+union a late legacy file with indexed shards; successful writes remove the
+monolith after installing the shards and index. Missing or corrupt indexed
+history raises an error. Rebuilds remain authoritative replacements; publication
+retries explicitly merge their saved output with current history before writing.
+
+The scorecard keeps its historical `outcome_ledger.json` source identifier for
+compatibility while reading through the store. Calibration state and player-prop
+training fingerprints depend on counts or logical training rows, not shard paths.

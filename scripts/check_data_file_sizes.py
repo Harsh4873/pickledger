@@ -11,7 +11,10 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parents[1]
 MAX_JSON_BYTES = 50_000_000
 MAX_LEDGER_SHARD_BYTES = 10_000_000
-LEDGER_DIRECTORY = Path("data/calibration/team_prop_pregame_ledger")
+LEDGER_DIRECTORIES = {
+    Path("data/calibration/team_prop_pregame_ledger"),
+    Path("data/calibration/outcome_ledger"),
+}
 
 
 def oversized_data_files(repo_root: Path = REPO_ROOT) -> list[tuple[str, int, int]]:
@@ -26,7 +29,7 @@ def oversized_data_files(repo_root: Path = REPO_ROOT) -> list[tuple[str, int, in
         path = repo_root / relative
         if relative.suffix != ".json" or not path.is_file():
             continue
-        limit = MAX_LEDGER_SHARD_BYTES if relative.parent == LEDGER_DIRECTORY else MAX_JSON_BYTES
+        limit = MAX_LEDGER_SHARD_BYTES if relative.parent in LEDGER_DIRECTORIES else MAX_JSON_BYTES
         size = path.stat().st_size
         if size > limit:
             oversized.append((name, size, limit))
@@ -41,7 +44,7 @@ def main() -> int:
     for name, size, limit in oversized:
         print(f"{name}: {size:,} bytes exceeds {limit:,}; shard this data before publishing")
     if not oversized:
-        print("Data JSON sizes are within limits (50 MB per file; 10 MB per team ledger shard).")
+        print("Data JSON sizes are within limits (50 MB per file; 10 MB per calibration ledger shard).")
     return int(bool(oversized))
 
 
