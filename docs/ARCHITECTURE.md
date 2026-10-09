@@ -138,6 +138,22 @@ forces evaluation against a clean identity champion.
 
 `scripts/cache_manifest.py` updates the dated-cache manifest whenever model or feed caches are written or merged.
 
+## NBA player props
+
+`nba_player_props` scores ESPN posted DraftKings markets with the four heuristic
+variants (season, all-time, hot L10, matchup H2H) over ESPN gamelogs. There is no
+trained NBA prop artifact: `player_props/ml.py` routes NBA to its own
+`nba_player_props_ml.joblib` (absent, so it scores from the market-anchored
+projection baseline and never borrows the WNBA artifact), and the season/history
+consensus gate has no NBA entry, so no NBA market can publish or stake. Priced
+NBA rows still flow to `research_candidates` and the Profit Desk player-prop
+research shortlist at 0u. ESPN's season phase is stamped as `season_type`;
+preseason or unverified-season rows are labeled `NBA PRESEASON — research/entertainment
+only`, single only, never in parlays or Edge/Prop Doubles, at most two, ranked
+after regular-season rows. Activating an NBA market needs a trained season/history
+artifact whose chronological validation and later holdout both clear the same
+70% accuracy and sample floors the other sports use.
+
 ## NFL/CFB player props
 
 NFL player props use the ESPN posted-market consensus path. CFB uses the public

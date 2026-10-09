@@ -2252,11 +2252,25 @@ RESEARCH_SHORTLIST_PROPS_MAX_PER_GAME = 2
 # cannot crowd out other sports.
 RESEARCH_SHORTLIST_PROPS_MAX_NHL = 2
 NHL_SHADOW_PROP_LABEL = "NHL SHADOW — research only"
+# NBA has no trained prop artifact (consensus gate unconfigured), so every NBA
+# prop is research.  Preseason / unverified-season NBA rows are shown labeled
+# as entertainment instead of being dropped: single only, never in parlays or
+# Edge/Prop Doubles, capped, and ranked after regular-season rows of other sports.
+RESEARCH_SHORTLIST_PROPS_MAX_NBA_PRESEASON = 2
+NBA_PRESEASON_PROP_LABEL = "NBA PRESEASON — research/entertainment only"
+NBA_RESEARCH_PROP_LABEL = "NBA RESEARCH — no trained NBA prop model"
 RESEARCH_SHORTLIST_PROPS_CAUTION = {
     "wnba": "WNBA props are research-only after the July audit measured -24% flat ROI.",
     "cfb": "CFB props are an uncalibrated history baseline (single variant).",
     "nfl": "NFL props are an uncalibrated history baseline (single variant).",
+    "nba": "NBA props have no trained NBA artifact: heuristic variants on ESPN gamelogs, research only.",
 }
+
+
+def _nba_prop_preseason(record: Mapping[str, Any]) -> bool:
+    """NBA prop rows count as preseason unless ESPN stamped a verified season phase."""
+    season_type = _shortlist_season_type(record)
+    return season_type in _PRESEASON_SEASON_TYPES or season_type not in _NBA_VERIFIED_SEASON_TYPES
 
 
 def _nhl_prop_record(record: Mapping[str, Any]) -> dict[str, Any] | None:
@@ -2355,12 +2369,20 @@ def build_desk_research_shortlist_props(
         sport = _text(_first(record, "sport", "league")) or _text(context.bucket.get("sport"))
         sport_key = _norm(sport)
         nhl_shadow = record.get("nhl_shadow_prop") is True
+        nba_preseason = False
+        if sport_key == "nba" and not nhl_shadow and not context.source_key.lower().startswith("nba_playoffs"):
+            nba_preseason = _nba_prop_preseason(record)
         if nhl_shadow:
             # The game-line NHL exclusion does not apply: these are explicitly
             # labeled shadow research props, single only and capped below.
             reason = "shadow_model" if record.get("shadow_mode") is True else None
             if reason is None and _shortlist_season_type(record) in _PRESEASON_SEASON_TYPES:
                 reason = "preseason"
+        elif sport_key == "nba":
+            # Labeled below instead of the blanket NBA preseason exclusion.
+            reason = "shadow_model" if record.get("shadow_mode") is True else None
+            if reason is None and _is_scraped_odds_source(context.source_key):
+                reason = "scraped_only_feed"
         else:
             reason = _shortlist_exclusion(
                 RecordContext(
@@ -2429,7 +2451,15 @@ def build_desk_research_shortlist_props(
         if edge > RESEARCH_SHORTLIST_MAX_EDGE:
             excluded["implausible_model_gap"] += 1
             continue
-        single_only = odds <= RESEARCH_SHORTLIST_FILLER_ODDS or nhl_shadow
+        single_only = odds <= RESEARCH_SHORTLIST_FILLER_ODDS or nhl_shadow or nba_preseason
+        if nhl_shadow:
+            research_label = NHL_SHADOW_PROP_LABEL
+        elif nba_preseason:
+            research_label = NBA_PRESEASON_PROP_LABEL
+        elif sport_key == "nba" and record.get("consensus_qualified") is not True:
+            research_label = NBA_RESEARCH_PROP_LABEL
+        else:
+            research_label = None
         supporting = [str(v) for v in (record.get("variants_supporting") or []) if str(v)]
         notes = [
             "0u research only: not model-approved, not a Profit Desk stake, "
@@ -2447,6 +2477,12 @@ def build_desk_research_shortlist_props(
                 f"{NHL_SHADOW_PROP_LABEL}: the NHL model is shadow/research-only. Single only; "
                 "never stacked, never in parlays or Edge/Prop Doubles.",
             )
+        elif nba_preseason:
+            notes.insert(
+                0,
+                f"{NBA_PRESEASON_PROP_LABEL}: preseason minutes are unknown and stars sit. Single only; "
+                "never stacked, never in parlays or Edge/Prop Doubles.",
+            )
         elif single_only:
             notes.append(
                 f"Priced at or shorter than {RESEARCH_SHORTLIST_FILLER_ODDS}: single only, never a filler leg."
@@ -2461,6 +2497,9 @@ def build_desk_research_shortlist_props(
                 "label": RESEARCH_SHORTLIST_LABEL,
                 "shadowLabel": NHL_SHADOW_PROP_LABEL if nhl_shadow else None,
                 "nhlShadow": nhl_shadow,
+                "researchLabel": research_label,
+                "nbaPreseason": nba_preseason,
+                "seasonType": _shortlist_season_type(record) or None,
                 "parlayEligible": False,
                 "stakeUnits": 0,
                 "modelApproved": False,
@@ -2505,14 +2544,28 @@ def build_desk_research_shortlist_props(
         )
 
     # NHL shadow rows rank after every non-shadow prop so they cannot lead the list.
-    eligible.sort(key=lambda row: (row["nhlShadow"], -row["modelProbability"], -row["edge"], row["sourceKey"], row["pick"]))
+    # NBA preseason rows rank after regular-season rows but ahead of NHL shadow rows.
+    eligible.sort(
+        key=lambda row: (
+            row["nhlShadow"],
+            row["nbaPreseason"],
+            -row["modelProbability"],
+            -row["edge"],
+            row["sourceKey"],
+            row["pick"],
+        )
+    )
     rows: list[dict[str, Any]] = []
     per_game: dict[str, int] = defaultdict(int)
     seen_players: set[tuple[str, str]] = set()
     nhl_rows = 0
+    nba_preseason_rows = 0
     for row in eligible:
         if row["nhlShadow"] and nhl_rows >= RESEARCH_SHORTLIST_PROPS_MAX_NHL:
             excluded["nhl_shadow_cap"] += 1
+            continue
+        if row["nbaPreseason"] and nba_preseason_rows >= RESEARCH_SHORTLIST_PROPS_MAX_NBA_PRESEASON:
+            excluded["nba_preseason_cap"] += 1
             continue
         player_key = (row["canonicalGame"], _norm(row["player"] or row["pick"]))
         if player_key in seen_players:
@@ -2525,6 +2578,7 @@ def build_desk_research_shortlist_props(
         seen_players.add(player_key)
         per_game[row["canonicalGame"]] += 1
         nhl_rows += int(row["nhlShadow"])
+        nba_preseason_rows += int(row["nbaPreseason"])
         rows.append(row)
         if len(rows) >= max_rows:
             break
@@ -2542,7 +2596,7 @@ def build_desk_research_shortlist_props(
         "eligibleRows": len(eligible),
         "excluded": dict(sorted(excluded.items())),
         "criteria": {
-            "rankedBy": "research probability (lowest of the agreeing prop variants), then edge; NHL shadow rows after all others",
+            "rankedBy": "research probability (lowest of the agreeing prop variants), then edge; NBA preseason rows after regular-season rows; NHL shadow rows after all others",
             "requiresObservedPregamePrice": True,
             "priceClock": "props refresh time (quotes are read live; the book's own stamp is when the line last moved)",
             "edgeBaseline": "two-sided no-vig when both sides are quoted, else posted break-even (vig included)",
@@ -2555,8 +2609,9 @@ def build_desk_research_shortlist_props(
             "maximumPerGame": RESEARCH_SHORTLIST_PROPS_MAX_PER_GAME,
             "maximumNhlShadowRows": RESEARCH_SHORTLIST_PROPS_MAX_NHL,
             "nhlShadowProps": f"included as '{NHL_SHADOW_PROP_LABEL}', always single only, never in parlays",
+            "maximumNbaPreseasonRows": RESEARCH_SHORTLIST_PROPS_MAX_NBA_PRESEASON,
+            "nbaPreseasonProps": f"included as '{NBA_PRESEASON_PROP_LABEL}', always single only, never in parlays",
             "excludes": [
-                "NBA preseason / unmarked NBA season",
                 "tennis",
                 "settled, stale, or post-start prices",
                 "assumed or unverified prices",

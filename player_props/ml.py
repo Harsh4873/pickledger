@@ -90,13 +90,13 @@ SPORT_ARTIFACTS = {
         "metadata": ARTIFACT_DIR / "wnba_player_props_ml_metadata.json",
         "artifact_sport": "WNBA",
     },
-    # No NBA training data has been captured yet, so NBA props borrow the
-    # WNBA artifact. Cross-sport-scored picks are labeled and capped at LEAN
-    # until a native NBA artifact exists.
+    # NBA is native and fail-closed. No NBA prop artifact has been trained
+    # yet, so NBA props score from their own ESPN projection baseline
+    # (market-anchored, model inactive) and never borrow the WNBA artifact.
     "NBA": {
-        "model": ARTIFACT_DIR / "wnba_player_props_ml.joblib",
-        "metadata": ARTIFACT_DIR / "wnba_player_props_ml_metadata.json",
-        "artifact_sport": "WNBA",
+        "model": ARTIFACT_DIR / "nba_player_props_ml.joblib",
+        "metadata": ARTIFACT_DIR / "nba_player_props_ml_metadata.json",
+        "artifact_sport": "NBA",
     },
     # Football stays native and fail-closed: no basketball artifact borrowing.
     "NFL": {
@@ -119,6 +119,7 @@ def artifact_sport_for(sport: str) -> str | None:
     return str(artifact.get("artifact_sport") or "") or None
 
 _BUNDLES: dict[str, dict[str, Any] | None] = {}
+_MISSING_LOGGED: set[str] = set()
 
 
 def _clamp(value: float, low: float = 0.01, high: float = 0.99) -> float:
@@ -174,6 +175,17 @@ def load_ml_bundle(sport: str) -> dict[str, Any] | None:
     cache_key = normalized
     if cache_key in _BUNDLES:
         return _BUNDLES[cache_key]
+    if not Path(artifact["model"]).exists():
+        # A native artifact that was never trained is an expected fail-closed
+        # state (NBA/NFL/CFB), not a load error; log it once per sport.
+        if cache_key not in _MISSING_LOGGED:
+            _MISSING_LOGGED.add(cache_key)
+            print(
+                f"[player-props-ml] no trained artifact sport={cache_key} path={artifact['model']}; "
+                "scoring from the projection baseline",
+                file=sys.stderr,
+            )
+        return None
     metadata = _load_json(artifact["metadata"])
     try:
         import joblib  # type: ignore

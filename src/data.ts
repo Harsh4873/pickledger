@@ -426,6 +426,9 @@ export interface ProfitDeskResearchRow {
   lineLastMovedAt?: string | null;
   shadowLabel?: string | null;
   nhlShadow?: boolean;
+  researchLabel?: string | null;
+  nbaPreseason?: boolean;
+  seasonType?: string | null;
   parlayEligible?: boolean;
 }
 

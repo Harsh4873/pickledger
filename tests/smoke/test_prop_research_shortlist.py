@@ -175,9 +175,6 @@ def test_props_research_shortlist_exclusions():
             _candidate(pick="Settled", player_name="Settled", result="win"),
             _candidate(pick="Assumed", player_name="Assumed", market_priced=False, odds_source="assumed_-110"),
         ]},
-        "nba_player_props": {"ok": True, "picks": [], "research_candidates": [
-            _candidate(pick="Preseason", player_name="Pre", sport="NBA", research_probability=0.70),
-        ]},
         "mlb_player_props": {"ok": False, "picks": [], "research_candidates": [
             _candidate(pick="Broken bucket", player_name="Broken", sport="MLB"),
         ]},
@@ -186,7 +183,7 @@ def test_props_research_shortlist_exclusions():
     assert [row["pick"] for row in shortlist["rows"]] == ["Keep"]
     for reason in (
         "negative_edge", "implausible_model_gap", "outside_price_band", "not_fresh_pregame",
-        "already_settled", "no_observed_price", "nba_preseason_or_unverified_season",
+        "already_settled", "no_observed_price",
     ):
         assert shortlist["excluded"].get(reason, 0) == 1, reason
 
@@ -287,3 +284,81 @@ def test_nba_without_a_consensus_model_says_so_plainly():
 
     # The plain reason must still block the ML fallback, like the old wording.
     assert _consensus_allows_ml_fallback("no NBA consensus model configured") is False
+
+
+def _nba(**overrides) -> dict:
+    base = dict(
+        sport="NBA", game_id="b1", matchup="Echo Elks @ Fox Foxes", away_team="Echo Elks", home_team="Fox Foxes",
+        consensus_rejection_reason="no NBA consensus model configured", market_under_odds=None,
+        research_baseline_kind="break_even", research_baseline_probability=0.565217,
+        variants_supporting=["season", "matchup_h2h"],
+    )
+    base.update(overrides)
+    return _candidate(**base)
+
+
+def test_nba_preseason_props_are_labeled_single_only_capped_and_ranked_after_regular_rows():
+    nba_rows = [
+        _nba(pick="Ana Hoop Over 20.5 Points", player_name="Ana Hoop", research_probability=0.66, season_type="preseason"),
+        # Unstamped season phase is treated as preseason, never trusted as regular season.
+        _nba(pick="Bo Rim Over 7.5 Rebounds", player_name="Bo Rim", research_probability=0.65, season_type=None,
+             game_id="b2", matchup="Golf Gnus @ Hotel Hens", away_team="Golf Gnus", home_team="Hotel Hens"),
+        _nba(pick="Cy Net Over 5.5 Assists", player_name="Cy Net", research_probability=0.64, season_type="1",
+             game_id="b3", matchup="India Ibis @ Juliet Jays", away_team="India Ibis", home_team="Juliet Jays"),
+    ]
+    props = _props_payload({
+        "wnba_player_props": {"ok": True, "picks": [], "research_candidates": [_candidate(research_probability=0.58)]},
+        "nba_player_props": {"ok": True, "picks": [], "research_candidates": nba_rows},
+    })
+    shortlist = desk.build_desk_research_shortlist_props(DATE, props)
+    rows = shortlist["rows"]
+    assert [row["sport"] for row in rows] == ["WNBA", "NBA", "NBA"]
+    assert [row["player"] for row in rows[1:]] == ["Ana Hoop", "Bo Rim"]
+    assert shortlist["excluded"]["nba_preseason_cap"] == 1
+    assert "nba_preseason_or_unverified_season" not in shortlist["excluded"]
+    for row in rows[1:]:
+        assert row["nbaPreseason"] is True
+        assert row["researchLabel"] == "NBA PRESEASON — research/entertainment only"
+        assert row["shadowLabel"] is None and row["nhlShadow"] is False
+        assert row["singleOnly"] is True and row["parlayEligible"] is False
+        assert row["stakeUnits"] == 0 and row["modelApproved"] is False
+        assert any("never in parlays" in note for note in row["notes"])
+        assert any("no NBA consensus model configured" in note for note in row["notes"])
+    assert all(r["sport"] != "NBA" for r in desk.build_desk_research_shortlist(DATE, None, props)["rows"])
+
+
+def test_nba_regular_season_props_rank_normally_as_research():
+    props = _props_payload({
+        "wnba_player_props": {"ok": True, "picks": [], "research_candidates": [_candidate(research_probability=0.58)]},
+        "nba_player_props": {"ok": True, "picks": [], "research_candidates": [
+            _nba(pick="Ana Hoop Over 20.5 Points", player_name="Ana Hoop", research_probability=0.66, season_type="regular"),
+        ]},
+    })
+    rows = desk.build_desk_research_shortlist_props(DATE, props)["rows"]
+    assert [row["sport"] for row in rows] == ["NBA", "WNBA"]
+    nba = rows[0]
+    assert nba["nbaPreseason"] is False
+    assert nba["researchLabel"] == "NBA RESEARCH — no trained NBA prop model"
+    assert nba["stakeUnits"] == 0 and nba["parlayEligible"] is False
+
+
+def test_nba_props_use_native_fail_closed_ml_artifact_not_wnba():
+    from player_props import ml
+
+    assert ml.artifact_sport_for("NBA") == "NBA"
+    assert "wnba" not in str(ml.SPORT_ARTIFACTS["NBA"]["model"]).lower()
+    pick = {"sport": "NBA", "stat_key": "points", "line": 20.5, "selection": "Over", "odds": -120,
+            "market_priced": True, "projection": 23.0}
+    ml.apply_ml_to_pick(pick, baseline_probability=0.62, baseline_projection=23.0, apply_precision=False)
+    assert pick.get("cross_sport_artifact") is None and pick.get("ml_artifact_sport") is None
+    assert pick["ml_model_active"] is False
+    assert pick["ml_probability_mode"] == "market_anchor_validation_gate"
+
+
+def test_basketball_event_season_type_maps_espn_phase():
+    from player_props.basketball import event_season_type
+
+    assert event_season_type({"season": {"year": 2027, "type": 1, "slug": "preseason"}}) == "preseason"
+    assert event_season_type({"season": {"type": 2}}) == "regular"
+    assert event_season_type({"season": {"slug": "post-season"}}) == "postseason"
+    assert event_season_type({}) is None

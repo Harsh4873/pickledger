@@ -27,6 +27,9 @@ MODEL_PATHS = {
     ("NFL", "history"): ARTIFACT_DIR / "nfl_player_props_history.joblib",
     ("CFB", "season"): ARTIFACT_DIR / "cfb_player_props_season.joblib",
     ("CFB", "history"): ARTIFACT_DIR / "cfb_player_props_history.joblib",
+    # NBA is intentionally absent: no NBA season/history artifact has been
+    # trained, so NBA props fail closed ("no NBA consensus model configured")
+    # and stay research-only rather than borrowing another sport's model.
 }
 
 OUTCOME_FEATURES = [

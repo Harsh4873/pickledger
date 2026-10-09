@@ -766,6 +766,7 @@ def _game_props(
                         "opponent_record_pct": round(opponent_record_pct, 4) if opponent_record_pct is not None else None,
                         "matchup_notes": matchup_factors,
                         "sample_games": player["games"],
+                        "season_type": event_season_type(event),
                         "injury_status": str(injury.get("status") or "Healthy"),
                         "redistribution_from": injured_stars,
                         **three_point_details,
@@ -812,6 +813,34 @@ def _is_exhibition(event: dict[str, Any]) -> bool:
         if kind in EXHIBITION_COMPETITION_TYPES:
             return True
     return False
+
+
+_ESPN_SEASON_TYPES = {1: "preseason", 2: "regular", 3: "postseason", 4: "offseason", 5: "play-in"}
+
+
+def event_season_type(event: dict[str, Any]) -> str | None:
+    """ESPN's season phase for one event (preseason / regular / postseason).
+
+    Props rows carry it so downstream research views can label October NBA
+    preseason games as entertainment instead of guessing from the date.
+    """
+    season = event.get("season") if isinstance(event.get("season"), dict) else {}
+    try:
+        type_id = int(season.get("type"))
+    except (TypeError, ValueError):
+        type_id = None
+    if type_id in _ESPN_SEASON_TYPES:
+        return _ESPN_SEASON_TYPES[type_id]
+    slug = str(season.get("slug") or "").strip().lower()
+    if not slug:
+        return None
+    if "pre" in slug:
+        return "preseason"
+    if "post" in slug or "playoff" in slug:
+        return "postseason"
+    if "regular" in slug:
+        return "regular"
+    return slug
 
 
 def _basketball_schedule(
