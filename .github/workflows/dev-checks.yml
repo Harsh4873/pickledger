@@ -18,6 +18,14 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+          lfs: false
+          # Vite uses source/root assets; frontend tests mock cache requests.
+          # Sparse checkout also enables checkout's blob:none fetch filter.
+          sparse-checkout: |
+            src
+            tests
 
       - name: Setup Node
         uses: actions/setup-node@v4
@@ -39,6 +47,16 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+          lfs: false
+          sparse-checkout-cone-mode: false
+          # Tests build temporary training histories. Keep all JSON data for
+          # the size guard, every cache fixture, and all fitted artifacts.
+          sparse-checkout: |
+            /*
+            !/data/player_props_training/*.jsonl
+            !/data/player_props_training/*.jsonl.gz
 
       - name: Set up Python
         uses: actions/setup-python@v5
