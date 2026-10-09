@@ -44,6 +44,35 @@ def nba_transport_failure(key, bucket):
     )
 
 
+def _calendar_date(value):
+    text = str(value or "").strip()
+    if not text:
+        return None
+    try:
+        return datetime.fromisoformat(text[:10]).date()
+    except ValueError:
+        return None
+
+
+def bucket_covers_target(bucket, target):
+    """Today's refresh covers a bucket dated today, undated, or a short lookahead.
+
+    MLB First Five publishes the next pre-game slate when the requested day has
+    no eligible picks. That later slate date is still this window's publish.
+    A yesterday slate, or a future date with no requested_date, stays blocking.
+    """
+    if not isinstance(bucket, dict):
+        return False
+    if bucket.get("date") in (None, "", target):
+        return True
+    slate = _calendar_date(bucket.get("date"))
+    target_day = _calendar_date(target)
+    requested = _calendar_date(bucket.get("requested_date"))
+    if slate is None or target_day is None or requested != target_day:
+        return False
+    return 0 < (slate - target_day).days <= 2
+
+
 def current_window(payload, now):
     slot = latest_slot(now)
     generated = timestamp(payload.get("generatedAt"))
@@ -58,7 +87,7 @@ def blocking_models(payload, now):
     return sorted(key for key in REQUIRED if not nba_transport_failure(key, models.get(key)) and (
         not isinstance(models.get(key), dict)
         or models[key].get("ok") is not True
-        or models[key].get("date") not in (None, "", target)
+        or not bucket_covers_target(models.get(key), target)
     ))
 
 
