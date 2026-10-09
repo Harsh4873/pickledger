@@ -8,6 +8,7 @@ import os
 import statistics
 from datetime import date
 from pathlib import Path
+from threading import RLock
 from typing import Any
 
 from .precision import CATEGORICAL_FEATURES, NUMERIC_FEATURES, history_features
@@ -143,6 +144,85 @@ def build_outcome_training_features(
     return features, profiles
 
 
+class _ArtifactCache(dict):
+    """Deserialize sport artifacts on lookup; enumeration still returns all."""
+
+    def __init__(self, paths):
+        super().__init__()
+        self._pending = dict(paths)
+        self._order = tuple(paths)
+        self._lock = RLock()
+
+    def _load(self, key):
+        with self._lock:
+            path = self._pending.pop(key, None)
+            if path is not None:
+                import joblib
+
+                try:
+                    dict.__setitem__(self, key, joblib.load(path))
+                except Exception:
+                    # Optional/unreadable sport artifacts retain the same miss.
+                    pass
+
+    def get(self, key, default=None):
+        with self._lock:
+            self._load(key)
+            return dict.get(self, key, default)
+
+    def __getitem__(self, key):
+        with self._lock:
+            self._load(key)
+            return dict.__getitem__(self, key)
+
+    def __contains__(self, key):
+        with self._lock:
+            self._load(key)
+            return dict.__contains__(self, key)
+
+    def __bool__(self):
+        # Keep the original availability gate: at least one readable artifact.
+        # Empty slates need metadata, but do not need every sport's profiles.
+        with self._lock:
+            for key in self._order:
+                if dict.__len__(self):
+                    return True
+                self._load(key)
+            return dict.__len__(self) > 0
+
+    def _materialize(self):
+        with self._lock:
+            for key in self._order:
+                self._load(key)
+            ordered = [(key, dict.__getitem__(self, key)) for key in self._order if dict.__contains__(self, key)]
+            dict.clear(self)
+            dict.update(self, ordered)
+
+    def __iter__(self):
+        self._materialize()
+        return dict.__iter__(self)
+
+    def __len__(self):
+        self._materialize()
+        return dict.__len__(self)
+
+    def keys(self):
+        self._materialize()
+        return dict.keys(self)
+
+    def items(self):
+        self._materialize()
+        return dict.items(self)
+
+    def values(self):
+        self._materialize()
+        return dict.values(self)
+
+    def copy(self):
+        self._materialize()
+        return dict.copy(self)
+
+
 def load_consensus_bundle() -> dict[str, Any] | None:
     global _BUNDLE
     if os.environ.get("PICKLEDGER_DISABLE_PRECISION_MODEL", "").strip().lower() in {"1", "true", "yes"}:
@@ -150,19 +230,10 @@ def load_consensus_bundle() -> dict[str, Any] | None:
     if _BUNDLE is not False:
         return _BUNDLE if isinstance(_BUNDLE, dict) else None
     try:
-        import joblib  # type: ignore
-
         metadata = json.loads(CONSENSUS_METADATA_PATH.read_text(encoding="utf-8"))
-        artifacts = {}
-        for (sport, role), path in MODEL_PATHS.items():
-            if not path.exists():
-                continue
-            try:
-                artifacts[f"{sport}:{role}"] = joblib.load(path)
-            except Exception:
-                # Football joblibs are optional until the first train; a missing
-                # native artifact must not keep MLB/WNBA from loading.
-                continue
+        artifacts = _ArtifactCache({
+            f"{sport}:{role}": path for (sport, role), path in MODEL_PATHS.items() if path.exists()
+        })
         if not artifacts:
             raise OSError("no consensus artifacts are present")
     except (OSError, ValueError, TypeError, json.JSONDecodeError, ImportError):

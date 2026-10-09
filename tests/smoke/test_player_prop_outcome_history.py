@@ -5,6 +5,8 @@ import json
 import sys
 from pathlib import Path
 
+import pytest
+
 
 def _write_markets(path: Path, count: int) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -158,3 +160,95 @@ def test_wnba_outcome_history_writes_three_pointers_made_and_attempts():
     assert threes[0]["opponent_id"] == "20"
     assert threes[0]["team_id"] == "10"
     assert threes[0]["home_away"] == "@"
+
+
+@pytest.fixture
+def recorded_outcomes():
+    return json.loads((Path(__file__).resolve().parents[1] / "fixtures/player_prop_outcomes.json").read_text())
+
+
+def test_refresh_of_identical_recorded_profiles_keeps_gzip_bytes_and_mtime(tmp_path, monkeypatch, recorded_outcomes):
+    from scripts import build_player_prop_outcome_history as history
+
+    output = tmp_path / "outcomes.jsonl.gz"
+    history._write(output, recorded_outcomes)
+    before = output.read_bytes(), output.stat().st_mtime_ns
+    markets = tmp_path / "profiles.jsonl"
+    markets.write_text("".join(json.dumps(row) + "\n" for row in recorded_outcomes))
+    calls = []
+
+    def replay(sport, athlete_id, season):
+        calls.append((sport, athlete_id, season))
+        return sport, season, athlete_id, [
+            row.copy() for row in recorded_outcomes
+            if (row["sport"], row["athlete_id"], row["season"]) == (sport, athlete_id, season)
+        ], None
+
+    monkeypatch.setattr(history, "_fetch", replay)
+    monkeypatch.setattr(sys, "argv", [
+        "history", "--refresh", "--markets", str(markets), "--output", str(output),
+        "--sports", ",".join(sorted({r["sport"] for r in recorded_outcomes})),
+        "--seasons", ",".join(str(s) for s in sorted({r["season"] for r in recorded_outcomes})),
+    ])
+    assert history.main() == 0
+    assert calls
+    assert (output.read_bytes(), output.stat().st_mtime_ns) == before
+
+
+def test_changed_history_matches_previous_gzip_writer_at_fixed_clock(tmp_path, monkeypatch, recorded_outcomes):
+    from scripts import build_player_prop_outcome_history as history
+
+    monkeypatch.setattr(gzip.time, "time", lambda: 1791504000)
+    output = tmp_path / "new" / "history.jsonl.gz"
+    previous = tmp_path / "old" / "history.jsonl.gz"
+    previous.parent.mkdir()
+    # Withhold a real row, then replay the complete profile including duplicates.
+    history._write(output, recorded_outcomes[:-1])
+    rows = recorded_outcomes + recorded_outcomes[:2]
+    expected = sorted({
+        (r["sport"], r["season"], r["event_id"], r["athlete_id"], r["stat_key"]): r for r in rows
+    }.values(), key=lambda r: (r["date"], r["sport"], r["event_id"], r["athlete_id"], r["stat_key"]))
+    with gzip.open(previous, "wt", encoding="utf-8", compresslevel=9) as stream:
+        for row in expected:
+            stream.write(json.dumps(row, sort_keys=True) + "\n")
+    assert history._write(output, rows, existing=recorded_outcomes[:-1])
+    assert output.read_bytes() == previous.read_bytes()
+
+
+def test_interrupted_history_write_preserves_committed_gzip(tmp_path, monkeypatch, recorded_outcomes):
+    from scripts import build_player_prop_outcome_history as history
+
+    output = tmp_path / "history.jsonl.gz"
+    history._write(output, recorded_outcomes[:1])
+    before = output.read_bytes()
+    original = json.dumps
+    count = 0
+
+    def interrupted(row, **kwargs):
+        nonlocal count
+        count += 1
+        if count == 2:
+            raise OSError("write interrupted")
+        return original(row, **kwargs)
+
+    monkeypatch.setattr(history.json, "dumps", interrupted)
+    with pytest.raises(OSError, match="interrupted"):
+        history._write(output, recorded_outcomes)
+    assert output.read_bytes() == before
+    assert sorted(p.name for p in tmp_path.iterdir()) == [output.name]
+
+
+@pytest.mark.parametrize("extra", ["{\n", "[]\n"])
+def test_invalid_existing_lines_are_repaired_even_without_new_profiles(tmp_path, monkeypatch, recorded_outcomes, extra):
+    from scripts import build_player_prop_outcome_history as history
+
+    output = tmp_path / "history.jsonl.gz"
+    history._write(output, recorded_outcomes)
+    with gzip.open(output, "at", encoding="utf-8") as stream:
+        stream.write(extra)
+    markets = tmp_path / "profiles.jsonl"
+    markets.write_text("")
+    monkeypatch.setattr(sys, "argv", ["history", "--markets", str(markets), "--output", str(output)])
+    assert history.main() == 0
+    with gzip.open(output, "rt", encoding="utf-8") as stream:
+        assert len(stream.readlines()) == len(recorded_outcomes)

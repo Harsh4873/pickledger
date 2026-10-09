@@ -10,9 +10,12 @@ from __future__ import annotations
 
 import argparse
 import gzip
+import io
 import json
 import math
+import os
 import sys
+import tempfile
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
 from pathlib import Path
@@ -94,34 +97,39 @@ def _outs(value: Any) -> float | None:
 
 def _requested_athletes(path: Path, sports: set[str]) -> dict[str, set[str]]:
     athletes = {sport: set() for sport in sports}
-    for line in path.read_text(encoding="utf-8").splitlines():
-        try:
-            row = json.loads(line)
-        except json.JSONDecodeError:
-            continue
-        sport = str(row.get("sport") or "").upper()
-        athlete_id = str(row.get("athlete_id") or "").strip()
-        if sport in athletes and athlete_id:
-            athletes[sport].add(athlete_id)
-    return athletes
-
-
-def _read_existing(path: Path) -> tuple[list[dict[str, Any]], set[tuple[str, int, str]]]:
-    if not path.exists():
-        return [], set()
-    rows: list[dict[str, Any]] = []
-    completed: set[tuple[str, int, str]] = set()
-    with gzip.open(path, "rt", encoding="utf-8") as handle:
+    with path.open(encoding="utf-8") as handle:
         for line in handle:
             try:
                 row = json.loads(line)
             except json.JSONDecodeError:
                 continue
+            sport = str(row.get("sport") or "").upper()
+            athlete_id = str(row.get("athlete_id") or "").strip()
+            if sport in athletes and athlete_id:
+                athletes[sport].add(athlete_id)
+    return athletes
+
+
+def _read_existing(path: Path) -> tuple[list[dict[str, Any]], set[tuple[str, int, str]], bool]:
+    """Return rows, completed profiles and whether every stored line was valid."""
+    if not path.exists():
+        return [], set(), False
+    rows: list[dict[str, Any]] = []
+    completed: set[tuple[str, int, str]] = set()
+    valid = True
+    with gzip.open(path, "rt", encoding="utf-8") as handle:
+        for line in handle:
+            try:
+                row = json.loads(line)
+            except json.JSONDecodeError:
+                valid = False
+                continue
             if not isinstance(row, dict):
+                valid = False
                 continue
             rows.append(row)
             completed.add((str(row.get("sport") or ""), int(row.get("season") or 0), str(row.get("athlete_id") or "")))
-    return rows, completed
+    return rows, completed, valid
 
 
 def _event_rows(sport: str, athlete_id: str, season: int, payload: dict[str, Any]) -> list[dict[str, Any]]:
@@ -300,7 +308,9 @@ def _fetch(sport: str, athlete_id: str, season: int) -> tuple[str, int, str, lis
         return sport, season, athlete_id, [], str(exc)
 
 
-def _write(path: Path, rows: list[dict[str, Any]]) -> None:
+def _write(
+    path: Path, rows: list[dict[str, Any]], *, existing: list[dict[str, Any]] | None = None,
+) -> bool:
     deduped = {
         (row["sport"], row["season"], row["event_id"], row["athlete_id"], row["stat_key"]): row
         for row in rows
@@ -308,10 +318,28 @@ def _write(path: Path, rows: list[dict[str, Any]]) -> None:
     ordered = sorted(deduped.values(), key=lambda row: (
         row["date"], row["sport"], row["event_id"], row["athlete_id"], row["stat_key"]
     ))
+    # Refreshed profiles commonly repeat the committed rows. Avoid serializing
+    # and compressing the entire corpus, including a changing gzip timestamp.
+    if existing is not None and ordered == existing and path.is_file():
+        return False
     path.parent.mkdir(parents=True, exist_ok=True)
-    with gzip.open(path, "wt", encoding="utf-8", compresslevel=9) as handle:
-        for row in ordered:
-            handle.write(json.dumps(row, sort_keys=True) + "\n")
+    temporary = None
+    try:
+        with tempfile.NamedTemporaryFile(dir=path.parent, prefix=f".{path.name}.", suffix=".tmp", delete=False) as stream:
+            temporary = Path(stream.name)
+            # Keep the original header filename and compression level so changed
+            # histories retain the same gzip representation at a fixed clock.
+            with gzip.GzipFile(filename=path.name, mode="wb", fileobj=stream, compresslevel=9) as compressed:
+                with io.TextIOWrapper(compressed, encoding="utf-8") as handle:
+                    for row in ordered:
+                        handle.write(json.dumps(row, sort_keys=True) + "\n")
+            stream.flush()
+            os.fsync(stream.fileno())
+        temporary.replace(path)
+    finally:
+        if temporary is not None:
+            temporary.unlink(missing_ok=True)
+    return True
 
 
 def _fetch_task_batch(
@@ -347,7 +375,7 @@ def main() -> int:
     if unknown:
         raise SystemExit(f"Unsupported sport(s): {', '.join(sorted(unknown))}")
     athletes = _requested_athletes(args.markets.resolve(), sports)
-    existing, completed = _read_existing(args.output.resolve())
+    existing, completed, valid_existing = _read_existing(args.output.resolve())
     tasks = [
         (sport, athlete_id, season)
         for sport in sorted(sports)
@@ -375,7 +403,7 @@ def main() -> int:
             rows=rows,
             label="retry",
         )
-    _write(args.output.resolve(), rows)
+    _write(args.output.resolve(), rows, existing=existing if valid_existing else None)
     failure_rate = len(failures) / len(tasks) if tasks else 0.0
     ok = bool(rows) and failure_rate <= max(0.0, float(args.max_failure_rate))
     if failures and ok:
