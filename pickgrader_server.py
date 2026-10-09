@@ -1803,8 +1803,242 @@ def parse_matchup(pick_text: str) -> tuple[str, str] | None:
     return parts[0].strip(), parts[1].strip()
 
 
+
+# NHL player props publish as DraftKings O/U markets, e.g.
+# "Sean Walker Sean Walker Points O/U under 0.5 (FLA @ CAR)". The generic
+# text parser does not know hockey stats, and the pick used to fall through to
+# grade_pick, whose full-game total regex read "under 0.5" as a GAME total
+# (every Over won, every Under lost). Parse them explicitly instead.
+NHL_PLAYER_PROP_STATS = {
+    "points": "nhl_points",
+    "player points": "nhl_points",
+    "assists": "nhl_assists",
+    "player assists": "nhl_assists",
+    "goals": "nhl_goals",
+    "player goals": "nhl_goals",
+    "shots on goal": "nhl_shots_on_goal",
+    "player shots on goal": "nhl_shots_on_goal",
+    "shots": "nhl_shots_on_goal",
+    "sog": "nhl_shots_on_goal",
+    "saves": "nhl_saves",
+    "goalie saves": "nhl_saves",
+    "goaltender saves": "nhl_saves",
+    "blocked shots": "nhl_blocked_shots",
+}
+_NHL_PROP_TEXT_RE = re.compile(
+    r"^(?P<label>.+?)\s+O/U\s+(?P<side>over|under)\s+(?P<line>\d+(?:\.\d+)?)",
+    flags=re.IGNORECASE,
+)
+
+
+def _is_nhl_pick(payload: dict[str, Any]) -> bool:
+    return str(payload.get("sport") or payload.get("league") or "").strip().upper() == "NHL"
+
+
+def is_nhl_player_prop_pick(pick: dict[str, Any] | str) -> bool:
+    payload = pick if isinstance(pick, dict) else {}
+    if not _is_nhl_pick(payload):
+        return False
+    market = str(payload.get("market") or payload.get("market_type") or "").strip().lower()
+    if market in {"player_props", "player_prop"}:
+        return True
+    return bool(_NHL_PROP_TEXT_RE.search(str(payload.get("pick") or "")))
+
+
+def _nhl_stat_core(label: str, player_name: str) -> str:
+    core = re.sub(r"\bo/u\b", " ", str(label or ""), flags=re.IGNORECASE)
+    if player_name:
+        core = re.sub(re.escape(player_name), " ", core, flags=re.IGNORECASE)
+    return re.sub(r"\s+", " ", core).strip().lower()
+
+
+def parse_nhl_player_prop_pick(pick: dict[str, Any] | str) -> dict[str, Any] | None:
+    """Parse an NHL O/U player prop from its structured fields or pick text."""
+    payload = pick if isinstance(pick, dict) else {}
+    if not is_nhl_player_prop_pick(payload):
+        return None
+    pick_text = str(payload.get("pick") or "")
+    text_m = _NHL_PROP_TEXT_RE.search(pick_text)
+    player_name = str(payload.get("player_name") or payload.get("player") or "").strip()
+    side = str(payload.get("direction") or "").strip().upper()
+    if side not in {"OVER", "UNDER"} and text_m:
+        side = text_m.group("side").upper()
+    line = payload.get("line")
+    if line is None:
+        line = payload.get("market_line")
+    if line is None and text_m:
+        line = text_m.group("line")
+    try:
+        line_value = float(line)
+    except (TypeError, ValueError):
+        return None
+    label = str(payload.get("stat_label") or payload.get("stat") or "").strip()
+    if not label and text_m:
+        label = text_m.group("label")
+    if not player_name and label:
+        # Text-only fallback: DraftKings labels repeat the name
+        # ("Sean Walker Sean Walker Points").
+        words = label.split()
+        for size in range(len(words) // 2, 0, -1):
+            if [w.lower() for w in words[:size]] == [w.lower() for w in words[size:2 * size]]:
+                player_name = " ".join(words[:size])
+                break
+    stat_key = NHL_PLAYER_PROP_STATS.get(_nhl_stat_core(label, player_name))
+    if not player_name or not stat_key or side not in {"OVER", "UNDER"}:
+        return None
+    return {
+        "player_name": player_name,
+        "stat_key": stat_key,
+        "selection": side,
+        "line": line_value,
+        "opponent": "",
+        "sport": "NHL",
+    }
+
+
+_NHL_LABEL_KEYS = {"G": "goals", "A": "assists", "S": "shotsTotal", "BS": "blockedShots", "SV": "saves", "TOI": "timeOnIce"}
+
+
+def _nhl_boxscore_rows(summary: dict[str, Any]) -> list[tuple[str, str, str, dict[str, Any]]]:
+    rows: list[tuple[str, str, str, dict[str, Any]]] = []
+    boxscore = summary.get("boxscore", {}) if isinstance(summary, dict) else {}
+    for team_block in boxscore.get("players", []) if isinstance(boxscore, dict) else []:
+        if not isinstance(team_block, dict):
+            continue
+        for section in team_block.get("statistics", []) or []:
+            if not isinstance(section, dict):
+                continue
+            group = str(section.get("name") or "").strip().lower()
+            keys = [str(k) for k in section.get("keys") or []]
+            labels = [str(label).strip().upper() for label in section.get("labels") or []]
+            if not keys:
+                keys = [_NHL_LABEL_KEYS.get(label, label) for label in labels]
+            for athlete in section.get("athletes", []) or []:
+                if not isinstance(athlete, dict):
+                    continue
+                info = athlete.get("athlete") if isinstance(athlete.get("athlete"), dict) else {}
+                stats = athlete.get("stats") or []
+                values = {key: stats[idx] for idx, key in enumerate(keys) if idx < len(stats)}
+                rows.append((group, str(info.get("id") or ""), str(info.get("displayName") or ""), values))
+    return rows
+
+
+def _extract_nhl_player_stat(
+    summary: dict[str, Any] | None,
+    player_name: str,
+    stat_key: str,
+    player_ids: tuple[Any, ...] = (),
+) -> tuple[float | None, str]:
+    """Return (value, status) where status is played, dnp or not_found."""
+    rows = _nhl_boxscore_rows(summary or {})
+    wanted_ids = {str(v) for v in player_ids if v is not None and str(v)}
+    matches = [row for row in rows if wanted_ids and row[1] in wanted_ids]
+    if not matches:
+        exact = _normalize_person_name(player_name)
+        matches = [row for row in rows if exact and _normalize_person_name(row[2]) == exact]
+    if not matches:
+        matches = [row for row in rows if _person_names_match_loose(player_name, row[2])]
+        if len({row[1] or row[2] for row in matches}) > 1:
+            return None, "ambiguous"
+    if not matches:
+        return None, "not_found"
+    group, _, _, values = matches[0]
+
+    def number(key: str) -> float | None:
+        return _summary_stat_value_to_float(values.get(key))
+
+    if stat_key == "nhl_saves":
+        if group != "goalies":
+            return None, "not_found"
+        toi = str(values.get("timeOnIce") or "").strip()
+        if toi in {"", "0:00", "00:00", "--"}:
+            return None, "dnp"
+        return number("saves"), "played"
+    if group == "goalies":
+        return None, "not_found"
+    if not values:
+        return None, "dnp"
+    if stat_key == "nhl_points":
+        goals, assists = number("goals"), number("assists")
+        value = goals + assists if goals is not None and assists is not None else None
+    else:
+        value = number({
+            "nhl_goals": "goals",
+            "nhl_assists": "assists",
+            "nhl_shots_on_goal": "shotsTotal",
+            "nhl_blocked_shots": "blockedShots",
+        }.get(stat_key, ""))
+    return value, "played"
+
+
+_NHL_API_BOX_CACHE: dict[str, Any] = {}
+
+
+def _nhl_api_fetch(url: str) -> dict[str, Any] | None:
+    if url not in _NHL_API_BOX_CACHE:
+        _NHL_API_BOX_CACHE[url] = _fetch_json_url(url)
+    return _NHL_API_BOX_CACHE[url]
+
+
+def nhl_api_player_dressed(pick: dict[str, Any], player_name: str) -> bool | None:
+    """Ask the NHL's own final boxscore whether the player dressed.
+
+    ESPN lists only dressed players, so a missing name is either a scratch or a
+    name mismatch. A scratch voids the prop (push); only treat it as one when
+    the NHL boxscore for the same final game also lacks the player. Returns
+    None when the game cannot be identified or is not final.
+    """
+    away = str(pick.get("away_abbrev") or "").strip().upper()
+    home = str(pick.get("home_abbrev") or "").strip().upper()
+    start = str(pick.get("game_start_time") or pick.get("start_time") or "").strip()
+    try:
+        start_at = datetime.fromisoformat(start.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    if not away or not home or start_at.tzinfo is None:
+        return None
+    game_id = None
+    for offset in (-1, 0):
+        day = (start_at + timedelta(days=offset)).strftime("%Y-%m-%d")
+        board = _nhl_api_fetch(f"https://api-web.nhle.com/v1/score/{day}") or {}
+        for game in board.get("games") or []:
+            if not isinstance(game, dict):
+                continue
+            teams = (str((game.get("awayTeam") or {}).get("abbrev") or "").upper(),
+                     str((game.get("homeTeam") or {}).get("abbrev") or "").upper())
+            if teams == (away, home):
+                game_id = game.get("id")
+                break
+        if game_id:
+            break
+    if not game_id:
+        return None
+    box = _nhl_api_fetch(f"https://api-web.nhle.com/v1/gamecenter/{game_id}/boxscore") or {}
+    if str(box.get("gameState") or "").upper() not in {"OFF", "FINAL"}:
+        return None
+    stats = box.get("playerByGameStats") or {}
+    target = _normalize_person_name(player_name).split()
+    if not target:
+        return None
+    seen_any = False
+    for side in ("awayTeam", "homeTeam"):
+        for group in ("forwards", "defense", "goalies"):
+            for row in (stats.get(side) or {}).get(group) or []:
+                seen_any = True
+                names = (row.get("name") or {}) if isinstance(row, dict) else {}
+                for value in names.values() if isinstance(names, dict) else []:
+                    parts = _normalize_person_name(str(value)).split()
+                    if parts and parts[-1] == target[-1] and parts[0][:1] == target[0][:1]:
+                        if group == "goalies" and str(row.get("toi") or "") in {"", "00:00", "0:00"}:
+                            return False
+                        return True
+    return False if seen_any else None
+
+
 def parse_player_prop_pick(pick: dict[str, Any] | str) -> dict[str, Any] | None:
     payload = pick if isinstance(pick, dict) else {}
+    if is_nhl_player_prop_pick(payload):
+        return parse_nhl_player_prop_pick(payload)
     pick_text = str(payload.get("pick") if isinstance(pick, dict) else pick or "").strip()
     stat_aliases = {
         "pts": "points",
@@ -2550,6 +2784,23 @@ def grade_player_prop_pick(
 
     actual = None
     player_ids = (pick.get("player_id"), pick.get("market_athlete_id"))
+    if prop.get("sport") == "NHL":
+        if not summary:
+            return "pending"
+        actual, status = _extract_nhl_player_stat(summary, str(prop["player_name"]), str(prop["stat_key"]), player_ids)
+        if status == "dnp":
+            return "push"
+        if status == "not_found" and nhl_api_player_dressed(pick, str(prop["player_name"])) is False:
+            # Scratched: DraftKings voids props on players who do not dress.
+            pick["grade_note"] = "void: player did not dress (NHL boxscore)"
+            return "push"
+        if actual is None:
+            pick["grade_anomaly"] = (
+                "stat_extraction_failed" if status == "played"
+                else "ambiguous_player_name" if status == "ambiguous"
+                else "player_not_in_boxscore"
+            )
+            return "pending"
     if str(pick.get("sport") or "").strip().upper() == "MLB" and mlb_live_feed:
         actual = _extract_mlb_live_player_stat(
             mlb_live_feed,
@@ -2594,6 +2845,10 @@ def grade_pick(pick: dict[str, Any], game: dict[str, Any]) -> str:
     if pick.get("grade_supported") is False:
         return "pending"
     if str(pick.get("scope") or "").strip().lower() == "player":
+        return "pending"
+    if is_nhl_player_prop_pick(pick):
+        # Never settle a player prop against the team score/game total.
+        pick["grade_unsupported_reason"] = "nhl_player_prop_unparsed"
         return "pending"
 
     pick_text = re.sub(r"(?<=\d),(?=\d)", ".", str(pick.get("pick", "")))
