@@ -23,6 +23,10 @@ class DirectApiClient:
         self._csv_cache: dict[tuple[str, tuple[tuple[str, str], ...]], list[dict[str, str]]] = {}
 
     def _get(self, url: str, params: dict[str, Any] | None = None) -> dict[str, Any]:
+        # ESPN serves every endpoint over TLS; plain-HTTP port 80 is blocked or
+        # times out on some egress networks, which silently empties a sport.
+        if url.startswith("http://"):
+            url = "https://" + url[len("http://"):]
         normalized = tuple(sorted((str(key), str(value)) for key, value in (params or {}).items()))
         cache_key = (url, normalized)
         if cache_key in self._cache:
