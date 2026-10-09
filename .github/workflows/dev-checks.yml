@@ -51,12 +51,18 @@ jobs:
           fetch-depth: 1
           lfs: false
           sparse-checkout-cone-mode: false
-          # Tests build temporary training histories. Keep all JSON data for
-          # the size guard, every cache fixture, and all fitted artifacts.
+          # Audited smoke inputs: retain complete cache/snapshot fixture sets.
+          # Tests construct training histories; fitted artifacts stay present.
           sparse-checkout: |
             /*
-            !/data/player_props_training/*.jsonl
-            !/data/player_props_training/*.jsonl.gz
+            !/data/
+            /data/calibration/
+            !/data/calibration/team_prop_pregame_ledger/
+            /data/model_cache/
+            /data/player_props_cache/
+            /data/player_props_snapshots/
+            /data/nfl/
+            /data/wnba/
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -72,7 +78,15 @@ jobs:
           pip install pytest
 
       - name: Check committed data file sizes
-        run: python scripts/check_data_file_sizes.py
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          # Check omitted JSON against the index without hydrating its blobs.
+          gh api "repos/${GH_REPO}/git/trees/$(git rev-parse HEAD)?recursive=1" > "${RUNNER_TEMP}/data-tree.json"
+          python scripts/check_data_file_sizes.py --git-tree "${RUNNER_TEMP}/data-tree.json"
 
       - name: Run smoke tests
+        env:
+          PICKLEDGER_DATA_GIT_TREE: ${{ runner.temp }}/data-tree.json
         run: python -m pytest tests/smoke -v

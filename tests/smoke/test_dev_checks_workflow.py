@@ -22,5 +22,7 @@ def test_dev_checks_sparse_checkouts_keep_required_inputs():
     assert configs["frontend"].get("sparse-checkout-cone-mode", "true") == "true"
     assert configs["smoke"]["sparse-checkout-cone-mode"] == "false"
     assert configs["smoke"]["sparse-checkout"].splitlines() == [
-        "/*", "!/data/player_props_training/*.jsonl", "!/data/player_props_training/*.jsonl.gz",
+        "/*", "!/data/", "/data/calibration/", "!/data/calibration/team_prop_pregame_ledger/",
+        "/data/model_cache/", "/data/player_props_cache/", "/data/player_props_snapshots/",
+        "/data/nfl/", "/data/wnba/",
     ]
