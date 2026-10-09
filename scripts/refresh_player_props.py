@@ -176,6 +176,18 @@ def main() -> int:
     target_date = _target_date(args.date)
     payload = apply_calibration_to_payload(generate_payload(target_date))
     models = payload.get("models") if isinstance(payload.get("models"), dict) else {}
+    # Non-public buckets are withheld on purpose, not lost: wnba_3pm prices its
+    # rows at a default -110 when no market is posted, so it stays out of the
+    # public cache (see merge contract tests). Log what was withheld.
+    for key, bucket in sorted(models.items()):
+        if key in PUBLIC_PLAYER_PROP_MODEL_KEYS or not isinstance(bucket, dict):
+            continue
+        rows = [pick for pick in bucket.get("picks") or [] if isinstance(pick, dict)]
+        assumed = sum(1 for pick in rows if pick.get("market_priced") is not True)
+        print(
+            f"[player-props] withheld non-public bucket {key}: {len(rows)} row(s), "
+            f"{assumed} without a posted market price (research-only by design)"
+        )
     payload = {
         **payload,
         "models": {

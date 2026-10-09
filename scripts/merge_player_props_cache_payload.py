@@ -15,6 +15,9 @@ from typing import Any
 PLAYER_PROPS_CACHE_DIR = Path("data/player_props_cache")
 PLAYER_PROPS_SNAPSHOT_DIR = Path("data/player_props_snapshots")
 CONSENSUS_METADATA_PATH = Path("player_props/artifacts/player_props_consensus_metadata.json")
+# wnba_3pm is generated but deliberately NOT public: its rows fall back to a
+# default -110 price when no 3PM market is posted, so publishing it would put
+# assumed-price BET/LEAN rows on the board. refresh_player_props logs it.
 PUBLIC_PLAYER_PROP_MODEL_KEYS = {
     "nba_player_props",
     "mlb_player_props",
