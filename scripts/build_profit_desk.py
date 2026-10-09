@@ -2117,7 +2117,7 @@ def build_profit_desk_payload(
         }
 
     research_shortlist = build_desk_research_shortlist(date_iso, team_payload, prop_payload)
-    research_shortlist_props = build_desk_research_shortlist_props(date_iso, prop_payload)
+    research_shortlist_props = build_desk_research_shortlist_props(date_iso, prop_payload, team_payload)
     live_record = _flat_record(portfolio["live"], stake_weighted=True)
     research_record = _flat_record(portfolio["all"])
     source_cards = _source_report_cards(evidence_book, candidates)
@@ -2246,6 +2246,12 @@ def build_profit_desk_payload(
 # portfolio, the parlay engine, grading, or staking_approvals.json.
 RESEARCH_SHORTLIST_PROPS_MAX_ROWS = 5
 RESEARCH_SHORTLIST_PROPS_MAX_PER_GAME = 2
+# NHL player props live in the team model cache (models.nhl.picks, DraftKings
+# prices + observed skater/goalie means).  The NHL model is shadow/research
+# only, so its prop rows are labeled, always single only, and capped so they
+# cannot crowd out other sports.
+RESEARCH_SHORTLIST_PROPS_MAX_NHL = 2
+NHL_SHADOW_PROP_LABEL = "NHL SHADOW — research only"
 RESEARCH_SHORTLIST_PROPS_CAUTION = {
     "wnba": "WNBA props are research-only after the July audit measured -24% flat ROI.",
     "cfb": "CFB props are an uncalibrated history baseline (single variant).",
@@ -2253,7 +2259,54 @@ RESEARCH_SHORTLIST_PROPS_CAUTION = {
 }
 
 
-def _prop_research_records(prop_payload: Mapping[str, Any] | None) -> Iterable[RecordContext]:
+def _nhl_prop_record(record: Mapping[str, Any]) -> dict[str, Any] | None:
+    """Normalize an NHL model-cache player-prop row into the prop research shape."""
+    if _text(record.get("market_type")).lower() != "player_props" and _norm(record.get("scope")) != "player":
+        return None
+    player = _player(record)
+    direction = _text(_first(record, "direction")).lower()
+    if not player or direction not in {"over", "under"}:
+        return None
+    stat = _text(_first(record, "stat_label", "stat"))
+    if stat.lower().startswith(player.lower()):
+        stat = stat[len(player):].strip()
+    stat = re.sub(r"\s*O/U$", "", stat).strip() or "Player Prop"
+    line = _number(_first(record, "line", "market_line"))
+    selection = direction.title()
+    line_text = f"{line:g}" if line is not None else "?"
+    return {
+        **record,
+        "pick": f"{player} {selection} {line_text} {stat}",
+        "selection": selection,
+        "stat_label": stat,
+        "line": line,
+        "nhl_shadow_prop": True,
+    }
+
+
+def _prop_research_records(
+    prop_payload: Mapping[str, Any] | None,
+    team_payload: Mapping[str, Any] | None = None,
+) -> Iterable[RecordContext]:
+    if isinstance(team_payload, Mapping):
+        team_models = team_payload.get("models") if isinstance(team_payload.get("models"), Mapping) else team_payload
+        nhl = team_models.get("nhl") if isinstance(team_models, Mapping) else None
+        if isinstance(nhl, Mapping) and nhl.get("ok") is not False:
+            for raw in nhl.get("picks") or []:
+                if not isinstance(raw, Mapping):
+                    continue
+                normalized = _nhl_prop_record(raw)
+                if normalized is None:
+                    continue
+                yield RecordContext(
+                    payload=team_payload,
+                    bucket=nhl,
+                    record=normalized,
+                    source_key="nhl_player_props",
+                    source=_text(raw.get("source")) or "NHL Model",
+                    mode="player",
+                    fallback_date=_text(_first(team_payload, "date", "slate_date")),
+                )
     if not isinstance(prop_payload, Mapping):
         return
     fallback_date = _text(_first(prop_payload, "date", "slate_date"))
@@ -2287,6 +2340,7 @@ def _prop_research_records(prop_payload: Mapping[str, Any] | None) -> Iterable[R
 def build_desk_research_shortlist_props(
     date_iso: str,
     prop_payload: Mapping[str, Any] | None,
+    team_payload: Mapping[str, Any] | None = None,
     *,
     max_rows: int = RESEARCH_SHORTLIST_PROPS_MAX_ROWS,
 ) -> dict[str, Any]:
@@ -2294,24 +2348,32 @@ def build_desk_research_shortlist_props(
 
     excluded: dict[str, int] = defaultdict(int)
     eligible: list[dict[str, Any]] = []
-    for context in _prop_research_records(prop_payload):
+    for context in _prop_research_records(prop_payload, team_payload):
         record = context.record
         if _record_date(record, context.fallback_date) != date_iso:
             continue
         sport = _text(_first(record, "sport", "league")) or _text(context.bucket.get("sport"))
         sport_key = _norm(sport)
-        reason = _shortlist_exclusion(
-            RecordContext(
-                payload=context.payload,
-                bucket=context.bucket,
-                record=record,
-                source_key=context.source_key,
-                source=context.source,
-                mode="team",  # the props shortlist has its own WNBA caution flag
-                fallback_date=context.fallback_date,
-            ),
-            sport,
-        )
+        nhl_shadow = record.get("nhl_shadow_prop") is True
+        if nhl_shadow:
+            # The game-line NHL exclusion does not apply: these are explicitly
+            # labeled shadow research props, single only and capped below.
+            reason = "shadow_model" if record.get("shadow_mode") is True else None
+            if reason is None and _shortlist_season_type(record) in _PRESEASON_SEASON_TYPES:
+                reason = "preseason"
+        else:
+            reason = _shortlist_exclusion(
+                RecordContext(
+                    payload=context.payload,
+                    bucket=context.bucket,
+                    record=record,
+                    source_key=context.source_key,
+                    source=context.source,
+                    mode="team",  # the props shortlist has its own WNBA caution flag
+                    fallback_date=context.fallback_date,
+                ),
+                sport,
+            )
         if reason is None and _result(record.get("result")) != "pending":
             reason = "already_settled"
         odds = _american_int(record.get("odds"))
@@ -2325,8 +2387,10 @@ def build_desk_research_shortlist_props(
             # ESPN stamps a prop quote with the time the line last MOVED, not
             # when it was read.  The refresh read every quote live, so the
             # observation clock is the bucket/payload refresh time.
-            observed_at = _first(context.bucket, "updatedAt", "generatedAt") or _first(
-                context.payload, "generatedAt", "updatedAt"
+            observed_at = (
+                _first(record, "market_retrieved_at")
+                or _first(context.bucket, "updatedAt", "generatedAt")
+                or _first(context.payload, "generatedAt", "updatedAt")
             )
             timing_record = {**record, "market_updated_at": observed_at} if observed_at else record
             timing = _timing(timing_record, context.bucket, context.payload)
@@ -2365,7 +2429,7 @@ def build_desk_research_shortlist_props(
         if edge > RESEARCH_SHORTLIST_MAX_EDGE:
             excluded["implausible_model_gap"] += 1
             continue
-        single_only = odds <= RESEARCH_SHORTLIST_FILLER_ODDS
+        single_only = odds <= RESEARCH_SHORTLIST_FILLER_ODDS or nhl_shadow
         supporting = [str(v) for v in (record.get("variants_supporting") or []) if str(v)]
         notes = [
             "0u research only: not model-approved, not a Profit Desk stake, "
@@ -2377,7 +2441,13 @@ def build_desk_research_shortlist_props(
                 + (_text(record.get("consensus_rejection_reason")) or "publication gate not cleared")
                 + "."
             )
-        if single_only:
+        if nhl_shadow:
+            notes.insert(
+                0,
+                f"{NHL_SHADOW_PROP_LABEL}: the NHL model is shadow/research-only. Single only; "
+                "never stacked, never in parlays or Edge/Prop Doubles.",
+            )
+        elif single_only:
             notes.append(
                 f"Priced at or shorter than {RESEARCH_SHORTLIST_FILLER_ODDS}: single only, never a filler leg."
             )
@@ -2389,6 +2459,9 @@ def build_desk_research_shortlist_props(
         eligible.append(
             {
                 "label": RESEARCH_SHORTLIST_LABEL,
+                "shadowLabel": NHL_SHADOW_PROP_LABEL if nhl_shadow else None,
+                "nhlShadow": nhl_shadow,
+                "parlayEligible": False,
                 "stakeUnits": 0,
                 "modelApproved": False,
                 "date": date_iso,
@@ -2431,11 +2504,16 @@ def build_desk_research_shortlist_props(
             }
         )
 
-    eligible.sort(key=lambda row: (-row["modelProbability"], -row["edge"], row["sourceKey"], row["pick"]))
+    # NHL shadow rows rank after every non-shadow prop so they cannot lead the list.
+    eligible.sort(key=lambda row: (row["nhlShadow"], -row["modelProbability"], -row["edge"], row["sourceKey"], row["pick"]))
     rows: list[dict[str, Any]] = []
     per_game: dict[str, int] = defaultdict(int)
     seen_players: set[tuple[str, str]] = set()
+    nhl_rows = 0
     for row in eligible:
+        if row["nhlShadow"] and nhl_rows >= RESEARCH_SHORTLIST_PROPS_MAX_NHL:
+            excluded["nhl_shadow_cap"] += 1
+            continue
         player_key = (row["canonicalGame"], _norm(row["player"] or row["pick"]))
         if player_key in seen_players:
             # One prop per player: same-player props are correlated exposure.
@@ -2446,6 +2524,7 @@ def build_desk_research_shortlist_props(
             continue
         seen_players.add(player_key)
         per_game[row["canonicalGame"]] += 1
+        nhl_rows += int(row["nhlShadow"])
         rows.append(row)
         if len(rows) >= max_rows:
             break
@@ -2463,7 +2542,7 @@ def build_desk_research_shortlist_props(
         "eligibleRows": len(eligible),
         "excluded": dict(sorted(excluded.items())),
         "criteria": {
-            "rankedBy": "research probability (lowest of the agreeing prop variants), then edge",
+            "rankedBy": "research probability (lowest of the agreeing prop variants), then edge; NHL shadow rows after all others",
             "requiresObservedPregamePrice": True,
             "priceClock": "props refresh time (quotes are read live; the book's own stamp is when the line last moved)",
             "edgeBaseline": "two-sided no-vig when both sides are quoted, else posted break-even (vig included)",
@@ -2474,9 +2553,11 @@ def build_desk_research_shortlist_props(
             "maximumRows": max_rows,
             "onePropPerPlayer": True,
             "maximumPerGame": RESEARCH_SHORTLIST_PROPS_MAX_PER_GAME,
+            "maximumNhlShadowRows": RESEARCH_SHORTLIST_PROPS_MAX_NHL,
+            "nhlShadowProps": f"included as '{NHL_SHADOW_PROP_LABEL}', always single only, never in parlays",
             "excludes": [
                 "NBA preseason / unmarked NBA season",
-                "NHL and tennis",
+                "tennis",
                 "settled, stale, or post-start prices",
                 "assumed or unverified prices",
             ],

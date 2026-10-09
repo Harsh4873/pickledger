@@ -424,6 +424,9 @@ export interface ProfitDeskResearchRow {
   injuryStatus?: string | null;
   priceObservedAt?: string | null;
   lineLastMovedAt?: string | null;
+  shadowLabel?: string | null;
+  nhlShadow?: boolean;
+  parlayEligible?: boolean;
 }
 
 export interface ProfitDeskResearchShortlist {

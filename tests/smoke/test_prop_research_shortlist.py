@@ -235,3 +235,55 @@ def test_direct_api_upgrades_plain_http_to_tls(monkeypatch):
     monkeypatch.setattr(client.session, "get", fake_get)
     assert client._get("http://site.api.espn.com/apis/site/v2/sports/basketball/wnba/scoreboard") == {"ok": True}
     assert seen == ["https://site.api.espn.com/apis/site/v2/sports/basketball/wnba/scoreboard"]
+
+
+def _nhl_prop(**overrides) -> dict:
+    row = {
+        "sport": "NHL", "league": "NHL", "date": DATE, "market_type": "player_props", "market": "player_props",
+        "player_name": "Ivan Ice", "player": "Ivan Ice", "stat_label": "Ivan Ice Assists O/U", "direction": "under",
+        "line": 0.5, "odds": -150, "odds_source": "draftkings", "pricing_type": "market", "market_priced": True,
+        "probability": 0.64, "decision": "PASS", "units": 0, "season_type": "REG", "shadow_mode": False,
+        "matchup": "Alpha Aces @ Bravo Bees", "away_team": "Alpha Aces", "home_team": "Bravo Bees",
+        "game_id": "n1", "start_time": f"{DATE}T23:00Z", "market_retrieved_at": f"{DATE}T15:00:00Z",
+    }
+    row.update(overrides)
+    return row
+
+
+def test_nhl_props_are_labeled_shadow_single_only_capped_and_ranked_last():
+    team = {
+        "date": DATE, "generatedAt": f"{DATE}T15:00:00Z", "publishedAt": f"{DATE}T15:00:10Z",
+        "models": {"nhl": {"ok": True, "picks": [
+            _nhl_prop(player_name="Ivan Ice", player="Ivan Ice", stat_label="Ivan Ice Assists O/U", probability=0.70),
+            _nhl_prop(player_name="Jon Puck", player="Jon Puck", stat_label="Jon Puck Points O/U", probability=0.69, game_id="n2",
+                      matchup="Charlie Cats @ Delta Dogs", away_team="Charlie Cats", home_team="Delta Dogs"),
+            _nhl_prop(player_name="Kai Net", player="Kai Net", stat_label="Kai Net Shots O/U", probability=0.68, game_id="n3",
+                      matchup="Echo Elks @ Fox Foxes", away_team="Echo Elks", home_team="Fox Foxes"),
+            # A team-side NHL row is not a player prop and stays out.
+            {"sport": "NHL", "date": DATE, "market_type": "moneyline", "pick": "Alpha Aces ML", "odds": -120, "probability": 0.6},
+        ]}},
+    }
+    props = _props_payload({"wnba_player_props": {"ok": True, "picks": [], "research_candidates": [_candidate(research_probability=0.58)]}})
+    shortlist = desk.build_desk_research_shortlist_props(DATE, props, team)
+    rows = shortlist["rows"]
+    assert [row["sport"] for row in rows] == ["WNBA", "NHL", "NHL"]
+    assert rows[1]["pick"] == "Ivan Ice Under 0.5 Assists"
+    assert shortlist["excluded"]["nhl_shadow_cap"] == 1
+    for row in rows[1:]:
+        assert row["shadowLabel"] == "NHL SHADOW — research only"
+        assert row["singleOnly"] is True and row["parlayEligible"] is False and row["stakeUnits"] == 0
+        assert any("never in parlays" in note for note in row["notes"])
+    # The game-line shortlist still excludes NHL.
+    assert desk.build_desk_research_shortlist(DATE, team, None)["rows"] == []
+
+
+def test_nba_without_a_consensus_model_says_so_plainly():
+    from player_props.consensus import evaluate_consensus_pick
+
+    result = evaluate_consensus_pick({"sport": "NBA", "stat_key": "points", "line": 20.5})
+    if result["required"]:
+        assert result["reason"] == "no NBA consensus model configured"
+    from player_props.variants import _consensus_allows_ml_fallback
+
+    # The plain reason must still block the ML fallback, like the old wording.
+    assert _consensus_allows_ml_fallback("no NBA consensus model configured") is False
