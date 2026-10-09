@@ -70,6 +70,9 @@ jobs:
           cp -R data/player_props_cache dist/data/
           cp -R data/parlay_cards dist/data/
           cp -R data/profit_desk dist/data/
+          cp -R data/bet_briefs dist/data/
+          cp data/personal_ledger.json dist/data/
+          cp harsh.html dist/
 
       - name: Verify styled Pages artifact
         run: |
@@ -82,10 +85,12 @@ jobs:
           test -n "$(find dist/assets -maxdepth 1 -name 'favicon-*.svg' -print -quit)"
           test -f dist/ipl/ipl_styles.css
           test -f dist/ipl/ipl_frontend.js
-          for directory in model_cache player_props_cache parlay_cards profit_desk; do
+          for directory in model_cache player_props_cache parlay_cards profit_desk bet_briefs; do
             test -f "dist/data/${directory}/index.json"
             test -f "dist/data/${directory}/latest.json"
           done
+          test -f dist/data/personal_ledger.json
+          test -f dist/harsh.html
           python scripts/site_upcheck.py
 
       - name: Upload artifact
