@@ -204,6 +204,39 @@ def test_remote_inspection_does_not_dispatch(monkeypatch):
     assert all(call[:2] == ("run", "list") for call in calls)
 
 
+@pytest.mark.parametrize("flags", [["--local-clock"], ["--external-feeds"], ["--local-clock", "--external-feeds"]])
+@pytest.mark.parametrize("active", [True, False])
+def test_local_backup_invokes_external_feed_recovery(monkeypatch, flags, active):
+    """Both older clocks and current installations must reach the companion script."""
+    import sys
+    from scripts.automation import ensure_model_refresh as guard
+
+    class Clock(datetime):
+        @classmethod
+        def now(cls, tz=None):
+            return now()
+
+    gh_calls = []
+    child_calls = []
+
+    def fake_gh(*args):
+        gh_calls.append(args)
+        if args[:2] == ("run", "list"):
+            return json.dumps([{"status": "queued"}] if active else [])
+        return ""
+
+    monkeypatch.setattr(guard, "datetime", Clock)
+    monkeypatch.setattr(guard, "gh", fake_gh)
+    monkeypatch.setattr(guard.subprocess, "run", lambda args, **kwargs: child_calls.append((args, kwargs)))
+    monkeypatch.setattr(sys, "argv", ["guard", "--remote", "--dispatch", *flags])
+
+    assert guard.main() == 0
+    external = str(guard.Path(guard.__file__).with_name("ensure_external_feeds.py"))
+    assert child_calls == [([sys.executable, external, "--date", "2026-09-09"], {"check": False})]
+    dispatches = [call for call in gh_calls if call[:2] == ("workflow", "run")]
+    assert len(dispatches) == (0 if active else 1)
+
+
 @pytest.mark.parametrize('day,utc_morning,utc_afternoon', [
     ('2026-03-07', '12:30', '19:00'),
     ('2026-03-08', '11:30', '18:00'),
