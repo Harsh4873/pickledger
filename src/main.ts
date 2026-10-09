@@ -3266,12 +3266,11 @@ function buildDailyShortlist(date: string, openOnly: boolean) {
   const valueZone = uniqueDailyPicks(ranked(slate.filter(pick => isPublishedDailyPick(pick) && ((pick.odds || 0) > 0 || (pickEdgePercent(pick) || 0) >= 10)))).slice(0, 6);
   const researchQueue = uniqueDailyPicks(dailyResearchPool(posted, pickProbability)
     .sort((a, b) => (pickProbability(b) || 0) - (pickProbability(a) || 0))).slice(0, 6);
-  // The Research board: the slate's strongest in-house sit-outs (F5 totals,
-  // team totals, model PASS) by probability. Same rule live and in the replay,
-  // so FILTER RECORDS counts exactly the cards that were shown, not every PASS.
+  // Research sit-outs: highest unpublished probabilities that still have a
+  // playable price. -300 and shorter is chalk and stays off this queue.
   const passLeaders = activePickMode === 'team'
     ? uniqueDailyPicks(posted
-      .filter(pick => !isPublishedDailyPick(pick) && pickProbability(pick) != null)
+      .filter(pick => !isPublishedDailyPick(pick) && pickProbability(pick) != null && pick.odds != null && Number(pick.odds) > -300)
       .sort((a, b) => (pickProbability(b) || 0) - (pickProbability(a) || 0))).slice(0, RESEARCH_PASS_LEADERS)
     : [];
   const priceyCount = uniqueDailyPicks(posted.filter(pick => pick.odds != null && pick.odds <= -300)).length;
@@ -3306,7 +3305,7 @@ function buildDailyShortlist(date: string, openOnly: boolean) {
     : [];
   addTag(playerResearchPool, 'RESEARCH');
   const researchCandidates = [...new Map(
-    [...researchQueue, ...passLeaders, ...playerResearchPool, ...probabilityLeaders.filter(pick => !isPublishedDailyPick(pick))]
+    [...researchQueue, ...passLeaders, ...playerResearchPool, ...probabilityLeaders.filter(pick => !isPublishedDailyPick(pick) && pick.odds != null && Number(pick.odds) > -300)]
       .filter(pick => !topKeys.has(dailyPickKey(pick)))
       .map(pick => [pick.id, pick]),
   ).values()];
@@ -3561,7 +3560,7 @@ function renderDaily(): void {
     { key: 'sources', label: 'Active Sources', count: hotForms.length, description: 'Sources issuing BET/LEAN calls today' },
     { key: 'dayform', label: 'Day Form', count: dayFormCount, description: `How sources do on ${dayName}s` },
     { key: 'fade', label: 'Fade', count: fadeBoard.candidates.length, description: `Cold-source picks to bet against` },
-    { key: 'research', label: 'Research', count: researchGroups.length, description: activePickMode === 'player' ? 'Next-best prop candidates' : 'Strongest sit-outs and pricey spots' },
+    { key: 'research', label: 'Research', count: researchGroups.length, description: activePickMode === 'player' ? 'Next-best prop candidates' : 'Strong sit-outs at playable prices' },
   ];
   const viewOptions = viewOptionsBase.filter(option => activePickMode !== 'player' || option.key !== 'consensus');
   const activeView = viewOptions.find(option => option.key === dailyView) || viewOptions[0];
@@ -3572,7 +3571,7 @@ function renderDaily(): void {
   const activeSort = sortOptions.find(option => option.key === dailySort) || sortOptions[0];
   const researchSubtitle = activePickMode === 'player'
     ? 'Next-best player prop candidates and pass research, excluding anything already in Top Picks.'
-    : 'The slate’s strongest in-house sit-outs (F5 totals, team totals, model PASS) plus expensive favorites, excluding anything already in Top Picks.';
+    : 'The slate’s strongest in-house sit-outs at a playable price (better than -300), excluding anything already in Top Picks. Heavy favorites are not added to fill the card.';
   const featuredVisible = filterDailyGroups(featuredGroups);
   const topVisible = filterDailyGroups(topGroups);
   const researchVisible = filterDailyGroups(researchGroups);
@@ -3602,7 +3601,7 @@ function renderDaily(): void {
     ? 'Sit this one out'
     : 'No featured picks on this date';
   const featuredEmptySub = dailyDecisionFilter === 'ALL'
-    ? 'Featured only publishes MLB Total, MLB Team Total, MLB ML, WNBA ML, WNBA Total, and MLS Total at posted prices, in the same ranking windows those sources actually print. WNBA ML may keep heavy juice; everything else skips -150 or worse. An empty card is the play.'
+    ? 'Featured only publishes MLB Total, MLB Team Total, MLB ML, WNBA ML, WNBA Total, and MLS Total at posted prices, in the same ranking windows those sources actually print. WNBA ML may keep heavy juice; everything else skips -150 or worse. An empty Featured card is not an empty slate. Profit Desk shows the research shortlist when nothing is staked.'
     : `No Featured pick matches ${dailyDecisionFilterLabel(dailyDecisionFilter)}. Try All.`;
   const featuredIntro = featuredVisible.length
     ? '<div class="daily-dayform-warning daily-featured-intro"><strong>This is not a stake.</strong> Profit Desk is the only place a unit is greater than zero, and it sits out until an approval names the source, market, and model. Featured is a research shortlist. Do not parlay it to manufacture action.</div>'
@@ -3686,14 +3685,22 @@ function renderProfit(): void {
     { key: 'method', label: 'Method', count: 4, description: 'How a pick earns a stake' },
   ];
   const activeView = viewOptions.find(option => option.key === profitView) || viewOptions[0];
+  const cardSection = profitDeskCandidateSection(
+    'Live Card',
+    'Evidence-qualified picks only. EDGE clears strict segment-level market-alpha gates at 1.0u; VALUE clears market-family flat-ROI gates at 0.5u. Neither stakes without an approval.',
+    cardCandidates,
+    'No candidate qualified for a stake',
+    payload
+      ? (researchRows.length + researchPropRows.length) > 0
+        ? 'Nothing cleared a stake. The research shortlist below is still today\'s pack. Every row is 0 units and not model-approved.'
+        : 'The engine abstained after price, uncertainty, evidence, and overlap checks. Sitting out is a valid result.'
+      : 'No dated Profit Desk artifact was published, so no substitute recommendation is shown.',
+  );
+  const researchOnEmptyCard = cardCandidates.length === 0 && (researchRows.length + researchPropRows.length) > 0
+    ? profitDeskResearchSection(payload, researchRows) + profitDeskResearchPropSection(payload, researchPropRows)
+    : '';
   const activeBody = profitView === 'card'
-    ? profitDeskCandidateSection(
-      'Live Card',
-      'Evidence-qualified picks only. EDGE clears strict segment-level market-alpha gates at 1.0u; VALUE clears market-family flat-ROI gates at 0.5u. Neither stakes without an approval.',
-      cardCandidates,
-      'No candidate qualified for a stake',
-      payload ? 'The engine abstained after price, uncertainty, evidence, and overlap checks. Sitting out is a valid result.' : 'No dated Profit Desk artifact was published, so no substitute recommendation is shown.',
-    )
+    ? cardSection + researchOnEmptyCard
     : profitView === 'watchlist'
       ? profitDeskCandidateSection(
         'Watchlist & Rejections',
@@ -3712,6 +3719,8 @@ function renderProfit(): void {
     ? 'Evidence-qualified picks with real stakes. EDGE stakes 1.0u; VALUE stakes 0.5u. Everything else stays 0u.'
     : researchQualified > 0
       ? `${researchQualified} research-qualified candidate${researchQualified === 1 ? '' : 's'} on a pre-live slate, all at 0u.`
+      : (researchRows.length + researchPropRows.length) > 0
+      ? 'No stake qualified. The research shortlist on this card is the morning pack: 0 units, not a verified edge, and not chalk filled in to look busy.'
       : 'No position, no forced action, and no fallback to unpriced picks.';
   const pipelineState = payload
     ? `${String(payload.policy?.status || payload.policy?.mode || payload.phase || 'live').toUpperCase()} • ${escapeHtml(payload.engineVersion || 'profit desk')} • generated ${escapeHtml(formatProfitDeskGeneratedAt(payload.generatedAt))}`

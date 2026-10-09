@@ -82,13 +82,14 @@ export function rankingDecisionMatches(pick: Pick, filter: RankingDecisionFilter
   return decision === filter;
 }
 
-/** Best Bets Research: high-probability sit-outs plus juice favorites. */
+/** Best Bets Research: high-probability sit-outs at a playable price. Juice at -300 or shorter is not a candidate. */
 export function isDailyResearchCandidate(pick: Pick, probability: number | null): boolean {
   const decision = rankingDecisionOf(pick);
   const unpublished = decision !== 'BET' && decision !== 'LEAN';
-  const highProbPass = unpublished && probability != null && probability >= 0.6;
-  const priceyFavorite = pick.odds != null && pick.odds <= -300;
-  return highProbPass || priceyFavorite;
+  const odds = pick.odds == null ? null : Number(pick.odds);
+  const playablePrice = odds != null && Number.isFinite(odds) && odds > -300;
+  const highProbPass = unpublished && probability != null && probability >= 0.6 && playablePrice;
+  return highProbPass;
 }
 
 /** Replay Research from the same posted BET/LEAN/PASS universe the live board uses. */
