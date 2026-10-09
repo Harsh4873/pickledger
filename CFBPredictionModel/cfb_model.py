@@ -20,6 +20,8 @@ import math
 from pathlib import Path
 from typing import Any
 
+from scripts.model_artifacts import ArtifactLoadError, serialized_artifact_load
+
 try:
     from cfb_core import FEATURE_NAMES, anchored_vector, matrix, serving_rows
 except ImportError:
@@ -223,14 +225,12 @@ def _select_spread_candidate(
     return next(row for row in candidates if row[0] == aligned)
 
 
-def _load_artifacts() -> tuple[dict[str, Any], dict[str, Any]] | None:
-    try:
-        import joblib
+@serialized_artifact_load
+def _load_artifacts() -> tuple[dict[str, Any], dict[str, Any]]:
+    import joblib
 
-        bundle = joblib.load(ARTIFACT_PATH)
-        metadata = json.loads(METADATA_PATH.read_text(encoding="utf-8"))
-    except Exception:
-        return None
+    bundle = joblib.load(ARTIFACT_PATH)
+    metadata = json.loads(METADATA_PATH.read_text(encoding="utf-8"))
     return bundle, metadata
 
 
@@ -390,7 +390,12 @@ def _row(
 
 
 def generate_cfb_picks(date_iso: str) -> dict[str, Any]:
-    artifacts = _load_artifacts()
+    artifact_error = "CFB model artifacts are missing or unreadable; forecasts could not run."
+    try:
+        artifacts = _load_artifacts()
+    except ArtifactLoadError as exc:
+        artifacts = None
+        artifact_error += f" {exc}"
     if artifacts is None:
         return {
             "ok": False,
@@ -399,7 +404,7 @@ def generate_cfb_picks(date_iso: str) -> dict[str, Any]:
             "shadow_mode": False,
             "games": [],
             "picks": [],
-            "error": "CFB model artifacts are missing or unreadable; forecasts could not run.",
+            "error": artifact_error,
         }
     bundle, metadata = artifacts
     coverage: dict[str, int] = {}

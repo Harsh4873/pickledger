@@ -28,6 +28,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from scripts.model_artifacts import ArtifactLoadError, serialized_artifact_load
+
 try:
     from nfl_core import (
         FEATURE_NAMES,
@@ -94,20 +96,18 @@ def _american(value: Any) -> int | None:
     return int(round(number))
 
 
-def _load_artifacts() -> dict[str, Any] | None:
-    try:
-        import joblib
+@serialized_artifact_load
+def _load_artifacts() -> dict[str, Any]:
+    import joblib
 
-        metadata = json.loads((ARTIFACT_DIR / "metadata.json").read_text(encoding="utf-8"))
-        return {
-            "ml": joblib.load(ARTIFACT_DIR / "nfl_ml.joblib"),
-            "ml_free": joblib.load(ARTIFACT_DIR / "nfl_ml_free.joblib"),
-            "spread": joblib.load(ARTIFACT_DIR / "nfl_spread.joblib"),
-            "total": joblib.load(ARTIFACT_DIR / "nfl_total.joblib"),
-            "metadata": metadata,
-        }
-    except Exception:
-        return None
+    metadata = json.loads((ARTIFACT_DIR / "metadata.json").read_text(encoding="utf-8"))
+    return {
+        "ml": joblib.load(ARTIFACT_DIR / "nfl_ml.joblib"),
+        "ml_free": joblib.load(ARTIFACT_DIR / "nfl_ml_free.joblib"),
+        "spread": joblib.load(ARTIFACT_DIR / "nfl_spread.joblib"),
+        "total": joblib.load(ARTIFACT_DIR / "nfl_total.joblib"),
+        "metadata": metadata,
+    }
 
 
 def _vector(features: dict[str, Any], names: list[str]) -> list[list[float]]:
@@ -235,7 +235,12 @@ def generate_nfl_picks(date_iso: str, *, now: datetime | None = None) -> dict[st
     rows = load_games()
     if not rows:
         return {"ok": False, "error": "nflverse games dataset unavailable"}
-    artifacts = _load_artifacts()
+    artifact_error = "NFL model artifacts are missing or unreadable; forecasts could not run."
+    try:
+        artifacts = _load_artifacts()
+    except ArtifactLoadError as exc:
+        artifacts = None
+        artifact_error += f" {exc}"
     if artifacts is None:
         return {
             "ok": False,
@@ -243,7 +248,7 @@ def generate_nfl_picks(date_iso: str, *, now: datetime | None = None) -> dict[st
             "model": "NFLModel",
             "picks": [],
             "games": [],
-            "error": "NFL model artifacts are missing or unreadable; forecasts could not run.",
+            "error": artifact_error,
         }
     metadata = artifacts["metadata"]
     model_version = str(metadata.get("model_version") or "")
