@@ -5775,6 +5775,13 @@ def _mlb_inning_pick_rows(payload: dict[str, Any]) -> list[dict[str, Any]]:
                 probability_f = float(probability)
             except (TypeError, ValueError):
                 probability_f = None
+            pre_refit_probability = probability_f
+            inning_refit = None
+            if probability_f is not None:
+                from scripts.inhouse_holdout_refit import SHIPPED_FITS, apply_platt
+                inning_refit = SHIPPED_FITS.get("mlb_inning")
+                if inning_refit:
+                    probability_f = apply_platt(probability_f, inning_refit)
             confidence = str(pick.get("confidence") or "").strip() or "Low"
             # Prefer the model's explicit decision; fall back to confidence
             # mapping for older payloads that don't carry one.
@@ -5793,6 +5800,11 @@ def _mlb_inning_pick_rows(payload: dict[str, Any]) -> list[dict[str, Any]]:
             except (TypeError, ValueError):
                 edge_value = None
             baseline_value = pick.get("baseline")
+            if inning_refit and probability_f is not None and baseline_value is not None:
+                try:
+                    edge_value = (probability_f - float(baseline_value)) * 100.0
+                except (TypeError, ValueError):
+                    pass
             inning_odds = MLB_INNING_USER_ASSUMED_ODDS
             inning_implied = _american_implied_probability_value(inning_odds)
             # No book on the shared odds attachment posts a no-run-inning
@@ -5831,6 +5843,10 @@ def _mlb_inning_pick_rows(payload: dict[str, Any]) -> list[dict[str, Any]]:
                 "actionability": "research_signal",
                 "units": inning_units,
                 "probability": probability_f,
+                "pre_refit_probability": pre_refit_probability,
+                "probability_model_version": (
+                    inning_refit["model_version"] if inning_refit else MLB_INNING_MODEL_VERSION
+                ),
                 "edge": edge_value,
                 "edge_pp": edge_value,
                 "baseline_probability": baseline_value,
@@ -5839,7 +5855,7 @@ def _mlb_inning_pick_rows(payload: dict[str, Any]) -> list[dict[str, Any]]:
                 "source_decision": model_decision,
                 "decision_reason": "unpriced:no_run_inning_market_not_posted",
                 "confidence": confidence,
-                "model_version": MLB_INNING_MODEL_VERSION,
+                "model_version": inning_refit["model_version"] if inning_refit else MLB_INNING_MODEL_VERSION,
                 "model_epoch": MLB_INNING_MODEL_VERSION,
                 "model_prediction": f"{probability_f * 100:.1f}%" if probability_f is not None else None,
                 "notes": (
@@ -5897,7 +5913,8 @@ def run_mlb_inning_model(date_str: str | None = None) -> dict[str, Any]:
             "date": used_date_iso,
             "requested_date": date_iso,
             "model": "MLBInning",
-            "model_version": MLB_INNING_MODEL_VERSION,
+            "model_version": picks[0].get("model_version") if picks else MLB_INNING_MODEL_VERSION,
+            "base_model_version": MLB_INNING_MODEL_VERSION,
             "picks": picks,
             "games": payload.get("picks", []),
             "raw_lines": len(output.split("\n")),
