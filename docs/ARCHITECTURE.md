@@ -144,8 +144,11 @@ forces evaluation against a clean identity champion.
 variants (season, all-time, hot L10, matchup H2H) over ESPN gamelogs. There is no
 trained NBA prop artifact: `player_props/ml.py` routes NBA to its own
 `nba_player_props_ml.joblib` (absent, so it scores from the market-anchored
-projection baseline and never borrows the WNBA artifact), and the season/history
-consensus gate has no NBA entry, so no NBA market can publish or stake. Priced
+projection baseline and never borrows the WNBA artifact). The season/history
+consensus gate now has NBA entries (`nba_player_props_season/history.joblib`),
+but those artifacts are only written once an NBA market clears, so until then
+NBA reports "no NBA consensus model configured" and no NBA market can publish
+or stake. Priced
 NBA rows still flow to `research_candidates` and the Profit Desk player-prop
 research shortlist at 0u. ESPN's season phase is stamped as `season_type`;
 preseason or unverified-season rows are labeled `NBA PRESEASON — research/entertainment
@@ -163,6 +166,19 @@ using ESPN's archived markets and falling back to our own capture. Quotes
 updated at or after tip are dropped (ESPN's archive also keeps in-game prices),
 milestone ladders are skipped, and every row carries `season_type` so preseason
 never trains or validates. Shards are small deterministic gzip files.
+
+NBA consensus training: `scripts/train_player_prop_consensus_ml.py` reads the
+graded NBA shards (regular season, play-in and postseason totals only) plus
+`data/player_props_training/nba_outcome_history.jsonl.gz`, three seasons of ESPN
+NBA game logs for current rosters and archived-market players, refreshed daily
+for the in-progress season (`build_player_prop_outcome_history.py --sports NBA`).
+NBA seasons are labeled by ESPN's end year (2025-26 = 2026) and season features
+reset each season. NBA markets (points, rebounds, assists, threes, P+R, P+A,
+PRA) use the MLB-style season market classifier plus a three-season
+outcome-history classifier, the same 70% chronological validation + later
+holdout bar, and the strictest existing sample floors (25 validation / 15
+holdout picks). A market that misses stays inactive; NBA props remain 0u
+research until one clears on regular-season data.
 
 ## NFL/CFB player props
 

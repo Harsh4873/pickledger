@@ -84,6 +84,24 @@ jobs:
           python scripts/archive_nba_prop_prices.py \
             --capture-date "${{ steps.target-date.outputs.date }}"
 
+      - name: Refresh NBA player outcome history
+        # Separate NBA corpus (three seasons + the current one) for the NBA
+        # consensus trainer; completed seasons are fetched once, the in-progress
+        # season is refetched for new games. Optional for publication.
+        id: nba-outcome-history
+        continue-on-error: true
+        timeout-minutes: 5
+        run: |
+          python scripts/build_player_prop_outcome_history.py \
+            --sports NBA \
+            --seasons "$(python -c 'from datetime import date; t=date.today(); s=t.year+(t.month>=8); print(",".join(str(y) for y in range(s-3, s+1)))')" \
+            --refresh-current-nba-season \
+            --max-workers 16
+
+      - name: Restore NBA outcome history after failed update
+        if: steps.nba-outcome-history.outcome == 'failure'
+        run: git restore -- data/player_props_training/nba_outcome_history.jsonl.gz 2>/dev/null || true
+
       - name: Refresh roster-aware player outcome history
         id: outcome-history
         continue-on-error: true
@@ -158,6 +176,7 @@ jobs:
           GENERATED_ARTIFACTS="${RUNNER_TEMP}/player-props-artifacts"
           GENERATED_NBA_PRICES="${RUNNER_TEMP}/nba-prop-prices"
           GENERATED_NBA_HISTORY="${RUNNER_TEMP}/nba-market-history"
+          GENERATED_NBA_OUTCOMES="${RUNNER_TEMP}/nba-outcome-history.jsonl.gz"
           cp "data/player_props_cache/${{ steps.target-date.outputs.date }}.json" "$GENERATED_CACHE"
           if [ -d data/calibration/outcome_ledger ]; then
             cp -R data/calibration/outcome_ledger "$GENERATED_LEDGER"
@@ -180,6 +199,9 @@ jobs:
           if [ -d data/player_props_training/nba_market_history ]; then
             cp -R data/player_props_training/nba_market_history/. "$GENERATED_NBA_HISTORY"/
           fi
+          if [ -f data/player_props_training/nba_outcome_history.jsonl.gz ]; then
+            cp data/player_props_training/nba_outcome_history.jsonl.gz "$GENERATED_NBA_OUTCOMES"
+          fi
           for attempt in 1 2 3; do
             git fetch origin "$BRANCH"
             git reset --hard "origin/${BRANCH}"
@@ -196,6 +218,9 @@ jobs:
             mkdir -p data/nba_prop_prices data/player_props_training/nba_market_history
             cp -R "$GENERATED_NBA_PRICES"/. data/nba_prop_prices/
             cp -R "$GENERATED_NBA_HISTORY"/. data/player_props_training/nba_market_history/
+            if [ -f "$GENERATED_NBA_OUTCOMES" ]; then
+              cp "$GENERATED_NBA_OUTCOMES" data/player_props_training/nba_outcome_history.jsonl.gz
+            fi
             CACHE_DATE=$(python -c "import json; print(json.load(open('data/player_props_cache/latest.json'))['date'])")
             python scripts/build_parlay_cards.py --date "$CACHE_DATE"
             python scripts/build_profit_desk.py --date "$CACHE_DATE"

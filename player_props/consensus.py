@@ -27,9 +27,12 @@ MODEL_PATHS = {
     ("NFL", "history"): ARTIFACT_DIR / "nfl_player_props_history.joblib",
     ("CFB", "season"): ARTIFACT_DIR / "cfb_player_props_season.joblib",
     ("CFB", "history"): ARTIFACT_DIR / "cfb_player_props_history.joblib",
-    # NBA is intentionally absent: no NBA season/history artifact has been
-    # trained, so NBA props fail closed ("no NBA consensus model configured")
-    # and stay research-only rather than borrowing another sport's model.
+    # NBA artifacts are written only after an NBA market clears the same 70%
+    # validation + later-holdout gate as every other sport. Until then the
+    # files do not exist, NBA props fail closed ("no NBA consensus model
+    # configured") and stay 0u research instead of borrowing another model.
+    ("NBA", "season"): ARTIFACT_DIR / "nba_player_props_season.joblib",
+    ("NBA", "history"): ARTIFACT_DIR / "nba_player_props_history.joblib",
 }
 
 OUTCOME_FEATURES = [
@@ -59,7 +62,26 @@ TARGET_STATS = {
     "WNBA": {"points", "totalRebounds", "assists", "three_pointers_made", "points_rebounds", "points_assists"},
     "NFL": {"passing_yards", "rushing_yards", "receiving_yards", "receptions"},
     "CFB": {"passing_yards", "rushing_yards", "receiving_yards", "receptions"},
+    "NBA": {
+        "points", "totalRebounds", "assists", "three_pointers_made",
+        "points_rebounds", "points_assists", "points_rebounds_assists",
+    },
 }
+
+# Sports whose ESPN season label is the calendar year the season ends in.
+CROSS_YEAR_SEASON_SPORTS = {"NBA"}
+
+
+def season_for_date(sport: Any, date_iso: str) -> int:
+    """ESPN season label for a game date (NBA 2025-26 is season 2026)."""
+    year = int(str(date_iso)[:4])
+    if str(sport or "").upper() in CROSS_YEAR_SEASON_SPORTS:
+        try:
+            month = int(str(date_iso)[5:7])
+        except ValueError:
+            return year
+        return year + 1 if month >= 8 else year
+    return year
 
 _BUNDLE: dict[str, Any] | None | bool = False
 
@@ -90,6 +112,7 @@ def outcome_features(
     rows: list[dict[str, Any]],
     *,
     target_date: str,
+    sport: str | None = None,
 ) -> dict[str, float] | None:
     prior = sorted(
         [row for row in rows if str(row.get("date") or "") < target_date],
@@ -97,7 +120,7 @@ def outcome_features(
     )
     if len(prior) < 3:
         return None
-    season = int(target_date[:4])
+    season = season_for_date(sport, target_date)
     season_rows = [row for row in prior if int(row.get("season") or 0) == season]
     if len(season_rows) < 3:
         return None
@@ -141,7 +164,9 @@ def build_outcome_training_features(
         ordered = sorted(profile, key=lambda row: (str(row.get("date") or ""), str(row.get("event_id") or "")))
         profiles[key] = ordered
         for row in ordered:
-            built = outcome_features(ordered, target_date=str(row.get("date") or ""))
+            built = outcome_features(
+                ordered, target_date=str(row.get("date") or ""), sport=str(row.get("sport") or "")
+            )
             if built:
                 features.append({**row, **built})
     return features, profiles
@@ -307,7 +332,7 @@ def _outcome_prediction(artifact: dict[str, Any], pick: dict[str, Any]) -> dict[
     )
     if model is None or not isinstance(profile, list):
         return None
-    features = outcome_features(profile, target_date=str(pick.get("date") or ""))
+    features = outcome_features(profile, target_date=str(pick.get("date") or ""), sport=sport)
     if not features:
         return None
     kind = str((artifact.get("kinds") or {}).get(stat_key) or "regressor")
@@ -344,7 +369,7 @@ def _outcome_market_prediction(artifact: dict[str, Any], pick: dict[str, Any]) -
     under_implied = american_implied_probability(under_odds)
     if over_implied is None:
         return None
-    features = outcome_features(profile, target_date=str(pick.get("date") or ""))
+    features = outcome_features(profile, target_date=str(pick.get("date") or ""), sport=sport)
     if not features:
         return None
     features.update(
@@ -382,9 +407,12 @@ def evaluate_consensus_pick(pick: dict[str, Any]) -> dict[str, Any]:
     stat_key = str(pick.get("stat_key") or "")
     sport_meta = ((metadata.get("sports") or {}).get(sport) or {})
     policy = (sport_meta.get("policies") or {}).get(stat_key)
-    if not any(key[0] == sport for key in MODEL_PATHS):
+    if not any(key[0] == sport for key in MODEL_PATHS) or (
+        sport == "NBA" and not all(path.exists() for key, path in MODEL_PATHS.items() if key[0] == sport)
+    ):
         # Say so plainly: there is no season/history artifact for this sport at
         # all, so the gate cannot activate on its own (e.g. a new season).
+        # NBA paths are configured, but artifacts exist only once a market clears.
         return {"required": True, "qualified": False, "reason": f"no {sport} consensus model configured"}
     if metadata.get("active") is not True or sport_meta.get("active") is not True:
         return {"required": True, "qualified": False, "reason": f"{sport} four-model gate inactive"}

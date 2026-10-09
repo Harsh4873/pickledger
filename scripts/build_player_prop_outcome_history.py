@@ -38,18 +38,29 @@ SPORT_CONFIG = {
     "WNBA": ("basketball", "wnba"),
     "NFL": ("football", "nfl"),
     "CFB": ("football", "college-football"),
+    # NBA outcomes live in their own corpus (see DEFAULT_NBA_OUTPUT) so the
+    # shared MLB/WNBA/NFL/CFB history keeps its size and representation.
+    "NBA": ("basketball", "nba"),
 }
+DEFAULT_NBA_MARKETS = REPO_ROOT / "data" / "player_props_training" / "nba_market_history"
+DEFAULT_NBA_OUTPUT = REPO_ROOT / "data" / "player_props_training" / "nba_outcome_history.jsonl.gz"
 
 
 def _arguments() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--markets", type=Path, default=DEFAULT_MARKETS)
-    parser.add_argument("--output", type=Path, default=DEFAULT_OUTPUT)
+    parser.add_argument("--markets", type=Path, default=None,
+                        help="Market JSONL file or shard directory (NBA defaults to its daily shards).")
+    parser.add_argument("--output", type=Path, default=None)
     parser.add_argument("--seasons", default="2024,2025")
     parser.add_argument("--sports", default="MLB,WNBA,NFL,CFB")
     parser.add_argument("--max-workers", type=int, default=16)
     parser.add_argument("--max-failure-rate", type=float, default=DEFAULT_MAX_FAILURE_RATE)
     parser.add_argument("--refresh", action="store_true", help="Refetch profiles already present in the output.")
+    parser.add_argument(
+        "--refresh-current-nba-season",
+        action="store_true",
+        help="Refetch only the in-progress NBA season (new games) while keeping completed seasons.",
+    )
     return parser.parse_args()
 
 
@@ -95,18 +106,54 @@ def _outs(value: Any) -> float | None:
     return innings * 3.0 + max(0.0, min(2.0, remainder))
 
 
+def _market_lines(path: Path) -> Any:
+    """Yield JSONL lines from one market file or a directory of daily shards."""
+    paths = sorted(path.glob("*.jsonl.gz")) + sorted(path.glob("*.jsonl")) if path.is_dir() else [path]
+    for item in paths:
+        opener = gzip.open if item.suffix == ".gz" else open
+        with opener(item, "rt", encoding="utf-8") as handle:
+            yield from handle
+
+
 def _requested_athletes(path: Path, sports: set[str]) -> dict[str, set[str]]:
     athletes = {sport: set() for sport in sports}
-    with path.open(encoding="utf-8") as handle:
-        for line in handle:
-            try:
-                row = json.loads(line)
-            except json.JSONDecodeError:
-                continue
-            sport = str(row.get("sport") or "").upper()
-            athlete_id = str(row.get("athlete_id") or "").strip()
-            if sport in athletes and athlete_id:
-                athletes[sport].add(athlete_id)
+    if not path.exists():
+        return athletes
+    for line in _market_lines(path):
+        try:
+            row = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        sport = str(row.get("sport") or "").upper()
+        athlete_id = str(row.get("athlete_id") or "").strip()
+        if sport in athletes and athlete_id:
+            athletes[sport].add(athlete_id)
+    return athletes
+
+
+def _nba_roster_athletes(client: Any | None = None) -> set[str]:
+    """Current NBA roster athlete IDs, so live slates have outcome profiles
+    even for players whose markets were never archived."""
+    client = client or DirectApiClient(timeout=30.0, attempts=3)
+    payload = client._get(  # noqa: SLF001 - ESPN has no public SDK for this endpoint
+        "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/teams"
+    )
+    teams = [
+        str((entry.get("team") or {}).get("id") or "")
+        for sport in payload.get("sports") or []
+        for league in sport.get("leagues") or []
+        for entry in league.get("teams") or []
+    ]
+    athletes: set[str] = set()
+    for team_id in filter(None, teams):
+        roster = client.basketball_roster("nba", team_id)
+        for athlete in roster.get("athletes") or []:
+            if isinstance(athlete, dict) and athlete.get("id"):
+                athletes.add(str(athlete["id"]))
+            # Older roster payloads group athletes by position.
+            for item in (athlete.get("items") or []) if isinstance(athlete, dict) else []:
+                if isinstance(item, dict) and item.get("id"):
+                    athletes.add(str(item["id"]))
     return athletes
 
 
@@ -195,7 +242,7 @@ def _event_rows(sport: str, athlete_id: str, season: int, payload: dict[str, Any
                     "minutes": stats.get("minutes"),
                     "usage": (
                         stats.get("minutes")
-                        if sport == "WNBA"
+                        if sport in {"WNBA", "NBA"}
                         else (
                             (stats.get("passing_attempts") or 0)
                             + (stats.get("rushing_attempts") or 0)
@@ -260,6 +307,13 @@ def _event_rows(sport: str, athlete_id: str, season: int, payload: dict[str, Any
                             else None
                         ),
                     }
+                    if sport == "NBA":
+                        actuals["rebounds_assists"] = (
+                            rebounds + assists if rebounds is not None and assists is not None else None
+                        )
+                        # DNP rows carry no minutes; they are not workload samples.
+                        if not (stats.get("minutes") or 0) > 0:
+                            actuals = {}
                 game_timestamp = str(event.get("gameDate") or "")
                 try:
                     game_date = (
@@ -374,14 +428,31 @@ def main() -> int:
     unknown = sports - set(SPORT_CONFIG)
     if unknown:
         raise SystemExit(f"Unsupported sport(s): {', '.join(sorted(unknown))}")
+    if "NBA" in sports and sports != {"NBA"}:
+        raise SystemExit("NBA outcomes use a separate corpus; run --sports NBA on its own")
+    nba_only = sports == {"NBA"}
+    if args.markets is None:
+        args.markets = DEFAULT_NBA_MARKETS if nba_only else DEFAULT_MARKETS
+    if args.output is None:
+        args.output = DEFAULT_NBA_OUTPUT if nba_only else DEFAULT_OUTPUT
     athletes = _requested_athletes(args.markets.resolve(), sports)
+    if nba_only:
+        try:
+            athletes["NBA"] |= _nba_roster_athletes()
+        except Exception as exc:  # market athletes alone still build a usable corpus
+            print(f"[outcome-history] warning: NBA roster fetch failed: {exc}")
     existing, completed, valid_existing = _read_existing(args.output.resolve())
+    refresh_seasons: set[tuple[str, int]] = set()
+    if args.refresh_current_nba_season and "NBA" in sports:
+        today = datetime.now(ZoneInfo("America/Chicago")).date().isoformat()
+        current = int(today[:4]) + (1 if int(today[5:7]) >= 8 else 0)
+        refresh_seasons.add(("NBA", current))
     tasks = [
         (sport, athlete_id, season)
         for sport in sorted(sports)
         for athlete_id in sorted(athletes[sport])
         for season in seasons
-        if args.refresh or (sport, season, athlete_id) not in completed
+        if args.refresh or (sport, season) in refresh_seasons or (sport, season, athlete_id) not in completed
     ]
     rows = list(existing)
     failures = _fetch_task_batch(

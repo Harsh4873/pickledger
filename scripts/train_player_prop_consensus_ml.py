@@ -28,6 +28,7 @@ from player_props.consensus import (  # noqa: E402
     build_outcome_training_features,
     outcome_features,
     outcome_profile_key,
+    season_for_date,
 )
 from player_props.precision import NUMERIC_FEATURES, build_training_features  # noqa: E402
 from player_props.schema import safe_float  # noqa: E402
@@ -35,6 +36,19 @@ from player_props.schema import safe_float  # noqa: E402
 
 DEFAULT_MARKETS = REPO_ROOT / "data" / "player_props_training" / "market_history_2026.jsonl"
 DEFAULT_OUTCOMES = REPO_ROOT / "data" / "player_props_training" / "outcome_history_2022_2026.jsonl.gz"
+# NBA keeps its own per-day graded market shards and outcome corpus so the
+# shared files above do not grow past hosting limits.
+DEFAULT_NBA_MARKETS = REPO_ROOT / "data" / "player_props_training" / "nba_market_history"
+DEFAULT_NBA_OUTCOMES = REPO_ROOT / "data" / "player_props_training" / "nba_outcome_history.jsonl.gz"
+NBA_HISTORY_SEASONS = 3
+# Preseason minutes are not representative; only these ESPN phases train.
+NBA_TRAINING_SEASON_TYPES = {"regular", "postseason", "play-in"}
+# Activation must be earned on regular-season markets: NBA validation and
+# holdout windows are drawn from regular-season rows only.
+NBA_EVALUATION_SEASON_TYPES = {"regular"}
+# Sports that soft-skip (keep prior artifacts, warn) when data is missing or a
+# fit fails, instead of aborting MLB/WNBA verification.
+SOFT_SKIP_SPORTS = {"NFL", "CFB", "NBA"}
 TARGET_ACCURACY = 0.70
 EVALUATION_WINDOW_DAYS = 14
 COUNT_GATE_FEATURES = [
@@ -199,6 +213,32 @@ POLICIES["CFB"] = {
     "receptions": dict(FOOTBALL_VOLUME_POLICY),
 }
 
+# NBA starts at the strictest existing sample floors (MLB's 25 validation /
+# 15 holdout picks) and the same 70% bar; the policy grid may only tighten
+# probability/price filters, never the floors or the accuracy target.
+NBA_BASE_POLICY = {
+    "minimum_season_probability": 0.55,
+    "minimum_history_probability": 0.55,
+    "minimum_season_rate": 0.55,
+    "minimum_history_rate": 0.0,
+    "minimum_implied": 0.55,
+    "require_classifier_agreement": True,
+    "minimum_validation_samples": 25,
+    "minimum_holdout_samples": 15,
+}
+POLICIES["NBA"] = {
+    stat_key: dict(NBA_BASE_POLICY)
+    for stat_key in (
+        "points",
+        "totalRebounds",
+        "assists",
+        "three_pointers_made",
+        "points_rebounds",
+        "points_assists",
+        "points_rebounds_assists",
+    )
+}
+
 
 # Mirrors the variants.py publication path exactly: consensus picks reach the board
 # only with pick probability >= 0.52 and a LEAN-grade edge of >= 3pp over both the
@@ -226,6 +266,7 @@ SEARCHED_MARKETS = {
     ("WNBA", "points"),
     ("WNBA", "points_rebounds"),
     ("WNBA", "points_assists"),
+    *(("NBA", stat_key) for stat_key in POLICIES["NBA"]),
 }
 
 
@@ -383,6 +424,85 @@ def _fit_mlb_outcome_market_history(frame: Any, stat_key: str, cutoff: str | Non
     return model
 
 
+def _fit_outcome_market_history(frame: Any, sport: str, stat_key: str, cutoff: str | None = None) -> Any | None:
+    """Three-season roster-aware history classifier (same family as MLB's)."""
+    rows = frame[frame["sport"].eq(sport) & frame["stat_key"].eq(stat_key)]
+    if cutoff:
+        rows = rows[rows["date"].le(cutoff)]
+    if rows.empty or rows["over_outcome"].nunique() < 2:
+        return None
+    model = _history_classifier(min_child_weight=15)
+    model.fit(rows[OUTCOME_MARKET_FEATURES], rows["over_outcome"].astype(int))
+    return model
+
+
+def _read_nba_market_rows(directory: Path) -> list[dict[str, Any]]:
+    """Graded pregame NBA markets from daily shards, preseason excluded."""
+    rows: list[dict[str, Any]] = []
+    if not directory.is_dir():
+        return rows
+    for path in sorted(directory.glob("*.jsonl.gz")):
+        for row in _read_jsonl(path):
+            if str(row.get("sport") or "").upper() != "NBA":
+                continue
+            if str(row.get("season_type") or "") not in NBA_TRAINING_SEASON_TYPES:
+                continue
+            if str(row.get("market_format") or "total") != "total":
+                continue
+            if str(row.get("stat_key") or "") not in TARGET_STATS["NBA"]:
+                continue
+            rows.append(row)
+    return rows
+
+
+def _nba_history_seasons(market_rows: list[dict[str, Any]]) -> set[int]:
+    seasons = [
+        int(row.get("season") or season_for_date("NBA", str(row.get("date") or "")))
+        for row in market_rows
+        if str(row.get("sport") or "").upper() == "NBA"
+    ]
+    if not seasons:
+        return set()
+    latest = max(seasons)
+    return set(range(latest - NBA_HISTORY_SEASONS + 1, latest + 1))
+
+
+def _season_reset_training_features(market_rows: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+    """Market features that reset each season for cross-year NBA seasons."""
+    other = [row for row in market_rows if str(row.get("sport") or "").upper() != "NBA"]
+    features, profiles = build_training_features(other)
+    nba_by_season: dict[int, list[dict[str, Any]]] = {}
+    for row in market_rows:
+        if str(row.get("sport") or "").upper() == "NBA":
+            season = int(row.get("season") or season_for_date("NBA", str(row.get("date") or "")))
+            nba_by_season.setdefault(season, []).append(row)
+    nba_profiles: dict[str, Any] = {}
+    for season in sorted(nba_by_season):
+        season_features, season_profiles = build_training_features(nba_by_season[season])
+        features.extend(season_features)
+        nba_profiles = dict(season_profiles)  # serving uses the latest season only
+    merged = dict(profiles)
+    merged.update(nba_profiles)
+    return features, merged
+
+
+def _outcome_profiles(rows: list[dict[str, Any]]) -> dict[str, list[dict[str, Any]]]:
+    grouped: dict[str, list[dict[str, Any]]] = {}
+    for row in rows:
+        grouped.setdefault(outcome_profile_key(row.get("sport"), row.get("athlete_id"), row.get("stat_key")), []).append(row)
+    return {
+        key: sorted(profile, key=lambda row: (str(row.get("date") or ""), str(row.get("event_id") or "")))
+        for key, profile in grouped.items()
+    }
+
+
+def _sport_outcome_profiles(profiles: dict[str, Any], sport: str) -> dict[str, Any]:
+    """NBA artifacts carry NBA profiles only; other artifacts stay as before (no NBA)."""
+    if sport == "NBA":
+        return {key: value for key, value in profiles.items() if key.startswith("NBA|")}
+    return {key: value for key, value in profiles.items() if not key.startswith("NBA|")}
+
+
 def _fit_wnba_count(outcomes: Any, stat_key: str, cutoff: str | None, *, season_only: bool) -> Any:
     rows = outcomes[outcomes["sport"].eq("WNBA") & outcomes["stat_key"].eq(stat_key)]
     if season_only:
@@ -407,7 +527,9 @@ def _outcome_frame_for_markets(rows: Any, profiles: dict[str, list[dict[str, Any
     output: list[dict[str, Any]] = []
     for row in rows.to_dict("records"):
         profile = profiles.get(outcome_profile_key(row.get("sport"), row.get("athlete_id"), row.get("stat_key")))
-        built = outcome_features(profile or [], target_date=str(row.get("date") or ""))
+        built = outcome_features(
+            profile or [], target_date=str(row.get("date") or ""), sport=str(row.get("sport") or "")
+        )
         if built:
             output.append({**row, **built})
     return pd.DataFrame(output)
@@ -871,6 +993,8 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--markets", type=Path, default=DEFAULT_MARKETS)
     parser.add_argument("--outcomes", type=Path, default=DEFAULT_OUTCOMES)
+    parser.add_argument("--nba-markets", type=Path, default=DEFAULT_NBA_MARKETS)
+    parser.add_argument("--nba-outcomes", type=Path, default=DEFAULT_NBA_OUTCOMES)
     parser.add_argument(
         "--dry-run",
         action="store_true",
@@ -894,13 +1018,19 @@ def main() -> int:
                               "artifacts": "unchanged"}, sort_keys=True))
             return 0
     market_rows = _read_jsonl(args.markets.resolve())
+    nba_market_rows = _read_nba_market_rows(args.nba_markets.resolve()) if "NBA" in POLICIES else []
+    market_rows.extend(nba_market_rows)
+    nba_seasons = _nba_history_seasons(nba_market_rows)
     evaluation_windows: dict[str, tuple[tuple[str, str, str], tuple[str, str, str]]] = {}
     skipped_sports: list[str] = []
+    nba_evaluation_rows = [
+        row for row in nba_market_rows if str(row.get("season_type") or "") in NBA_EVALUATION_SEASON_TYPES
+    ]
     for sport in POLICIES:
         try:
-            evaluation_windows[sport] = _windows(sport, market_rows)
+            evaluation_windows[sport] = _windows(sport, nba_evaluation_rows if sport == "NBA" else market_rows)
         except ValueError:
-            if sport in {"NFL", "CFB"}:
+            if sport in SOFT_SKIP_SPORTS:
                 if sport not in skipped_sports:
                     skipped_sports.append(sport)
                 print(
@@ -935,10 +1065,27 @@ def main() -> int:
             )
         )
     ]
-    prior_rows = [row for row in outcome_rows if int(row.get("season") or 0) in {2024, 2025}]
-    season_features, season_profiles = build_training_features(market_rows)
+    if nba_seasons and args.nba_outcomes.is_file():
+        outcome_rows.extend(
+            row for row in _read_jsonl(args.nba_outcomes.resolve())
+            if str(row.get("sport") or "").upper() == "NBA"
+            and str(row.get("stat_key") or "") in TARGET_STATS["NBA"]
+            and int(row.get("season") or 0) in nba_seasons
+        )
+    prior_rows = [
+        row for row in outcome_rows
+        if int(row.get("season") or 0) in {2024, 2025} and str(row.get("sport") or "").upper() != "NBA"
+    ]
+    season_features, season_profiles = _season_reset_training_features(market_rows)
     history_features, history_profiles = build_training_features(market_rows, prior_rows)
-    outcome_feature_rows, outcome_profiles = build_outcome_training_features(outcome_rows)
+    # NBA trains only on market rows, so it needs player profiles but not the
+    # per-game outcome feature matrix (quadratic over three seasons of logs).
+    outcome_feature_rows, outcome_profiles = build_outcome_training_features(
+        [row for row in outcome_rows if str(row.get("sport") or "").upper() != "NBA"]
+    )
+    outcome_profiles.update(
+        _outcome_profiles([row for row in outcome_rows if str(row.get("sport") or "").upper() == "NBA"])
+    )
     if args.verify_only:
         missing_features = [
             f"{sport} {label}"
@@ -1149,6 +1296,32 @@ def main() -> int:
                                     outcome_market_history=True,
                                 )
                             )
+                    elif sport == "NBA":
+                        season_model = _fit_market(
+                            outcome_market[outcome_market["sport"].eq(sport)],
+                            stat_key,
+                            cutoff,
+                            min_child_weight=15,
+                        )
+                        history_model = _fit_outcome_market_history(outcome_market, sport, stat_key, cutoff)
+                        rows = outcome_market[
+                            outcome_market["sport"].eq(sport)
+                            & outcome_market["stat_key"].eq(stat_key)
+                            & outcome_market["date"].between(start, end)
+                            & outcome_market["season_type"].isin(NBA_EVALUATION_SEASON_TYPES)
+                        ]
+                        if season_model is None or history_model is None:
+                            # Too little pre-window data to fit: score nothing so
+                            # this market abstains without hiding other markets.
+                            rows = rows.iloc[0:0]
+                        views_by_window.append(
+                            _classifier_views(
+                                rows,
+                                season_model=season_model,
+                                history_model=history_model,
+                                outcome_market_history=True,
+                            )
+                        )
                     else:
                         season_model = _fit_market(paired[paired["sport"].eq(sport)], stat_key, cutoff)
                         history_model = _fit_paired_history(paired[paired["sport"].eq(sport)], stat_key, cutoff)
@@ -1191,7 +1364,7 @@ def main() -> int:
                 }
 
         except Exception as exc:
-            if sport not in {"NFL", "CFB"}:
+            if sport not in SOFT_SKIP_SPORTS:
                 raise
             if sport not in skipped_sports:
                 skipped_sports.append(sport)
@@ -1231,7 +1404,7 @@ def main() -> int:
                             ]
                             if stat_key == "hits_runs_rbis"
                             else outcome_market[outcome_market["sport"].eq(sport)]
-                            if sport == "MLB"
+                            if sport in {"MLB", "NBA"}
                             else paired[paired["sport"].eq(sport)]
                         ),
                         stat_key,
@@ -1247,6 +1420,10 @@ def main() -> int:
                         history_models[stat_key] = _fit_mlb_outcome_market_history(outcome_market, stat_key)
                         history_kinds[stat_key] = "outcome_market_classifier"
                         history_model_features[stat_key] = OUTCOME_MARKET_FEATURES
+                    elif sport == "NBA":
+                        history_models[stat_key] = _fit_outcome_market_history(outcome_market, sport, stat_key)
+                        history_kinds[stat_key] = "outcome_market_classifier"
+                        history_model_features[stat_key] = OUTCOME_MARKET_FEATURES
                     else:
                         history_models[stat_key] = _fit_paired_history(
                             paired[paired["sport"].eq(sport)], stat_key
@@ -1254,7 +1431,7 @@ def main() -> int:
                         history_kinds[stat_key] = "market_classifier"
                         history_model_features[stat_key] = NUMERIC_FEATURES
         except Exception as exc:
-            if sport in {"NFL", "CFB"}:
+            if sport in SOFT_SKIP_SPORTS:
                 if sport not in skipped_sports:
                     skipped_sports.append(sport)
                 # A successful validation cannot activate an artifact whose
@@ -1273,7 +1450,7 @@ def main() -> int:
             "kinds": season_kinds,
             "model_features": season_model_features,
             "market_profiles": season_profiles,
-            "outcome_profiles": outcome_profiles,
+            "outcome_profiles": _sport_outcome_profiles(outcome_profiles, sport),
             "numeric_features": NUMERIC_FEATURES,
             "outcome_features": OUTCOME_FEATURES,
         }
@@ -1285,14 +1462,22 @@ def main() -> int:
             "kinds": history_kinds,
             "model_features": history_model_features,
             "market_profiles": history_profiles,
-            "outcome_profiles": outcome_profiles,
+            "outcome_profiles": _sport_outcome_profiles(outcome_profiles, sport),
             "numeric_features": NUMERIC_FEATURES,
             "outcome_features": OUTCOME_FEATURES,
             "gate_models": count_gate_models if sport == "WNBA" else {},
             "gate_features": COUNT_GATE_FEATURES,
         }
 
-    fingerprint = hashlib.sha256(args.markets.read_bytes() + args.outcomes.read_bytes()).hexdigest()
+    digest = hashlib.sha256(args.markets.read_bytes() + args.outcomes.read_bytes())
+    if nba_market_rows:
+        # NBA data lives outside the shared files; fold it in only when present
+        # so MLB/WNBA-only fingerprints stay identical to earlier runs.
+        for path in sorted(args.nba_markets.resolve().glob("*.jsonl.gz")):
+            digest.update(path.read_bytes())
+        if args.nba_outcomes.is_file():
+            digest.update(args.nba_outcomes.read_bytes())
+    fingerprint = digest.hexdigest()
     sports_metadata: dict[str, Any] = {}
     for sport, policies in validation_results.items():
         active_policies = {key: value for key, value in policies.items() if value.get("active") is True}
@@ -1313,8 +1498,10 @@ def main() -> int:
                 and combined_wins / combined_samples >= TARGET_ACCURACY
             ),
             "models": [
-                "season_2026",
-                "history_2022_2026" if sport == "MLB" else "history_2024_2026",
+                f"season_{max(nba_seasons)}" if sport == "NBA" and nba_seasons else "season_2026",
+                "history_2022_2026" if sport == "MLB"
+                else f"history_{min(nba_seasons)}_{max(nba_seasons)}" if sport == "NBA" and nba_seasons
+                else "history_2024_2026",
             ],
             "policies": active_policies,
             "failed_policies": {
@@ -1338,8 +1525,9 @@ def main() -> int:
             "WNBA": [2024, 2025, 2026],
             "NFL": [2024, 2025, 2026],
             "CFB": [2024, 2025, 2026],
+            "NBA": sorted(nba_seasons),
         },
-        "history_years": {"MLB": 5, "WNBA": 3, "NFL": 3, "CFB": 3},
+        "history_years": {"MLB": 5, "WNBA": 3, "NFL": 3, "CFB": 3, "NBA": NBA_HISTORY_SEASONS},
         "history_years_by_market": {
             "MLB": {
                 "hits_runs_rbis": 5,
@@ -1369,6 +1557,7 @@ def main() -> int:
                 "receiving_yards": 3,
                 "receptions": 3,
             },
+            "NBA": {stat_key: NBA_HISTORY_SEASONS for stat_key in sorted(TARGET_STATS["NBA"])},
         },
         "roster_aware": True,
         "roster_policy": "Current player IDs only; season features reset annually; recent 3/5/10-game workload dominates older priors.",
@@ -1381,6 +1570,8 @@ def main() -> int:
             "nfl_history": "2024-26 roster-aware outcome-history classifiers",
             "cfb_season": "2026 market classifier",
             "cfb_history": "2024-26 roster-aware outcome-history classifiers",
+            "nba_season": "current-season DraftKings market classifier (season-reset features)",
+            "nba_history": "three-season roster-aware ESPN game-log outcome-history classifiers",
         },
         "sports": sports_metadata,
         "training_fingerprint": fingerprint,
