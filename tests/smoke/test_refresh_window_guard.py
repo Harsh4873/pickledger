@@ -119,6 +119,43 @@ def test_non_transport_failures_remain_blocking(key, bucket):
     assert recovery_models(payload, now()) == [key]
 
 
+def test_documented_next_slate_does_not_exhaust_after_three_dispatches():
+    """2026-10-09 guard failed because MLB First Five rolled to 2026-10-10."""
+    payload = cache("2026-10-09T19:09:20Z")
+    payload["date"] = "2026-10-09"
+    payload["models"]["mlb_first_five"] = {
+        "ok": True,
+        "date": "2026-10-10",
+        "requested_date": "2026-10-09",
+    }
+    payload["models"]["nba"] = {
+        "ok": False,
+        "error_kind": "upstream_unavailable",
+        "error": "NBA New upstream unavailable (NBA_FETCH_UNAVAILABLE: stats.nba.com/stats/scoreboardv2 ReadTimeout)",
+    }
+    runs = [
+        {"status": "completed", "event": "workflow_dispatch", "createdAt": "2026-10-09T18:05:57Z"},
+        {"status": "completed", "event": "workflow_dispatch", "createdAt": "2026-10-09T18:37:44Z"},
+        {"status": "completed", "event": "workflow_dispatch", "createdAt": "2026-10-09T19:07:49Z"},
+    ]
+    state, reason = refresh_decision(payload, runs, now("2026-10-09T21:53:00Z"))
+    assert state == "degraded"
+    assert "NBA source unavailable" in reason
+    assert recovery_models(payload, now("2026-10-09T21:53:00Z")) == []
+
+
+def test_undocumented_or_stale_slate_dates_stay_blocking():
+    payload = cache()
+    payload["models"]["mlb_first_five"]["date"] = "2026-09-10"
+    assert refresh_decision(payload, [], now())[0] == "dispatch"
+    payload["models"]["mlb_first_five"]["requested_date"] = "2026-09-08"
+    payload["models"]["mlb_first_five"]["date"] = "2026-09-10"
+    assert refresh_decision(payload, [], now())[0] == "dispatch"
+    payload["models"]["mlb_new"]["date"] = "2026-09-08"
+    payload["models"]["mlb_new"]["requested_date"] = "2026-09-09"
+    assert "mlb_new" in recovery_models(payload, now())
+
+
 def test_other_failed_models_recover_without_retrying_nba_outage(monkeypatch):
     from scripts.automation import ensure_model_refresh as guard
 

@@ -535,10 +535,14 @@ def _record_feed_attempt(
         return bucket
 
     # A failed fetch must not erase already published picks, or redatestamp
-    # yesterday's rows as today's. Attempt freshness is separate from the
-    # date and time of the last successfully collected source snapshot.
+    # yesterday's rows as today's. A prior bucket can be ok=false after a
+    # blocked retry and still hold those rows (lastSuccessAt stays set).
+    # Attempt freshness is separate from the date of the last collected snapshot.
+    previous_published = isinstance(previous_picks, list) and any(
+        isinstance(pick, dict) and pick.get("pick") for pick in previous_picks
+    )
     has_previous = isinstance(previous, dict) and (
-        previous.get("ok") or bool(previous_today_picks)
+        previous.get("ok") or bool(previous_today_picks) or previous_published
     )
     bucket = dict(previous if has_previous else result)
     if has_previous and previous.get("ok") and not previous_incomplete:

@@ -141,6 +141,51 @@ def test_forebet_cross_date_block_reports_attempted_url_with_retained_snapshot(m
     assert f"Forebet listing blocked: {url}" in source_issues("forebet_mlb", bucket, "2026-09-06")
 
 
+def test_cloudflare_block_keeps_rows_when_yesterdays_bucket_is_already_degraded(monkeypatch, tmp_path):
+    """A later Cloudflare block must not replace a failed-but-populated snapshot with []."""
+    prior = {
+        "ok": False,
+        "date": "2026-10-08",
+        "updatedAt": "2026-10-08T19:26:59.468278Z",
+        "lastSuccessAt": "2026-10-08T19:26:59.468278Z",
+        "refreshStatus": "error",
+        "lastError": "ForebetNHL: listing fetch blocked by Cloudflare",
+        "picks": [{
+            "pick": "Ottawa Senators ML",
+            "date": "2026-10-08",
+            "matchup": "Philadelphia Flyers @ Ottawa Senators",
+            "odds": -135,
+        }],
+    }
+    _write_previous(tmp_path, prior, date="2026-10-08")
+    # _write_previous always stores the bucket under forebet_mlb.
+    _configure(monkeypatch, tmp_path, {"forebet_mlb": lambda *_args: {
+        "ok": False,
+        "date": "2026-10-09",
+        "picks": [],
+        "error": "ForebetMLB: listing fetch blocked by Cloudflare",
+        "meta": {
+            "blockedUrls": 1,
+            "blockedUrl": "https://www.forebet.com/en/baseball/usa/mlb",
+            "officialMatchups": 2,
+            "missingMatchups": ["White Sox @ Guardians"],
+        },
+    }}, date="2026-10-09")
+
+    assert refresh.main() == 1
+    published = json.loads((tmp_path / "latest.json").read_text())
+    for container in (published["models"], published["external_feeds"], published):
+        bucket = container["forebet_mlb"]
+        assert bucket["picks"] == prior["picks"]
+        assert bucket["date"] == "2026-10-08"
+        assert bucket["lastSuccessAt"] == prior["lastSuccessAt"]
+        assert bucket["lastAttemptDate"] == "2026-10-09"
+        assert bucket["refreshStatus"] == "error"
+        assert bucket["ok"] is False
+        assert "Cloudflare" in bucket["lastError"]
+        assert all(pick.get("date") == "2026-10-08" for pick in bucket["picks"])
+
+
 def test_forebet_same_day_cloudflare_retry_keeps_picks_but_reports_failure(monkeypatch, tmp_path):
     from scripts.source_health import source_issues
 
