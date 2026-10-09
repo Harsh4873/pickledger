@@ -39,6 +39,11 @@ def _positive_setting(name: str, default, parse):
     return default
 
 
+def _is_scoreboard_url(url: str) -> bool:
+    """The live slate has an ESPN scoreboard fallback. Other stats endpoints do not."""
+    return urlsplit(url).path.rstrip("/").endswith("/scoreboardv2")
+
+
 def _bounded_timeout(value: object, connect_timeout: float = CONNECT_TIMEOUT,
                      read_timeout: float = READ_TIMEOUT) -> tuple[float, float]:
     connect, read = value if isinstance(value, tuple) and len(value) == 2 else (value, value)
@@ -87,6 +92,12 @@ class BoundedNBAStatsSession(requests.Session):
                 if retryable and attempt < self.max_attempts:
                     time.sleep(1)
                     continue
+                if _is_scoreboard_url(url):
+                    # fetch_todays_games catches this and uses the ESPN slate.
+                    # SystemExit would skip that fallback and abort the model
+                    # before any game list exists. Other endpoints still abort
+                    # so a later stats timeout cannot fill partial predictions.
+                    raise
                 # SystemExit intentionally crosses broad `except Exception`
                 # blocks in the frozen model. No partial predictions are used.
                 raise NBAFetchUnavailable(f"{FAILURE_MARKER} {label} {reason}; stopped after {attempt} attempt(s)") from None

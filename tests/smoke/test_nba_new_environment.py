@@ -157,6 +157,42 @@ def test_nba_schedule_falls_back_to_espn_scoreboard(monkeypatch):
     ]
 
 
+def test_nba_schedule_soft_fails_when_espn_fallback_is_empty(monkeypatch):
+    import importlib
+    import sys
+    import types
+
+    static = types.ModuleType("nba_api.stats.static")
+    static.teams = types.SimpleNamespace(get_teams=lambda: [])
+    endpoints = types.ModuleType("nba_api.stats.endpoints")
+    endpoints.commonteamroster = types.SimpleNamespace()
+    endpoints.leaguegamefinder = types.SimpleNamespace()
+    endpoints.leaguedashteamstats = types.SimpleNamespace()
+    endpoints.scoreboardv2 = types.SimpleNamespace(ScoreboardV2=object)
+
+    monkeypatch.setitem(sys.modules, "nba_api", types.ModuleType("nba_api"))
+    monkeypatch.setitem(sys.modules, "nba_api.stats", types.ModuleType("nba_api.stats"))
+    monkeypatch.setitem(sys.modules, "nba_api.stats.static", static)
+    monkeypatch.setitem(sys.modules, "nba_api.stats.endpoints", endpoints)
+    monkeypatch.delitem(sys.modules, "NBAPredictionModel.live_data", raising=False)
+
+    live_data = importlib.import_module("NBAPredictionModel.live_data")
+
+    class BrokenScoreboard:
+        def __init__(self, **_kwargs):
+            raise TimeoutError("stats.nba.com timed out")
+
+    monkeypatch.setattr(live_data.scoreboardv2, "ScoreboardV2", BrokenScoreboard)
+    monkeypatch.setattr(live_data, "fetch_espn_scoreboard_games", lambda _date: [])
+
+    try:
+        live_data.fetch_todays_games("2026-10-09")
+    except SystemExit as exc:
+        assert "NBA_FETCH_UNAVAILABLE: stats.nba.com/stats/scoreboardv2 TimeoutError" in str(exc)
+    else:
+        raise AssertionError("empty ESPN fallback must soft-fail the scoreboard")
+
+
 def test_nba_schedule_falls_back_when_scoreboard_row_is_incomplete(monkeypatch):
     import importlib
     import sys
