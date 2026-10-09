@@ -260,14 +260,15 @@ test('Best Bets Research historically counts PASS, not only juice favorites', ()
   // Mid-probability PASS reaches Research only as a slate probability leader,
   // never through the queue, so the queue cannot swell to every sit-out.
   assert.equal(isDailyResearchCandidate(passMid, 0.55), false);
-  assert.equal(isDailyResearchCandidate(juiceWin, 0.72), true);
-  assert.deepEqual(dailyResearchPool(publishedOnly, probabilityOf).map(item => item.id), ['juice-bet-win']);
+  // A -350 favorite is chalk. It does not enter Research just because it is short.
+  assert.equal(isDailyResearchCandidate(juiceWin, 0.72), false);
+  assert.deepEqual(dailyResearchPool(publishedOnly, probabilityOf).map(item => item.id), []);
   assert.deepEqual(
     dailyResearchPool(posted, probabilityOf).map(item => item.id).sort(),
-    ['f5-pass-win', 'juice-bet-win', 'tt-pass-loss'],
+    ['f5-pass-win', 'tt-pass-loss'],
   );
   assert.deepEqual(record(dailyResearchPool(posted, probabilityOf)), {
-    wins: 2,
+    wins: 1,
     losses: 1,
     pending: 0,
     net: 0,
