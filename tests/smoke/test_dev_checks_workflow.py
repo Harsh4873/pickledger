@@ -16,8 +16,10 @@ def test_dev_checks_sparse_checkouts_keep_required_inputs():
         configs[job] = checkout["with"]
         assert configs[job]["fetch-depth"] == "1"
         assert configs[job]["lfs"] == "false"
-        # Checkout supplies blob:none when sparse-checkout is configured.
-        assert "filter" not in configs[job]
+    # Frontend needs few blobs; smoke fetches normal-size blobs up front to
+    # avoid a large lazy promisor fetch while retaining the same fixtures.
+    assert "filter" not in configs["frontend"]
+    assert configs["smoke"]["filter"] == "blob:limit=100m"
     assert configs["frontend"]["sparse-checkout"].splitlines() == ["src", "tests"]
     assert configs["frontend"].get("sparse-checkout-cone-mode", "true") == "true"
     assert configs["smoke"]["sparse-checkout-cone-mode"] == "false"

@@ -51,6 +51,9 @@ jobs:
           fetch-depth: 1
           lfs: false
           sparse-checkout-cone-mode: false
+          # Smoke needs most blobs. Fetch them in one pack instead of a slow
+          # blob:none promisor fetch during checkout; retain the sparse fileset.
+          filter: blob:limit=100m
           # Audited smoke inputs: retain complete cache/snapshot fixture sets.
           # Tests construct training histories; fitted artifacts stay present.
           sparse-checkout: |
