@@ -379,6 +379,10 @@ def evaluate_consensus_pick(pick: dict[str, Any]) -> dict[str, Any]:
     stat_key = str(pick.get("stat_key") or "")
     sport_meta = ((metadata.get("sports") or {}).get(sport) or {})
     policy = (sport_meta.get("policies") or {}).get(stat_key)
+    if not any(key[0] == sport for key in MODEL_PATHS):
+        # Say so plainly: there is no season/history artifact for this sport at
+        # all, so the gate cannot activate on its own (e.g. a new season).
+        return {"required": True, "qualified": False, "reason": f"no {sport} consensus model configured"}
     if metadata.get("active") is not True or sport_meta.get("active") is not True:
         return {"required": True, "qualified": False, "reason": f"{sport} four-model gate inactive"}
     if not isinstance(policy, dict):

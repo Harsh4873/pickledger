@@ -90,6 +90,7 @@ def _consensus_allows_ml_fallback(reason: str) -> bool:
         "consensus calibration below",
         "sample size below publication floor",
         "four-model gate inactive",
+        "consensus model configured",
         "HRR is restricted to the 1.5 line",
         "missing season/history player profile",
         "price unavailable",
