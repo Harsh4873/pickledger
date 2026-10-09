@@ -1133,6 +1133,137 @@ def build_wnba_3pm_bucket(
     return {WNBA_3PM_MODEL_KEY: bucket}
 
 
+# Research candidates: a compact, display-only view of the strongest priced
+# markets the variants scored, whether or not any gate published them.  They
+# are never picks: no grading, no ranking epoch, no stake, never a parlay leg.
+# The Profit Desk props research shortlist reads them on thin boards.
+MAX_RESEARCH_CANDIDATES = 25
+RESEARCH_CANDIDATE_MIN_SUPPORT = 2
+
+
+def _variant_signal_probability(pick: dict[str, Any]) -> float | None:
+    value = pick.get("variant_signal_probability")
+    if value is None:
+        value = pick.get("ml_probability") if pick.get("ml_probability") is not None else pick.get("probability")
+    probability = safe_float(value, -1.0)
+    return probability if 0.0 < probability < 1.0 else None
+
+
+def _selected_no_vig(pick: dict[str, Any], selection: str) -> float | None:
+    over = american_implied_probability(_market_odds(pick, "Over"))
+    under = american_implied_probability(_market_odds(pick, "Under"))
+    side = selection.strip().lower()
+    if over is not None and under is not None and side in {"over", "under"} and over + under > 0:
+        fair_over = over / (over + under)
+        return fair_over if side == "over" else 1.0 - fair_over
+    return None
+
+
+def build_research_candidates(
+    scored_by_variant: dict[str, list[dict[str, Any]]],
+    *,
+    limit: int = MAX_RESEARCH_CANDIDATES,
+) -> tuple[list[dict[str, Any]], int]:
+    """Aggregate every priced variant signal into one row per market side.
+
+    The research probability is the LOWEST probability among the variants that
+    chose the same side (a highest-floor reading), and a side needs at least
+    two agreeing variants.  Edge is measured against the two-sided no-vig
+    probability, or the vigged break-even when only one side is quoted.
+    """
+
+    groups: dict[tuple[Any, ...], list[dict[str, Any]]] = {}
+    variants_by_market: dict[tuple[Any, ...], set[str]] = {}
+    for variant in VARIANT_ORDER:
+        for pick in scored_by_variant.get(variant) or []:
+            if pick.get("market_priced") is not True:
+                continue
+            identity = _market_identity(pick)
+            market = identity[:5] + (identity[6],)
+            variants_by_market.setdefault(market, set()).add(variant)
+            groups.setdefault(identity, []).append(pick)
+
+    rows: list[dict[str, Any]] = []
+    for identity, picks in groups.items():
+        market = identity[:5] + (identity[6],)
+        probabilities = [p for p in (_variant_signal_probability(pick) for pick in picks) if p is not None]
+        supporting = sorted({str(pick.get("model_variant") or "") for pick in picks}, key=VARIANT_ORDER.index)
+        if not probabilities or len(supporting) < RESEARCH_CANDIDATE_MIN_SUPPORT:
+            continue
+        base = next((pick for pick in picks if pick.get("model_variant") == "season"), picks[0])
+        selection = str(base.get("selection") or "")
+        odds = _market_odds(base, selection)
+        if odds is None:
+            try:
+                odds = int(safe_float(base.get("odds")))
+            except (TypeError, ValueError):
+                odds = None
+        if odds is None:
+            continue
+        fair = _selected_no_vig(base, selection)
+        baseline_kind = "no_vig"
+        if fair is None:
+            # One-sided (milestone) quotes cannot be devigged; compare against
+            # the vigged break-even instead, which is the stricter baseline.
+            fair = american_implied_probability(odds)
+            baseline_kind = "break_even"
+        if fair is None:
+            continue
+        floor = min(probabilities)
+        scored_variants = variants_by_market.get(market, set())
+        rows.append(
+            {
+                "id": "ppr_" + hashlib.sha1(repr(identity).encode("utf-8")).hexdigest()[:16],
+                "research_only": True,
+                "decision": "PASS",
+                "units": 0.0,
+                "sport": base.get("sport"),
+                "date": base.get("date"),
+                "game_id": base.get("game_id"),
+                "matchup": base.get("matchup"),
+                "away_team": base.get("away_team"),
+                "home_team": base.get("home_team"),
+                "start_time": base.get("start_time"),
+                "season_type": base.get("season_type"),
+                "player_name": base.get("player_name"),
+                "player_id": base.get("player_id"),
+                "team": base.get("team"),
+                "stat_key": base.get("stat_key"),
+                "stat_label": base.get("stat_label"),
+                "market_type": base.get("market_type"),
+                "selection": selection,
+                "line": base.get("line"),
+                "pick": f"{base.get('player_name')} {selection} {safe_float(base.get('line')):g} {base.get('stat_label') or base.get('stat_key')}",
+                "odds": odds,
+                "market_over_odds": _market_odds(base, "Over"),
+                "market_under_odds": _market_odds(base, "Under"),
+                "market_source": base.get("market_source"),
+                "market_updated_at": base.get("market_updated_at"),
+                "odds_source": base.get("odds_source"),
+                "line_source": base.get("line_source"),
+                "market_priced": True,
+                "result": "pending",
+                "research_probability": round(floor, 6),
+                "variant_probability_mean": round(statistics.fmean(probabilities), 6),
+                "variant_probability_max": round(max(probabilities), 6),
+                "research_baseline_probability": round(fair, 6),
+                "research_baseline_kind": baseline_kind,
+                "research_edge": round(floor - fair, 6),
+                "variants_supporting": supporting,
+                "variants_scored": len(scored_variants),
+                "consensus_qualified": any(pick.get("consensus_qualified") is True for pick in picks),
+                "consensus_rejection_reason": base.get("consensus_rejection_reason"),
+                "consensus_season_probability": base.get("consensus_season_probability"),
+                "consensus_history_probability": base.get("consensus_history_probability"),
+                "projection": base.get("projection"),
+                "sample_games": base.get("sample_games"),
+                "injury_status": base.get("injury_status"),
+            }
+        )
+    rows.sort(key=lambda row: (row["research_edge"] < 0, -row["research_probability"], -row["research_edge"], row["id"]))
+    return rows[:limit], len(rows)
+
+
 def build_variant_buckets(
     *,
     sport: str,
@@ -1205,6 +1336,7 @@ def build_variant_buckets(
         for variant in VARIANT_ORDER
         for pick in scored_by_variant[variant]
     )
+    research_candidates, research_candidate_count = build_research_candidates(scored_by_variant)
     model_key = player_prop_sport_key(sport)
     fingerprint = _variant_fingerprint()
     bucket = {
@@ -1232,6 +1364,8 @@ def build_variant_buckets(
         "consensus_rejections": rejection_examples,
         "abstained": bool(candidates and not picks),
         "research_pass_count": sum(1 for pick in picks if str(pick.get("decision") or "") == "PASS"),
+        "research_candidates": research_candidates,
+        "research_candidate_count": research_candidate_count,
         "note": "" if picks else (str(base_model.get("note") or "") if not candidates else "") or f"No {sport} prop cleared the consensus publication gate.",
     }
     return {model_key: bucket}

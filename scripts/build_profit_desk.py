@@ -2117,6 +2117,7 @@ def build_profit_desk_payload(
         }
 
     research_shortlist = build_desk_research_shortlist(date_iso, team_payload, prop_payload)
+    research_shortlist_props = build_desk_research_shortlist_props(date_iso, prop_payload)
     live_record = _flat_record(portfolio["live"], stake_weighted=True)
     research_record = _flat_record(portfolio["all"])
     source_cards = _source_report_cards(evidence_book, candidates)
@@ -2197,6 +2198,7 @@ def build_profit_desk_payload(
         "researchRecord": research_record,
         "liveRecord": live_record,
         "researchShortlist": len(research_shortlist["rows"]),
+        "researchShortlistProps": len(research_shortlist_props["rows"]),
     }
     notices = [
         "Qualified picks carry real flat stakes: EDGE 1.0u, VALUE 0.5u; everything else stays 0u.",
@@ -2230,8 +2232,262 @@ def build_profit_desk_payload(
         "sources": source_cards,
         "notices": notices,
         "desk_research_shortlist": research_shortlist,
+        "desk_research_shortlist_props": research_shortlist_props,
     }
 
+
+
+# Player-prop research shortlist.  Same question as the game-line shortlist
+# (which priced, pregame in-house props have the highest model floor without
+# the model rating them below the market?), but fed by every priced market the
+# prop variants scored, not only by gate-published picks: on thin boards the
+# consensus gate publishes nothing, which is correct for staking and useless
+# for research.  Rows are 0u display-only research and never touch the
+# portfolio, the parlay engine, grading, or staking_approvals.json.
+RESEARCH_SHORTLIST_PROPS_MAX_ROWS = 5
+RESEARCH_SHORTLIST_PROPS_MAX_PER_GAME = 2
+RESEARCH_SHORTLIST_PROPS_CAUTION = {
+    "wnba": "WNBA props are research-only after the July audit measured -24% flat ROI.",
+    "cfb": "CFB props are an uncalibrated history baseline (single variant).",
+    "nfl": "NFL props are an uncalibrated history baseline (single variant).",
+}
+
+
+def _prop_research_records(prop_payload: Mapping[str, Any] | None) -> Iterable[RecordContext]:
+    if not isinstance(prop_payload, Mapping):
+        return
+    fallback_date = _text(_first(prop_payload, "date", "slate_date"))
+    models = prop_payload.get("models")
+    if not isinstance(models, Mapping):
+        return
+    for raw_source_key, bucket in models.items():
+        if not isinstance(bucket, Mapping) or bucket.get("ok") is False:
+            continue
+        source_key = _text(raw_source_key)
+        if source_key.startswith(RETIRED_SOURCE_KEY_PREFIXES):
+            continue
+        if bucket.get("football_baseline") is True:
+            rows = bucket.get("picks") or []
+        else:
+            rows = bucket.get("research_candidates") or []
+        for record in rows:
+            if not isinstance(record, Mapping):
+                continue
+            yield RecordContext(
+                payload=prop_payload,
+                bucket=bucket,
+                record=record,
+                source_key=source_key,
+                source=_text(record.get("source")) or _text(bucket.get("model")) or source_key,
+                mode="player",
+                fallback_date=fallback_date,
+            )
+
+
+def build_desk_research_shortlist_props(
+    date_iso: str,
+    prop_payload: Mapping[str, Any] | None,
+    *,
+    max_rows: int = RESEARCH_SHORTLIST_PROPS_MAX_ROWS,
+) -> dict[str, Any]:
+    """Rank today's highest-floor priced player props as 0u research (never staked)."""
+
+    excluded: dict[str, int] = defaultdict(int)
+    eligible: list[dict[str, Any]] = []
+    for context in _prop_research_records(prop_payload):
+        record = context.record
+        if _record_date(record, context.fallback_date) != date_iso:
+            continue
+        sport = _text(_first(record, "sport", "league")) or _text(context.bucket.get("sport"))
+        sport_key = _norm(sport)
+        reason = _shortlist_exclusion(
+            RecordContext(
+                payload=context.payload,
+                bucket=context.bucket,
+                record=record,
+                source_key=context.source_key,
+                source=context.source,
+                mode="team",  # the props shortlist has its own WNBA caution flag
+                fallback_date=context.fallback_date,
+            ),
+            sport,
+        )
+        if reason is None and _result(record.get("result")) != "pending":
+            reason = "already_settled"
+        odds = _american_int(record.get("odds"))
+        decimal = american_to_decimal(odds)
+        timing: dict[str, Any] = {}
+        if reason is None:
+            executable, _source, _field, _blockers = _price_provenance(record, context.source_key)
+            if not executable or decimal is None:
+                reason = "no_observed_price"
+        if reason is None:
+            # ESPN stamps a prop quote with the time the line last MOVED, not
+            # when it was read.  The refresh read every quote live, so the
+            # observation clock is the bucket/payload refresh time.
+            observed_at = _first(context.bucket, "updatedAt", "generatedAt") or _first(
+                context.payload, "generatedAt", "updatedAt"
+            )
+            timing_record = {**record, "market_updated_at": observed_at} if observed_at else record
+            timing = _timing(timing_record, context.bucket, context.payload)
+            if not timing["freshPregame"]:
+                reason = "not_fresh_pregame"
+        if reason is None and not (RESEARCH_SHORTLIST_MIN_ODDS <= odds <= RESEARCH_SHORTLIST_MAX_ODDS):
+            reason = "outside_price_band"
+        probability = None
+        probability_field = ""
+        if reason is None:
+            for key in ("research_probability", "calibrated_probability", "probability"):
+                probability = normalize_probability(record.get(key))
+                if probability is not None:
+                    probability_field = key
+                    break
+            if probability is None:
+                reason = "no_model_probability"
+        if reason is not None:
+            excluded[reason.split(":", 1)[0]] += 1
+            continue
+        assert decimal is not None and probability is not None and odds is not None
+        break_even = 1.0 / decimal
+        baseline_value = normalize_probability(record.get("research_baseline_probability"))
+        baseline_kind = _text(record.get("research_baseline_kind")) or ""
+        if baseline_value is None:
+            no_vig = derive_no_vig_probability(record)
+            if no_vig.verified and no_vig.probability is not None:
+                baseline_value, baseline_kind = no_vig.probability, "no_vig"
+            else:
+                baseline_value, baseline_kind = break_even, "break_even"
+        baseline_kind = baseline_kind if baseline_kind in {"no_vig", "break_even"} else "break_even"
+        edge = probability - baseline_value
+        if edge < 0:
+            excluded["negative_edge"] += 1
+            continue
+        if edge > RESEARCH_SHORTLIST_MAX_EDGE:
+            excluded["implausible_model_gap"] += 1
+            continue
+        single_only = odds <= RESEARCH_SHORTLIST_FILLER_ODDS
+        supporting = [str(v) for v in (record.get("variants_supporting") or []) if str(v)]
+        notes = [
+            "0u research only: not model-approved, not a Profit Desk stake, "
+            "never written to staking_approvals.json.",
+        ]
+        if record.get("consensus_qualified") is not True:
+            notes.append(
+                "Not consensus-qualified: "
+                + (_text(record.get("consensus_rejection_reason")) or "publication gate not cleared")
+                + "."
+            )
+        if single_only:
+            notes.append(
+                f"Priced at or shorter than {RESEARCH_SHORTLIST_FILLER_ODDS}: single only, never a filler leg."
+            )
+        if baseline_kind == "break_even":
+            notes.append("One-sided price: edge is versus vigged break-even, not no-vig.")
+        caution = RESEARCH_SHORTLIST_PROPS_CAUTION.get(sport_key)
+        if caution:
+            notes.append(caution)
+        eligible.append(
+            {
+                "label": RESEARCH_SHORTLIST_LABEL,
+                "stakeUnits": 0,
+                "modelApproved": False,
+                "date": date_iso,
+                "mode": "player",
+                "sport": sport,
+                "sourceKey": context.source_key,
+                "source": context.source,
+                "pick": _pick_text(record),
+                "player": _player(record) or None,
+                "team": _text(record.get("team")) or None,
+                "statKey": _text(record.get("stat_key")) or None,
+                "market": _text(_first(record, "stat_label", "market_type", "stat_key")) or None,
+                "selection": _text(record.get("selection")) or None,
+                "line": _number(record.get("line")),
+                "game": _game_label(record),
+                "canonicalGame": canonical_game_key(record, sport, date_iso),
+                "oddsAmerican": odds,
+                "decimalOdds": round(decimal, 6),
+                "modelProbability": round(probability, 6),
+                "probabilityField": probability_field,
+                "variantProbabilityMean": _number(record.get("variant_probability_mean")),
+                "variantsSupporting": supporting,
+                "variantsScored": record.get("variants_scored"),
+                "baselineKind": baseline_kind,
+                "baselineProbability": round(baseline_value, 6),
+                "breakEvenProbability": round(break_even, 6),
+                "edge": round(edge, 6),
+                "edgePp": round(edge * 100.0, 2),
+                "modelEvAtPrice": round(probability * decimal - 1.0, 6),
+                "consensusQualified": record.get("consensus_qualified") is True,
+                "consensusRejectionReason": _text(record.get("consensus_rejection_reason")) or None,
+                "injuryStatus": _text(record.get("injury_status")) or None,
+                "startTime": timing.get("startTime"),
+                "priceObservedAt": timing.get("timestamp"),
+                "lineLastMovedAt": _text(record.get("market_updated_at")) or None,
+                "priceSource": _text(_first(record, "market_source", "odds_source")) or None,
+                "websiteDecision": _text(record.get("decision")).upper() or "PASS",
+                "singleOnly": single_only,
+                "notes": notes,
+            }
+        )
+
+    eligible.sort(key=lambda row: (-row["modelProbability"], -row["edge"], row["sourceKey"], row["pick"]))
+    rows: list[dict[str, Any]] = []
+    per_game: dict[str, int] = defaultdict(int)
+    seen_players: set[tuple[str, str]] = set()
+    for row in eligible:
+        player_key = (row["canonicalGame"], _norm(row["player"] or row["pick"]))
+        if player_key in seen_players:
+            # One prop per player: same-player props are correlated exposure.
+            excluded["same_player_lower_floor"] += 1
+            continue
+        if per_game[row["canonicalGame"]] >= RESEARCH_SHORTLIST_PROPS_MAX_PER_GAME:
+            excluded["game_cap"] += 1
+            continue
+        seen_players.add(player_key)
+        per_game[row["canonicalGame"]] += 1
+        rows.append(row)
+        if len(rows) >= max_rows:
+            break
+    for rank, row in enumerate(rows, start=1):
+        row["rank"] = rank
+        row["id"] = "research-prop-" + _stable_hash(
+            {"date": date_iso, "source": row["sourceKey"], "pick": row["pick"], "odds": row["oddsAmerican"]},
+            20,
+        )
+    return {
+        "label": RESEARCH_SHORTLIST_LABEL,
+        "stakeUnits": 0,
+        "liveStaking": False,
+        "rows": rows,
+        "eligibleRows": len(eligible),
+        "excluded": dict(sorted(excluded.items())),
+        "criteria": {
+            "rankedBy": "research probability (lowest of the agreeing prop variants), then edge",
+            "requiresObservedPregamePrice": True,
+            "priceClock": "props refresh time (quotes are read live; the book's own stamp is when the line last moved)",
+            "edgeBaseline": "two-sided no-vig when both sides are quoted, else posted break-even (vig included)",
+            "minimumEdge": 0.0,
+            "maximumEdge": RESEARCH_SHORTLIST_MAX_EDGE,
+            "priceBandAmerican": [RESEARCH_SHORTLIST_MIN_ODDS, RESEARCH_SHORTLIST_MAX_ODDS],
+            "singleOnlyAtOrShorterThan": RESEARCH_SHORTLIST_FILLER_ODDS,
+            "maximumRows": max_rows,
+            "onePropPerPlayer": True,
+            "maximumPerGame": RESEARCH_SHORTLIST_PROPS_MAX_PER_GAME,
+            "excludes": [
+                "NBA preseason / unmarked NBA season",
+                "NHL and tennis",
+                "settled, stale, or post-start prices",
+                "assumed or unverified prices",
+            ],
+        },
+        "notes": [
+            "Research/entertainment only. No row is model-approved or staked.",
+            "Rows come from scored prop markets that the consensus gate did not publish; "
+            "they never enter the Profit Desk portfolio, parlay cards, or staking_approvals.json.",
+            "Prop probabilities are uncalibrated; modelEvAtPrice is unverified.",
+        ],
+    }
 
 # ---------------------------------------------------------------------------
 # Rebuild / CLI

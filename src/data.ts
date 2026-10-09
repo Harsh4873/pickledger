@@ -412,6 +412,18 @@ export interface ProfitDeskResearchRow {
   shadowDecision?: string | null;
   singleOnly?: boolean;
   notes?: string[];
+  team?: string | null;
+  statKey?: string | null;
+  selection?: string | null;
+  line?: number | null;
+  variantProbabilityMean?: number | null;
+  variantsSupporting?: string[];
+  variantsScored?: number | null;
+  consensusQualified?: boolean;
+  consensusRejectionReason?: string | null;
+  injuryStatus?: string | null;
+  priceObservedAt?: string | null;
+  lineLastMovedAt?: string | null;
 }
 
 export interface ProfitDeskResearchShortlist {
@@ -437,6 +449,7 @@ export interface ProfitDeskPayload {
   portfolio?: Partial<Record<PickMode | 'all', ProfitDeskCandidate[]>>;
   sources?: ProfitDeskSourceCard[];
   desk_research_shortlist?: ProfitDeskResearchShortlist;
+  desk_research_shortlist_props?: ProfitDeskResearchShortlist;
   [key: string]: unknown;
 }
 

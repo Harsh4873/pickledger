@@ -428,6 +428,10 @@ def test_profit_desk_is_its_own_precomputed_decision_first_tab():
     assert "RESEARCH/ENTERTAINMENT — NO VERIFIED EDGE" in main
     assert "NOT MODEL-APPROVED" in main
     assert "desk_research_shortlist?: ProfitDeskResearchShortlist" in data
+    # Player-prop research rows render in the same 0u Research view.
+    assert "desk_research_shortlist_props?: ProfitDeskResearchShortlist" in data
+    assert "function profitDeskResearchPropSection(" in main
+    assert "Player Prop Research" in main
     assert "let profitView: ProfitView = 'card'" in main
     assert "function renderProfit(" in main
     assert "getProfitDeskPayload(key)" in main
