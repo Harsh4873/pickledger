@@ -320,8 +320,12 @@ def test_mlb_specialty_rows_use_user_assumed_prices(monkeypatch):
     assert inning["model_decision"] == "BET" and inning["source_decision"] == "BET"
     assert inning["actionability"] == "research_signal"
     assert inning["decision_reason"] == "unpriced:no_run_inning_market_not_posted"
-    assert inning["model_version"] == "mlb_inning_v2_2026-08-25"
+    assert inning["model_version"] == "mlb_inning_platt_2026-10-09"
     assert inning["model_epoch"] == "mlb_inning_v2_2026-08-25"
+    assert inning["pre_refit_probability"] == 0.55
+    assert inning["probability"] != 0.55
+    assert inning["decision"] == "PASS" and inning["units"] == 0.0
+    assert inning["assumed_odds"] == -120
 
     total_row = next(row for row in f5_rows if row["market"] == "f5_total")
     assert total_row["pricing_type"] == "user_assumed"
