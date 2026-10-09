@@ -592,6 +592,40 @@ def _extract_rows(
     return out
 
 
+def _other_date_preview_reason(
+    cards: list[dict[str, str]], target_date: datetime | None, sport_key: str,
+) -> str:
+    """Explain dated CFB previews without treating unparsed dates as absence."""
+    if sport_key != "cfb" or target_date is None:
+        return ""
+    aliases = SPORT_CONFIG[sport_key]["league_aliases"]
+    previews = {}
+    for card in cards:
+        league = _normalize_line(str(card.get("league") or ""))
+        if league and league not in aliases:
+            continue
+        text = _normalize_line(str(card.get("datetime") or ""))
+        parsed = _parse_english_datetime(text)
+        if parsed is None or _matches_target_date(text, target_date):
+            return ""
+        matchup = _matchup_key(f"{card.get('home', '')} vs {card.get('away', '')}")
+        tip = _normalize_line(str(card.get("tip") or ""))
+        if not matchup or not tip:
+            return ""
+        # DOM and accessible-text extraction can report the same preview.
+        previews[(parsed.isoformat(), matchup, tip.casefold())] = parsed.date()
+    if not previews:
+        return ""
+    dates = sorted(previews.values())
+    if dates[0] > target_date.date():
+        detail = f"later dates (next {dates[0].isoformat()})"
+    elif dates[-1] < target_date.date():
+        detail = f"earlier dates (latest {dates[-1].isoformat()})"
+    else:
+        detail = f"other dates ({dates[0].isoformat()} through {dates[-1].isoformat()})"
+    return f"no previews for {target_date.date().isoformat()}; {len(previews)} previews for {detail}"
+
+
 def _print_pick(row: dict[str, str]) -> None:
     print("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
     print(f"Match:          {row['home']} vs {row['away']}")
@@ -649,6 +683,7 @@ def main() -> None:
         page = ctx.new_page()
         cards: list[dict[str, str]] = []
         page_texts: list[str] = []
+        page_urls: list[str] = []
         load_errors: list[str] = []
         unpublished_evidence: list[dict[str, str]] = []
         try:
@@ -682,6 +717,7 @@ def main() -> None:
                         )
                     )
                 page_texts.append(page_text)
+                page_urls.append(page.url)
                 reason = _unpublished_listing_reason(page.content(), page.url, sport_key)
                 if reason:
                     unpublished_evidence.append({"url": page.url, "reason": reason})
@@ -720,7 +756,11 @@ def main() -> None:
         print(f"Error: {exc}")
         sys.exit(1)
     if not rows:
-        print(f"No SportyTrader {target_title} picks parsed.")
+        other_date_reason = _other_date_preview_reason(cards, target_date, sport_key)
+        if other_date_reason:
+            print(f"SportyTrader {target_title}: {other_date_reason}.")
+        else:
+            print(f"No SportyTrader {target_title} picks parsed.")
         expected_keys = {
             key
             for matchup in expected_matchups
@@ -736,7 +776,9 @@ def main() -> None:
             f"Diagnostics: listingPages={len(page_texts)} cards={len(cards)} "
             f"officialMatchupCards={official_card_count}."
         )
-        if unpublished_evidence and not official_card_count and not load_errors and not blocked_page_count:
+        if other_date_reason:
+            unpublished_evidence.append({"url": page_urls[0], "reason": other_date_reason})
+        if unpublished_evidence and (not official_card_count or other_date_reason) and not load_errors and not blocked_page_count:
             print("Provider status: " + json.dumps({
                 "status": "no_previews_published",
                 "sport": sport_key,
