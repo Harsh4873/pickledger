@@ -154,6 +154,16 @@ after regular-season rows. Activating an NBA market needs a trained season/histo
 artifact whose chronological validation and later holdout both clear the same
 70% accuracy and sample floors the other sports use.
 
+NBA prop price archive: each Player Props Refresh runs
+`scripts/archive_nba_prop_prices.py`. It captures that slate's pregame ESPN
+DraftKings over/under quotes into `data/nba_prop_prices/<date>.jsonl.gz`
+(first-seen and latest pregame quote per market) and grades the last few
+completed days into `data/player_props_training/nba_market_history/<date>.jsonl.gz`,
+using ESPN's archived markets and falling back to our own capture. Quotes
+updated at or after tip are dropped (ESPN's archive also keeps in-game prices),
+milestone ladders are skipped, and every row carries `season_type` so preseason
+never trains or validates. Shards are small deterministic gzip files.
+
 ## NFL/CFB player props
 
 NFL player props use the ESPN posted-market consensus path. CFB uses the public
