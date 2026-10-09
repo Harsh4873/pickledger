@@ -109,6 +109,24 @@ def test_success_preserves_response_bytes_headers_and_parameters(monkeypatch):
     assert len(calls) == 1
 
 
+def test_scoreboard_timeout_stays_catchable_so_espn_fallback_can_run(monkeypatch, capsys):
+    calls = []
+
+    def send(_session, _request, **_kwargs):
+        calls.append(1)
+        raise requests.ReadTimeout("stats.nba.com scoreboard down")
+
+    monkeypatch.setattr(requests.Session, "send", send)
+    monkeypatch.setattr(runner.time, "sleep", lambda _seconds: None)
+    with runner.BoundedNBAStatsSession() as session:
+        with pytest.raises(requests.ReadTimeout):
+            session.get("https://stats.nba.com/stats/scoreboardv2", params={"GameDate": "10/09/2026"})
+    assert calls == [1, 1]
+    logged = capsys.readouterr().err
+    assert "stats.nba.com/stats/scoreboardv2 attempt 2/2" in logged
+    assert runner.FAILURE_MARKER not in logged
+
+
 def test_exhausted_request_stops_model_before_its_broad_retry_handlers(monkeypatch, capsys):
     calls, sleeps = [], []
 

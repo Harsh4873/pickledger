@@ -5,6 +5,7 @@ Pulls real current rosters, today's games, and injury reports.
 import math
 import json
 import os
+import sys
 import time
 from datetime import datetime
 
@@ -678,7 +679,14 @@ def fetch_todays_games(date_str: str = None) -> list:
         if fallback_games:
             print(f"WARNING: NBA API scoreboard failed ({exc}); using ESPN scoreboard fallback.")
             return fallback_games
-        raise
+        # Empty ESPN must stay a soft upstream failure. A traceback here is a
+        # hard model error and fails the whole publish.
+        message = (
+            "NBA_FETCH_UNAVAILABLE: stats.nba.com/stats/scoreboardv2 "
+            f"{type(exc).__name__}; ESPN scoreboard fallback empty"
+        )
+        print(message, file=sys.stderr)
+        raise SystemExit(message) from None
     
     games = []
     seen_game_ids = set()
