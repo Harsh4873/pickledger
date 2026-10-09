@@ -1,5 +1,7 @@
 name: Model Cache Refresh
 
+# No standalone cron: Daily Refresh calls this writer at its nominal Central
+# windows; the freshness guard and local routines recover via dispatch.
 on:
   workflow_call:
     inputs:

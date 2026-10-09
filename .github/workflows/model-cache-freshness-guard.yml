@@ -2,8 +2,9 @@ name: Model Cache Freshness Guard
 
 on:
   schedule:
-    # Check every refresh window through the evening. The local backup clock
-    # and Scores24 publisher also dispatch this guard when cron is delayed.
+    # Best-effort checks, not a guaranteed 15-minute watchdog: this cron shares
+    # the repo-wide scheduler delays. The independent local backup clock and
+    # Scores24 publisher dispatch this guard without waiting for a cron event.
     - cron: "42,57 6 * * *"
       timezone: "America/Chicago"
     - cron: "12,27,42,57 7-18 * * *"

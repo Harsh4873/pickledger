@@ -2,9 +2,9 @@ name: Pick Calibration Refresh
 
 on:
   schedule:
-    # Weekly floor so recalibration happens even when the 100-decision
-    # trigger in auto-grade doesn't fire. Monday 11:00 UTC, before the
-    # first model-cache refresh of the day.
+    # Best-effort weekly fallback when auto-grade's 100-decision trigger does
+    # not fire. Nominally Monday 11:00 UTC; delayed delivery can put this after
+    # the morning Daily Refresh, so cron does not guarantee their ordering.
     - cron: '0 11 * * 1'
   workflow_dispatch:
 

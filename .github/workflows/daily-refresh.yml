@@ -2,6 +2,8 @@ name: Daily Refresh
 
 on:
   schedule:
+    # Nominal refresh windows, not delivery deadlines. Repo crons have arrived
+    # hours late; timely recovery needs the independent local guard clock.
     - cron: "30 6 * * *"
       timezone: "America/Chicago"
     - cron: "0 13 * * *"

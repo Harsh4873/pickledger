@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Unattended production refresh backup, run from cron on the owner's machine.
-# GitHub Actions starts the same coordinator at 6:30 a.m. and 1:00 p.m.
-# America/Chicago; this job waits for that run when it is already active.
+# GitHub Actions schedules the same coordinator for 6:30 a.m. and 1:00 p.m.
+# America/Chicago, but delivery can be hours late. Wait if it is already active.
 #
 # WHY THIS RUNS LOCALLY AND NOT IN ACTIONS
 # Scores24 and Forebet Cloudflare-403 every GitHub-hosted runner IP, which is
@@ -118,10 +118,10 @@ log "syncing ${REPO}"
 sync_repo || { log "FATAL: could not sync repo"; exit 1; }
 log "  at $(git -C "$REPO" rev-parse --short HEAD)"
 
-# One coordinator owns pick-cache-writer. Dispatching models and props at the
-# same time used to replace a pending writer. GitHub already starts this at
-# 6:30 a.m. and 1:00 p.m. America/Chicago; wait for an active run instead of
-# stacking another.
+# The coordinator runs the pick-cache-writer jobs sequentially. Dispatching
+# models and props at the same time can replace a pending writer. The nominal
+# GitHub schedule is 6:30 a.m. and 1:00 p.m. America/Chicago; an active run may
+# have come from cron or dispatch. Wait instead of stacking another.
 log "dispatching Daily Refresh coordinator"
 ACTIVE_DAILY="$(gh run list --repo "$GH_REPO" --workflow daily-refresh.yml --branch main --limit 10 \
   --json databaseId,status --jq '[.[] | select(.status=="queued" or .status=="in_progress" or .status=="waiting" or .status=="pending" or .status=="requested")] | .[0].databaseId // empty' 2>/dev/null || true)"
