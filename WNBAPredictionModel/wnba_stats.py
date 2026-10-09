@@ -562,6 +562,39 @@ def compute_rolling_stats(game_logs: list[dict], n: int = 10) -> dict:
     return averages
 
 
+def apply_rolling_scoring(profile: dict | None, rolling: dict | None) -> dict:
+    """Attach a recent scoring window to the keys the totals model reads.
+
+    ``compute_rolling_stats`` returns ``pts``, ``opp_pts``, and
+    ``games_used``. ``_scoring_rate`` reads ``rolling_pts``,
+    ``rolling_opp_pts``, and ``rolling_games_used``, and it ignores the
+    window until five games are in it. Season profiles are built with
+    ``rolling={}``, so without this merge every projected total is the
+    lagging season average.
+    """
+    merged = dict(profile or {})
+    rolling = rolling or {}
+    try:
+        games = float(rolling.get("games_used") if rolling.get("games_used") is not None else rolling.get("rolling_games_used") or 0.0)
+    except (TypeError, ValueError):
+        return merged
+    if games < 5:
+        return merged
+    pts = rolling.get("pts", rolling.get("rolling_pts"))
+    opp = rolling.get("opp_pts", rolling.get("rolling_opp_pts"))
+    try:
+        pts_f = float(pts)
+        opp_f = float(opp)
+    except (TypeError, ValueError):
+        return merged
+    if not (50.0 <= pts_f <= 130.0 and 50.0 <= opp_f <= 130.0):
+        return merged
+    merged["rolling_pts"] = pts_f
+    merged["rolling_opp_pts"] = opp_f
+    merged["rolling_games_used"] = games
+    return merged
+
+
 def build_team_stats_profile(team_abbr, ratings, four_factors, bdl_season, rolling) -> dict:
     profile = {field: None for field in PROFILE_FIELDS}
     profile["team_abbr"] = team_abbr
@@ -621,16 +654,80 @@ def get_team_stats(team_abbr: str, season: int = 2026) -> dict:
     return get_all_team_stats(season=season).get(team_abbr.strip().upper(), {})
 
 
-def get_rolling_stats(team_abbr: str, n: int = 10, season: int = 2026) -> dict:
+def historical_team_game_logs(team_abbr: str, *, as_of: str | None = None) -> list[dict]:
+    """Finished games for one team from the committed score file.
+
+    Used when BallDontLie logs are missing. The file is scores only, so
+    the row carries points scored and allowed and nothing else. Games on
+    ``as_of`` are left out.
+    """
+    abbr = str(team_abbr or "").strip().upper()
+    if not abbr:
+        return []
+    path = os.path.join(DATA_DIR, "wnba_historical_games.json")
+    try:
+        with open(path, "r", encoding="utf-8") as handle:
+            payload = json.load(handle)
+    except (OSError, ValueError):
+        return []
+    games = payload.get("games") if isinstance(payload, dict) else None
+    if not isinstance(games, list):
+        return []
+    cutoff = as_of or datetime.date.today().isoformat()
+    logs: list[dict] = []
+    for game in games:
+        if not isinstance(game, dict):
+            continue
+        if str(game.get("status") or "").strip().lower() != "final":
+            continue
+        date = str(game.get("date") or "")
+        if not date or date >= cutoff:
+            continue
+        home = str(game.get("home_team") or "").strip().upper()
+        away = str(game.get("visitor_team") or game.get("away_team") or "").strip().upper()
+        try:
+            home_pts = float(game.get("home_team_score"))
+            away_pts = float(game.get("visitor_team_score"))
+        except (TypeError, ValueError):
+            continue
+        if home == abbr:
+            logs.append({"date": date, "pts": home_pts, "opp_pts": away_pts})
+        elif away == abbr:
+            logs.append({"date": date, "pts": away_pts, "opp_pts": home_pts})
+    logs.sort(key=lambda row: row["date"])
+    return logs
+
+
+def _rolling_is_usable(rolling: dict | None, n: int) -> bool:
+    if not isinstance(rolling, dict):
+        return False
+    try:
+        games = float(rolling.get("games_used") or 0)
+        pts = float(rolling.get("pts"))
+        opp = float(rolling.get("opp_pts"))
+    except (TypeError, ValueError):
+        return False
+    return games >= min(5, n) and 50.0 <= pts <= 130.0 and 50.0 <= opp <= 130.0
+
+
+def get_rolling_stats(team_abbr: str, n: int = 10, season: int = 2026, *, as_of: str | None = None) -> dict:
     if not team_abbr:
         return {}
 
-    team = WNBA_TEAM_MAP.get(team_abbr.strip().upper())
-    if not team:
-        return {}
-
-    game_logs = fetch_bdl_team_game_logs(team.get("bdl_id"), season=season)
-    return compute_rolling_stats(game_logs, n=n)
+    abbr = team_abbr.strip().upper()
+    team = WNBA_TEAM_MAP.get(abbr)
+    game_logs: list[dict] = []
+    if team:
+        game_logs = fetch_bdl_team_game_logs(team.get("bdl_id"), season=season)
+    rolling = compute_rolling_stats(game_logs, n=n) if game_logs else {}
+    if _rolling_is_usable(rolling, n):
+        return rolling
+    # The season cache is built with rolling={}. Without a posted log the
+    # publish path would keep that null window and project the season average.
+    historical = compute_rolling_stats(historical_team_game_logs(abbr, as_of=as_of), n=n)
+    if _rolling_is_usable(historical, n):
+        return historical
+    return rolling
 
 
 def _opponent_bdl_id_from_log(row: dict) -> int | None:
