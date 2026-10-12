@@ -26,6 +26,10 @@ import {
   type ParlayCard,
   type ParlayCardsPayload,
   type ParlayRanking,
+  type TrackResearchBlock,
+  type TrackResearchCard,
+  type TrackResearchLeg,
+  type TrackResearchShapeId,
   type Pick,
   type PickResult,
   type ProfitDeskBlocker,
@@ -3761,6 +3765,105 @@ function renderProfit(): void {
   bindProfitDeskControls(container);
 }
 
+const TRACK_SHAPE_ORDER: TrackResearchShapeId[] = [
+  'favorite_parlay',
+  'multiplier_parlay',
+  'priced_side',
+  'prop_pair',
+  'streak_candidate',
+];
+
+const TRACK_SHAPE_LABELS: Record<TrackResearchShapeId, string> = {
+  favorite_parlay: 'Favorite parlay',
+  multiplier_parlay: 'Multiplier parlay',
+  priced_side: 'Priced side',
+  prop_pair: 'Prop pair',
+  streak_candidate: 'Streak candidate',
+};
+
+const TRACK_SHAPE_AUDIENCES: Record<TrackResearchShapeId, string> = {
+  favorite_parlay: 'Polymarket US and Rebet research',
+  multiplier_parlay: 'Fliff research',
+  priced_side: 'Novig cash research',
+  prop_pair: 'Underdog research',
+  streak_candidate: 'Streaks research',
+};
+
+function isTrackResearchCard(value: unknown): value is TrackResearchCard {
+  return Boolean(value) && typeof value === 'object' && Array.isArray((value as TrackResearchCard).legs);
+}
+
+function trackLegHtml(leg: TrackResearchLeg): string {
+  const meta = [
+    leg.sport,
+    formatAmericanOddsValue(leg.oddsAmerican),
+    leg.quoteSource ? `quote ${leg.quoteSource}` : '',
+    'quote basis comparison',
+    '0u',
+  ].filter(Boolean).join(' | ');
+  const screen = leg.viggedImpliedProbability == null
+    ? ''
+    : `Vigged price screen ${formatProbabilityValue(leg.viggedImpliedProbability)} (not a win probability)`;
+  const sub = [leg.game, leg.market, leg.player, leg.startTime ? formatStart(leg.startTime) : '', screen].filter(Boolean).join(' | ');
+  return `<div class="parlay-leg">
+    <div class="parlay-leg-main">${escapeHtml(leg.pick)}</div>
+    <div class="parlay-leg-meta">${escapeHtml(meta)}</div>
+    <div class="parlay-leg-sub">${escapeHtml(sub)}</div>
+  </div>`;
+}
+
+function trackCardHtml(card: TrackResearchCard, label: string, audience: string): string {
+  const combined = Number(card.combinedDecimalOdds);
+  const combinedText = Number.isFinite(combined) ? combined.toFixed(4) : '--';
+  return `<article class="parlay-card">
+    <div class="parlay-header">
+      <div>
+        <div class="parlay-title">${escapeHtml(label)}</div>
+        <div class="parlay-subtitle">${escapeHtml(audience)} | ${card.legs.length} legs | research</div>
+      </div>
+      <div class="parlay-meta"><strong>${escapeHtml(combinedText)}</strong><span>estimate | quote basis comparison | 0u</span></div>
+    </div>
+    <div class="parlay-leg-list">${card.legs.map(trackLegHtml).join('')}</div>
+    <div class="parlay-warn">Combined price is an estimate from comparison quotes, not an executable parlay price. Not a placed ticket. Not verified edge.</div>
+  </article>`;
+}
+
+function trackShapeBody(shapeId: TrackResearchShapeId, items: unknown[], label: string, audience: string): string {
+  const cards = items.filter(isTrackResearchCard);
+  const legs = items.filter((item): item is TrackResearchLeg => Boolean(item) && typeof item === 'object' && !isTrackResearchCard(item));
+  if (!cards.length && !legs.length) {
+    return '<div class="daily-empty"><div class="daily-empty-title">None</div><div class="daily-empty-sub">Empty shape. Research can publish with no picks.</div></div>';
+  }
+  const cardHtml = cards.map(card => trackCardHtml(card, label, audience)).join('');
+  const legHtml = legs.length
+    ? `<article class="parlay-card"><div class="parlay-header"><div><div class="parlay-title">${escapeHtml(label)}</div><div class="parlay-subtitle">${escapeHtml(audience)} | ${legs.length} posted | research | quote basis comparison | 0u</div></div></div><div class="parlay-leg-list">${legs.map(trackLegHtml).join('')}</div><div class="parlay-warn">Posted comparison quotes. Not placed tickets. Not verified edge. Units are 0.</div></article>`
+    : '';
+  return `<div class="parlay-grid">${cardHtml}${legHtml}</div>`;
+}
+
+function trackResearchHtml(payload: ParlayCardsPayload | null): string {
+  const block = payload?.trackResearch;
+  if (!block || typeof block !== 'object') return '';
+  const shapes = block.shapes || {};
+  const anyPicks = TRACK_SHAPE_ORDER.some(shapeId => Array.isArray(shapes[shapeId]) && (shapes[shapeId]?.length || 0) > 0);
+  const intro = anyPicks
+    ? 'Separate from All and from parlay rankings. Quote basis: comparison. Units: 0.'
+    : 'No research picks for this slate. Quote basis: comparison. Units: 0.';
+  const sections = TRACK_SHAPE_ORDER.map(shapeId => {
+    const items = Array.isArray(shapes[shapeId]) ? shapes[shapeId] || [] : [];
+    const label = TRACK_SHAPE_LABELS[shapeId];
+    const audience = block.audiences?.[shapeId] || TRACK_SHAPE_AUDIENCES[shapeId];
+    const note = block.notes?.[shapeId] || (shapeId === 'streak_candidate' ? 'Not a daily requirement.' : '');
+    const subtitle = [audience, note, 'Research'].filter(Boolean).join(' | ');
+    return dailySection(label, subtitle, trackShapeBody(shapeId, items, label, audience), `${items.length}`);
+  }).join('');
+  return `<div class="track-research" data-track-research="true">${dailySection(
+    'Research',
+    `${intro} Not placed tickets. Not verified edge. Combined prices are estimates, not an executable parlay price. ${block.screen || 'The 90% screen is the vigged implied probability of the posted price, not a true win probability.'}`,
+    sections,
+  )}</div>`;
+}
+
 function renderParlays(): void {
   const container = document.getElementById('parlays-container');
   if (!container) return;
@@ -3808,6 +3911,7 @@ function renderParlays(): void {
     : '';
   const activeBody = noDatePayloadBody || emptyModeBody || parlaySections(visibleCards, parlayView, payload);
   const rankingsPanel = payload ? parlayRankingsPanel(parlayRankingsForCards(parlayRankingCardsForDate(key, modeCards, payload.engineVersion), payload)) : '';
+  const researchPanel = trackResearchHtml(payload);
 
   container.innerHTML = `<div class="daily-hero"><div class="daily-hero-row"><div><div class="daily-eyebrow">PARLAY BOARD</div><div class="daily-title">${escapeHtml(boardLabel)} Parlays</div><div class="daily-sub">${escapeHtml(dateLabel(key, true))} | ${escapeHtml(boardDescription)}</div></div><div class="daily-clock-wrap"><div class="daily-clock-label">SLATE</div><div class="daily-clock">${escapeHtml(key)}</div><div class="daily-countdown">Updated ${escapeHtml(generatedAt)}</div></div></div></div>
     <div class="daily-stats-strip">
@@ -3826,7 +3930,7 @@ function renderParlays(): void {
         <div class="daily-sort-control" role="group" aria-label="Parlay result filter">${resultOptions.map(option => `<button type="button" class="${parlayResultMode === option.key ? 'active' : ''}" onclick="setParlayResultMode('${option.key}')"><span>${escapeHtml(option.label)}</span><small>${escapeHtml(option.description)}</small></button>`).join('')}</div>
       </div>
     </div>
-    <div class="daily-active-content">${activeBody}${rankingsPanel}</div>
+    <div class="daily-active-content">${activeBody}${rankingsPanel}${researchPanel}</div>
     <div class="daily-disclaimer"><strong>Parlay tracking, not a forced ticket.</strong> Odds are multiplied from individual American prices, hit probability is anchored to market-implied leg probabilities plus each source's proven trailing edge, and every generated slip is tracked at 1u as one card for rankings.</div>`;
   bindInlineDatePicker('parlay');
 }

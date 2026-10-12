@@ -213,6 +213,10 @@ Per-game diagnostics distinguish unavailable markets, unmatched players and
 insufficient history. An outage is a soft-fail: other sports and Pages proceed.
 Dates stamp `America/Chicago`. CFB scoreboards use ESPN FBS `groups=80`.
 
+## Track research
+
+`trackResearch` on a parlay card file dated 2026-10-12 or later is a research block, not a staking lane. It is not a PickLedger model named Track, it is not a v6 parlay card, and it does not pass or widen the v6 gates. The publisher does not read the private Track ledger and does not copy balances or stakes. Legs are in-house rows that already have a posted comparison price and a start still in the future. The 90% screen is the vigged implied probability of that posted price, not a model win probability. Combined decimals are estimates from those comparison prices, not an executable app parlay price. Units stay 0. Nothing in the block is a placed ticket or verified edge. Parlay files dated before 2026-10-12 are not given this block, so an auto-grade rebuild does not rewrite that history with it.
+
 ## Deployment Contract
 
 `.github/workflows/deploy-pages.yml` runs on every push to `main`. It first checks that today's model and player-prop caches are complete. Incomplete daily refreshes defer deployment without failing; ready data is built, copied into `dist/`, and deployed to GitHub Pages.

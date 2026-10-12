@@ -1277,6 +1277,14 @@ def _write_manifest() -> bool:
 
 
 def rebuild_parlay_cards(*, date_iso: str | None = None, all_dates: bool = False) -> int:
+    # Imported lazily so this module can load without a cycle. Track research
+    # is attached after v6 cards, rankings, and summary are already built.
+    from scripts.build_track_cards import (
+        TRACK_RESEARCH_CUTOVER_DATE,
+        build_track_research,
+        parse_rebuild_clock,
+    )
+
     changed = 0
     dates = _target_dates(all_dates, date_iso)
     if not dates:
@@ -1293,6 +1301,26 @@ def rebuild_parlay_cards(*, date_iso: str | None = None, all_dates: bool = False
             print(f"[parlay-cards] skipped {target}: no source caches")
             continue
         payload = build_parlay_payload(target, team_payload, prop_payload)
+        # Dates before the track cutover keep the v6 file. Auto-grade rebuilds
+        # every date, so the research block is not injected into older history.
+        track_note = ""
+        if target >= TRACK_RESEARCH_CUTOVER_DATE:
+            payload["trackResearch"] = build_track_research(
+                target,
+                team_payload,
+                prop_payload,
+                now=parse_rebuild_clock(payload.get("generatedAt")),
+            )
+            shapes = payload["trackResearch"].get("shapes") or {}
+            track_note = " track=" + ",".join(
+                f"{key}:{len(shapes.get(key) or [])}" for key in (
+                    "favorite_parlay",
+                    "multiplier_parlay",
+                    "priced_side",
+                    "prop_pair",
+                    "streak_candidate",
+                )
+            )
         path = PARLAY_CARDS_DIR / f"{target}.json"
         if _write_json_if_changed(path, payload):
             changed += 1
@@ -1300,6 +1328,7 @@ def rebuild_parlay_cards(*, date_iso: str | None = None, all_dates: bool = False
             f"[parlay-cards] {target}: "
             f"{payload['summary']['displayedCards']} card(s), "
             f"{payload['summary']['eligibleLegs']} eligible leg(s)"
+            f"{track_note}"
         )
 
     if _write_manifest():

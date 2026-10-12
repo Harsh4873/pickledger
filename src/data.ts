@@ -197,6 +197,53 @@ export interface ParlayRanking {
   recentForm?: string;
 }
 
+export type TrackResearchShapeId =
+  | 'favorite_parlay'
+  | 'multiplier_parlay'
+  | 'priced_side'
+  | 'prop_pair'
+  | 'streak_candidate';
+
+export interface TrackResearchLeg {
+  pick: string;
+  sport: string;
+  game?: string;
+  market?: string;
+  player?: string;
+  oddsAmerican: number;
+  decimalOdds?: number;
+  viggedImpliedProbability?: number;
+  quoteSource?: string;
+  quoteBasis?: 'comparison';
+  startTime?: string;
+  units?: 0;
+}
+
+export interface TrackResearchCard {
+  id: 'favorite_parlay' | 'multiplier_parlay' | 'prop_pair' | string;
+  shape?: 'favorite_parlay' | 'multiplier_parlay' | 'prop_pair' | string;
+  quoteBasis?: 'comparison';
+  units?: 0;
+  combinedDecimalOdds?: number;
+  combinedPriceLabel?: 'estimate';
+  executableParlayPrice?: false;
+  audience?: string;
+  legs: TrackResearchLeg[];
+}
+
+export interface TrackResearchBlock {
+  label?: 'research';
+  quoteBasis?: 'comparison';
+  units?: 0;
+  notPlacedTickets?: boolean;
+  notVerifiedEdge?: boolean;
+  screen?: string;
+  note?: string;
+  audiences?: Partial<Record<TrackResearchShapeId, string>>;
+  notes?: Partial<Record<TrackResearchShapeId, string>>;
+  shapes?: Partial<Record<TrackResearchShapeId, Array<TrackResearchCard | TrackResearchLeg>>>;
+}
+
 export interface ParlayCardsPayload {
   date: string;
   generatedAt?: string;
@@ -214,6 +261,7 @@ export interface ParlayCardsPayload {
   rankings?: ParlayRanking[];
   cards?: ParlayCard[];
   notices?: string[];
+  trackResearch?: TrackResearchBlock;
   [key: string]: unknown;
 }
 
