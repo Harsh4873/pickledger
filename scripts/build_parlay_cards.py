@@ -39,6 +39,7 @@ import hashlib
 import json
 import math
 import re
+import sys
 from collections import Counter, defaultdict
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
@@ -1279,6 +1280,11 @@ def _write_manifest() -> bool:
 def rebuild_parlay_cards(*, date_iso: str | None = None, all_dates: bool = False) -> int:
     # Imported lazily so this module can load without a cycle. Track research
     # is attached after v6 cards, rankings, and summary are already built.
+    # Workflows run this file as `python scripts/build_parlay_cards.py`, which
+    # puts scripts/ (not the repo root) on sys.path; add the root so the
+    # scripts package resolves the same way it does under pytest.
+    if str(REPO_ROOT) not in sys.path:
+        sys.path.insert(0, str(REPO_ROOT))
     from scripts.build_track_cards import (
         TRACK_RESEARCH_CUTOVER_DATE,
         build_track_research,

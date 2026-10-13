@@ -7,6 +7,9 @@ research shapes, exclusions, cutover, estimate label, and zero units.
 from __future__ import annotations
 
 import json
+import shutil
+import subprocess
+import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -475,3 +478,20 @@ def test_units_are_zero():
         assert card["units"] == 0
         assert all(leg["units"] == 0 for leg in card["legs"])
     assert all(leg["units"] == 0 for leg in all_legs(block))
+
+
+def test_parlay_script_runs_as_workflows_invoke_it(tmp_path: Path):
+    # Workflows run `python scripts/build_parlay_cards.py`, which puts
+    # scripts/ rather than the repo root on sys.path. The lazy track-research
+    # import must still resolve (regression: ModuleNotFoundError in CI).
+    scripts_dir = tmp_path / "scripts"
+    scripts_dir.mkdir()
+    source_dir = Path(parlays.__file__).parent
+    for name in ("build_parlay_cards.py", "build_track_cards.py"):
+        shutil.copy(source_dir / name, scripts_dir / name)
+    result = subprocess.run(
+        [sys.executable, "scripts/build_parlay_cards.py", "--date", "2026-10-11"],
+        cwd=tmp_path, capture_output=True, text=True, timeout=120,
+    )
+    assert result.returncode == 0, result.stderr
+    assert "ModuleNotFoundError" not in result.stderr
