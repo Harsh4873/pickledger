@@ -210,6 +210,7 @@ export interface TrackResearchLeg {
   game?: string;
   market?: string;
   player?: string;
+  team?: string;
   oddsAmerican: number;
   decimalOdds?: number;
   viggedImpliedProbability?: number;

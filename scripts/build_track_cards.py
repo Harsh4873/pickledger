@@ -62,7 +62,12 @@ AUDIENCES = {
 }
 
 SHAPE_NOTES = {
-    "streak_candidate": "Not a daily requirement.",
+    "favorite_parlay": "Alt-spread legs still need a margin check; price alone does not qualify a leg.",
+    "multiplier_parlay": "Generic 2-3x research band; not a book-specific ticket.",
+    "streak_candidate": (
+        "Not a daily requirement. "
+        "Verify model probability and market agreement in the source cache before use."
+    ),
 }
 
 _SCRAPED_PREFIXES = (
@@ -106,6 +111,7 @@ class TrackLeg:
     market: str
     player: str
     player_key: str
+    player_team: str
     odds: int
     decimal_odds: float
     implied: float
@@ -135,8 +141,11 @@ def build_track_research(
     sides = [leg for leg in legs if not leg.is_prop]
     props = [leg for leg in legs if leg.is_prop]
     favorite = _select_favorite(legs)
-    multiplier = _select_multiplier(legs)
-    pair = _select_prop_pair(props)
+    used_game_keys = {leg.game_key for leg in favorite} if favorite else set()
+    multiplier = _select_multiplier(legs, exclude_game_keys=used_game_keys)
+    if multiplier:
+        used_game_keys |= {leg.game_key for leg in multiplier}
+    pair = _select_prop_pair(props, exclude_game_keys=used_game_keys)
     shapes = {
         "favorite_parlay": [_parlay_payload("favorite_parlay", favorite)] if favorite else [],
         "multiplier_parlay": [_parlay_payload("multiplier_parlay", multiplier)] if multiplier else [],
@@ -250,6 +259,7 @@ def _collect_legs(
         raw_game_key = _game_key(pick, sport, date_iso, pick_text)
         game_key = canonical_game_key(sport, game or raw_game_key, raw_game_key, date_iso)
         player_key = _player_key(pick, pick_text)
+        player_team = _clean_text(pick.get("team")) or _clean_text(pick.get("player_team"))
         market = _public_market(pick)
         quote_source = _quote_source(pick)
         implied = vigged_implied_probability(odds)
@@ -279,6 +289,7 @@ def _collect_legs(
                 market=market,
                 player=player,
                 player_key=player_key,
+                player_team=player_team,
                 odds=odds,
                 decimal_odds=decimal_odds,
                 implied=implied,
@@ -482,7 +493,10 @@ def _combos(
     *,
     band: tuple[float, float],
     favorite_screen: bool,
+    exclude_game_keys: set[str] | frozenset[str] | None = None,
 ) -> list[tuple[TrackLeg, ...]]:
+    if exclude_game_keys:
+        pool = [leg for leg in pool if leg.game_key not in exclude_game_keys]
     if len(pool) < 2:
         return []
     found: dict[tuple[str, ...], tuple[TrackLeg, ...]] = {}
@@ -524,8 +538,17 @@ def _gap(combo: tuple[TrackLeg, ...]) -> float:
     return max(implieds) - min(implieds)
 
 
-def _select_multiplier(legs: list[TrackLeg]) -> tuple[TrackLeg, ...] | None:
-    candidates = _combos(legs, band=MULTIPLIER_DECIMAL_BAND, favorite_screen=False)
+def _select_multiplier(
+    legs: list[TrackLeg],
+    *,
+    exclude_game_keys: set[str] | frozenset[str] | None = None,
+) -> tuple[TrackLeg, ...] | None:
+    candidates = _combos(
+        legs,
+        band=MULTIPLIER_DECIMAL_BAND,
+        favorite_screen=False,
+        exclude_game_keys=exclude_game_keys,
+    )
     if not candidates:
         return None
     candidates.sort(key=lambda combo: (
@@ -536,12 +559,22 @@ def _select_multiplier(legs: list[TrackLeg]) -> tuple[TrackLeg, ...] | None:
     return tuple(sorted(candidates[0], key=lambda leg: leg.public_id))
 
 
-def _select_prop_pair(props: list[TrackLeg]) -> tuple[TrackLeg, ...] | None:
-    ordered = sorted(props, key=lambda leg: leg.public_id)
+def _select_prop_pair(
+    props: list[TrackLeg],
+    *,
+    exclude_game_keys: set[str] | frozenset[str] | None = None,
+) -> tuple[TrackLeg, ...] | None:
+    pool = props
+    if exclude_game_keys:
+        pool = [leg for leg in pool if leg.game_key not in exclude_game_keys]
+    ordered = sorted(pool, key=lambda leg: leg.public_id)
     for combo in combinations(ordered, 2):
         if not _independent(combo):
             continue
         if not all(leg.is_prop and leg.player for leg in combo):
+            continue
+        teams = [leg.player_team.strip().casefold() for leg in combo]
+        if all(teams) and len(set(teams)) != len(teams):
             continue
         return tuple(sorted(combo, key=lambda leg: leg.public_id))
     return None
@@ -559,6 +592,7 @@ def _leg_payload(leg: TrackLeg) -> dict[str, Any]:
         "game": leg.game,
         "market": leg.market,
         "player": leg.player,
+        "team": leg.player_team,
         "oddsAmerican": leg.odds,
         "decimalOdds": round(leg.decimal_odds, 4),
         "viggedImpliedProbability": round(leg.implied, 4),

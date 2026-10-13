@@ -3804,7 +3804,7 @@ function trackLegHtml(leg: TrackResearchLeg): string {
   const screen = leg.viggedImpliedProbability == null
     ? ''
     : `Vigged price screen ${formatProbabilityValue(leg.viggedImpliedProbability)} (not a win probability)`;
-  const sub = [leg.game, leg.market, leg.player, leg.startTime ? formatStart(leg.startTime) : '', screen].filter(Boolean).join(' | ');
+  const sub = [leg.game, leg.market, leg.player, leg.team, leg.startTime ? formatStart(leg.startTime) : '', screen].filter(Boolean).join(' | ');
   return `<div class="parlay-leg">
     <div class="parlay-leg-main">${escapeHtml(leg.pick)}</div>
     <div class="parlay-leg-meta">${escapeHtml(meta)}</div>

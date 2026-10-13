@@ -41,6 +41,7 @@ def row(
     pricing_type: str = "market",
     probability: float | None = 0.42,
     units: int = 5,
+    team: str = "",
 ) -> dict:
     payload = {
         "date": date,
@@ -60,6 +61,8 @@ def row(
         "balance": 28,
         "player_name": player,
     }
+    if team:
+        payload["team"] = team
     if season_type:
         payload["season_type"] = season_type
     if probability is not None:
@@ -495,3 +498,81 @@ def test_parlay_script_runs_as_workflows_invoke_it(tmp_path: Path):
     )
     assert result.returncode == 0, result.stderr
     assert "ModuleNotFoundError" not in result.stderr
+
+
+def test_prop_pair_rejects_same_team_and_publishes_team():
+    # Different games, same player team: still not a valid pair. Team
+    # coverage is sport-dependent in the caches, so an unknown team stays
+    # allowed on the distinct-game guard alone (fail-open by design).
+    same_team = research_from(props={
+        "mlb_player_props": [
+            row(pick="Jane Hits", game="Alpha @ Bravo", odds=-140, player="Jane Hitter", market="Hits", team="Cleveland"),
+            row(pick="Bob Ks", game="Charlie @ Delta", odds=-130, player="Bob Pitcher", market="Strikeouts", team="cleveland"),
+        ],
+    })
+    assert same_team["shapes"]["prop_pair"] == []
+
+    different_teams = research_from(props={
+        "mlb_player_props": [
+            row(pick="Jane Hits", game="Alpha @ Bravo", odds=-140, player="Jane Hitter", market="Hits", team="Cleveland"),
+            row(pick="Bob Ks", game="Charlie @ Delta", odds=-130, player="Bob Pitcher", market="Strikeouts", team="Tampa Bay"),
+        ],
+    })
+    cards = different_teams["shapes"]["prop_pair"]
+    assert len(cards) == 1
+    assert {leg["team"] for leg in cards[0]["legs"]} == {"Cleveland", "Tampa Bay"}
+
+    unknown_team = research_from(props={
+        "mlb_player_props": [
+            row(pick="Jane Hits", game="Alpha @ Bravo", odds=-140, player="Jane Hitter", market="Hits"),
+            row(pick="Bob Ks", game="Charlie @ Delta", odds=-130, player="Bob Pitcher", market="Strikeouts"),
+        ],
+    })
+    assert len(unknown_team["shapes"]["prop_pair"]) == 1
+
+
+def test_parlay_shapes_never_share_a_game():
+    # Mirrors the published 2026-10-13 overlap (one NHL game on both the
+    # multiplier and the prop pair): the shared game can only land on the
+    # first parlay shape that claims it.
+    shared = "Calgary Flames @ Anaheim Ducks"
+    block = research_from(
+        {
+            "mlb_new": [
+                row(pick="Shared Heavy", game=shared, odds=-900),
+                row(pick="Partner Heavy", game="Echo @ Foxtrot", odds=-900),
+                row(pick="Shared Mid", game=shared, odds=-200),
+                row(pick="Mid Two", game="Golf @ Hotel", odds=-150),
+                row(pick="Mid Three", game="India @ Juliet", odds=-200),
+            ],
+        },
+        {
+            "mlb_player_props": [
+                row(pick="Shared Prop", game=shared, odds=-140, player="Shared Player", market="Points", team="Anaheim Ducks"),
+                row(pick="Prop Two", game="Kilo @ Lima", odds=-130, player="Player Two", market="Points", team="Kilo"),
+                row(pick="Prop Three", game="Mike @ November", odds=-120, player="Player Three", market="Points", team="Mike"),
+            ],
+        },
+    )
+    games = {
+        shape: {leg["game"] for card in block["shapes"][shape] for leg in card["legs"]}
+        for shape in ("favorite_parlay", "multiplier_parlay", "prop_pair")
+    }
+    assert all(games[shape] for shape in games), "fixture should fill all three parlay shapes"
+    assert shared in games["favorite_parlay"]
+    assert not games["favorite_parlay"] & games["multiplier_parlay"]
+    assert not games["favorite_parlay"] & games["prop_pair"]
+    assert not games["multiplier_parlay"] & games["prop_pair"]
+
+
+def test_shape_notes_warn_on_margin_band_and_source_checks():
+    block = track.build_track_research(DATE, None, None, now=NOW)
+    notes = block["notes"]
+    assert notes["favorite_parlay"] == (
+        "Alt-spread legs still need a margin check; price alone does not qualify a leg."
+    )
+    assert notes["multiplier_parlay"] == "Generic 2-3x research band; not a book-specific ticket."
+    assert notes["streak_candidate"] == (
+        "Not a daily requirement. "
+        "Verify model probability and market agreement in the source cache before use."
+    )
