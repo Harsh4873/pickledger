@@ -1155,15 +1155,32 @@
   "errors": [
     "nba: NBA New upstream unavailable (NBA_FETCH_UNAVAILABLE: stats.nba.com/stats/leaguedashteamstats ReadTimeout; stopped after 2 attempt(s))"
   ],
-  "externalFeedsUpdatedAt": "2026-10-14T20:32:10.046268Z",
-  "external_feed_errors": [],
+  "externalFeedsUpdatedAt": "2026-10-14T21:04:20.923712Z",
+  "external_feed_errors": [
+    "forebet_nba: ForebetNBA: listing fetch blocked by Cloudflare",
+    "forebet_cfb: ForebetCFB: listing fetch blocked by Cloudflare",
+    "forebet_mlb: ForebetMLB: listing fetch blocked by Cloudflare",
+    "forebet_mls: ForebetMLS: listing fetch blocked by Cloudflare",
+    "forebet_nhl: ForebetNHL: listing fetch blocked by Cloudflare"
+  ],
   "external_feeds": {
     "forebet_cfb": {
       "date": "2026-10-14",
       "generatedAt": "2026-10-14T18:50:04.321034Z",
       "generatedBy": "local:external-feed-refresh",
-      "lastAttemptAt": "2026-10-14T18:50:04.321034Z",
+      "lastAttemptAt": "2026-10-14T21:03:59.375871Z",
       "lastAttemptDate": "2026-10-14",
+      "lastAttemptMeta": {
+        "blockedUrl": "https://www.forebet.com/en/american-football/usa/ncaa",
+        "blockedUrls": 1,
+        "matchedPicks": 0,
+        "missingMatchups": [
+          "Kennesaw State Owls @ Missouri State Bears",
+          "Western Kentucky Hilltoppers @ Sam Houston Bearkats"
+        ],
+        "officialMatchups": 2
+      },
+      "lastError": "ForebetCFB: listing fetch blocked by Cloudflare",
       "lastSuccessAt": "2026-10-14T18:50:04.321034Z",
       "meta": {
         "attemptedUrls": 1,
@@ -1181,7 +1198,7 @@
         "updatedAt": "2026-10-14T18:50:04.321034Z"
       },
       "note": "ForebetCFB matched 2 published prediction(s) against 2 official 2026-10-14 matchup(s).",
-      "ok": true,
+      "ok": false,
       "picks": [
         {
           "away_team": "Kennesaw State Owls",
@@ -1236,7 +1253,7 @@
           "units": 0
         }
       ],
-      "refreshStatus": "ok",
+      "refreshStatus": "error",
       "scraped_tip_feed": true,
       "updatedAt": "2026-10-14T18:50:04.321034Z"
     },
@@ -1244,8 +1261,18 @@
       "date": "2026-10-14",
       "generatedAt": "2026-10-14T18:49:19.660994Z",
       "generatedBy": "local:external-feed-refresh",
-      "lastAttemptAt": "2026-10-14T18:49:19.660994Z",
+      "lastAttemptAt": "2026-10-14T21:03:36.924950Z",
       "lastAttemptDate": "2026-10-14",
+      "lastAttemptMeta": {
+        "blockedUrl": "https://www.forebet.com/en/baseball/usa/mlb",
+        "blockedUrls": 1,
+        "matchedPicks": 0,
+        "missingMatchups": [
+          "Milwaukee Brewers @ Los Angeles Dodgers"
+        ],
+        "officialMatchups": 1
+      },
+      "lastError": "ForebetMLB: listing fetch blocked by Cloudflare",
       "lastSuccessAt": "2026-10-14T18:49:19.660994Z",
       "meta": {
         "attemptedUrls": 1,
@@ -1263,7 +1290,7 @@
         "updatedAt": "2026-10-14T18:49:19.660994Z"
       },
       "note": "ForebetMLB matched 1 published prediction(s) against 1 official 2026-10-14 matchup(s).",
-      "ok": true,
+      "ok": false,
       "picks": [
         {
           "away_team": "Milwaukee Brewers",
@@ -1292,7 +1319,7 @@
           "units": 0
         }
       ],
-      "refreshStatus": "ok",
+      "refreshStatus": "error",
       "scraped_tip_feed": true,
       "updatedAt": "2026-10-14T18:49:19.660994Z"
     },
@@ -1300,8 +1327,32 @@
       "date": "2026-10-14",
       "generatedAt": "2026-10-14T18:49:55.431393Z",
       "generatedBy": "local:external-feed-refresh",
-      "lastAttemptAt": "2026-10-14T18:49:55.431393Z",
+      "lastAttemptAt": "2026-10-14T21:03:51.770579Z",
       "lastAttemptDate": "2026-10-14",
+      "lastAttemptMeta": {
+        "blockedUrl": "https://www.forebet.com/en/football-tips-and-predictions-for-usa/mls",
+        "blockedUrls": 1,
+        "matchedPicks": 0,
+        "missingMatchups": [
+          "Atlanta United FC @ CF Montr\u00e9al",
+          "Charlotte FC @ Columbus Crew",
+          "Red Bull New York @ D.C. United",
+          "New England Revolution @ FC Cincinnati",
+          "New York City FC @ Inter Miami CF",
+          "Orlando City SC @ Toronto FC",
+          "Philadelphia Union @ Chicago Fire FC",
+          "Seattle Sounders FC @ FC Dallas",
+          "Sporting Kansas City @ Nashville SC",
+          "Vancouver Whitecaps @ St. Louis CITY SC",
+          "Minnesota United FC @ Colorado Rapids",
+          "San Jose Earthquakes @ Real Salt Lake",
+          "Portland Timbers @ LA Galaxy",
+          "Austin FC @ LAFC",
+          "Houston Dynamo FC @ San Diego FC"
+        ],
+        "officialMatchups": 15
+      },
+      "lastError": "ForebetMLS: listing fetch blocked by Cloudflare",
       "lastSuccessAt": "2026-10-14T18:49:55.431393Z",
       "meta": {
         "attemptedUrls": 1,
@@ -1319,7 +1370,7 @@
         "updatedAt": "2026-10-14T18:49:55.431393Z"
       },
       "note": "ForebetMLS matched 15 published prediction(s) against 15 official 2026-10-14 matchup(s).",
-      "ok": true,
+      "ok": false,
       "picks": [
         {
           "away_team": "Atlanta United FC",
@@ -1757,7 +1808,7 @@
           "units": 0
         }
       ],
-      "refreshStatus": "ok",
+      "refreshStatus": "error",
       "scraped_tip_feed": true,
       "updatedAt": "2026-10-14T18:49:55.431393Z"
     },
@@ -1765,8 +1816,24 @@
       "date": "2026-10-14",
       "generatedAt": "2026-10-14T18:50:41.271886Z",
       "generatedBy": "local:external-feed-refresh",
-      "lastAttemptAt": "2026-10-14T18:50:41.271886Z",
+      "lastAttemptAt": "2026-10-14T21:04:20.923712Z",
       "lastAttemptDate": "2026-10-14",
+      "lastAttemptMeta": {
+        "blockedUrl": "https://www.forebet.com/en/basketball/usa/nba",
+        "blockedUrls": 1,
+        "matchedPicks": 0,
+        "missingMatchups": [
+          "Brooklyn Nets @ Miami Heat",
+          "Charlotte Hornets @ Boston Celtics",
+          "Phoenix Suns @ San Antonio Spurs",
+          "New Orleans Pelicans @ Dallas Mavericks",
+          "Chicago Bulls @ Milwaukee Bucks",
+          "Detroit Pistons @ Minnesota Timberwolves",
+          "Denver Nuggets @ LA Clippers"
+        ],
+        "officialMatchups": 7
+      },
+      "lastError": "ForebetNBA: listing fetch blocked by Cloudflare",
       "lastSuccessAt": "2026-10-14T18:50:41.271886Z",
       "meta": {
         "attemptedUrls": 1,
@@ -1784,7 +1851,7 @@
         "updatedAt": "2026-10-14T18:50:41.271886Z"
       },
       "note": "ForebetNBA matched 7 published prediction(s) against 7 official 2026-10-14 matchup(s).",
-      "ok": true,
+      "ok": false,
       "picks": [
         {
           "away_team": "Brooklyn Nets",
@@ -1969,17 +2036,17 @@
           "units": 0
         }
       ],
-      "refreshStatus": "ok",
+      "refreshStatus": "error",
       "scraped_tip_feed": true,
       "updatedAt": "2026-10-14T18:50:41.271886Z"
     },
     "forebet_nfl": {
       "date": "2026-10-14",
-      "generatedAt": "2026-10-14T18:50:23.254412Z",
+      "generatedAt": "2026-10-14T21:04:06.493101Z",
       "generatedBy": "local:external-feed-refresh",
-      "lastAttemptAt": "2026-10-14T18:50:23.254412Z",
+      "lastAttemptAt": "2026-10-14T21:04:06.493101Z",
       "lastAttemptDate": "2026-10-14",
-      "lastSuccessAt": "2026-10-14T18:50:23.254412Z",
+      "lastSuccessAt": "2026-10-14T21:04:06.493101Z",
       "meta": {
         "attemptedUrls": 0,
         "blockedUrls": 0,
@@ -1992,20 +2059,31 @@
         "missingMatchups": [],
         "officialMatchups": 0,
         "unpublishedMatchups": [],
-        "updatedAt": "2026-10-14T18:50:23.254412Z"
+        "updatedAt": "2026-10-14T21:04:06.493101Z"
       },
       "note": "ForebetNFL has no official 2026-10-14 matchups.",
       "ok": true,
       "picks": [],
       "refreshStatus": "ok",
-      "updatedAt": "2026-10-14T18:50:23.254412Z"
+      "updatedAt": "2026-10-14T21:04:06.493101Z"
     },
     "forebet_nhl": {
       "date": "2026-10-14",
       "generatedAt": "2026-10-14T18:50:30.025333Z",
       "generatedBy": "local:external-feed-refresh",
-      "lastAttemptAt": "2026-10-14T18:50:30.025333Z",
+      "lastAttemptAt": "2026-10-14T21:04:13.495467Z",
       "lastAttemptDate": "2026-10-14",
+      "lastAttemptMeta": {
+        "blockedUrl": "https://www.forebet.com/en/hockey/usa/nhl",
+        "blockedUrls": 1,
+        "matchedPicks": 0,
+        "missingMatchups": [
+          "Montreal Canadiens @ Washington Capitals",
+          "Dallas Stars @ Colorado Avalanche"
+        ],
+        "officialMatchups": 2
+      },
+      "lastError": "ForebetNHL: listing fetch blocked by Cloudflare",
       "lastSuccessAt": "2026-10-14T18:50:30.025333Z",
       "meta": {
         "attemptedUrls": 1,
@@ -2023,7 +2101,7 @@
         "updatedAt": "2026-10-14T18:50:30.025333Z"
       },
       "note": "ForebetNHL matched 2 published prediction(s) against 2 official 2026-10-14 matchup(s).",
-      "ok": true,
+      "ok": false,
       "picks": [
         {
           "away_team": "Montreal Canadiens",
@@ -2078,17 +2156,17 @@
           "units": 0
         }
       ],
-      "refreshStatus": "ok",
+      "refreshStatus": "error",
       "scraped_tip_feed": true,
       "updatedAt": "2026-10-14T18:50:30.025333Z"
     },
     "forebet_wnba": {
       "date": "2026-10-14",
-      "generatedAt": "2026-10-14T18:49:48.356993Z",
+      "generatedAt": "2026-10-14T21:03:44.681526Z",
       "generatedBy": "local:external-feed-refresh",
-      "lastAttemptAt": "2026-10-14T18:49:48.356993Z",
+      "lastAttemptAt": "2026-10-14T21:03:44.681526Z",
       "lastAttemptDate": "2026-10-14",
-      "lastSuccessAt": "2026-10-14T18:49:48.356993Z",
+      "lastSuccessAt": "2026-10-14T21:03:44.681526Z",
       "meta": {
         "attemptedUrls": 0,
         "blockedUrls": 0,
@@ -2101,13 +2179,13 @@
         "missingMatchups": [],
         "officialMatchups": 0,
         "unpublishedMatchups": [],
-        "updatedAt": "2026-10-14T18:49:48.356993Z"
+        "updatedAt": "2026-10-14T21:03:44.681526Z"
       },
       "note": "ForebetWNBA has no official 2026-10-14 matchups.",
       "ok": true,
       "picks": [],
       "refreshStatus": "ok",
-      "updatedAt": "2026-10-14T18:49:48.356993Z"
+      "updatedAt": "2026-10-14T21:03:44.681526Z"
     },
     "scores24_cfb": {
       "date": "2026-10-14",
@@ -3375,8 +3453,19 @@
     "date": "2026-10-14",
     "generatedAt": "2026-10-14T18:50:04.321034Z",
     "generatedBy": "local:external-feed-refresh",
-    "lastAttemptAt": "2026-10-14T18:50:04.321034Z",
+    "lastAttemptAt": "2026-10-14T21:03:59.375871Z",
     "lastAttemptDate": "2026-10-14",
+    "lastAttemptMeta": {
+      "blockedUrl": "https://www.forebet.com/en/american-football/usa/ncaa",
+      "blockedUrls": 1,
+      "matchedPicks": 0,
+      "missingMatchups": [
+        "Kennesaw State Owls @ Missouri State Bears",
+        "Western Kentucky Hilltoppers @ Sam Houston Bearkats"
+      ],
+      "officialMatchups": 2
+    },
+    "lastError": "ForebetCFB: listing fetch blocked by Cloudflare",
     "lastSuccessAt": "2026-10-14T18:50:04.321034Z",
     "meta": {
       "attemptedUrls": 1,
@@ -3394,7 +3483,7 @@
       "updatedAt": "2026-10-14T18:50:04.321034Z"
     },
     "note": "ForebetCFB matched 2 published prediction(s) against 2 official 2026-10-14 matchup(s).",
-    "ok": true,
+    "ok": false,
     "picks": [
       {
         "away_team": "Kennesaw State Owls",
@@ -3449,7 +3538,7 @@
         "units": 0
       }
     ],
-    "refreshStatus": "ok",
+    "refreshStatus": "error",
     "scraped_tip_feed": true,
     "updatedAt": "2026-10-14T18:50:04.321034Z"
   },
@@ -3457,8 +3546,18 @@
     "date": "2026-10-14",
     "generatedAt": "2026-10-14T18:49:19.660994Z",
     "generatedBy": "local:external-feed-refresh",
-    "lastAttemptAt": "2026-10-14T18:49:19.660994Z",
+    "lastAttemptAt": "2026-10-14T21:03:36.924950Z",
     "lastAttemptDate": "2026-10-14",
+    "lastAttemptMeta": {
+      "blockedUrl": "https://www.forebet.com/en/baseball/usa/mlb",
+      "blockedUrls": 1,
+      "matchedPicks": 0,
+      "missingMatchups": [
+        "Milwaukee Brewers @ Los Angeles Dodgers"
+      ],
+      "officialMatchups": 1
+    },
+    "lastError": "ForebetMLB: listing fetch blocked by Cloudflare",
     "lastSuccessAt": "2026-10-14T18:49:19.660994Z",
     "meta": {
       "attemptedUrls": 1,
@@ -3476,7 +3575,7 @@
       "updatedAt": "2026-10-14T18:49:19.660994Z"
     },
     "note": "ForebetMLB matched 1 published prediction(s) against 1 official 2026-10-14 matchup(s).",
-    "ok": true,
+    "ok": false,
     "picks": [
       {
         "away_team": "Milwaukee Brewers",
@@ -3505,7 +3604,7 @@
         "units": 0
       }
     ],
-    "refreshStatus": "ok",
+    "refreshStatus": "error",
     "scraped_tip_feed": true,
     "updatedAt": "2026-10-14T18:49:19.660994Z"
   },
@@ -3513,8 +3612,32 @@
     "date": "2026-10-14",
     "generatedAt": "2026-10-14T18:49:55.431393Z",
     "generatedBy": "local:external-feed-refresh",
-    "lastAttemptAt": "2026-10-14T18:49:55.431393Z",
+    "lastAttemptAt": "2026-10-14T21:03:51.770579Z",
     "lastAttemptDate": "2026-10-14",
+    "lastAttemptMeta": {
+      "blockedUrl": "https://www.forebet.com/en/football-tips-and-predictions-for-usa/mls",
+      "blockedUrls": 1,
+      "matchedPicks": 0,
+      "missingMatchups": [
+        "Atlanta United FC @ CF Montr\u00e9al",
+        "Charlotte FC @ Columbus Crew",
+        "Red Bull New York @ D.C. United",
+        "New England Revolution @ FC Cincinnati",
+        "New York City FC @ Inter Miami CF",
+        "Orlando City SC @ Toronto FC",
+        "Philadelphia Union @ Chicago Fire FC",
+        "Seattle Sounders FC @ FC Dallas",
+        "Sporting Kansas City @ Nashville SC",
+        "Vancouver Whitecaps @ St. Louis CITY SC",
+        "Minnesota United FC @ Colorado Rapids",
+        "San Jose Earthquakes @ Real Salt Lake",
+        "Portland Timbers @ LA Galaxy",
+        "Austin FC @ LAFC",
+        "Houston Dynamo FC @ San Diego FC"
+      ],
+      "officialMatchups": 15
+    },
+    "lastError": "ForebetMLS: listing fetch blocked by Cloudflare",
     "lastSuccessAt": "2026-10-14T18:49:55.431393Z",
     "meta": {
       "attemptedUrls": 1,
@@ -3532,7 +3655,7 @@
       "updatedAt": "2026-10-14T18:49:55.431393Z"
     },
     "note": "ForebetMLS matched 15 published prediction(s) against 15 official 2026-10-14 matchup(s).",
-    "ok": true,
+    "ok": false,
     "picks": [
       {
         "away_team": "Atlanta United FC",
@@ -3970,7 +4093,7 @@
         "units": 0
       }
     ],
-    "refreshStatus": "ok",
+    "refreshStatus": "error",
     "scraped_tip_feed": true,
     "updatedAt": "2026-10-14T18:49:55.431393Z"
   },
@@ -3978,8 +4101,24 @@
     "date": "2026-10-14",
     "generatedAt": "2026-10-14T18:50:41.271886Z",
     "generatedBy": "local:external-feed-refresh",
-    "lastAttemptAt": "2026-10-14T18:50:41.271886Z",
+    "lastAttemptAt": "2026-10-14T21:04:20.923712Z",
     "lastAttemptDate": "2026-10-14",
+    "lastAttemptMeta": {
+      "blockedUrl": "https://www.forebet.com/en/basketball/usa/nba",
+      "blockedUrls": 1,
+      "matchedPicks": 0,
+      "missingMatchups": [
+        "Brooklyn Nets @ Miami Heat",
+        "Charlotte Hornets @ Boston Celtics",
+        "Phoenix Suns @ San Antonio Spurs",
+        "New Orleans Pelicans @ Dallas Mavericks",
+        "Chicago Bulls @ Milwaukee Bucks",
+        "Detroit Pistons @ Minnesota Timberwolves",
+        "Denver Nuggets @ LA Clippers"
+      ],
+      "officialMatchups": 7
+    },
+    "lastError": "ForebetNBA: listing fetch blocked by Cloudflare",
     "lastSuccessAt": "2026-10-14T18:50:41.271886Z",
     "meta": {
       "attemptedUrls": 1,
@@ -3997,7 +4136,7 @@
       "updatedAt": "2026-10-14T18:50:41.271886Z"
     },
     "note": "ForebetNBA matched 7 published prediction(s) against 7 official 2026-10-14 matchup(s).",
-    "ok": true,
+    "ok": false,
     "picks": [
       {
         "away_team": "Brooklyn Nets",
@@ -4182,17 +4321,17 @@
         "units": 0
       }
     ],
-    "refreshStatus": "ok",
+    "refreshStatus": "error",
     "scraped_tip_feed": true,
     "updatedAt": "2026-10-14T18:50:41.271886Z"
   },
   "forebet_nfl": {
     "date": "2026-10-14",
-    "generatedAt": "2026-10-14T18:50:23.254412Z",
+    "generatedAt": "2026-10-14T21:04:06.493101Z",
     "generatedBy": "local:external-feed-refresh",
-    "lastAttemptAt": "2026-10-14T18:50:23.254412Z",
+    "lastAttemptAt": "2026-10-14T21:04:06.493101Z",
     "lastAttemptDate": "2026-10-14",
-    "lastSuccessAt": "2026-10-14T18:50:23.254412Z",
+    "lastSuccessAt": "2026-10-14T21:04:06.493101Z",
     "meta": {
       "attemptedUrls": 0,
       "blockedUrls": 0,
@@ -4205,20 +4344,31 @@
       "missingMatchups": [],
       "officialMatchups": 0,
       "unpublishedMatchups": [],
-      "updatedAt": "2026-10-14T18:50:23.254412Z"
+      "updatedAt": "2026-10-14T21:04:06.493101Z"
     },
     "note": "ForebetNFL has no official 2026-10-14 matchups.",
     "ok": true,
     "picks": [],
     "refreshStatus": "ok",
-    "updatedAt": "2026-10-14T18:50:23.254412Z"
+    "updatedAt": "2026-10-14T21:04:06.493101Z"
   },
   "forebet_nhl": {
     "date": "2026-10-14",
     "generatedAt": "2026-10-14T18:50:30.025333Z",
     "generatedBy": "local:external-feed-refresh",
-    "lastAttemptAt": "2026-10-14T18:50:30.025333Z",
+    "lastAttemptAt": "2026-10-14T21:04:13.495467Z",
     "lastAttemptDate": "2026-10-14",
+    "lastAttemptMeta": {
+      "blockedUrl": "https://www.forebet.com/en/hockey/usa/nhl",
+      "blockedUrls": 1,
+      "matchedPicks": 0,
+      "missingMatchups": [
+        "Montreal Canadiens @ Washington Capitals",
+        "Dallas Stars @ Colorado Avalanche"
+      ],
+      "officialMatchups": 2
+    },
+    "lastError": "ForebetNHL: listing fetch blocked by Cloudflare",
     "lastSuccessAt": "2026-10-14T18:50:30.025333Z",
     "meta": {
       "attemptedUrls": 1,
@@ -4236,7 +4386,7 @@
       "updatedAt": "2026-10-14T18:50:30.025333Z"
     },
     "note": "ForebetNHL matched 2 published prediction(s) against 2 official 2026-10-14 matchup(s).",
-    "ok": true,
+    "ok": false,
     "picks": [
       {
         "away_team": "Montreal Canadiens",
@@ -4291,17 +4441,17 @@
         "units": 0
       }
     ],
-    "refreshStatus": "ok",
+    "refreshStatus": "error",
     "scraped_tip_feed": true,
     "updatedAt": "2026-10-14T18:50:30.025333Z"
   },
   "forebet_wnba": {
     "date": "2026-10-14",
-    "generatedAt": "2026-10-14T18:49:48.356993Z",
+    "generatedAt": "2026-10-14T21:03:44.681526Z",
     "generatedBy": "local:external-feed-refresh",
-    "lastAttemptAt": "2026-10-14T18:49:48.356993Z",
+    "lastAttemptAt": "2026-10-14T21:03:44.681526Z",
     "lastAttemptDate": "2026-10-14",
-    "lastSuccessAt": "2026-10-14T18:49:48.356993Z",
+    "lastSuccessAt": "2026-10-14T21:03:44.681526Z",
     "meta": {
       "attemptedUrls": 0,
       "blockedUrls": 0,
@@ -4314,13 +4464,13 @@
       "missingMatchups": [],
       "officialMatchups": 0,
       "unpublishedMatchups": [],
-      "updatedAt": "2026-10-14T18:49:48.356993Z"
+      "updatedAt": "2026-10-14T21:03:44.681526Z"
     },
     "note": "ForebetWNBA has no official 2026-10-14 matchups.",
     "ok": true,
     "picks": [],
     "refreshStatus": "ok",
-    "updatedAt": "2026-10-14T18:49:48.356993Z"
+    "updatedAt": "2026-10-14T21:03:44.681526Z"
   },
   "generatedAt": "2026-10-14T18:02:05.900227Z",
   "generatedBy": "github-actions:model-cache-refresh",
@@ -13323,8 +13473,19 @@
       "date": "2026-10-14",
       "generatedAt": "2026-10-14T18:50:04.321034Z",
       "generatedBy": "local:external-feed-refresh",
-      "lastAttemptAt": "2026-10-14T18:50:04.321034Z",
+      "lastAttemptAt": "2026-10-14T21:03:59.375871Z",
       "lastAttemptDate": "2026-10-14",
+      "lastAttemptMeta": {
+        "blockedUrl": "https://www.forebet.com/en/american-football/usa/ncaa",
+        "blockedUrls": 1,
+        "matchedPicks": 0,
+        "missingMatchups": [
+          "Kennesaw State Owls @ Missouri State Bears",
+          "Western Kentucky Hilltoppers @ Sam Houston Bearkats"
+        ],
+        "officialMatchups": 2
+      },
+      "lastError": "ForebetCFB: listing fetch blocked by Cloudflare",
       "lastSuccessAt": "2026-10-14T18:50:04.321034Z",
       "meta": {
         "attemptedUrls": 1,
@@ -13342,7 +13503,7 @@
         "updatedAt": "2026-10-14T18:50:04.321034Z"
       },
       "note": "ForebetCFB matched 2 published prediction(s) against 2 official 2026-10-14 matchup(s).",
-      "ok": true,
+      "ok": false,
       "picks": [
         {
           "away_team": "Kennesaw State Owls",
@@ -13505,7 +13666,7 @@
           "units": 0.0
         }
       ],
-      "refreshStatus": "ok",
+      "refreshStatus": "error",
       "scraped_tip_feed": true,
       "updatedAt": "2026-10-14T18:50:04.321034Z"
     },
@@ -13513,8 +13674,18 @@
       "date": "2026-10-14",
       "generatedAt": "2026-10-14T18:49:19.660994Z",
       "generatedBy": "local:external-feed-refresh",
-      "lastAttemptAt": "2026-10-14T18:49:19.660994Z",
+      "lastAttemptAt": "2026-10-14T21:03:36.924950Z",
       "lastAttemptDate": "2026-10-14",
+      "lastAttemptMeta": {
+        "blockedUrl": "https://www.forebet.com/en/baseball/usa/mlb",
+        "blockedUrls": 1,
+        "matchedPicks": 0,
+        "missingMatchups": [
+          "Milwaukee Brewers @ Los Angeles Dodgers"
+        ],
+        "officialMatchups": 1
+      },
+      "lastError": "ForebetMLB: listing fetch blocked by Cloudflare",
       "lastSuccessAt": "2026-10-14T18:49:19.660994Z",
       "meta": {
         "attemptedUrls": 1,
@@ -13532,7 +13703,7 @@
         "updatedAt": "2026-10-14T18:49:19.660994Z"
       },
       "note": "ForebetMLB matched 1 published prediction(s) against 1 official 2026-10-14 matchup(s).",
-      "ok": true,
+      "ok": false,
       "picks": [
         {
           "away_team": "Milwaukee Brewers",
@@ -13615,7 +13786,7 @@
           "units": 0
         }
       ],
-      "refreshStatus": "ok",
+      "refreshStatus": "error",
       "scraped_tip_feed": true,
       "updatedAt": "2026-10-14T18:49:19.660994Z"
     },
@@ -13623,8 +13794,32 @@
       "date": "2026-10-14",
       "generatedAt": "2026-10-14T18:49:55.431393Z",
       "generatedBy": "local:external-feed-refresh",
-      "lastAttemptAt": "2026-10-14T18:49:55.431393Z",
+      "lastAttemptAt": "2026-10-14T21:03:51.770579Z",
       "lastAttemptDate": "2026-10-14",
+      "lastAttemptMeta": {
+        "blockedUrl": "https://www.forebet.com/en/football-tips-and-predictions-for-usa/mls",
+        "blockedUrls": 1,
+        "matchedPicks": 0,
+        "missingMatchups": [
+          "Atlanta United FC @ CF Montr\u00e9al",
+          "Charlotte FC @ Columbus Crew",
+          "Red Bull New York @ D.C. United",
+          "New England Revolution @ FC Cincinnati",
+          "New York City FC @ Inter Miami CF",
+          "Orlando City SC @ Toronto FC",
+          "Philadelphia Union @ Chicago Fire FC",
+          "Seattle Sounders FC @ FC Dallas",
+          "Sporting Kansas City @ Nashville SC",
+          "Vancouver Whitecaps @ St. Louis CITY SC",
+          "Minnesota United FC @ Colorado Rapids",
+          "San Jose Earthquakes @ Real Salt Lake",
+          "Portland Timbers @ LA Galaxy",
+          "Austin FC @ LAFC",
+          "Houston Dynamo FC @ San Diego FC"
+        ],
+        "officialMatchups": 15
+      },
+      "lastError": "ForebetMLS: listing fetch blocked by Cloudflare",
       "lastSuccessAt": "2026-10-14T18:49:55.431393Z",
       "meta": {
         "attemptedUrls": 1,
@@ -13642,7 +13837,7 @@
         "updatedAt": "2026-10-14T18:49:55.431393Z"
       },
       "note": "ForebetMLS matched 15 published prediction(s) against 15 official 2026-10-14 matchup(s).",
-      "ok": true,
+      "ok": false,
       "picks": [
         {
           "away_team": "Atlanta United FC",
@@ -14178,7 +14373,7 @@
           "units": 0
         }
       ],
-      "refreshStatus": "ok",
+      "refreshStatus": "error",
       "scraped_tip_feed": true,
       "updatedAt": "2026-10-14T18:49:55.431393Z"
     },
@@ -14186,8 +14381,24 @@
       "date": "2026-10-14",
       "generatedAt": "2026-10-14T18:50:41.271886Z",
       "generatedBy": "local:external-feed-refresh",
-      "lastAttemptAt": "2026-10-14T18:50:41.271886Z",
+      "lastAttemptAt": "2026-10-14T21:04:20.923712Z",
       "lastAttemptDate": "2026-10-14",
+      "lastAttemptMeta": {
+        "blockedUrl": "https://www.forebet.com/en/basketball/usa/nba",
+        "blockedUrls": 1,
+        "matchedPicks": 0,
+        "missingMatchups": [
+          "Brooklyn Nets @ Miami Heat",
+          "Charlotte Hornets @ Boston Celtics",
+          "Phoenix Suns @ San Antonio Spurs",
+          "New Orleans Pelicans @ Dallas Mavericks",
+          "Chicago Bulls @ Milwaukee Bucks",
+          "Detroit Pistons @ Minnesota Timberwolves",
+          "Denver Nuggets @ LA Clippers"
+        ],
+        "officialMatchups": 7
+      },
+      "lastError": "ForebetNBA: listing fetch blocked by Cloudflare",
       "lastSuccessAt": "2026-10-14T18:50:41.271886Z",
       "meta": {
         "attemptedUrls": 1,
@@ -14205,7 +14416,7 @@
         "updatedAt": "2026-10-14T18:50:41.271886Z"
       },
       "note": "ForebetNBA matched 7 published prediction(s) against 7 official 2026-10-14 matchup(s).",
-      "ok": true,
+      "ok": false,
       "picks": [
         {
           "away_team": "Brooklyn Nets",
@@ -14768,17 +14979,17 @@
           "units": 0.0
         }
       ],
-      "refreshStatus": "ok",
+      "refreshStatus": "error",
       "scraped_tip_feed": true,
       "updatedAt": "2026-10-14T18:50:41.271886Z"
     },
     "forebet_nfl": {
       "date": "2026-10-14",
-      "generatedAt": "2026-10-14T18:50:23.254412Z",
+      "generatedAt": "2026-10-14T21:04:06.493101Z",
       "generatedBy": "local:external-feed-refresh",
-      "lastAttemptAt": "2026-10-14T18:50:23.254412Z",
+      "lastAttemptAt": "2026-10-14T21:04:06.493101Z",
       "lastAttemptDate": "2026-10-14",
-      "lastSuccessAt": "2026-10-14T18:50:23.254412Z",
+      "lastSuccessAt": "2026-10-14T21:04:06.493101Z",
       "meta": {
         "attemptedUrls": 0,
         "blockedUrls": 0,
@@ -14791,20 +15002,31 @@
         "missingMatchups": [],
         "officialMatchups": 0,
         "unpublishedMatchups": [],
-        "updatedAt": "2026-10-14T18:50:23.254412Z"
+        "updatedAt": "2026-10-14T21:04:06.493101Z"
       },
       "note": "ForebetNFL has no official 2026-10-14 matchups.",
       "ok": true,
       "picks": [],
       "refreshStatus": "ok",
-      "updatedAt": "2026-10-14T18:50:23.254412Z"
+      "updatedAt": "2026-10-14T21:04:06.493101Z"
     },
     "forebet_nhl": {
       "date": "2026-10-14",
       "generatedAt": "2026-10-14T18:50:30.025333Z",
       "generatedBy": "local:external-feed-refresh",
-      "lastAttemptAt": "2026-10-14T18:50:30.025333Z",
+      "lastAttemptAt": "2026-10-14T21:04:13.495467Z",
       "lastAttemptDate": "2026-10-14",
+      "lastAttemptMeta": {
+        "blockedUrl": "https://www.forebet.com/en/hockey/usa/nhl",
+        "blockedUrls": 1,
+        "matchedPicks": 0,
+        "missingMatchups": [
+          "Montreal Canadiens @ Washington Capitals",
+          "Dallas Stars @ Colorado Avalanche"
+        ],
+        "officialMatchups": 2
+      },
+      "lastError": "ForebetNHL: listing fetch blocked by Cloudflare",
       "lastSuccessAt": "2026-10-14T18:50:30.025333Z",
       "meta": {
         "attemptedUrls": 1,
@@ -14822,7 +15044,7 @@
         "updatedAt": "2026-10-14T18:50:30.025333Z"
       },
       "note": "ForebetNHL matched 2 published prediction(s) against 2 official 2026-10-14 matchup(s).",
-      "ok": true,
+      "ok": false,
       "picks": [
         {
           "away_team": "Montreal Canadiens",
@@ -14893,17 +15115,17 @@
           "units": 0
         }
       ],
-      "refreshStatus": "ok",
+      "refreshStatus": "error",
       "scraped_tip_feed": true,
       "updatedAt": "2026-10-14T18:50:30.025333Z"
     },
     "forebet_wnba": {
       "date": "2026-10-14",
-      "generatedAt": "2026-10-14T18:49:48.356993Z",
+      "generatedAt": "2026-10-14T21:03:44.681526Z",
       "generatedBy": "local:external-feed-refresh",
-      "lastAttemptAt": "2026-10-14T18:49:48.356993Z",
+      "lastAttemptAt": "2026-10-14T21:03:44.681526Z",
       "lastAttemptDate": "2026-10-14",
-      "lastSuccessAt": "2026-10-14T18:49:48.356993Z",
+      "lastSuccessAt": "2026-10-14T21:03:44.681526Z",
       "meta": {
         "attemptedUrls": 0,
         "blockedUrls": 0,
@@ -14916,13 +15138,13 @@
         "missingMatchups": [],
         "officialMatchups": 0,
         "unpublishedMatchups": [],
-        "updatedAt": "2026-10-14T18:49:48.356993Z"
+        "updatedAt": "2026-10-14T21:03:44.681526Z"
       },
       "note": "ForebetWNBA has no official 2026-10-14 matchups.",
       "ok": true,
       "picks": [],
       "refreshStatus": "ok",
-      "updatedAt": "2026-10-14T18:49:48.356993Z"
+      "updatedAt": "2026-10-14T21:03:44.681526Z"
     },
     "mlb_first_five": {
       "consensus_gate_version": "mlb_team_consensus_v1.2.0",
@@ -60988,7 +61210,7 @@
     "standings_date": "2026-04-17",
     "team_totals_without_mean": 0
   },
-  "publishedAt": "2026-10-14T20:32:14.330614Z",
+  "publishedAt": "2026-10-14T21:04:23.798782Z",
   "scores24_cfb": {
     "date": "2026-10-14",
     "generatedAt": "2026-10-14T20:29:04.291983Z",
@@ -62074,7 +62296,7 @@
     "scraped_tip_feed": true,
     "updatedAt": "2026-10-14T18:52:04.105888Z"
   },
-  "updatedAt": "2026-10-14T20:32:10.046268Z",
+  "updatedAt": "2026-10-14T21:04:20.923712Z",
   "wnba": {
     "date": "2026-10-14",
     "note": "No WNBA picks today \u2014 off-season or no edge found.",
