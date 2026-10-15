@@ -1706,11 +1706,13 @@
   "errors": [
     "nba: NBA New upstream unavailable (NBA_FETCH_UNAVAILABLE: stats.nba.com/stats/leaguedashteamstats ReadTimeout; stopped after 2 attempt(s))"
   ],
-  "externalFeedsUpdatedAt": "2026-10-15T20:13:01.893913Z",
+  "externalFeedsUpdatedAt": "2026-10-15T20:44:27.993561Z",
   "external_feed_errors": [
+    "forebet_nba: ForebetNBA: listing fetch blocked by Cloudflare",
     "forebet_cfb: ForebetCFB: listing fetch blocked by Cloudflare",
     "forebet_mlb: ForebetMLB: listing fetch blocked by Cloudflare",
-    "forebet_nfl: ForebetNFL: listing fetch blocked by Cloudflare"
+    "forebet_nfl: ForebetNFL: listing fetch blocked by Cloudflare",
+    "forebet_nhl: ForebetNHL: listing fetch blocked by Cloudflare"
   ],
   "external_feeds": {
     "forebet_cfb": {
@@ -1718,7 +1720,7 @@
       "error": "ForebetCFB incomplete official slate coverage: 2/3",
       "generatedAt": "2026-10-15T14:01:24.150874Z",
       "generatedBy": "local:external-feed-refresh",
-      "lastAttemptAt": "2026-10-15T16:14:16.780447Z",
+      "lastAttemptAt": "2026-10-15T20:44:05.200551Z",
       "lastAttemptDate": "2026-10-15",
       "lastAttemptMeta": {
         "blockedUrl": "https://www.forebet.com/en/american-football/usa/ncaa",
@@ -1815,7 +1817,7 @@
       "date": "2026-10-15",
       "generatedAt": "2026-10-15T14:00:41.451246Z",
       "generatedBy": "local:external-feed-refresh",
-      "lastAttemptAt": "2026-10-15T16:13:51.786454Z",
+      "lastAttemptAt": "2026-10-15T20:43:42.147344Z",
       "lastAttemptDate": "2026-10-15",
       "lastAttemptMeta": {
         "blockedUrl": "https://www.forebet.com/en/baseball/usa/mlb",
@@ -1906,11 +1908,11 @@
     },
     "forebet_mls": {
       "date": "2026-10-15",
-      "generatedAt": "2026-10-15T16:14:09.511390Z",
+      "generatedAt": "2026-10-15T20:43:57.629184Z",
       "generatedBy": "local:external-feed-refresh",
-      "lastAttemptAt": "2026-10-15T16:14:09.511390Z",
+      "lastAttemptAt": "2026-10-15T20:43:57.629184Z",
       "lastAttemptDate": "2026-10-15",
-      "lastSuccessAt": "2026-10-15T16:14:09.511390Z",
+      "lastSuccessAt": "2026-10-15T20:43:57.629184Z",
       "meta": {
         "attemptedUrls": 0,
         "blockedUrls": 0,
@@ -1923,20 +1925,31 @@
         "missingMatchups": [],
         "officialMatchups": 0,
         "unpublishedMatchups": [],
-        "updatedAt": "2026-10-15T16:14:09.511390Z"
+        "updatedAt": "2026-10-15T20:43:57.629184Z"
       },
       "note": "ForebetMLS has no official 2026-10-15 matchups.",
       "ok": true,
       "picks": [],
       "refreshStatus": "ok",
-      "updatedAt": "2026-10-15T16:14:09.511390Z"
+      "updatedAt": "2026-10-15T20:43:57.629184Z"
     },
     "forebet_nba": {
       "date": "2026-10-15",
       "generatedAt": "2026-10-15T16:14:43.681360Z",
       "generatedBy": "local:external-feed-refresh",
-      "lastAttemptAt": "2026-10-15T16:14:43.681360Z",
+      "lastAttemptAt": "2026-10-15T20:44:27.993561Z",
       "lastAttemptDate": "2026-10-15",
+      "lastAttemptMeta": {
+        "blockedUrl": "https://www.forebet.com/en/basketball/usa/nba",
+        "blockedUrls": 1,
+        "matchedPicks": 0,
+        "missingMatchups": [
+          "Toronto Raptors @ New York Knicks",
+          "Oklahoma City Thunder @ Houston Rockets"
+        ],
+        "officialMatchups": 2
+      },
+      "lastError": "ForebetNBA: listing fetch blocked by Cloudflare",
       "lastSuccessAt": "2026-10-15T16:14:43.681360Z",
       "meta": {
         "attemptedUrls": 1,
@@ -1954,7 +1967,7 @@
         "updatedAt": "2026-10-15T16:14:43.681360Z"
       },
       "note": "ForebetNBA matched 2 published prediction(s) against 2 official 2026-10-15 matchup(s).",
-      "ok": true,
+      "ok": false,
       "picks": [
         {
           "away_team": "Toronto Raptors",
@@ -2009,7 +2022,7 @@
           "units": 0
         }
       ],
-      "refreshStatus": "ok",
+      "refreshStatus": "error",
       "scraped_tip_feed": true,
       "updatedAt": "2026-10-15T16:14:43.681360Z"
     },
@@ -2017,7 +2030,7 @@
       "date": "2026-10-15",
       "generatedAt": "2026-10-15T14:01:39.738829Z",
       "generatedBy": "local:external-feed-refresh",
-      "lastAttemptAt": "2026-10-15T16:14:24.867452Z",
+      "lastAttemptAt": "2026-10-15T20:44:13.075709Z",
       "lastAttemptDate": "2026-10-15",
       "lastAttemptMeta": {
         "blockedUrl": "https://www.forebet.com/en/american-football/usa/nfl",
@@ -2083,8 +2096,28 @@
       "date": "2026-10-15",
       "generatedAt": "2026-10-15T16:14:32.109103Z",
       "generatedBy": "local:external-feed-refresh",
-      "lastAttemptAt": "2026-10-15T16:14:32.109103Z",
+      "lastAttemptAt": "2026-10-15T20:44:20.390107Z",
       "lastAttemptDate": "2026-10-15",
+      "lastAttemptMeta": {
+        "blockedUrl": "https://www.forebet.com/en/hockey/usa/nhl",
+        "blockedUrls": 1,
+        "matchedPicks": 0,
+        "missingMatchups": [
+          "Buffalo Sabres @ Toronto Maple Leafs",
+          "New York Islanders @ Ottawa Senators",
+          "Seattle Kraken @ Tampa Bay Lightning",
+          "Vancouver Canucks @ Florida Panthers",
+          "New York Rangers @ New Jersey Devils",
+          "Philadelphia Flyers @ Detroit Red Wings",
+          "Winnipeg Jets @ Chicago Blackhawks",
+          "San Jose Sharks @ Nashville Predators",
+          "St. Louis Blues @ Minnesota Wild",
+          "Utah Mammoth @ Edmonton Oilers",
+          "Calgary Flames @ Vegas Golden Knights"
+        ],
+        "officialMatchups": 11
+      },
+      "lastError": "ForebetNHL: listing fetch blocked by Cloudflare",
       "lastSuccessAt": "2026-10-15T16:14:32.109103Z",
       "meta": {
         "attemptedUrls": 1,
@@ -2102,7 +2135,7 @@
         "updatedAt": "2026-10-15T16:14:32.109103Z"
       },
       "note": "ForebetNHL matched 11 published prediction(s) against 11 official 2026-10-15 matchup(s).",
-      "ok": true,
+      "ok": false,
       "picks": [
         {
           "away_team": "Buffalo Sabres",
@@ -2391,17 +2424,17 @@
           "units": 0
         }
       ],
-      "refreshStatus": "ok",
+      "refreshStatus": "error",
       "scraped_tip_feed": true,
       "updatedAt": "2026-10-15T16:14:32.109103Z"
     },
     "forebet_wnba": {
       "date": "2026-10-15",
-      "generatedAt": "2026-10-15T16:14:00.091585Z",
+      "generatedAt": "2026-10-15T20:43:50.282268Z",
       "generatedBy": "local:external-feed-refresh",
-      "lastAttemptAt": "2026-10-15T16:14:00.091585Z",
+      "lastAttemptAt": "2026-10-15T20:43:50.282268Z",
       "lastAttemptDate": "2026-10-15",
-      "lastSuccessAt": "2026-10-15T16:14:00.091585Z",
+      "lastSuccessAt": "2026-10-15T20:43:50.282268Z",
       "meta": {
         "attemptedUrls": 0,
         "blockedUrls": 0,
@@ -2414,13 +2447,13 @@
         "missingMatchups": [],
         "officialMatchups": 0,
         "unpublishedMatchups": [],
-        "updatedAt": "2026-10-15T16:14:00.091585Z"
+        "updatedAt": "2026-10-15T20:43:50.282268Z"
       },
       "note": "ForebetWNBA has no official 2026-10-15 matchups.",
       "ok": true,
       "picks": [],
       "refreshStatus": "ok",
-      "updatedAt": "2026-10-15T16:14:00.091585Z"
+      "updatedAt": "2026-10-15T20:43:50.282268Z"
     },
     "scores24_cfb": {
       "date": "2026-10-15",
@@ -3725,7 +3758,7 @@
     "error": "ForebetCFB incomplete official slate coverage: 2/3",
     "generatedAt": "2026-10-15T14:01:24.150874Z",
     "generatedBy": "local:external-feed-refresh",
-    "lastAttemptAt": "2026-10-15T16:14:16.780447Z",
+    "lastAttemptAt": "2026-10-15T20:44:05.200551Z",
     "lastAttemptDate": "2026-10-15",
     "lastAttemptMeta": {
       "blockedUrl": "https://www.forebet.com/en/american-football/usa/ncaa",
@@ -3822,7 +3855,7 @@
     "date": "2026-10-15",
     "generatedAt": "2026-10-15T14:00:41.451246Z",
     "generatedBy": "local:external-feed-refresh",
-    "lastAttemptAt": "2026-10-15T16:13:51.786454Z",
+    "lastAttemptAt": "2026-10-15T20:43:42.147344Z",
     "lastAttemptDate": "2026-10-15",
     "lastAttemptMeta": {
       "blockedUrl": "https://www.forebet.com/en/baseball/usa/mlb",
@@ -3913,11 +3946,11 @@
   },
   "forebet_mls": {
     "date": "2026-10-15",
-    "generatedAt": "2026-10-15T16:14:09.511390Z",
+    "generatedAt": "2026-10-15T20:43:57.629184Z",
     "generatedBy": "local:external-feed-refresh",
-    "lastAttemptAt": "2026-10-15T16:14:09.511390Z",
+    "lastAttemptAt": "2026-10-15T20:43:57.629184Z",
     "lastAttemptDate": "2026-10-15",
-    "lastSuccessAt": "2026-10-15T16:14:09.511390Z",
+    "lastSuccessAt": "2026-10-15T20:43:57.629184Z",
     "meta": {
       "attemptedUrls": 0,
       "blockedUrls": 0,
@@ -3930,20 +3963,31 @@
       "missingMatchups": [],
       "officialMatchups": 0,
       "unpublishedMatchups": [],
-      "updatedAt": "2026-10-15T16:14:09.511390Z"
+      "updatedAt": "2026-10-15T20:43:57.629184Z"
     },
     "note": "ForebetMLS has no official 2026-10-15 matchups.",
     "ok": true,
     "picks": [],
     "refreshStatus": "ok",
-    "updatedAt": "2026-10-15T16:14:09.511390Z"
+    "updatedAt": "2026-10-15T20:43:57.629184Z"
   },
   "forebet_nba": {
     "date": "2026-10-15",
     "generatedAt": "2026-10-15T16:14:43.681360Z",
     "generatedBy": "local:external-feed-refresh",
-    "lastAttemptAt": "2026-10-15T16:14:43.681360Z",
+    "lastAttemptAt": "2026-10-15T20:44:27.993561Z",
     "lastAttemptDate": "2026-10-15",
+    "lastAttemptMeta": {
+      "blockedUrl": "https://www.forebet.com/en/basketball/usa/nba",
+      "blockedUrls": 1,
+      "matchedPicks": 0,
+      "missingMatchups": [
+        "Toronto Raptors @ New York Knicks",
+        "Oklahoma City Thunder @ Houston Rockets"
+      ],
+      "officialMatchups": 2
+    },
+    "lastError": "ForebetNBA: listing fetch blocked by Cloudflare",
     "lastSuccessAt": "2026-10-15T16:14:43.681360Z",
     "meta": {
       "attemptedUrls": 1,
@@ -3961,7 +4005,7 @@
       "updatedAt": "2026-10-15T16:14:43.681360Z"
     },
     "note": "ForebetNBA matched 2 published prediction(s) against 2 official 2026-10-15 matchup(s).",
-    "ok": true,
+    "ok": false,
     "picks": [
       {
         "away_team": "Toronto Raptors",
@@ -4016,7 +4060,7 @@
         "units": 0
       }
     ],
-    "refreshStatus": "ok",
+    "refreshStatus": "error",
     "scraped_tip_feed": true,
     "updatedAt": "2026-10-15T16:14:43.681360Z"
   },
@@ -4024,7 +4068,7 @@
     "date": "2026-10-15",
     "generatedAt": "2026-10-15T14:01:39.738829Z",
     "generatedBy": "local:external-feed-refresh",
-    "lastAttemptAt": "2026-10-15T16:14:24.867452Z",
+    "lastAttemptAt": "2026-10-15T20:44:13.075709Z",
     "lastAttemptDate": "2026-10-15",
     "lastAttemptMeta": {
       "blockedUrl": "https://www.forebet.com/en/american-football/usa/nfl",
@@ -4090,8 +4134,28 @@
     "date": "2026-10-15",
     "generatedAt": "2026-10-15T16:14:32.109103Z",
     "generatedBy": "local:external-feed-refresh",
-    "lastAttemptAt": "2026-10-15T16:14:32.109103Z",
+    "lastAttemptAt": "2026-10-15T20:44:20.390107Z",
     "lastAttemptDate": "2026-10-15",
+    "lastAttemptMeta": {
+      "blockedUrl": "https://www.forebet.com/en/hockey/usa/nhl",
+      "blockedUrls": 1,
+      "matchedPicks": 0,
+      "missingMatchups": [
+        "Buffalo Sabres @ Toronto Maple Leafs",
+        "New York Islanders @ Ottawa Senators",
+        "Seattle Kraken @ Tampa Bay Lightning",
+        "Vancouver Canucks @ Florida Panthers",
+        "New York Rangers @ New Jersey Devils",
+        "Philadelphia Flyers @ Detroit Red Wings",
+        "Winnipeg Jets @ Chicago Blackhawks",
+        "San Jose Sharks @ Nashville Predators",
+        "St. Louis Blues @ Minnesota Wild",
+        "Utah Mammoth @ Edmonton Oilers",
+        "Calgary Flames @ Vegas Golden Knights"
+      ],
+      "officialMatchups": 11
+    },
+    "lastError": "ForebetNHL: listing fetch blocked by Cloudflare",
     "lastSuccessAt": "2026-10-15T16:14:32.109103Z",
     "meta": {
       "attemptedUrls": 1,
@@ -4109,7 +4173,7 @@
       "updatedAt": "2026-10-15T16:14:32.109103Z"
     },
     "note": "ForebetNHL matched 11 published prediction(s) against 11 official 2026-10-15 matchup(s).",
-    "ok": true,
+    "ok": false,
     "picks": [
       {
         "away_team": "Buffalo Sabres",
@@ -4398,17 +4462,17 @@
         "units": 0
       }
     ],
-    "refreshStatus": "ok",
+    "refreshStatus": "error",
     "scraped_tip_feed": true,
     "updatedAt": "2026-10-15T16:14:32.109103Z"
   },
   "forebet_wnba": {
     "date": "2026-10-15",
-    "generatedAt": "2026-10-15T16:14:00.091585Z",
+    "generatedAt": "2026-10-15T20:43:50.282268Z",
     "generatedBy": "local:external-feed-refresh",
-    "lastAttemptAt": "2026-10-15T16:14:00.091585Z",
+    "lastAttemptAt": "2026-10-15T20:43:50.282268Z",
     "lastAttemptDate": "2026-10-15",
-    "lastSuccessAt": "2026-10-15T16:14:00.091585Z",
+    "lastSuccessAt": "2026-10-15T20:43:50.282268Z",
     "meta": {
       "attemptedUrls": 0,
       "blockedUrls": 0,
@@ -4421,13 +4485,13 @@
       "missingMatchups": [],
       "officialMatchups": 0,
       "unpublishedMatchups": [],
-      "updatedAt": "2026-10-15T16:14:00.091585Z"
+      "updatedAt": "2026-10-15T20:43:50.282268Z"
     },
     "note": "ForebetWNBA has no official 2026-10-15 matchups.",
     "ok": true,
     "picks": [],
     "refreshStatus": "ok",
-    "updatedAt": "2026-10-15T16:14:00.091585Z"
+    "updatedAt": "2026-10-15T20:43:50.282268Z"
   },
   "generatedAt": "2026-10-15T18:04:25.906982Z",
   "generatedBy": "github-actions:model-cache-refresh",
@@ -9228,7 +9292,7 @@
       "error": "ForebetCFB incomplete official slate coverage: 2/3",
       "generatedAt": "2026-10-15T14:01:24.150874Z",
       "generatedBy": "local:external-feed-refresh",
-      "lastAttemptAt": "2026-10-15T16:14:16.780447Z",
+      "lastAttemptAt": "2026-10-15T20:44:05.200551Z",
       "lastAttemptDate": "2026-10-15",
       "lastAttemptMeta": {
         "blockedUrl": "https://www.forebet.com/en/american-football/usa/ncaa",
@@ -9433,7 +9497,7 @@
       "date": "2026-10-15",
       "generatedAt": "2026-10-15T14:00:41.451246Z",
       "generatedBy": "local:external-feed-refresh",
-      "lastAttemptAt": "2026-10-15T16:13:51.786454Z",
+      "lastAttemptAt": "2026-10-15T20:43:42.147344Z",
       "lastAttemptDate": "2026-10-15",
       "lastAttemptMeta": {
         "blockedUrl": "https://www.forebet.com/en/baseball/usa/mlb",
@@ -9632,11 +9696,11 @@
     },
     "forebet_mls": {
       "date": "2026-10-15",
-      "generatedAt": "2026-10-15T16:14:09.511390Z",
+      "generatedAt": "2026-10-15T20:43:57.629184Z",
       "generatedBy": "local:external-feed-refresh",
-      "lastAttemptAt": "2026-10-15T16:14:09.511390Z",
+      "lastAttemptAt": "2026-10-15T20:43:57.629184Z",
       "lastAttemptDate": "2026-10-15",
-      "lastSuccessAt": "2026-10-15T16:14:09.511390Z",
+      "lastSuccessAt": "2026-10-15T20:43:57.629184Z",
       "meta": {
         "attemptedUrls": 0,
         "blockedUrls": 0,
@@ -9649,20 +9713,31 @@
         "missingMatchups": [],
         "officialMatchups": 0,
         "unpublishedMatchups": [],
-        "updatedAt": "2026-10-15T16:14:09.511390Z"
+        "updatedAt": "2026-10-15T20:43:57.629184Z"
       },
       "note": "ForebetMLS has no official 2026-10-15 matchups.",
       "ok": true,
       "picks": [],
       "refreshStatus": "ok",
-      "updatedAt": "2026-10-15T16:14:09.511390Z"
+      "updatedAt": "2026-10-15T20:43:57.629184Z"
     },
     "forebet_nba": {
       "date": "2026-10-15",
       "generatedAt": "2026-10-15T16:14:43.681360Z",
       "generatedBy": "local:external-feed-refresh",
-      "lastAttemptAt": "2026-10-15T16:14:43.681360Z",
+      "lastAttemptAt": "2026-10-15T20:44:27.993561Z",
       "lastAttemptDate": "2026-10-15",
+      "lastAttemptMeta": {
+        "blockedUrl": "https://www.forebet.com/en/basketball/usa/nba",
+        "blockedUrls": 1,
+        "matchedPicks": 0,
+        "missingMatchups": [
+          "Toronto Raptors @ New York Knicks",
+          "Oklahoma City Thunder @ Houston Rockets"
+        ],
+        "officialMatchups": 2
+      },
+      "lastError": "ForebetNBA: listing fetch blocked by Cloudflare",
       "lastSuccessAt": "2026-10-15T16:14:43.681360Z",
       "meta": {
         "attemptedUrls": 1,
@@ -9680,7 +9755,7 @@
         "updatedAt": "2026-10-15T16:14:43.681360Z"
       },
       "note": "ForebetNBA matched 2 published prediction(s) against 2 official 2026-10-15 matchup(s).",
-      "ok": true,
+      "ok": false,
       "picks": [
         {
           "away_team": "Toronto Raptors",
@@ -9843,7 +9918,7 @@
           "units": 0.0
         }
       ],
-      "refreshStatus": "ok",
+      "refreshStatus": "error",
       "scraped_tip_feed": true,
       "updatedAt": "2026-10-15T16:14:43.681360Z"
     },
@@ -9851,7 +9926,7 @@
       "date": "2026-10-15",
       "generatedAt": "2026-10-15T14:01:39.738829Z",
       "generatedBy": "local:external-feed-refresh",
-      "lastAttemptAt": "2026-10-15T16:14:24.867452Z",
+      "lastAttemptAt": "2026-10-15T20:44:13.075709Z",
       "lastAttemptDate": "2026-10-15",
       "lastAttemptMeta": {
         "blockedUrl": "https://www.forebet.com/en/american-football/usa/nfl",
@@ -9971,8 +10046,28 @@
       "date": "2026-10-15",
       "generatedAt": "2026-10-15T16:14:32.109103Z",
       "generatedBy": "local:external-feed-refresh",
-      "lastAttemptAt": "2026-10-15T16:14:32.109103Z",
+      "lastAttemptAt": "2026-10-15T20:44:20.390107Z",
       "lastAttemptDate": "2026-10-15",
+      "lastAttemptMeta": {
+        "blockedUrl": "https://www.forebet.com/en/hockey/usa/nhl",
+        "blockedUrls": 1,
+        "matchedPicks": 0,
+        "missingMatchups": [
+          "Buffalo Sabres @ Toronto Maple Leafs",
+          "New York Islanders @ Ottawa Senators",
+          "Seattle Kraken @ Tampa Bay Lightning",
+          "Vancouver Canucks @ Florida Panthers",
+          "New York Rangers @ New Jersey Devils",
+          "Philadelphia Flyers @ Detroit Red Wings",
+          "Winnipeg Jets @ Chicago Blackhawks",
+          "San Jose Sharks @ Nashville Predators",
+          "St. Louis Blues @ Minnesota Wild",
+          "Utah Mammoth @ Edmonton Oilers",
+          "Calgary Flames @ Vegas Golden Knights"
+        ],
+        "officialMatchups": 11
+      },
+      "lastError": "ForebetNHL: listing fetch blocked by Cloudflare",
       "lastSuccessAt": "2026-10-15T16:14:32.109103Z",
       "meta": {
         "attemptedUrls": 1,
@@ -9990,7 +10085,7 @@
         "updatedAt": "2026-10-15T16:14:32.109103Z"
       },
       "note": "ForebetNHL matched 11 published prediction(s) against 11 official 2026-10-15 matchup(s).",
-      "ok": true,
+      "ok": false,
       "picks": [
         {
           "away_team": "Buffalo Sabres",
@@ -10367,17 +10462,17 @@
           "units": 0
         }
       ],
-      "refreshStatus": "ok",
+      "refreshStatus": "error",
       "scraped_tip_feed": true,
       "updatedAt": "2026-10-15T16:14:32.109103Z"
     },
     "forebet_wnba": {
       "date": "2026-10-15",
-      "generatedAt": "2026-10-15T16:14:00.091585Z",
+      "generatedAt": "2026-10-15T20:43:50.282268Z",
       "generatedBy": "local:external-feed-refresh",
-      "lastAttemptAt": "2026-10-15T16:14:00.091585Z",
+      "lastAttemptAt": "2026-10-15T20:43:50.282268Z",
       "lastAttemptDate": "2026-10-15",
-      "lastSuccessAt": "2026-10-15T16:14:00.091585Z",
+      "lastSuccessAt": "2026-10-15T20:43:50.282268Z",
       "meta": {
         "attemptedUrls": 0,
         "blockedUrls": 0,
@@ -10390,13 +10485,13 @@
         "missingMatchups": [],
         "officialMatchups": 0,
         "unpublishedMatchups": [],
-        "updatedAt": "2026-10-15T16:14:00.091585Z"
+        "updatedAt": "2026-10-15T20:43:50.282268Z"
       },
       "note": "ForebetWNBA has no official 2026-10-15 matchups.",
       "ok": true,
       "picks": [],
       "refreshStatus": "ok",
-      "updatedAt": "2026-10-15T16:14:00.091585Z"
+      "updatedAt": "2026-10-15T20:43:50.282268Z"
     },
     "mlb_first_five": {
       "consensus_gate_version": "mlb_team_consensus_v1.2.0",
@@ -154331,7 +154426,7 @@
     "standings_date": "2026-04-17",
     "team_totals_without_mean": 0
   },
-  "publishedAt": "2026-10-15T20:15:17.788755Z",
+  "publishedAt": "2026-10-15T20:44:33.966382Z",
   "scores24_cfb": {
     "date": "2026-10-15",
     "generatedAt": "2026-10-15T19:49:34.336123Z",
@@ -155441,7 +155536,7 @@
     "scraped_tip_feed": true,
     "updatedAt": "2026-10-15T20:10:08.946561Z"
   },
-  "updatedAt": "2026-10-15T20:13:01.893913Z",
+  "updatedAt": "2026-10-15T20:44:27.993561Z",
   "wnba": {
     "date": "2026-10-15",
     "note": "No WNBA picks today \u2014 off-season or no edge found.",
