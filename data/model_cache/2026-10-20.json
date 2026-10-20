@@ -1713,19 +1713,19 @@
   "errors": [
     "nba: NBA New upstream unavailable (NBA_FETCH_UNAVAILABLE: stats.nba.com/stats/leaguedashteamstats ReadTimeout; stopped after 2 attempt(s))"
   ],
-  "externalFeedsUpdatedAt": "2026-10-20T12:02:34.884628Z",
+  "externalFeedsUpdatedAt": "2026-10-20T12:05:44.080650Z",
   "external_feed_errors": [
-    "sportytrader_cfb: cfb: empty parse despite nonempty official whitelist (No SportyTrader CFB picks parsed. | Diagnostics: listingPages=1 cards=0 officialMatchupCards=0.)",
     "forebet_cfb: ForebetCFB: listing fetch blocked by Cloudflare",
     "forebet_nhl: ForebetNHL: listing fetch blocked by Cloudflare",
     "forebet_nba: ForebetNBA: listing fetch blocked by Cloudflare"
   ],
   "external_feeds": {
     "forebet_cfb": {
-      "date": "2026-10-19",
-      "generatedAt": "2026-10-19T22:29:47.030255Z",
-      "generatedBy": "local:external-feed-refresh",
-      "lastAttemptAt": "2026-10-20T12:02:34.884628Z",
+      "date": "2026-10-20",
+      "error": "ForebetCFB: listing fetch blocked by Cloudflare",
+      "generatedAt": "2026-10-20T12:05:44.080650Z",
+      "generatedBy": "github-actions:external-feed-refresh",
+      "lastAttemptAt": "2026-10-20T12:05:44.080650Z",
       "lastAttemptDate": "2026-10-20",
       "lastAttemptMeta": {
         "blockedUrl": "https://www.forebet.com/en/american-football/usa/ncaa",
@@ -1739,34 +1739,38 @@
         "officialMatchups": 3
       },
       "lastError": "ForebetCFB: listing fetch blocked by Cloudflare",
-      "lastSuccessAt": "2026-10-19T22:29:47.030255Z",
       "meta": {
-        "attemptedUrls": 0,
-        "blockedUrls": 0,
-        "date": "2026-10-19",
-        "expectedMatchups": 0,
+        "attemptedUrls": 1,
+        "blockedUrl": "https://www.forebet.com/en/american-football/usa/ncaa",
+        "blockedUrls": 1,
+        "date": "2026-10-20",
+        "expectedMatchups": 3,
         "feed": "forebet_cfb",
-        "from": "local",
-        "leagues": "mlb,wnba,mls,cfb,nfl",
+        "from": "github-actions",
+        "leagues": "nba,mlb,wnba,cfb,nfl",
         "matchedPicks": 0,
-        "missingMatchups": [],
-        "officialMatchups": 0,
+        "missingMatchups": [
+          "Middle Tennessee Blue Raiders @ Florida International Panthers",
+          "Missouri State Bears @ Delaware Blue Hens",
+          "South Alabama Jaguars @ Marshall Thundering Herd"
+        ],
+        "officialMatchups": 3,
         "unpublishedMatchups": [],
-        "updatedAt": "2026-10-19T22:29:47.030255Z"
+        "updatedAt": "2026-10-20T12:05:44.080650Z"
       },
-      "note": "ForebetCFB has no official 2026-10-19 matchups.",
+      "note": "Scheduled forebet_cfb refresh returned 0 pick(s).",
       "ok": false,
       "picks": [],
       "refreshStatus": "error",
-      "updatedAt": "2026-10-19T22:29:47.030255Z"
+      "updatedAt": "2026-10-20T12:05:44.080650Z"
     },
     "forebet_mlb": {
       "date": "2026-10-20",
-      "generatedAt": "2026-10-20T12:02:34.884628Z",
+      "generatedAt": "2026-10-20T12:05:44.080650Z",
       "generatedBy": "github-actions:external-feed-refresh",
-      "lastAttemptAt": "2026-10-20T12:02:34.884628Z",
+      "lastAttemptAt": "2026-10-20T12:05:44.080650Z",
       "lastAttemptDate": "2026-10-20",
-      "lastSuccessAt": "2026-10-20T12:02:34.884628Z",
+      "lastSuccessAt": "2026-10-20T12:05:44.080650Z",
       "meta": {
         "attemptedUrls": 0,
         "blockedUrls": 0,
@@ -1779,21 +1783,21 @@
         "missingMatchups": [],
         "officialMatchups": 0,
         "unpublishedMatchups": [],
-        "updatedAt": "2026-10-20T12:02:34.884628Z"
+        "updatedAt": "2026-10-20T12:05:44.080650Z"
       },
       "note": "ForebetMLB has no official 2026-10-20 matchups.",
       "ok": true,
       "picks": [],
       "refreshStatus": "ok",
-      "updatedAt": "2026-10-20T12:02:34.884628Z"
+      "updatedAt": "2026-10-20T12:05:44.080650Z"
     },
     "forebet_mls": {
       "date": "2026-10-20",
-      "generatedAt": "2026-10-20T12:02:34.884628Z",
+      "generatedAt": "2026-10-20T12:05:44.080650Z",
       "generatedBy": "github-actions:external-feed-refresh",
-      "lastAttemptAt": "2026-10-20T12:02:34.884628Z",
+      "lastAttemptAt": "2026-10-20T12:05:44.080650Z",
       "lastAttemptDate": "2026-10-20",
-      "lastSuccessAt": "2026-10-20T12:02:34.884628Z",
+      "lastSuccessAt": "2026-10-20T12:05:44.080650Z",
       "meta": {
         "attemptedUrls": 0,
         "blockedUrls": 0,
@@ -1806,19 +1810,20 @@
         "missingMatchups": [],
         "officialMatchups": 0,
         "unpublishedMatchups": [],
-        "updatedAt": "2026-10-20T12:02:34.884628Z"
+        "updatedAt": "2026-10-20T12:05:44.080650Z"
       },
       "note": "ForebetMLS has no official 2026-10-20 matchups.",
       "ok": true,
       "picks": [],
       "refreshStatus": "ok",
-      "updatedAt": "2026-10-20T12:02:34.884628Z"
+      "updatedAt": "2026-10-20T12:05:44.080650Z"
     },
     "forebet_nba": {
-      "date": "2026-10-19",
-      "generatedAt": "2026-10-19T22:30:07.932569Z",
-      "generatedBy": "local:external-feed-refresh",
-      "lastAttemptAt": "2026-10-20T12:02:34.884628Z",
+      "date": "2026-10-20",
+      "error": "ForebetNBA: listing fetch blocked by Cloudflare",
+      "generatedAt": "2026-10-20T12:05:44.080650Z",
+      "generatedBy": "github-actions:external-feed-refresh",
+      "lastAttemptAt": "2026-10-20T12:05:44.080650Z",
       "lastAttemptDate": "2026-10-20",
       "lastAttemptMeta": {
         "blockedUrl": "https://www.forebet.com/en/basketball/usa/nba",
@@ -1832,34 +1837,38 @@
         "officialMatchups": 3
       },
       "lastError": "ForebetNBA: listing fetch blocked by Cloudflare",
-      "lastSuccessAt": "2026-10-19T22:30:07.932569Z",
       "meta": {
-        "attemptedUrls": 0,
-        "blockedUrls": 0,
-        "date": "2026-10-19",
-        "expectedMatchups": 0,
+        "attemptedUrls": 1,
+        "blockedUrl": "https://www.forebet.com/en/basketball/usa/nba",
+        "blockedUrls": 1,
+        "date": "2026-10-20",
+        "expectedMatchups": 3,
         "feed": "forebet_nba",
-        "from": "local",
-        "leagues": "mlb,wnba,mls,cfb,nfl",
+        "from": "github-actions",
+        "leagues": "nba,mlb,wnba,cfb,nfl",
         "matchedPicks": 0,
-        "missingMatchups": [],
-        "officialMatchups": 0,
+        "missingMatchups": [
+          "Boston Celtics @ Detroit Pistons",
+          "Philadelphia 76ers @ New York Knicks",
+          "Oklahoma City Thunder @ San Antonio Spurs"
+        ],
+        "officialMatchups": 3,
         "unpublishedMatchups": [],
-        "updatedAt": "2026-10-19T22:30:07.932569Z"
+        "updatedAt": "2026-10-20T12:05:44.080650Z"
       },
-      "note": "ForebetNBA has no official 2026-10-19 matchups.",
+      "note": "Scheduled forebet_nba refresh returned 0 pick(s).",
       "ok": false,
       "picks": [],
       "refreshStatus": "error",
-      "updatedAt": "2026-10-19T22:30:07.932569Z"
+      "updatedAt": "2026-10-20T12:05:44.080650Z"
     },
     "forebet_nfl": {
       "date": "2026-10-20",
-      "generatedAt": "2026-10-20T12:02:34.884628Z",
+      "generatedAt": "2026-10-20T12:05:44.080650Z",
       "generatedBy": "github-actions:external-feed-refresh",
-      "lastAttemptAt": "2026-10-20T12:02:34.884628Z",
+      "lastAttemptAt": "2026-10-20T12:05:44.080650Z",
       "lastAttemptDate": "2026-10-20",
-      "lastSuccessAt": "2026-10-20T12:02:34.884628Z",
+      "lastSuccessAt": "2026-10-20T12:05:44.080650Z",
       "meta": {
         "attemptedUrls": 0,
         "blockedUrls": 0,
@@ -1872,19 +1881,19 @@
         "missingMatchups": [],
         "officialMatchups": 0,
         "unpublishedMatchups": [],
-        "updatedAt": "2026-10-20T12:02:34.884628Z"
+        "updatedAt": "2026-10-20T12:05:44.080650Z"
       },
       "note": "ForebetNFL has no official 2026-10-20 matchups.",
       "ok": true,
       "picks": [],
       "refreshStatus": "ok",
-      "updatedAt": "2026-10-20T12:02:34.884628Z"
+      "updatedAt": "2026-10-20T12:05:44.080650Z"
     },
     "forebet_nhl": {
       "date": "2026-10-19",
       "generatedAt": "2026-10-19T13:43:38.796134Z",
       "generatedBy": "local:external-feed-refresh",
-      "lastAttemptAt": "2026-10-20T12:02:34.884628Z",
+      "lastAttemptAt": "2026-10-20T12:05:44.080650Z",
       "lastAttemptDate": "2026-10-20",
       "lastAttemptMeta": {
         "blockedUrl": "https://www.forebet.com/en/hockey/usa/nhl",
@@ -2040,11 +2049,11 @@
     },
     "forebet_wnba": {
       "date": "2026-10-20",
-      "generatedAt": "2026-10-20T12:02:34.884628Z",
+      "generatedAt": "2026-10-20T12:05:44.080650Z",
       "generatedBy": "github-actions:external-feed-refresh",
-      "lastAttemptAt": "2026-10-20T12:02:34.884628Z",
+      "lastAttemptAt": "2026-10-20T12:05:44.080650Z",
       "lastAttemptDate": "2026-10-20",
-      "lastSuccessAt": "2026-10-20T12:02:34.884628Z",
+      "lastSuccessAt": "2026-10-20T12:05:44.080650Z",
       "meta": {
         "attemptedUrls": 0,
         "blockedUrls": 0,
@@ -2057,13 +2066,13 @@
         "missingMatchups": [],
         "officialMatchups": 0,
         "unpublishedMatchups": [],
-        "updatedAt": "2026-10-20T12:02:34.884628Z"
+        "updatedAt": "2026-10-20T12:05:44.080650Z"
       },
       "note": "ForebetWNBA has no official 2026-10-20 matchups.",
       "ok": true,
       "picks": [],
       "refreshStatus": "ok",
-      "updatedAt": "2026-10-20T12:02:34.884628Z"
+      "updatedAt": "2026-10-20T12:05:44.080650Z"
     },
     "scores24_cfb": {
       "date": "2026-10-19",
@@ -3851,10 +3860,11 @@
     }
   },
   "forebet_cfb": {
-    "date": "2026-10-19",
-    "generatedAt": "2026-10-19T22:29:47.030255Z",
-    "generatedBy": "local:external-feed-refresh",
-    "lastAttemptAt": "2026-10-20T12:02:34.884628Z",
+    "date": "2026-10-20",
+    "error": "ForebetCFB: listing fetch blocked by Cloudflare",
+    "generatedAt": "2026-10-20T12:05:44.080650Z",
+    "generatedBy": "github-actions:external-feed-refresh",
+    "lastAttemptAt": "2026-10-20T12:05:44.080650Z",
     "lastAttemptDate": "2026-10-20",
     "lastAttemptMeta": {
       "blockedUrl": "https://www.forebet.com/en/american-football/usa/ncaa",
@@ -3868,34 +3878,38 @@
       "officialMatchups": 3
     },
     "lastError": "ForebetCFB: listing fetch blocked by Cloudflare",
-    "lastSuccessAt": "2026-10-19T22:29:47.030255Z",
     "meta": {
-      "attemptedUrls": 0,
-      "blockedUrls": 0,
-      "date": "2026-10-19",
-      "expectedMatchups": 0,
+      "attemptedUrls": 1,
+      "blockedUrl": "https://www.forebet.com/en/american-football/usa/ncaa",
+      "blockedUrls": 1,
+      "date": "2026-10-20",
+      "expectedMatchups": 3,
       "feed": "forebet_cfb",
-      "from": "local",
-      "leagues": "mlb,wnba,mls,cfb,nfl",
+      "from": "github-actions",
+      "leagues": "nba,mlb,wnba,cfb,nfl",
       "matchedPicks": 0,
-      "missingMatchups": [],
-      "officialMatchups": 0,
+      "missingMatchups": [
+        "Middle Tennessee Blue Raiders @ Florida International Panthers",
+        "Missouri State Bears @ Delaware Blue Hens",
+        "South Alabama Jaguars @ Marshall Thundering Herd"
+      ],
+      "officialMatchups": 3,
       "unpublishedMatchups": [],
-      "updatedAt": "2026-10-19T22:29:47.030255Z"
+      "updatedAt": "2026-10-20T12:05:44.080650Z"
     },
-    "note": "ForebetCFB has no official 2026-10-19 matchups.",
+    "note": "Scheduled forebet_cfb refresh returned 0 pick(s).",
     "ok": false,
     "picks": [],
     "refreshStatus": "error",
-    "updatedAt": "2026-10-19T22:29:47.030255Z"
+    "updatedAt": "2026-10-20T12:05:44.080650Z"
   },
   "forebet_mlb": {
     "date": "2026-10-20",
-    "generatedAt": "2026-10-20T12:02:34.884628Z",
+    "generatedAt": "2026-10-20T12:05:44.080650Z",
     "generatedBy": "github-actions:external-feed-refresh",
-    "lastAttemptAt": "2026-10-20T12:02:34.884628Z",
+    "lastAttemptAt": "2026-10-20T12:05:44.080650Z",
     "lastAttemptDate": "2026-10-20",
-    "lastSuccessAt": "2026-10-20T12:02:34.884628Z",
+    "lastSuccessAt": "2026-10-20T12:05:44.080650Z",
     "meta": {
       "attemptedUrls": 0,
       "blockedUrls": 0,
@@ -3908,21 +3922,21 @@
       "missingMatchups": [],
       "officialMatchups": 0,
       "unpublishedMatchups": [],
-      "updatedAt": "2026-10-20T12:02:34.884628Z"
+      "updatedAt": "2026-10-20T12:05:44.080650Z"
     },
     "note": "ForebetMLB has no official 2026-10-20 matchups.",
     "ok": true,
     "picks": [],
     "refreshStatus": "ok",
-    "updatedAt": "2026-10-20T12:02:34.884628Z"
+    "updatedAt": "2026-10-20T12:05:44.080650Z"
   },
   "forebet_mls": {
     "date": "2026-10-20",
-    "generatedAt": "2026-10-20T12:02:34.884628Z",
+    "generatedAt": "2026-10-20T12:05:44.080650Z",
     "generatedBy": "github-actions:external-feed-refresh",
-    "lastAttemptAt": "2026-10-20T12:02:34.884628Z",
+    "lastAttemptAt": "2026-10-20T12:05:44.080650Z",
     "lastAttemptDate": "2026-10-20",
-    "lastSuccessAt": "2026-10-20T12:02:34.884628Z",
+    "lastSuccessAt": "2026-10-20T12:05:44.080650Z",
     "meta": {
       "attemptedUrls": 0,
       "blockedUrls": 0,
@@ -3935,19 +3949,20 @@
       "missingMatchups": [],
       "officialMatchups": 0,
       "unpublishedMatchups": [],
-      "updatedAt": "2026-10-20T12:02:34.884628Z"
+      "updatedAt": "2026-10-20T12:05:44.080650Z"
     },
     "note": "ForebetMLS has no official 2026-10-20 matchups.",
     "ok": true,
     "picks": [],
     "refreshStatus": "ok",
-    "updatedAt": "2026-10-20T12:02:34.884628Z"
+    "updatedAt": "2026-10-20T12:05:44.080650Z"
   },
   "forebet_nba": {
-    "date": "2026-10-19",
-    "generatedAt": "2026-10-19T22:30:07.932569Z",
-    "generatedBy": "local:external-feed-refresh",
-    "lastAttemptAt": "2026-10-20T12:02:34.884628Z",
+    "date": "2026-10-20",
+    "error": "ForebetNBA: listing fetch blocked by Cloudflare",
+    "generatedAt": "2026-10-20T12:05:44.080650Z",
+    "generatedBy": "github-actions:external-feed-refresh",
+    "lastAttemptAt": "2026-10-20T12:05:44.080650Z",
     "lastAttemptDate": "2026-10-20",
     "lastAttemptMeta": {
       "blockedUrl": "https://www.forebet.com/en/basketball/usa/nba",
@@ -3961,34 +3976,38 @@
       "officialMatchups": 3
     },
     "lastError": "ForebetNBA: listing fetch blocked by Cloudflare",
-    "lastSuccessAt": "2026-10-19T22:30:07.932569Z",
     "meta": {
-      "attemptedUrls": 0,
-      "blockedUrls": 0,
-      "date": "2026-10-19",
-      "expectedMatchups": 0,
+      "attemptedUrls": 1,
+      "blockedUrl": "https://www.forebet.com/en/basketball/usa/nba",
+      "blockedUrls": 1,
+      "date": "2026-10-20",
+      "expectedMatchups": 3,
       "feed": "forebet_nba",
-      "from": "local",
-      "leagues": "mlb,wnba,mls,cfb,nfl",
+      "from": "github-actions",
+      "leagues": "nba,mlb,wnba,cfb,nfl",
       "matchedPicks": 0,
-      "missingMatchups": [],
-      "officialMatchups": 0,
+      "missingMatchups": [
+        "Boston Celtics @ Detroit Pistons",
+        "Philadelphia 76ers @ New York Knicks",
+        "Oklahoma City Thunder @ San Antonio Spurs"
+      ],
+      "officialMatchups": 3,
       "unpublishedMatchups": [],
-      "updatedAt": "2026-10-19T22:30:07.932569Z"
+      "updatedAt": "2026-10-20T12:05:44.080650Z"
     },
-    "note": "ForebetNBA has no official 2026-10-19 matchups.",
+    "note": "Scheduled forebet_nba refresh returned 0 pick(s).",
     "ok": false,
     "picks": [],
     "refreshStatus": "error",
-    "updatedAt": "2026-10-19T22:30:07.932569Z"
+    "updatedAt": "2026-10-20T12:05:44.080650Z"
   },
   "forebet_nfl": {
     "date": "2026-10-20",
-    "generatedAt": "2026-10-20T12:02:34.884628Z",
+    "generatedAt": "2026-10-20T12:05:44.080650Z",
     "generatedBy": "github-actions:external-feed-refresh",
-    "lastAttemptAt": "2026-10-20T12:02:34.884628Z",
+    "lastAttemptAt": "2026-10-20T12:05:44.080650Z",
     "lastAttemptDate": "2026-10-20",
-    "lastSuccessAt": "2026-10-20T12:02:34.884628Z",
+    "lastSuccessAt": "2026-10-20T12:05:44.080650Z",
     "meta": {
       "attemptedUrls": 0,
       "blockedUrls": 0,
@@ -4001,19 +4020,19 @@
       "missingMatchups": [],
       "officialMatchups": 0,
       "unpublishedMatchups": [],
-      "updatedAt": "2026-10-20T12:02:34.884628Z"
+      "updatedAt": "2026-10-20T12:05:44.080650Z"
     },
     "note": "ForebetNFL has no official 2026-10-20 matchups.",
     "ok": true,
     "picks": [],
     "refreshStatus": "ok",
-    "updatedAt": "2026-10-20T12:02:34.884628Z"
+    "updatedAt": "2026-10-20T12:05:44.080650Z"
   },
   "forebet_nhl": {
     "date": "2026-10-19",
     "generatedAt": "2026-10-19T13:43:38.796134Z",
     "generatedBy": "local:external-feed-refresh",
-    "lastAttemptAt": "2026-10-20T12:02:34.884628Z",
+    "lastAttemptAt": "2026-10-20T12:05:44.080650Z",
     "lastAttemptDate": "2026-10-20",
     "lastAttemptMeta": {
       "blockedUrl": "https://www.forebet.com/en/hockey/usa/nhl",
@@ -4169,11 +4188,11 @@
   },
   "forebet_wnba": {
     "date": "2026-10-20",
-    "generatedAt": "2026-10-20T12:02:34.884628Z",
+    "generatedAt": "2026-10-20T12:05:44.080650Z",
     "generatedBy": "github-actions:external-feed-refresh",
-    "lastAttemptAt": "2026-10-20T12:02:34.884628Z",
+    "lastAttemptAt": "2026-10-20T12:05:44.080650Z",
     "lastAttemptDate": "2026-10-20",
-    "lastSuccessAt": "2026-10-20T12:02:34.884628Z",
+    "lastSuccessAt": "2026-10-20T12:05:44.080650Z",
     "meta": {
       "attemptedUrls": 0,
       "blockedUrls": 0,
@@ -4186,13 +4205,13 @@
       "missingMatchups": [],
       "officialMatchups": 0,
       "unpublishedMatchups": [],
-      "updatedAt": "2026-10-20T12:02:34.884628Z"
+      "updatedAt": "2026-10-20T12:05:44.080650Z"
     },
     "note": "ForebetWNBA has no official 2026-10-20 matchups.",
     "ok": true,
     "picks": [],
     "refreshStatus": "ok",
-    "updatedAt": "2026-10-20T12:02:34.884628Z"
+    "updatedAt": "2026-10-20T12:05:44.080650Z"
   },
   "generatedAt": "2026-10-20T11:54:10.427427Z",
   "generatedBy": "github-actions:model-cache-refresh",
@@ -6023,10 +6042,11 @@
       "shadow_mode": false
     },
     "forebet_cfb": {
-      "date": "2026-10-19",
-      "generatedAt": "2026-10-19T22:29:47.030255Z",
-      "generatedBy": "local:external-feed-refresh",
-      "lastAttemptAt": "2026-10-20T12:02:34.884628Z",
+      "date": "2026-10-20",
+      "error": "ForebetCFB: listing fetch blocked by Cloudflare",
+      "generatedAt": "2026-10-20T12:05:44.080650Z",
+      "generatedBy": "github-actions:external-feed-refresh",
+      "lastAttemptAt": "2026-10-20T12:05:44.080650Z",
       "lastAttemptDate": "2026-10-20",
       "lastAttemptMeta": {
         "blockedUrl": "https://www.forebet.com/en/american-football/usa/ncaa",
@@ -6040,34 +6060,38 @@
         "officialMatchups": 3
       },
       "lastError": "ForebetCFB: listing fetch blocked by Cloudflare",
-      "lastSuccessAt": "2026-10-19T22:29:47.030255Z",
       "meta": {
-        "attemptedUrls": 0,
-        "blockedUrls": 0,
-        "date": "2026-10-19",
-        "expectedMatchups": 0,
+        "attemptedUrls": 1,
+        "blockedUrl": "https://www.forebet.com/en/american-football/usa/ncaa",
+        "blockedUrls": 1,
+        "date": "2026-10-20",
+        "expectedMatchups": 3,
         "feed": "forebet_cfb",
-        "from": "local",
-        "leagues": "mlb,wnba,mls,cfb,nfl",
+        "from": "github-actions",
+        "leagues": "nba,mlb,wnba,cfb,nfl",
         "matchedPicks": 0,
-        "missingMatchups": [],
-        "officialMatchups": 0,
+        "missingMatchups": [
+          "Middle Tennessee Blue Raiders @ Florida International Panthers",
+          "Missouri State Bears @ Delaware Blue Hens",
+          "South Alabama Jaguars @ Marshall Thundering Herd"
+        ],
+        "officialMatchups": 3,
         "unpublishedMatchups": [],
-        "updatedAt": "2026-10-19T22:29:47.030255Z"
+        "updatedAt": "2026-10-20T12:05:44.080650Z"
       },
-      "note": "ForebetCFB has no official 2026-10-19 matchups.",
+      "note": "Scheduled forebet_cfb refresh returned 0 pick(s).",
       "ok": false,
       "picks": [],
       "refreshStatus": "error",
-      "updatedAt": "2026-10-19T22:29:47.030255Z"
+      "updatedAt": "2026-10-20T12:05:44.080650Z"
     },
     "forebet_mlb": {
       "date": "2026-10-20",
-      "generatedAt": "2026-10-20T12:02:34.884628Z",
+      "generatedAt": "2026-10-20T12:05:44.080650Z",
       "generatedBy": "github-actions:external-feed-refresh",
-      "lastAttemptAt": "2026-10-20T12:02:34.884628Z",
+      "lastAttemptAt": "2026-10-20T12:05:44.080650Z",
       "lastAttemptDate": "2026-10-20",
-      "lastSuccessAt": "2026-10-20T12:02:34.884628Z",
+      "lastSuccessAt": "2026-10-20T12:05:44.080650Z",
       "meta": {
         "attemptedUrls": 0,
         "blockedUrls": 0,
@@ -6080,21 +6104,21 @@
         "missingMatchups": [],
         "officialMatchups": 0,
         "unpublishedMatchups": [],
-        "updatedAt": "2026-10-20T12:02:34.884628Z"
+        "updatedAt": "2026-10-20T12:05:44.080650Z"
       },
       "note": "ForebetMLB has no official 2026-10-20 matchups.",
       "ok": true,
       "picks": [],
       "refreshStatus": "ok",
-      "updatedAt": "2026-10-20T12:02:34.884628Z"
+      "updatedAt": "2026-10-20T12:05:44.080650Z"
     },
     "forebet_mls": {
       "date": "2026-10-20",
-      "generatedAt": "2026-10-20T12:02:34.884628Z",
+      "generatedAt": "2026-10-20T12:05:44.080650Z",
       "generatedBy": "github-actions:external-feed-refresh",
-      "lastAttemptAt": "2026-10-20T12:02:34.884628Z",
+      "lastAttemptAt": "2026-10-20T12:05:44.080650Z",
       "lastAttemptDate": "2026-10-20",
-      "lastSuccessAt": "2026-10-20T12:02:34.884628Z",
+      "lastSuccessAt": "2026-10-20T12:05:44.080650Z",
       "meta": {
         "attemptedUrls": 0,
         "blockedUrls": 0,
@@ -6107,19 +6131,20 @@
         "missingMatchups": [],
         "officialMatchups": 0,
         "unpublishedMatchups": [],
-        "updatedAt": "2026-10-20T12:02:34.884628Z"
+        "updatedAt": "2026-10-20T12:05:44.080650Z"
       },
       "note": "ForebetMLS has no official 2026-10-20 matchups.",
       "ok": true,
       "picks": [],
       "refreshStatus": "ok",
-      "updatedAt": "2026-10-20T12:02:34.884628Z"
+      "updatedAt": "2026-10-20T12:05:44.080650Z"
     },
     "forebet_nba": {
-      "date": "2026-10-19",
-      "generatedAt": "2026-10-19T22:30:07.932569Z",
-      "generatedBy": "local:external-feed-refresh",
-      "lastAttemptAt": "2026-10-20T12:02:34.884628Z",
+      "date": "2026-10-20",
+      "error": "ForebetNBA: listing fetch blocked by Cloudflare",
+      "generatedAt": "2026-10-20T12:05:44.080650Z",
+      "generatedBy": "github-actions:external-feed-refresh",
+      "lastAttemptAt": "2026-10-20T12:05:44.080650Z",
       "lastAttemptDate": "2026-10-20",
       "lastAttemptMeta": {
         "blockedUrl": "https://www.forebet.com/en/basketball/usa/nba",
@@ -6133,34 +6158,38 @@
         "officialMatchups": 3
       },
       "lastError": "ForebetNBA: listing fetch blocked by Cloudflare",
-      "lastSuccessAt": "2026-10-19T22:30:07.932569Z",
       "meta": {
-        "attemptedUrls": 0,
-        "blockedUrls": 0,
-        "date": "2026-10-19",
-        "expectedMatchups": 0,
+        "attemptedUrls": 1,
+        "blockedUrl": "https://www.forebet.com/en/basketball/usa/nba",
+        "blockedUrls": 1,
+        "date": "2026-10-20",
+        "expectedMatchups": 3,
         "feed": "forebet_nba",
-        "from": "local",
-        "leagues": "mlb,wnba,mls,cfb,nfl",
+        "from": "github-actions",
+        "leagues": "nba,mlb,wnba,cfb,nfl",
         "matchedPicks": 0,
-        "missingMatchups": [],
-        "officialMatchups": 0,
+        "missingMatchups": [
+          "Boston Celtics @ Detroit Pistons",
+          "Philadelphia 76ers @ New York Knicks",
+          "Oklahoma City Thunder @ San Antonio Spurs"
+        ],
+        "officialMatchups": 3,
         "unpublishedMatchups": [],
-        "updatedAt": "2026-10-19T22:30:07.932569Z"
+        "updatedAt": "2026-10-20T12:05:44.080650Z"
       },
-      "note": "ForebetNBA has no official 2026-10-19 matchups.",
+      "note": "Scheduled forebet_nba refresh returned 0 pick(s).",
       "ok": false,
       "picks": [],
       "refreshStatus": "error",
-      "updatedAt": "2026-10-19T22:30:07.932569Z"
+      "updatedAt": "2026-10-20T12:05:44.080650Z"
     },
     "forebet_nfl": {
       "date": "2026-10-20",
-      "generatedAt": "2026-10-20T12:02:34.884628Z",
+      "generatedAt": "2026-10-20T12:05:44.080650Z",
       "generatedBy": "github-actions:external-feed-refresh",
-      "lastAttemptAt": "2026-10-20T12:02:34.884628Z",
+      "lastAttemptAt": "2026-10-20T12:05:44.080650Z",
       "lastAttemptDate": "2026-10-20",
-      "lastSuccessAt": "2026-10-20T12:02:34.884628Z",
+      "lastSuccessAt": "2026-10-20T12:05:44.080650Z",
       "meta": {
         "attemptedUrls": 0,
         "blockedUrls": 0,
@@ -6173,19 +6202,19 @@
         "missingMatchups": [],
         "officialMatchups": 0,
         "unpublishedMatchups": [],
-        "updatedAt": "2026-10-20T12:02:34.884628Z"
+        "updatedAt": "2026-10-20T12:05:44.080650Z"
       },
       "note": "ForebetNFL has no official 2026-10-20 matchups.",
       "ok": true,
       "picks": [],
       "refreshStatus": "ok",
-      "updatedAt": "2026-10-20T12:02:34.884628Z"
+      "updatedAt": "2026-10-20T12:05:44.080650Z"
     },
     "forebet_nhl": {
       "date": "2026-10-19",
       "generatedAt": "2026-10-19T13:43:38.796134Z",
       "generatedBy": "local:external-feed-refresh",
-      "lastAttemptAt": "2026-10-20T12:02:34.884628Z",
+      "lastAttemptAt": "2026-10-20T12:05:44.080650Z",
       "lastAttemptDate": "2026-10-20",
       "lastAttemptMeta": {
         "blockedUrl": "https://www.forebet.com/en/hockey/usa/nhl",
@@ -6341,11 +6370,11 @@
     },
     "forebet_wnba": {
       "date": "2026-10-20",
-      "generatedAt": "2026-10-20T12:02:34.884628Z",
+      "generatedAt": "2026-10-20T12:05:44.080650Z",
       "generatedBy": "github-actions:external-feed-refresh",
-      "lastAttemptAt": "2026-10-20T12:02:34.884628Z",
+      "lastAttemptAt": "2026-10-20T12:05:44.080650Z",
       "lastAttemptDate": "2026-10-20",
-      "lastSuccessAt": "2026-10-20T12:02:34.884628Z",
+      "lastSuccessAt": "2026-10-20T12:05:44.080650Z",
       "meta": {
         "attemptedUrls": 0,
         "blockedUrls": 0,
@@ -6358,13 +6387,13 @@
         "missingMatchups": [],
         "officialMatchups": 0,
         "unpublishedMatchups": [],
-        "updatedAt": "2026-10-20T12:02:34.884628Z"
+        "updatedAt": "2026-10-20T12:05:44.080650Z"
       },
       "note": "ForebetWNBA has no official 2026-10-20 matchups.",
       "ok": true,
       "picks": [],
       "refreshStatus": "ok",
-      "updatedAt": "2026-10-20T12:02:34.884628Z"
+      "updatedAt": "2026-10-20T12:05:44.080650Z"
     },
     "mlb_first_five": {
       "consensus_gate_version": "mlb_team_consensus_v1.2.0",
@@ -118763,7 +118792,7 @@
     "standings_date": "2026-04-17",
     "team_totals_without_mean": 0
   },
-  "publishedAt": "2026-10-20T12:03:26.706361Z",
+  "publishedAt": "2026-10-20T12:05:45.975804Z",
   "sportsgambler_cfb": {
     "date": "2026-10-20",
     "errors": [],
@@ -120008,7 +120037,7 @@
     "scraped_tip_feed": true,
     "updatedAt": "2026-10-20T12:02:34.884628Z"
   },
-  "updatedAt": "2026-10-20T12:02:34.884628Z",
+  "updatedAt": "2026-10-20T12:05:44.080650Z",
   "wnba": {
     "date": "2026-10-20",
     "note": "No WNBA picks today \u2014 off-season or no edge found.",
