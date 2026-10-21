@@ -5189,6 +5189,20 @@ def run_nba_model(date_str: str | None = None, variant: str = "new") -> dict[str
             }
 
         result = {"ok": True, "picks": picks, "raw_lines": len(output.split("\n"))}
+        # Provenance: when stats.nba.com is unreachable (hosted runners), the
+        # model serves these picks from its ESPN fallbacks. Stamp that on the
+        # published bucket so degraded-source slates stay identifiable.
+        upstream_fallbacks = [
+            name
+            for marker, name in (
+                ("using ESPN scoreboard fallback", "espn_scoreboard"),
+                ("using ESPN team statistics fallback", "espn_team_statistics"),
+                ("using ESPN roster fallback", "espn_roster"),
+            )
+            if marker in output
+        ]
+        if upstream_fallbacks:
+            result["upstream_fallbacks"] = upstream_fallbacks
         return _cache_result(result)
     except subprocess.TimeoutExpired as exc:
         timeout_min = max(1, round(timeout_s / 60))

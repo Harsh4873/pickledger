@@ -1,0 +1,130 @@
+name: NBA Consensus Activation
+run-name: NBA Consensus Activation
+
+# NBA props fail closed (0u research) until a market clears the same 70%
+# chronological validation + later holdout gate as every other sport. This
+# writer trains in NBA-only publish mode after each Daily Refresh so an
+# earned market activates automatically. It is deliberately separate from
+# Player Props Refresh: optional training must not lengthen that job's hold
+# on the shared cache writer, and the read-only consensus check stays a
+# pure verification. Exit code 2 from the trainer means "not earned yet".
+
+on:
+  workflow_run:
+    workflows: [Daily Refresh]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  actions: write
+
+concurrency:
+  group: pick-cache-writer
+  cancel-in-progress: false
+
+jobs:
+  activate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      PYTHONUNBUFFERED: "1"
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Sync latest main
+        run: |
+          git fetch origin main
+          git reset --hard origin/main
+
+      - name: Check whether NBA consensus is already active
+        id: nba-state
+        run: |
+          if python -c "import json, sys; from pathlib import Path; meta = json.loads(Path('player_props/artifacts/player_props_consensus_metadata.json').read_text(encoding='utf-8')); nba = (meta.get('sports') or {}).get('NBA') or {}; active = nba.get('active') is True and Path('player_props/artifacts/nba_player_props_season.joblib').is_file() and Path('player_props/artifacts/nba_player_props_history.joblib').is_file(); sys.exit(0 if active else 1)"; then
+            echo "active=true" >> "$GITHUB_OUTPUT"
+            echo "NBA consensus artifacts already active; nothing to train."
+          else
+            echo "active=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Set up Python
+        if: steps.nba-state.outputs.active != 'true'
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install Python dependencies
+        if: steps.nba-state.outputs.active != 'true'
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Train NBA consensus candidate
+        id: train-nba-consensus
+        if: steps.nba-state.outputs.active != 'true'
+        timeout-minutes: 12
+        run: |
+          set +e
+          python scripts/train_player_prop_consensus_ml.py --publish-sports NBA
+          code=$?
+          set -e
+          if [ "$code" -eq 0 ]; then
+            echo "published=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "published=false" >> "$GITHUB_OUTPUT"
+          if [ "$code" -eq 2 ]; then
+            echo "::notice::No NBA prop market has earned consensus activation yet; NBA props stay research-only."
+            exit 0
+          fi
+          exit "$code"
+
+      - name: Commit NBA consensus artifacts if changed
+        id: commit-artifacts
+        if: steps.train-nba-consensus.outputs.published == 'true'
+        run: |
+          ACTOR_EMAIL="${GITHUB_ACTOR_ID:-41898282}+${GITHUB_ACTOR}@users.noreply.github.com"
+          git config user.name  "${GITHUB_ACTOR}"
+          git config user.email "${ACTOR_EMAIL}"
+          BRANCH="main"
+          if [ -z "$(git status --porcelain -- player_props/artifacts)" ]; then
+            echo "Trainer published but no artifact change; skipping commit."
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          GENERATED_ARTIFACTS="${RUNNER_TEMP}/nba-consensus-artifacts"
+          mkdir -p "$GENERATED_ARTIFACTS"
+          cp player_props/artifacts/nba_player_props_season.joblib "$GENERATED_ARTIFACTS"/
+          cp player_props/artifacts/nba_player_props_history.joblib "$GENERATED_ARTIFACTS"/
+          cp player_props/artifacts/player_props_consensus_metadata.json "$GENERATED_ARTIFACTS"/
+          for attempt in 1 2 3; do
+            git fetch origin "$BRANCH"
+            git reset --hard "origin/${BRANCH}"
+            # A concurrent publication may already carry these bytes; only
+            # the NBA artifacts and the merged consensus metadata move here.
+            cp "$GENERATED_ARTIFACTS"/nba_player_props_season.joblib player_props/artifacts/
+            cp "$GENERATED_ARTIFACTS"/nba_player_props_history.joblib player_props/artifacts/
+            cp "$GENERATED_ARTIFACTS"/player_props_consensus_metadata.json player_props/artifacts/
+            git add player_props/artifacts/nba_player_props_season.joblib player_props/artifacts/nba_player_props_history.joblib player_props/artifacts/player_props_consensus_metadata.json
+            if git diff --cached --quiet; then
+              echo "No staged NBA consensus change after merge; skipping commit."
+              echo "changed=false" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+            git commit -m "chore(props): activate earned NBA consensus markets"
+            if git push origin "HEAD:${BRANCH}"; then
+              echo "changed=true" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+            echo "Push failed on attempt ${attempt}; retrying on latest origin/${BRANCH}."
+          done
+          exit 1
+
+      - name: Republish player props with active NBA artifacts
+        if: steps.commit-artifacts.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run player-props-refresh.yml --ref main

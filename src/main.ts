@@ -364,6 +364,7 @@ function researchDetailsHtml(pick: Pick, expanded: boolean): string {
   return `<div class="home-player-details">
     ${activePickMode === 'player' ? `<div class="home-player-metrics">
       <span class="home-player-decision decision-${escapeHtml(decision.toLowerCase())}">${escapeHtml(decision)}</span>
+      ${pick.research === true ? '<span class="home-player-decision decision-pass">RESEARCH</span>' : ''}
       ${modelCount ? `<span><strong>Models</strong>${modelCount}</span>` : ''}
       ${quarterKelly ? `<span><strong>Quarter Kelly</strong>${escapeHtml(quarterKelly)}</span>` : ''}
       ${fullKelly ? `<span><strong>Full Kelly</strong>${escapeHtml(fullKelly)}</span>` : ''}

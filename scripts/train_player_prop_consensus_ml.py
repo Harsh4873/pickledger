@@ -965,6 +965,45 @@ def _publication_plan(
     return publication_metadata, publish_artifacts_for
 
 
+def _restrict_publication(
+    publication_metadata: dict[str, Any],
+    publish_artifacts_for: set[str],
+    existing_metadata: dict[str, Any] | None,
+    requested_sports: set[str],
+) -> tuple[dict[str, Any], set[str]]:
+    """Limit a write run to ``requested_sports`` (e.g. daily NBA activation).
+
+    Other sports keep their existing metadata entries and artifacts, so the
+    metadata never describes an artifact this run did not write and a daily
+    activation check never rewrites another sport's model files.
+    """
+    if not requested_sports:
+        return publication_metadata, publish_artifacts_for
+    existing_sports = (
+        existing_metadata.get("sports")
+        if isinstance(existing_metadata, dict) and isinstance(existing_metadata.get("sports"), dict)
+        else {}
+    )
+    sports = dict(publication_metadata.get("sports") or {})
+    for sport in list(sports):
+        if sport not in requested_sports and isinstance(existing_sports.get(sport), dict):
+            sports[sport] = existing_sports[sport]
+    merged = dict(publication_metadata)
+    merged["sports"] = sports
+    merged["active"] = any(
+        sport_metadata.get("active") is True
+        for sport_metadata in sports.values()
+        if isinstance(sport_metadata, dict)
+    )
+    if isinstance(existing_metadata, dict) and isinstance(existing_metadata.get("evaluation_windows"), dict):
+        windows = dict(merged.get("evaluation_windows") or {})
+        for sport, window in existing_metadata["evaluation_windows"].items():
+            if sport not in requested_sports:
+                windows[sport] = window
+        merged["evaluation_windows"] = windows
+    return merged, {sport for sport in publish_artifacts_for if sport in requested_sports}
+
+
 
 def _atomic_write_text(path: Path, content: str) -> None:
     """Write text via temp+os.replace so a crash cannot truncate active metadata."""
@@ -1005,7 +1044,18 @@ def main() -> int:
         action="store_true",
         help="Evaluate a candidate for routine refresh without replacing published artifacts.",
     )
+    parser.add_argument(
+        "--publish-sports",
+        default="",
+        help="Comma-separated sports this write run may publish (default: all).",
+    )
     args = parser.parse_args()
+    publish_sports = {
+        sport.strip().upper() for sport in str(args.publish_sports or "").split(",") if sport.strip()
+    }
+    unknown_sports = sorted(publish_sports - set(POLICIES))
+    if unknown_sports:
+        parser.error(f"unknown --publish-sports: {', '.join(unknown_sports)}")
     if args.verify_only:
         missing = [
             label for label, path in (("market history", args.markets), ("outcome history", args.outcomes))
@@ -1614,6 +1664,9 @@ def main() -> int:
         print(json.dumps(metadata, indent=2, sort_keys=True))
         return 0 if args.verify_only or metadata.get("active") is True else 2
     publication_metadata, publish_artifacts_for = _publication_plan(metadata, existing_metadata)
+    publication_metadata, publish_artifacts_for = _restrict_publication(
+        publication_metadata, publish_artifacts_for, existing_metadata, publish_sports,
+    )
     if not publish_artifacts_for:
         if isinstance(existing_metadata, dict) and existing_metadata.get("active") is True:
             print(

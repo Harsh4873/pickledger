@@ -39,9 +39,24 @@ def _positive_setting(name: str, default, parse):
     return default
 
 
-def _is_scoreboard_url(url: str) -> bool:
-    """The live slate has an ESPN scoreboard fallback. Other stats endpoints do not."""
-    return urlsplit(url).path.rstrip("/").endswith("/scoreboardv2")
+# Endpoints whose call sites in NBAPredictionModel already define what an
+# upstream failure means: an ESPN fallback (scoreboard, team stats, roster)
+# or an explicit neutral default (last-10/four-factor blends, schedule
+# context, on/off injury impact). Exhaustion on these paths must stay a
+# catchable request error so that model-level handling can run; any other
+# stats endpoint still aborts rather than risk partial predictions.
+FALLBACK_PATH_SUFFIXES = (
+    "/scoreboardv2",
+    "/leaguedashteamstats",
+    "/leaguegamefinder",
+    "/commonteamroster",
+    "/teamplayeronoffsummary",
+)
+
+
+def _has_model_fallback(url: str) -> bool:
+    path = urlsplit(url).path.rstrip("/")
+    return path.endswith(FALLBACK_PATH_SUFFIXES)
 
 
 def _bounded_timeout(value: object, connect_timeout: float = CONNECT_TIMEOUT,
@@ -64,6 +79,10 @@ class BoundedNBAStatsSession(requests.Session):
         # Keep nba_api's 30s read allowance locally; hosted runners fail faster.
         self.read_timeout = _positive_setting("PICKLEDGER_NBA_HTTP_READ_TIMEOUT", READ_TIMEOUT if ci else 30.0, float)
         self.max_attempts = _positive_setting("PICKLEDGER_NBA_HTTP_ATTEMPTS", MAX_ATTEMPTS, int)
+        # Once one stats.nba.com request terminally fails, the host is treated
+        # as down for the rest of this run: per-team loops must not each burn
+        # a full timeout budget before their fallback engages.
+        self._upstream_down = False
 
     def request(self, method: str, url: str, **kwargs) -> requests.Response:
         endpoint = urlsplit(url)
@@ -71,6 +90,11 @@ class BoundedNBAStatsSession(requests.Session):
             return super().request(method, url, **kwargs)
         kwargs["timeout"] = _bounded_timeout(kwargs.get("timeout"), self.connect_timeout, self.read_timeout)
         label = f"{endpoint.hostname}{endpoint.path}"
+        if self._upstream_down:
+            print(f"[nba-fetch] {label} skipped: stats.nba.com already unavailable this run", file=sys.stderr, flush=True)
+            if _has_model_fallback(url):
+                raise requests.ReadTimeout(f"{label} skipped: stats.nba.com unavailable")
+            raise NBAFetchUnavailable(f"{FAILURE_MARKER} {label} skipped: stats.nba.com unavailable") from None
         for attempt in range(1, self.max_attempts + 1):
             started = time.monotonic()
             print(f"[nba-fetch] {label} attempt {attempt}/{self.max_attempts}", file=sys.stderr, flush=True)
@@ -92,11 +116,12 @@ class BoundedNBAStatsSession(requests.Session):
                 if retryable and attempt < self.max_attempts:
                     time.sleep(1)
                     continue
-                if _is_scoreboard_url(url):
-                    # fetch_todays_games catches this and uses the ESPN slate.
-                    # SystemExit would skip that fallback and abort the model
-                    # before any game list exists. Other endpoints still abort
-                    # so a later stats timeout cannot fill partial predictions.
+                self._upstream_down = True
+                if _has_model_fallback(url):
+                    # The model catches this and uses its ESPN fallback or
+                    # neutral default for the endpoint. SystemExit would skip
+                    # that handling and abort the run even though the model
+                    # defines exactly how this failure is served.
                     raise
                 # SystemExit intentionally crosses broad `except Exception`
                 # blocks in the frozen model. No partial predictions are used.

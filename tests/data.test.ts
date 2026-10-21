@@ -600,6 +600,56 @@ test('CFB baseline projections stay visible with PASS and explain unvalidated st
   setPickMode('team');
 });
 
+test('NBA research candidates publish on the player board as PASS at 0u', { concurrency: false }, async () => {
+  const { getPlayerSourceStatuses, getAllPicks } = await import('../src/data.ts');
+  const date = '2026-10-21';
+  const responses = new Map<string, CachePayload>();
+  installFetch(responses);
+  const researchRow = {
+    id: 'ppr_nba_research', research_only: true, decision: 'PASS', units: 0,
+    sport: 'NBA', date, game_id: 'g1', matchup: 'Hawks @ Magic',
+    player_name: 'Jalen Johnson', team: 'Hawks', stat_key: 'points', stat_label: 'Points',
+    selection: 'Over', line: 24.5, pick: 'Jalen Johnson Over 24.5 Points', odds: 181,
+    market_priced: true, result: 'pending', research_probability: 0.61,
+    research_baseline_probability: 0.52, research_baseline_kind: 'no_vig', research_edge: 0.09,
+    variants_supporting: ['season', 'hot_l10'], consensus_qualified: false,
+    consensus_rejection_reason: 'no NBA consensus model configured', season_type: 'regular',
+  };
+  const trackedTwin = {
+    ...researchRow, id: 'ppr_tracked_twin', player_name: 'Trae Young',
+    pick: 'Trae Young Over 24.5 Points',
+  };
+  const qualified = {
+    ...researchRow, id: 'ppr_qualified', player_name: 'Paolo Banchero',
+    pick: 'Paolo Banchero Over 24.5 Points', consensus_qualified: true,
+  };
+  responses.set('./data/player_props_cache/latest.json', { date, models: { nba_player_props: {
+    ok: true, games: 11, abstained: true, candidate_count: 600,
+    picks: [{
+      id: 'nba-tracked', sport: 'NBA', date, game_id: 'g1', matchup: 'Hawks @ Magic',
+      player_name: 'Trae Young', stat_key: 'points', selection: 'Over', line: 24.5,
+      pick: 'Trae Young Over 24.5 Points', decision: 'PASS', units: 0, odds: -110, result: 'pending',
+    }],
+    research_candidates: [researchRow, trackedTwin, qualified],
+    research_candidate_count: 590,
+  } } });
+  await loadAllData({ includeHistory: false });
+  setPickMode('player');
+  const player = getAllPicks();
+  const research = player.find(pick => pick.id === 'ppr_nba_research');
+  assert.ok(research, 'research candidate is visible on the player board');
+  assert.equal(research.research, true);
+  assert.equal(research.decision, 'PASS');
+  assert.equal(research.units, 0);
+  assert.equal(research.probability, 0.61);
+  assert.ok(!player.some(pick => pick.id === 'ppr_tracked_twin'), 'tracked market is not duplicated as research');
+  assert.ok(!player.some(pick => pick.id === 'ppr_qualified'), 'consensus-qualified markets publish as tracked picks only');
+  const status = getPlayerSourceStatuses(date).find(source => source.key === 'nba_player_props')!;
+  assert.equal(status.researchCount, 1);
+  setPickMode('team');
+  assert.ok(!getAllPicks().some(pick => pick.id === 'ppr_nba_research'), 'research props stay out of team mode');
+});
+
 test('CFB ESPN scoreboard odds verify, assumed model prices do not', () => {
   assert.equal(normalizedPriceProvenance({
     market_priced: true,

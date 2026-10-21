@@ -150,7 +150,9 @@ but those artifacts are only written once an NBA market clears, so until then
 NBA reports "no NBA consensus model configured" and no NBA market can publish
 or stake. Priced
 NBA rows still flow to `research_candidates` and the Profit Desk player-prop
-research shortlist at 0u. ESPN's season phase is stamped as `season_type`;
+research shortlist at 0u, and the newest slate's research candidates render
+on the player board as PASS at 0u with a RESEARCH label (never staked,
+never in parlays; tracked or consensus-qualified markets are not duplicated). ESPN's season phase is stamped as `season_type`;
 preseason or unverified-season rows are labeled `NBA PRESEASON — research/entertainment
 only`, single only, never in parlays or Edge/Prop Doubles, at most two, ranked
 after regular-season rows. Activating an NBA market needs a trained season/history
@@ -178,7 +180,14 @@ PRA) use the MLB-style season market classifier plus a three-season
 outcome-history classifier, the same 70% chronological validation + later
 holdout bar, and the strictest existing sample floors (25 validation / 15
 holdout picks). A market that misses stays inactive; NBA props remain 0u
-research until one clears on regular-season data.
+research until one clears on regular-season data. The NBA Consensus
+Activation workflow runs the trainer with `--publish-sports NBA` after each
+Daily Refresh while NBA is inactive, so an earned market activates
+automatically (other sports' artifacts and metadata entries are left
+untouched, and the props job never holds the cache writer for training);
+exit code 2 simply means not earned yet. On activation it commits the NBA
+artifacts and dispatches a Player Props Refresh so the same slate re-scores
+with the gate live.
 
 ## NFL/CFB player props
 

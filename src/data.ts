@@ -902,9 +902,14 @@ function isPlayerScopedPick(pick: Pick): boolean {
   return isTeamCachePlayerProp(pick);
 }
 
+function isResearchPlayerProp(pick: Pick): boolean {
+  return pick.research === true && pick.decision === 'PASS' && pick.units === 0;
+}
+
 function isVisiblePlayerBoardPick(pick: Pick): boolean {
   return isMlEraPlayerProp(pick)
     || isFootballBaselineProjection(pick)
+    || isResearchPlayerProp(pick)
     || pick.external_player_feed === true
     || isTeamCachePlayerProp(pick);
 }
@@ -1084,6 +1089,62 @@ function picksFromPlayerProps(payload: PlayerPropsPayload): Pick[] {
     .filter((pick): pick is Pick => Boolean(pick) && isTrackedPlayerProp(pick));
 }
 
+function playerPropMarketIdentity(row: Record<string, unknown>): string {
+  return [
+    row.sport, row.game_id, row.player_name || row.player,
+    row.stat_key, row.line, row.selection,
+  ].map(value => String(value ?? '').trim().toLowerCase()).join('|');
+}
+
+/**
+ * Consensus-gated props still publish their scored research slate. Surface it
+ * as PASS at 0u so a sport waiting on gate activation (e.g. NBA early season)
+ * is visibly publishing without ever staking or entering tracked views.
+ * Research rows are not graded after the slate, so only the newest payload
+ * contributes them; older slates keep their tracked history unchanged.
+ */
+function researchFromPlayerProps(payload: PlayerPropsPayload, trackedMarkets: Set<string>): Pick[] {
+  const date = String(payload.date || payload.slate_date || '').trim();
+  const picks: Pick[] = [];
+  for (const containerKey of ['models', 'sports', 'leagues']) {
+    const container = payload[containerKey];
+    if (!container || typeof container !== 'object' || Array.isArray(container)) continue;
+    for (const [modelKey, bucket] of Object.entries(container as Record<string, unknown>)) {
+      const value = recordValue(bucket);
+      if (!Object.keys(value).length || value.ok === false) continue;
+      const rows = Array.isArray(value.research_candidates) ? value.research_candidates : [];
+      for (const raw of rows) {
+        const row = recordValue(raw);
+        if (!Object.keys(row).length) continue;
+        if (row.consensus_qualified === true) continue;
+        if (trackedMarkets.has(playerPropMarketIdentity(row))) continue;
+        const pick = normalizePick(raw, date, playerPropSourceLabel(modelKey, raw), new Map(), true);
+        if (!pick) continue;
+        pick.research = true;
+        pick.decision = 'PASS';
+        pick.units = 0;
+        pick.pl = 0;
+        if (pick.probability == null) pick.probability = numberOrNull(row.research_probability);
+        picks.push(pick);
+      }
+    }
+  }
+  return picks;
+}
+
+function newestPlayerPropsPayload(): PlayerPropsPayload | null {
+  let newest: PlayerPropsPayload | null = null;
+  let newestDate = '';
+  for (const payload of playerCachePayloads) {
+    const date = String(payload.date || payload.slate_date || '').trim();
+    if (date && date >= newestDate) {
+      newest = payload;
+      newestDate = date;
+    }
+  }
+  return newest;
+}
+
 const DATED_CACHE_FILE = /^\d{4}-\d{2}-\d{2}\.json$/;
 const HISTORY_FETCH_CONCURRENCY = 8;
 const MODEL_CACHE_INDEX = './data/model_cache/index.json';
@@ -1190,6 +1251,15 @@ function rebuildPicks(): void {
     else teamById.set(pick.id, pick);
   });
   playerCachePayloads.flatMap(picksFromPlayerProps).forEach(pick => playerById.set(pick.id, pick));
+  const newestPlayerPayload = newestPlayerPropsPayload();
+  if (newestPlayerPayload) {
+    const trackedMarkets = new Set(
+      [...playerById.values()].map(pick => playerPropMarketIdentity(pick as unknown as Record<string, unknown>)),
+    );
+    researchFromPlayerProps(newestPlayerPayload, trackedMarkets).forEach(pick => {
+      if (!playerById.has(pick.id)) playerById.set(pick.id, pick);
+    });
+  }
   teamCachePayloads.flatMap(researchFromCache).forEach(pick => researchById.set(pick.id, pick));
   teamPicks = sortPicks([...teamById.values()].filter(pick => !ARCHIVED_SPORTS.has(pick.sport)));
   researchPicks = sortPicks([...researchById.values()].filter(pick => !teamById.has(pick.id)));
@@ -1496,6 +1566,8 @@ function sourceErrorText(payload: ModelCachePayload, key: string, bucket: ModelB
 /** Explain empty player slates using the same published diagnostics as the jobs. */
 export function getPlayerSourceStatuses(date: string): SourceStatus[] {
   const payload = playerCachePayloads.filter(item => String(item.date || item.slate_date || '') <= date).at(-1);
+  const newestPayload = newestPlayerPropsPayload();
+  const newestDate = String(newestPayload?.date || newestPayload?.slate_date || '');
   return ['mlb_player_props', 'wnba_player_props', 'nba_player_props', 'nfl_player_props', 'cfb_player_props'].map(key => {
     const bucket = recordValue(payload?.models?.[key]);
     const sport = key.split('_')[0].toUpperCase();
@@ -1509,6 +1581,17 @@ export function getPlayerSourceStatuses(date: string): SourceStatus[] {
     };
     const errors = Array.isArray(bucket.errors) ? bucket.errors.filter(Boolean) : [];
     if (!Object.keys(bucket).length) return status;
+    // Research rows render only from the newest slate (see researchFromPlayerProps).
+    if (sourceDate && sourceDate === newestDate && Array.isArray(bucket.research_candidates)) {
+      const trackedMarkets = new Set(
+        (Array.isArray(bucket.picks) ? bucket.picks : []).map(row => playerPropMarketIdentity(recordValue(row))),
+      );
+      status.researchCount = bucket.research_candidates.filter(raw => {
+        const row = recordValue(raw);
+        return Boolean(Object.keys(row).length) && row.consensus_qualified !== true
+          && !trackedMarkets.has(playerPropMarketIdentity(row));
+      }).length;
+    }
     if (sourceDate !== date) {
       status.state = 'stale';
       status.detail = 'Awaiting a player-prop refresh for this date.';
@@ -1526,7 +1609,9 @@ export function getPlayerSourceStatuses(date: string): SourceStatus[] {
       const evaluated = Math.max(Number(bucket.candidate_count) || 0, Number(bucket.scored_count) || 0,
         Number(bucket.consensus_rejected_count) || 0);
       const games = Array.isArray(bucket.games) ? bucket.games.length : Number(bucket.games) || 0;
-      if (bucket.abstained === true && evaluated > 0) {
+      if (status.researchCount > 0) {
+        status.detail = `${status.researchCount} research projections published as PASS; none cleared the consensus publication gate.`;
+      } else if (bucket.abstained === true && evaluated > 0) {
         status.detail = 'Refresh completed; evaluated candidates did not clear the publication rules.';
       } else if (games > 0) {
         status.state = 'error';

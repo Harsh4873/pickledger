@@ -8,7 +8,8 @@ import requests
 from scripts import run_nba_model as runner
 
 
-URL = "https://stats.nba.com/stats/teamplayeronoffsummary"
+# No model-level fallback exists for this endpoint, so exhaustion must abort.
+URL = "https://stats.nba.com/stats/playerdashboardbygeneralsplits"
 
 
 @pytest.fixture(autouse=True)
@@ -127,6 +128,54 @@ def test_scoreboard_timeout_stays_catchable_so_espn_fallback_can_run(monkeypatch
     assert runner.FAILURE_MARKER not in logged
 
 
+@pytest.mark.parametrize("path", [
+    "/stats/leaguedashteamstats",
+    "/stats/leaguegamefinder",
+    "/stats/commonteamroster",
+    "/stats/teamplayeronoffsummary",
+])
+def test_fallback_endpoint_timeout_stays_catchable(monkeypatch, path):
+    # Each of these endpoints has a defined model-level fallback or graceful
+    # default in NBAPredictionModel, so exhaustion must raise the original
+    # request error instead of aborting the whole run.
+    calls = []
+
+    def send(_session, _request, **_kwargs):
+        calls.append(1)
+        raise requests.ReadTimeout("stats.nba.com down")
+
+    monkeypatch.setattr(requests.Session, "send", send)
+    monkeypatch.setattr(runner.time, "sleep", lambda _seconds: None)
+    with runner.BoundedNBAStatsSession() as session:
+        with pytest.raises(requests.ReadTimeout):
+            session.get(f"https://stats.nba.com{path}")
+    assert calls == [1, 1]
+
+
+def test_circuit_breaker_fails_fast_after_terminal_failure(monkeypatch):
+    calls = []
+
+    def send(_session, _request, **_kwargs):
+        calls.append(1)
+        raise requests.ReadTimeout("stats.nba.com down")
+
+    monkeypatch.setattr(requests.Session, "send", send)
+    monkeypatch.setattr(runner.time, "sleep", lambda _seconds: None)
+    with runner.BoundedNBAStatsSession() as session:
+        with pytest.raises(requests.ReadTimeout):
+            session.get("https://stats.nba.com/stats/leaguedashteamstats")
+        assert calls == [1, 1]
+        # Later fallback-endpoint calls must not burn another timeout budget
+        # per team; they fail immediately so ESPN fallbacks engage.
+        with pytest.raises(requests.ReadTimeout):
+            session.get("https://stats.nba.com/stats/commonteamroster")
+        assert calls == [1, 1]
+        # Endpoints without a fallback still abort, also without waiting.
+        with pytest.raises(runner.NBAFetchUnavailable):
+            session.get(URL)
+        assert calls == [1, 1]
+
+
 def test_exhausted_request_stops_model_before_its_broad_retry_handlers(monkeypatch, capsys):
     calls, sleeps = [], []
 
@@ -144,7 +193,7 @@ def test_exhausted_request_stops_model_before_its_broad_retry_handlers(monkeypat
     assert calls == [(5, 15), (5, 15)]
     assert sleeps == [1]
     assert runner.FAILURE_MARKER in str(exc.value)
-    assert "stats.nba.com/stats/teamplayeronoffsummary ReadTimeout" in str(exc.value)
+    assert "stats.nba.com/stats/playerdashboardbygeneralsplits ReadTimeout" in str(exc.value)
     assert "attempt 2/2" in capsys.readouterr().err
 
 
@@ -219,6 +268,25 @@ def test_parent_discards_partial_stdout_when_fetch_fails(monkeypatch):
     assert result["retryable"] is False
     assert invoked[0][0][1].endswith("scripts/run_nba_model.py")
     assert invoked[0][0][2] == server.NBA_MODEL_DIR
+
+
+def test_parent_stamps_espn_fallback_provenance_on_success(monkeypatch):
+    import pickgrader_server as server
+
+    monkeypatch.setattr(server, "_espn_event_count_for_date", lambda *_a: 1)
+    monkeypatch.setattr(server, "_parse_nba_output", lambda *_a, **_kw: [{"pick": "fixture"}])
+    monkeypatch.setattr(server, "_save_admin_picks_doc", lambda *_a, **_kw: True)
+    monkeypatch.setattr(server, "_run_script", lambda *_a, **_kw: (
+        "WARNING: NBA API team stats failed (ReadTimeout); using ESPN team statistics fallback.\n"
+    ))
+    result = server.run_nba_model("2026-10-21")
+    assert result["ok"] is True
+    assert result["upstream_fallbacks"] == ["espn_team_statistics"]
+
+    monkeypatch.setattr(server, "_run_script", lambda *_a, **_kw: "clean primary run\n")
+    result = server.run_nba_model("2026-10-21")
+    assert result["ok"] is True
+    assert "upstream_fallbacks" not in result
 
 
 def test_parent_preserves_child_diagnostics_on_outer_timeout(monkeypatch):

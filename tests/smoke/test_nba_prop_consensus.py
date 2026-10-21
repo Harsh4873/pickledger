@@ -158,6 +158,63 @@ def test_nba_activation_is_evaluated_on_regular_season_rows_only():
     assert '_windows(sport, nba_evaluation_rows if sport == "NBA" else market_rows)' in source
 
 
+def test_publish_sports_restriction_writes_only_requested_sport():
+    existing_mlb = {"active": True, "policies": {"hits": {"active": True}}}
+    candidate_metadata = {
+        "active": True,
+        "sports": {
+            "MLB": {"active": True, "policies": {"hits": {"active": True, "retrained": True}}},
+            "NBA": {"active": True, "policies": {"points": {"active": True}}},
+        },
+        "evaluation_windows": {"MLB": {"holdout": {"end": "new"}}, "NBA": {"holdout": {"end": "nba"}}},
+    }
+    existing_metadata = {
+        "active": True,
+        "sports": {"MLB": existing_mlb},
+        "evaluation_windows": {"MLB": {"holdout": {"end": "old"}}},
+    }
+    merged, publish = trainer._restrict_publication(
+        candidate_metadata, {"MLB", "NBA"}, existing_metadata, {"NBA"},
+    )
+    # Only NBA artifacts may be written; MLB keeps its existing metadata entry
+    # so metadata never describes an artifact this run did not write.
+    assert publish == {"NBA"}
+    assert merged["sports"]["MLB"] is existing_mlb
+    assert merged["sports"]["NBA"]["active"] is True
+    assert merged["evaluation_windows"]["MLB"]["holdout"]["end"] == "old"
+    assert merged["evaluation_windows"]["NBA"]["holdout"]["end"] == "nba"
+    assert merged["active"] is True
+    # Unrestricted runs keep the full publication plan untouched.
+    merged_all, publish_all = trainer._restrict_publication(
+        candidate_metadata, {"MLB", "NBA"}, existing_metadata, set(),
+    )
+    assert publish_all == {"MLB", "NBA"} and merged_all is candidate_metadata
+
+
+def test_publish_sports_restriction_publishes_nothing_when_nba_unearned():
+    candidate_metadata = {
+        "active": True,
+        "sports": {"MLB": {"active": True}, "NBA": {"active": False}},
+    }
+    _merged, publish = trainer._restrict_publication(
+        candidate_metadata, {"MLB"}, {"sports": {"MLB": {"active": True}}}, {"NBA"},
+    )
+    assert publish == set()
+
+
+def test_daily_refresh_activates_earned_nba_consensus_markets():
+    workflows = Path(__file__).resolve().parents[2] / ".github/workflows"
+    activation = (workflows / "nba-consensus-activation.yml").read_text()
+    assert "train_player_prop_consensus_ml.py --publish-sports NBA" in activation
+    assert "group: pick-cache-writer" in activation
+    assert "workflows: [Daily Refresh]" in activation
+    # After publishing artifacts, the same day's props are re-scored and deployed.
+    assert "gh workflow run player-props-refresh.yml" in activation
+    # Training stays out of the props job so it cannot hold the cache writer.
+    props = (workflows / "player-props-refresh.yml").read_text()
+    assert "train_player_prop_consensus_ml.py" not in props
+
+
 def test_daily_refresh_keeps_the_nba_outcome_corpus_current():
     workflow = (Path(__file__).resolve().parents[2] / ".github/workflows/player-props-refresh.yml").read_text()
     step = workflow.split("Refresh NBA player outcome history", 1)[1].split("- name:", 1)[0]
