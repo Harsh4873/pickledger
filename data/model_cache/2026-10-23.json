@@ -2817,10 +2817,13 @@
   },
   "date": "2026-10-23",
   "errors": [],
-  "externalFeedsUpdatedAt": "2026-10-23T21:16:21.316161Z",
+  "externalFeedsUpdatedAt": "2026-10-23T21:29:48.760240Z",
   "external_feed_errors": [
-    "forebet_cfb: ForebetCFB incomplete official slate coverage: 4/5",
-    "forebet_nba: ForebetNBA incomplete official slate coverage: 11/12"
+    "sportytrader_cfb: cfb: no picks parsed (SportyTrader CFB: no previews for 2026-10-23; 5 previews for later dates (next 2026-10-24). | Diagnostics: listingPages=1 cards=5 officialMatchupCards=0.)",
+    "forebet_mlb: ForebetMLB: listing fetch blocked by Cloudflare",
+    "forebet_cfb: ForebetCFB: listing fetch blocked by Cloudflare",
+    "forebet_nhl: ForebetNHL: listing fetch blocked by Cloudflare",
+    "forebet_nba: ForebetNBA: listing fetch blocked by Cloudflare"
   ],
   "external_feeds": {
     "forebet_cfb": {
@@ -2828,17 +2831,22 @@
       "error": "ForebetCFB incomplete official slate coverage: 4/5",
       "generatedAt": "2026-10-23T20:58:19.805546Z",
       "generatedBy": "local:external-feed-refresh",
-      "lastAttemptAt": "2026-10-23T20:58:19.805546Z",
+      "lastAttemptAt": "2026-10-23T21:29:48.760240Z",
       "lastAttemptDate": "2026-10-23",
       "lastAttemptMeta": {
-        "blockedUrls": 0,
-        "matchedPicks": 4,
+        "blockedUrl": "https://www.forebet.com/en/american-football/usa/ncaa",
+        "blockedUrls": 1,
+        "matchedPicks": 0,
         "missingMatchups": [
-          "Massachusetts Minutemen @ UConn Huskies"
+          "Duke Blue Devils @ Virginia Cavaliers",
+          "Massachusetts Minutemen @ UConn Huskies",
+          "Army Black Knights @ Tulsa Golden Hurricane",
+          "Air Force Falcons @ Wyoming Cowboys",
+          "NC State Wolfpack @ Stanford Cardinal"
         ],
         "officialMatchups": 5
       },
-      "lastError": "ForebetCFB incomplete official slate coverage: 4/5",
+      "lastError": "ForebetCFB: listing fetch blocked by Cloudflare",
       "meta": {
         "attemptedUrls": 1,
         "blockedUrls": 0,
@@ -2974,8 +2982,18 @@
       "date": "2026-10-23",
       "generatedAt": "2026-10-23T20:57:40.515002Z",
       "generatedBy": "local:external-feed-refresh",
-      "lastAttemptAt": "2026-10-23T20:57:40.515002Z",
+      "lastAttemptAt": "2026-10-23T21:29:48.760240Z",
       "lastAttemptDate": "2026-10-23",
+      "lastAttemptMeta": {
+        "blockedUrl": "https://www.forebet.com/en/baseball/usa/mlb",
+        "blockedUrls": 1,
+        "matchedPicks": 0,
+        "missingMatchups": [
+          "Tampa Bay Rays @ Milwaukee Brewers"
+        ],
+        "officialMatchups": 1
+      },
+      "lastError": "ForebetMLB: listing fetch blocked by Cloudflare",
       "lastSuccessAt": "2026-10-23T20:57:40.515002Z",
       "meta": {
         "attemptedUrls": 1,
@@ -2993,7 +3011,7 @@
         "updatedAt": "2026-10-23T20:57:40.515002Z"
       },
       "note": "ForebetMLB matched 1 published prediction(s) against 1 official 2026-10-23 matchup(s).",
-      "ok": true,
+      "ok": false,
       "picks": [
         {
           "away_team": "Tampa Bay Rays",
@@ -3022,52 +3040,64 @@
           "units": 0
         }
       ],
-      "refreshStatus": "ok",
+      "refreshStatus": "error",
       "scraped_tip_feed": true,
       "updatedAt": "2026-10-23T20:57:40.515002Z"
     },
     "forebet_mls": {
       "date": "2026-10-23",
-      "generatedAt": "2026-10-23T20:58:12.829491Z",
-      "generatedBy": "local:external-feed-refresh",
-      "lastAttemptAt": "2026-10-23T20:58:12.829491Z",
+      "generatedAt": "2026-10-23T21:29:48.760240Z",
+      "generatedBy": "github-actions:external-feed-refresh",
+      "lastAttemptAt": "2026-10-23T21:29:48.760240Z",
       "lastAttemptDate": "2026-10-23",
-      "lastSuccessAt": "2026-10-23T20:58:12.829491Z",
+      "lastSuccessAt": "2026-10-23T21:29:48.760240Z",
       "meta": {
         "attemptedUrls": 0,
         "blockedUrls": 0,
         "date": "2026-10-23",
         "expectedMatchups": 0,
         "feed": "forebet_mls",
-        "from": "local",
-        "leagues": "mlb,wnba,mls,cfb,nfl",
+        "from": "github-actions",
+        "leagues": "nba,mlb,wnba,cfb,nfl",
         "matchedPicks": 0,
         "missingMatchups": [],
         "officialMatchups": 0,
         "unpublishedMatchups": [],
-        "updatedAt": "2026-10-23T20:58:12.829491Z"
+        "updatedAt": "2026-10-23T21:29:48.760240Z"
       },
       "note": "ForebetMLS has no official 2026-10-23 matchups.",
       "ok": true,
       "picks": [],
       "refreshStatus": "ok",
-      "updatedAt": "2026-10-23T20:58:12.829491Z"
+      "updatedAt": "2026-10-23T21:29:48.760240Z"
     },
     "forebet_nba": {
       "date": "2026-10-23",
       "generatedAt": "2026-10-23T19:03:40.865898Z",
       "generatedBy": "local:external-feed-refresh",
-      "lastAttemptAt": "2026-10-23T20:58:55.739777Z",
+      "lastAttemptAt": "2026-10-23T21:29:48.760240Z",
       "lastAttemptDate": "2026-10-23",
       "lastAttemptMeta": {
-        "blockedUrls": 0,
-        "matchedPicks": 11,
+        "blockedUrl": "https://www.forebet.com/en/basketball/usa/nba",
+        "blockedUrls": 1,
+        "matchedPicks": 0,
         "missingMatchups": [
-          "Chicago Bulls @ Milwaukee Bucks"
+          "Chicago Bulls @ Milwaukee Bucks",
+          "New York Knicks @ Boston Celtics",
+          "Atlanta Hawks @ Charlotte Hornets",
+          "Dallas Mavericks @ Indiana Pacers",
+          "Minnesota Timberwolves @ Orlando Magic",
+          "Toronto Raptors @ Washington Wizards",
+          "Detroit Pistons @ Miami Heat",
+          "Houston Rockets @ San Antonio Spurs",
+          "New Orleans Pelicans @ Utah Jazz",
+          "Memphis Grizzlies @ Golden State Warriors",
+          "LA Clippers @ Los Angeles Lakers",
+          "Portland Trail Blazers @ Sacramento Kings"
         ],
         "officialMatchups": 12
       },
-      "lastError": "ForebetNBA incomplete official slate coverage: 11/12",
+      "lastError": "ForebetNBA: listing fetch blocked by Cloudflare",
       "lastSuccessAt": "2026-10-23T19:03:40.865898Z",
       "meta": {
         "attemptedUrls": 1,
@@ -3406,37 +3436,48 @@
     },
     "forebet_nfl": {
       "date": "2026-10-23",
-      "generatedAt": "2026-10-23T20:58:37.849543Z",
-      "generatedBy": "local:external-feed-refresh",
-      "lastAttemptAt": "2026-10-23T20:58:37.849543Z",
+      "generatedAt": "2026-10-23T21:29:48.760240Z",
+      "generatedBy": "github-actions:external-feed-refresh",
+      "lastAttemptAt": "2026-10-23T21:29:48.760240Z",
       "lastAttemptDate": "2026-10-23",
-      "lastSuccessAt": "2026-10-23T20:58:37.849543Z",
+      "lastSuccessAt": "2026-10-23T21:29:48.760240Z",
       "meta": {
         "attemptedUrls": 0,
         "blockedUrls": 0,
         "date": "2026-10-23",
         "expectedMatchups": 0,
         "feed": "forebet_nfl",
-        "from": "local",
-        "leagues": "mlb,wnba,mls,cfb,nfl",
+        "from": "github-actions",
+        "leagues": "nba,mlb,wnba,cfb,nfl",
         "matchedPicks": 0,
         "missingMatchups": [],
         "officialMatchups": 0,
         "unpublishedMatchups": [],
-        "updatedAt": "2026-10-23T20:58:37.849543Z"
+        "updatedAt": "2026-10-23T21:29:48.760240Z"
       },
       "note": "ForebetNFL has no official 2026-10-23 matchups.",
       "ok": true,
       "picks": [],
       "refreshStatus": "ok",
-      "updatedAt": "2026-10-23T20:58:37.849543Z"
+      "updatedAt": "2026-10-23T21:29:48.760240Z"
     },
     "forebet_nhl": {
       "date": "2026-10-23",
       "generatedAt": "2026-10-23T20:58:44.735454Z",
       "generatedBy": "local:external-feed-refresh",
-      "lastAttemptAt": "2026-10-23T20:58:44.735454Z",
+      "lastAttemptAt": "2026-10-23T21:29:48.760240Z",
       "lastAttemptDate": "2026-10-23",
+      "lastAttemptMeta": {
+        "blockedUrl": "https://www.forebet.com/en/hockey/usa/nhl",
+        "blockedUrls": 1,
+        "matchedPicks": 0,
+        "missingMatchups": [
+          "Montreal Canadiens @ Chicago Blackhawks",
+          "Tampa Bay Lightning @ Colorado Avalanche"
+        ],
+        "officialMatchups": 2
+      },
+      "lastError": "ForebetNHL: listing fetch blocked by Cloudflare",
       "lastSuccessAt": "2026-10-23T20:58:44.735454Z",
       "meta": {
         "attemptedUrls": 1,
@@ -3454,7 +3495,7 @@
         "updatedAt": "2026-10-23T20:58:44.735454Z"
       },
       "note": "ForebetNHL matched 2 published prediction(s) against 2 official 2026-10-23 matchup(s).",
-      "ok": true,
+      "ok": false,
       "picks": [
         {
           "away_team": "Montreal Canadiens",
@@ -3509,36 +3550,36 @@
           "units": 0
         }
       ],
-      "refreshStatus": "ok",
+      "refreshStatus": "error",
       "scraped_tip_feed": true,
       "updatedAt": "2026-10-23T20:58:44.735454Z"
     },
     "forebet_wnba": {
       "date": "2026-10-23",
-      "generatedAt": "2026-10-23T20:58:06.020345Z",
-      "generatedBy": "local:external-feed-refresh",
-      "lastAttemptAt": "2026-10-23T20:58:06.020345Z",
+      "generatedAt": "2026-10-23T21:29:48.760240Z",
+      "generatedBy": "github-actions:external-feed-refresh",
+      "lastAttemptAt": "2026-10-23T21:29:48.760240Z",
       "lastAttemptDate": "2026-10-23",
-      "lastSuccessAt": "2026-10-23T20:58:06.020345Z",
+      "lastSuccessAt": "2026-10-23T21:29:48.760240Z",
       "meta": {
         "attemptedUrls": 0,
         "blockedUrls": 0,
         "date": "2026-10-23",
         "expectedMatchups": 0,
         "feed": "forebet_wnba",
-        "from": "local",
-        "leagues": "mlb,wnba,mls,cfb,nfl",
+        "from": "github-actions",
+        "leagues": "nba,mlb,wnba,cfb,nfl",
         "matchedPicks": 0,
         "missingMatchups": [],
         "officialMatchups": 0,
         "unpublishedMatchups": [],
-        "updatedAt": "2026-10-23T20:58:06.020345Z"
+        "updatedAt": "2026-10-23T21:29:48.760240Z"
       },
       "note": "ForebetWNBA has no official 2026-10-23 matchups.",
       "ok": true,
       "picks": [],
       "refreshStatus": "ok",
-      "updatedAt": "2026-10-23T20:58:06.020345Z"
+      "updatedAt": "2026-10-23T21:29:48.760240Z"
     },
     "scores24_cfb": {
       "date": "2026-10-23",
@@ -4261,11 +4302,11 @@
     "sportsgambler_cfb": {
       "date": "2026-10-23",
       "errors": [],
-      "generatedAt": "2026-10-23T18:35:36.234477Z",
+      "generatedAt": "2026-10-23T21:29:48.760240Z",
       "generatedBy": "github-actions:external-feed-refresh",
-      "lastAttemptAt": "2026-10-23T18:35:36.234477Z",
+      "lastAttemptAt": "2026-10-23T21:29:48.760240Z",
       "lastAttemptDate": "2026-10-23",
-      "lastSuccessAt": "2026-10-23T18:35:36.234477Z",
+      "lastSuccessAt": "2026-10-23T21:29:48.760240Z",
       "meta": {
         "date": "2026-10-23",
         "feed": "sportsgambler_cfb",
@@ -4281,7 +4322,7 @@
         "pick_count": 3,
         "provider": "sportsgambler",
         "sportErrors": {},
-        "updatedAt": "2026-10-23T18:35:36.234477Z",
+        "updatedAt": "2026-10-23T21:29:48.760240Z",
         "zeroSlateSports": [
           "wnba",
           "nfl"
@@ -4347,7 +4388,7 @@
       ],
       "refreshStatus": "ok",
       "scraped_tip_feed": true,
-      "updatedAt": "2026-10-23T18:35:36.234477Z"
+      "updatedAt": "2026-10-23T21:29:48.760240Z"
     },
     "sportsgambler_fifa_world_cup": {
       "date": "2026-07-19",
@@ -4380,11 +4421,11 @@
     "sportsgambler_mlb": {
       "date": "2026-10-23",
       "errors": [],
-      "generatedAt": "2026-10-23T18:35:36.234477Z",
+      "generatedAt": "2026-10-23T21:29:48.760240Z",
       "generatedBy": "github-actions:external-feed-refresh",
-      "lastAttemptAt": "2026-10-23T18:35:36.234477Z",
+      "lastAttemptAt": "2026-10-23T21:29:48.760240Z",
       "lastAttemptDate": "2026-10-23",
-      "lastSuccessAt": "2026-10-23T18:35:36.234477Z",
+      "lastSuccessAt": "2026-10-23T21:29:48.760240Z",
       "meta": {
         "date": "2026-10-23",
         "feed": "sportsgambler_mlb",
@@ -4400,7 +4441,7 @@
         "pick_count": 1,
         "provider": "sportsgambler",
         "sportErrors": {},
-        "updatedAt": "2026-10-23T18:35:36.234477Z",
+        "updatedAt": "2026-10-23T21:29:48.760240Z",
         "zeroSlateSports": [
           "wnba",
           "nfl"
@@ -4430,16 +4471,16 @@
       ],
       "refreshStatus": "ok",
       "scraped_tip_feed": true,
-      "updatedAt": "2026-10-23T18:35:36.234477Z"
+      "updatedAt": "2026-10-23T21:29:48.760240Z"
     },
     "sportsgambler_nba": {
       "date": "2026-10-23",
       "errors": [],
-      "generatedAt": "2026-10-23T18:35:36.234477Z",
+      "generatedAt": "2026-10-23T21:29:48.760240Z",
       "generatedBy": "github-actions:external-feed-refresh",
-      "lastAttemptAt": "2026-10-23T18:35:36.234477Z",
+      "lastAttemptAt": "2026-10-23T21:29:48.760240Z",
       "lastAttemptDate": "2026-10-23",
-      "lastSuccessAt": "2026-10-23T18:35:36.234477Z",
+      "lastSuccessAt": "2026-10-23T21:29:48.760240Z",
       "meta": {
         "date": "2026-10-23",
         "feed": "sportsgambler_nba",
@@ -4455,7 +4496,7 @@
         "pick_count": 11,
         "provider": "sportsgambler",
         "sportErrors": {},
-        "updatedAt": "2026-10-23T18:35:36.234477Z",
+        "updatedAt": "2026-10-23T21:29:48.760240Z",
         "zeroSlateSports": [
           "wnba",
           "nfl"
@@ -4630,24 +4671,6 @@
           "date": "2026-10-23",
           "decision": "PASS",
           "edge": null,
-          "game": "Sacramento Kings vs Portland Trail Blazers",
-          "game_start_time": "2026-10-24T02:00Z",
-          "matchup": "Sacramento Kings vs Portland Trail Blazers",
-          "odds": -108,
-          "pick": "Under 232.5 Points (Sacramento Kings vs Portland Trail Blazers)",
-          "probability": null,
-          "scraped_tip_demoted": true,
-          "source": "SportsGamblerNBA",
-          "source_decision": "BET",
-          "source_units": 1,
-          "sport": "NBA",
-          "start_time": "2026-10-24T02:00Z",
-          "units": 0
-        },
-        {
-          "date": "2026-10-23",
-          "decision": "PASS",
-          "edge": null,
           "game": "Golden State Warriors vs Memphis Grizzlies",
           "game_start_time": "2026-10-24T02:00Z",
           "matchup": "Golden State Warriors vs Memphis Grizzlies",
@@ -4661,11 +4684,29 @@
           "sport": "NBA",
           "start_time": "2026-10-24T02:00Z",
           "units": 0
+        },
+        {
+          "date": "2026-10-23",
+          "decision": "PASS",
+          "edge": null,
+          "game": "Sacramento Kings vs Portland Trail Blazers",
+          "game_start_time": "2026-10-24T02:00Z",
+          "matchup": "Sacramento Kings vs Portland Trail Blazers",
+          "odds": -108,
+          "pick": "Under 232.5 Points (Sacramento Kings vs Portland Trail Blazers)",
+          "probability": null,
+          "scraped_tip_demoted": true,
+          "source": "SportsGamblerNBA",
+          "source_decision": "BET",
+          "source_units": 1,
+          "sport": "NBA",
+          "start_time": "2026-10-24T02:00Z",
+          "units": 0
         }
       ],
       "refreshStatus": "ok",
       "scraped_tip_feed": true,
-      "updatedAt": "2026-10-23T18:35:36.234477Z"
+      "updatedAt": "2026-10-23T21:29:48.760240Z"
     },
     "sportsgambler_nba_summer": {
       "date": "2026-07-19",
@@ -4698,11 +4739,11 @@
     "sportsgambler_nfl": {
       "date": "2026-10-23",
       "errors": [],
-      "generatedAt": "2026-10-23T18:35:36.234477Z",
+      "generatedAt": "2026-10-23T21:29:48.760240Z",
       "generatedBy": "github-actions:external-feed-refresh",
-      "lastAttemptAt": "2026-10-23T18:35:36.234477Z",
+      "lastAttemptAt": "2026-10-23T21:29:48.760240Z",
       "lastAttemptDate": "2026-10-23",
-      "lastSuccessAt": "2026-10-23T18:35:36.234477Z",
+      "lastSuccessAt": "2026-10-23T21:29:48.760240Z",
       "meta": {
         "date": "2026-10-23",
         "feed": "sportsgambler_nfl",
@@ -4718,7 +4759,7 @@
         "pick_count": 0,
         "provider": "sportsgambler",
         "sportErrors": {},
-        "updatedAt": "2026-10-23T18:35:36.234477Z",
+        "updatedAt": "2026-10-23T21:29:48.760240Z",
         "zeroSlateSports": [
           "wnba",
           "nfl"
@@ -4728,16 +4769,16 @@
       "ok": true,
       "picks": [],
       "refreshStatus": "ok",
-      "updatedAt": "2026-10-23T18:35:36.234477Z"
+      "updatedAt": "2026-10-23T21:29:48.760240Z"
     },
     "sportsgambler_wnba": {
       "date": "2026-10-23",
       "errors": [],
-      "generatedAt": "2026-10-23T18:35:36.234477Z",
+      "generatedAt": "2026-10-23T21:29:48.760240Z",
       "generatedBy": "github-actions:external-feed-refresh",
-      "lastAttemptAt": "2026-10-23T18:35:36.234477Z",
+      "lastAttemptAt": "2026-10-23T21:29:48.760240Z",
       "lastAttemptDate": "2026-10-23",
-      "lastSuccessAt": "2026-10-23T18:35:36.234477Z",
+      "lastSuccessAt": "2026-10-23T21:29:48.760240Z",
       "meta": {
         "date": "2026-10-23",
         "feed": "sportsgambler_wnba",
@@ -4753,7 +4794,7 @@
         "pick_count": 0,
         "provider": "sportsgambler",
         "sportErrors": {},
-        "updatedAt": "2026-10-23T18:35:36.234477Z",
+        "updatedAt": "2026-10-23T21:29:48.760240Z",
         "zeroSlateSports": [
           "wnba",
           "nfl"
@@ -4763,7 +4804,7 @@
       "ok": true,
       "picks": [],
       "refreshStatus": "ok",
-      "updatedAt": "2026-10-23T18:35:36.234477Z"
+      "updatedAt": "2026-10-23T21:29:48.760240Z"
     },
     "sportytrader_cfb": {
       "date": "2026-10-23",
@@ -4771,9 +4812,9 @@
       "errors": [
         "cfb: no picks parsed (SportyTrader CFB: no previews for 2026-10-23; 5 previews for later dates (next 2026-10-24). | Diagnostics: listingPages=1 cards=5 officialMatchupCards=0.)"
       ],
-      "generatedAt": "2026-10-23T18:35:36.234477Z",
+      "generatedAt": "2026-10-23T21:29:48.760240Z",
       "generatedBy": "github-actions:external-feed-refresh",
-      "lastAttemptAt": "2026-10-23T18:35:36.234477Z",
+      "lastAttemptAt": "2026-10-23T21:29:48.760240Z",
       "lastAttemptDate": "2026-10-23",
       "lastError": "cfb: no picks parsed (SportyTrader CFB: no previews for 2026-10-23; 5 previews for later dates (next 2026-10-24). | Diagnostics: listingPages=1 cards=5 officialMatchupCards=0.)",
       "meta": {
@@ -4797,7 +4838,7 @@
         "sportErrors": {
           "cfb": "cfb: no picks parsed (SportyTrader CFB: no previews for 2026-10-23; 5 previews for later dates (next 2026-10-24). | Diagnostics: listingPages=1 cards=5 officialMatchupCards=0.)"
         },
-        "updatedAt": "2026-10-23T18:35:36.234477Z",
+        "updatedAt": "2026-10-23T21:29:48.760240Z",
         "zeroSlateSports": [
           "wnba",
           "nfl"
@@ -4807,7 +4848,7 @@
       "ok": false,
       "picks": [],
       "refreshStatus": "error",
-      "updatedAt": "2026-10-23T18:35:36.234477Z"
+      "updatedAt": "2026-10-23T21:29:48.760240Z"
     },
     "sportytrader_fifa_world_cup": {
       "date": "2026-07-19",
@@ -4840,11 +4881,11 @@
     "sportytrader_mlb": {
       "date": "2026-10-23",
       "errors": [],
-      "generatedAt": "2026-10-23T18:35:36.234477Z",
+      "generatedAt": "2026-10-23T21:29:48.760240Z",
       "generatedBy": "github-actions:external-feed-refresh",
-      "lastAttemptAt": "2026-10-23T18:35:36.234477Z",
+      "lastAttemptAt": "2026-10-23T21:29:48.760240Z",
       "lastAttemptDate": "2026-10-23",
-      "lastSuccessAt": "2026-10-23T18:35:36.234477Z",
+      "lastSuccessAt": "2026-10-23T21:29:48.760240Z",
       "meta": {
         "date": "2026-10-23",
         "feed": "sportytrader_mlb",
@@ -4864,7 +4905,7 @@
         "sportErrors": {
           "cfb": "cfb: no picks parsed (SportyTrader CFB: no previews for 2026-10-23; 5 previews for later dates (next 2026-10-24). | Diagnostics: listingPages=1 cards=5 officialMatchupCards=0.)"
         },
-        "updatedAt": "2026-10-23T18:35:36.234477Z",
+        "updatedAt": "2026-10-23T21:29:48.760240Z",
         "zeroSlateSports": [
           "wnba",
           "nfl"
@@ -4894,16 +4935,16 @@
       ],
       "refreshStatus": "ok",
       "scraped_tip_feed": true,
-      "updatedAt": "2026-10-23T18:35:36.234477Z"
+      "updatedAt": "2026-10-23T21:29:48.760240Z"
     },
     "sportytrader_nba": {
       "date": "2026-10-23",
       "errors": [],
-      "generatedAt": "2026-10-23T18:35:36.234477Z",
+      "generatedAt": "2026-10-23T21:29:48.760240Z",
       "generatedBy": "github-actions:external-feed-refresh",
-      "lastAttemptAt": "2026-10-23T18:35:36.234477Z",
+      "lastAttemptAt": "2026-10-23T21:29:48.760240Z",
       "lastAttemptDate": "2026-10-23",
-      "lastSuccessAt": "2026-10-23T18:35:36.234477Z",
+      "lastSuccessAt": "2026-10-23T21:29:48.760240Z",
       "meta": {
         "date": "2026-10-23",
         "feed": "sportytrader_nba",
@@ -4918,38 +4959,20 @@
         "optionalErrors": [
           "cfb: no picks parsed (SportyTrader CFB: no previews for 2026-10-23; 5 previews for later dates (next 2026-10-24). | Diagnostics: listingPages=1 cards=5 officialMatchupCards=0.)"
         ],
-        "pick_count": 12,
+        "pick_count": 11,
         "provider": "sportytrader",
         "sportErrors": {
           "cfb": "cfb: no picks parsed (SportyTrader CFB: no previews for 2026-10-23; 5 previews for later dates (next 2026-10-24). | Diagnostics: listingPages=1 cards=5 officialMatchupCards=0.)"
         },
-        "updatedAt": "2026-10-23T18:35:36.234477Z",
+        "updatedAt": "2026-10-23T21:29:48.760240Z",
         "zeroSlateSports": [
           "wnba",
           "nfl"
         ]
       },
-      "note": "Scheduled sportytrader_nba refresh returned 12 pick(s).",
+      "note": "Scheduled sportytrader_nba refresh returned 11 pick(s).",
       "ok": true,
       "picks": [
-        {
-          "date": "2026-10-23",
-          "decision": "PASS",
-          "edge": null,
-          "game": "Milwaukee Bucks vs Chicago Bulls",
-          "game_start_time": "2026-10-23T20:00Z",
-          "matchup": "Milwaukee Bucks vs Chicago Bulls",
-          "odds": null,
-          "pick": "Milwaukee Bucks win the match (Bucks vs Bulls)",
-          "probability": null,
-          "scraped_tip_demoted": true,
-          "source": "SportyTraderNBA",
-          "source_decision": "BET",
-          "source_units": 1,
-          "sport": "NBA",
-          "start_time": "2026-10-23T20:00Z",
-          "units": 0
-        },
         {
           "date": "2026-10-23",
           "decision": "PASS",
@@ -5151,7 +5174,7 @@
       ],
       "refreshStatus": "ok",
       "scraped_tip_feed": true,
-      "updatedAt": "2026-10-23T18:35:36.234477Z"
+      "updatedAt": "2026-10-23T21:29:48.760240Z"
     },
     "sportytrader_nba_summer": {
       "date": "2026-07-19",
@@ -5184,11 +5207,11 @@
     "sportytrader_nfl": {
       "date": "2026-10-23",
       "errors": [],
-      "generatedAt": "2026-10-23T18:35:36.234477Z",
+      "generatedAt": "2026-10-23T21:29:48.760240Z",
       "generatedBy": "github-actions:external-feed-refresh",
-      "lastAttemptAt": "2026-10-23T18:35:36.234477Z",
+      "lastAttemptAt": "2026-10-23T21:29:48.760240Z",
       "lastAttemptDate": "2026-10-23",
-      "lastSuccessAt": "2026-10-23T18:35:36.234477Z",
+      "lastSuccessAt": "2026-10-23T21:29:48.760240Z",
       "meta": {
         "date": "2026-10-23",
         "feed": "sportytrader_nfl",
@@ -5208,7 +5231,7 @@
         "sportErrors": {
           "cfb": "cfb: no picks parsed (SportyTrader CFB: no previews for 2026-10-23; 5 previews for later dates (next 2026-10-24). | Diagnostics: listingPages=1 cards=5 officialMatchupCards=0.)"
         },
-        "updatedAt": "2026-10-23T18:35:36.234477Z",
+        "updatedAt": "2026-10-23T21:29:48.760240Z",
         "zeroSlateSports": [
           "wnba",
           "nfl"
@@ -5218,16 +5241,16 @@
       "ok": true,
       "picks": [],
       "refreshStatus": "ok",
-      "updatedAt": "2026-10-23T18:35:36.234477Z"
+      "updatedAt": "2026-10-23T21:29:48.760240Z"
     },
     "sportytrader_wnba": {
       "date": "2026-10-23",
       "errors": [],
-      "generatedAt": "2026-10-23T18:35:36.234477Z",
+      "generatedAt": "2026-10-23T21:29:48.760240Z",
       "generatedBy": "github-actions:external-feed-refresh",
-      "lastAttemptAt": "2026-10-23T18:35:36.234477Z",
+      "lastAttemptAt": "2026-10-23T21:29:48.760240Z",
       "lastAttemptDate": "2026-10-23",
-      "lastSuccessAt": "2026-10-23T18:35:36.234477Z",
+      "lastSuccessAt": "2026-10-23T21:29:48.760240Z",
       "meta": {
         "date": "2026-10-23",
         "feed": "sportytrader_wnba",
@@ -5247,7 +5270,7 @@
         "sportErrors": {
           "cfb": "cfb: no picks parsed (SportyTrader CFB: no previews for 2026-10-23; 5 previews for later dates (next 2026-10-24). | Diagnostics: listingPages=1 cards=5 officialMatchupCards=0.)"
         },
-        "updatedAt": "2026-10-23T18:35:36.234477Z",
+        "updatedAt": "2026-10-23T21:29:48.760240Z",
         "zeroSlateSports": [
           "wnba",
           "nfl"
@@ -5257,15 +5280,15 @@
       "ok": true,
       "picks": [],
       "refreshStatus": "ok",
-      "updatedAt": "2026-10-23T18:35:36.234477Z"
+      "updatedAt": "2026-10-23T21:29:48.760240Z"
     },
     "tennistonic_tennis": {
       "date": "2026-10-23",
-      "generatedAt": "2026-10-23T21:15:09.859962Z",
-      "generatedBy": "local:external-feed-refresh",
-      "lastAttemptAt": "2026-10-23T21:15:09.859962Z",
+      "generatedAt": "2026-10-23T21:29:48.760240Z",
+      "generatedBy": "github-actions:external-feed-refresh",
+      "lastAttemptAt": "2026-10-23T21:29:48.760240Z",
       "lastAttemptDate": "2026-10-23",
-      "lastSuccessAt": "2026-10-23T21:15:09.859962Z",
+      "lastSuccessAt": "2026-10-23T21:29:48.760240Z",
       "meta": {
         "attemptedUrls": 54,
         "blockedUrls": 0,
@@ -5273,9 +5296,9 @@
         "expectedMatchups": 14,
         "failedUrls": 0,
         "feed": "tennistonic_tennis",
-        "from": "local",
+        "from": "github-actions",
         "interrupted": false,
-        "leagues": "tennis",
+        "leagues": "nba,mlb,wnba,cfb,nfl",
         "matchedPicks": 14,
         "missingMatchups": [],
         "officialMatchups": 34,
@@ -5304,7 +5327,7 @@
           "Zhang Shuai vs Kayla Day",
           "Daria Kasatkina vs Ma YeXin"
         ],
-        "updatedAt": "2026-10-23T21:15:09.859962Z"
+        "updatedAt": "2026-10-23T21:29:48.760240Z"
       },
       "note": "TennisTonic matched 14 tennis prediction(s) against 34 official 2026-10-23 singles matchup(s).",
       "ok": true,
@@ -5705,7 +5728,7 @@
       ],
       "refreshStatus": "ok",
       "scraped_tip_feed": true,
-      "updatedAt": "2026-10-23T21:15:09.859962Z"
+      "updatedAt": "2026-10-23T21:29:48.760240Z"
     }
   },
   "forebet_cfb": {
@@ -5713,17 +5736,22 @@
     "error": "ForebetCFB incomplete official slate coverage: 4/5",
     "generatedAt": "2026-10-23T20:58:19.805546Z",
     "generatedBy": "local:external-feed-refresh",
-    "lastAttemptAt": "2026-10-23T20:58:19.805546Z",
+    "lastAttemptAt": "2026-10-23T21:29:48.760240Z",
     "lastAttemptDate": "2026-10-23",
     "lastAttemptMeta": {
-      "blockedUrls": 0,
-      "matchedPicks": 4,
+      "blockedUrl": "https://www.forebet.com/en/american-football/usa/ncaa",
+      "blockedUrls": 1,
+      "matchedPicks": 0,
       "missingMatchups": [
-        "Massachusetts Minutemen @ UConn Huskies"
+        "Duke Blue Devils @ Virginia Cavaliers",
+        "Massachusetts Minutemen @ UConn Huskies",
+        "Army Black Knights @ Tulsa Golden Hurricane",
+        "Air Force Falcons @ Wyoming Cowboys",
+        "NC State Wolfpack @ Stanford Cardinal"
       ],
       "officialMatchups": 5
     },
-    "lastError": "ForebetCFB incomplete official slate coverage: 4/5",
+    "lastError": "ForebetCFB: listing fetch blocked by Cloudflare",
     "meta": {
       "attemptedUrls": 1,
       "blockedUrls": 0,
@@ -5859,8 +5887,18 @@
     "date": "2026-10-23",
     "generatedAt": "2026-10-23T20:57:40.515002Z",
     "generatedBy": "local:external-feed-refresh",
-    "lastAttemptAt": "2026-10-23T20:57:40.515002Z",
+    "lastAttemptAt": "2026-10-23T21:29:48.760240Z",
     "lastAttemptDate": "2026-10-23",
+    "lastAttemptMeta": {
+      "blockedUrl": "https://www.forebet.com/en/baseball/usa/mlb",
+      "blockedUrls": 1,
+      "matchedPicks": 0,
+      "missingMatchups": [
+        "Tampa Bay Rays @ Milwaukee Brewers"
+      ],
+      "officialMatchups": 1
+    },
+    "lastError": "ForebetMLB: listing fetch blocked by Cloudflare",
     "lastSuccessAt": "2026-10-23T20:57:40.515002Z",
     "meta": {
       "attemptedUrls": 1,
@@ -5878,7 +5916,7 @@
       "updatedAt": "2026-10-23T20:57:40.515002Z"
     },
     "note": "ForebetMLB matched 1 published prediction(s) against 1 official 2026-10-23 matchup(s).",
-    "ok": true,
+    "ok": false,
     "picks": [
       {
         "away_team": "Tampa Bay Rays",
@@ -5907,52 +5945,64 @@
         "units": 0
       }
     ],
-    "refreshStatus": "ok",
+    "refreshStatus": "error",
     "scraped_tip_feed": true,
     "updatedAt": "2026-10-23T20:57:40.515002Z"
   },
   "forebet_mls": {
     "date": "2026-10-23",
-    "generatedAt": "2026-10-23T20:58:12.829491Z",
-    "generatedBy": "local:external-feed-refresh",
-    "lastAttemptAt": "2026-10-23T20:58:12.829491Z",
+    "generatedAt": "2026-10-23T21:29:48.760240Z",
+    "generatedBy": "github-actions:external-feed-refresh",
+    "lastAttemptAt": "2026-10-23T21:29:48.760240Z",
     "lastAttemptDate": "2026-10-23",
-    "lastSuccessAt": "2026-10-23T20:58:12.829491Z",
+    "lastSuccessAt": "2026-10-23T21:29:48.760240Z",
     "meta": {
       "attemptedUrls": 0,
       "blockedUrls": 0,
       "date": "2026-10-23",
       "expectedMatchups": 0,
       "feed": "forebet_mls",
-      "from": "local",
-      "leagues": "mlb,wnba,mls,cfb,nfl",
+      "from": "github-actions",
+      "leagues": "nba,mlb,wnba,cfb,nfl",
       "matchedPicks": 0,
       "missingMatchups": [],
       "officialMatchups": 0,
       "unpublishedMatchups": [],
-      "updatedAt": "2026-10-23T20:58:12.829491Z"
+      "updatedAt": "2026-10-23T21:29:48.760240Z"
     },
     "note": "ForebetMLS has no official 2026-10-23 matchups.",
     "ok": true,
     "picks": [],
     "refreshStatus": "ok",
-    "updatedAt": "2026-10-23T20:58:12.829491Z"
+    "updatedAt": "2026-10-23T21:29:48.760240Z"
   },
   "forebet_nba": {
     "date": "2026-10-23",
     "generatedAt": "2026-10-23T19:03:40.865898Z",
     "generatedBy": "local:external-feed-refresh",
-    "lastAttemptAt": "2026-10-23T20:58:55.739777Z",
+    "lastAttemptAt": "2026-10-23T21:29:48.760240Z",
     "lastAttemptDate": "2026-10-23",
     "lastAttemptMeta": {
-      "blockedUrls": 0,
-      "matchedPicks": 11,
+      "blockedUrl": "https://www.forebet.com/en/basketball/usa/nba",
+      "blockedUrls": 1,
+      "matchedPicks": 0,
       "missingMatchups": [
-        "Chicago Bulls @ Milwaukee Bucks"
+        "Chicago Bulls @ Milwaukee Bucks",
+        "New York Knicks @ Boston Celtics",
+        "Atlanta Hawks @ Charlotte Hornets",
+        "Dallas Mavericks @ Indiana Pacers",
+        "Minnesota Timberwolves @ Orlando Magic",
+        "Toronto Raptors @ Washington Wizards",
+        "Detroit Pistons @ Miami Heat",
+        "Houston Rockets @ San Antonio Spurs",
+        "New Orleans Pelicans @ Utah Jazz",
+        "Memphis Grizzlies @ Golden State Warriors",
+        "LA Clippers @ Los Angeles Lakers",
+        "Portland Trail Blazers @ Sacramento Kings"
       ],
       "officialMatchups": 12
     },
-    "lastError": "ForebetNBA incomplete official slate coverage: 11/12",
+    "lastError": "ForebetNBA: listing fetch blocked by Cloudflare",
     "lastSuccessAt": "2026-10-23T19:03:40.865898Z",
     "meta": {
       "attemptedUrls": 1,
@@ -6291,37 +6341,48 @@
   },
   "forebet_nfl": {
     "date": "2026-10-23",
-    "generatedAt": "2026-10-23T20:58:37.849543Z",
-    "generatedBy": "local:external-feed-refresh",
-    "lastAttemptAt": "2026-10-23T20:58:37.849543Z",
+    "generatedAt": "2026-10-23T21:29:48.760240Z",
+    "generatedBy": "github-actions:external-feed-refresh",
+    "lastAttemptAt": "2026-10-23T21:29:48.760240Z",
     "lastAttemptDate": "2026-10-23",
-    "lastSuccessAt": "2026-10-23T20:58:37.849543Z",
+    "lastSuccessAt": "2026-10-23T21:29:48.760240Z",
     "meta": {
       "attemptedUrls": 0,
       "blockedUrls": 0,
       "date": "2026-10-23",
       "expectedMatchups": 0,
       "feed": "forebet_nfl",
-      "from": "local",
-      "leagues": "mlb,wnba,mls,cfb,nfl",
+      "from": "github-actions",
+      "leagues": "nba,mlb,wnba,cfb,nfl",
       "matchedPicks": 0,
       "missingMatchups": [],
       "officialMatchups": 0,
       "unpublishedMatchups": [],
-      "updatedAt": "2026-10-23T20:58:37.849543Z"
+      "updatedAt": "2026-10-23T21:29:48.760240Z"
     },
     "note": "ForebetNFL has no official 2026-10-23 matchups.",
     "ok": true,
     "picks": [],
     "refreshStatus": "ok",
-    "updatedAt": "2026-10-23T20:58:37.849543Z"
+    "updatedAt": "2026-10-23T21:29:48.760240Z"
   },
   "forebet_nhl": {
     "date": "2026-10-23",
     "generatedAt": "2026-10-23T20:58:44.735454Z",
     "generatedBy": "local:external-feed-refresh",
-    "lastAttemptAt": "2026-10-23T20:58:44.735454Z",
+    "lastAttemptAt": "2026-10-23T21:29:48.760240Z",
     "lastAttemptDate": "2026-10-23",
+    "lastAttemptMeta": {
+      "blockedUrl": "https://www.forebet.com/en/hockey/usa/nhl",
+      "blockedUrls": 1,
+      "matchedPicks": 0,
+      "missingMatchups": [
+        "Montreal Canadiens @ Chicago Blackhawks",
+        "Tampa Bay Lightning @ Colorado Avalanche"
+      ],
+      "officialMatchups": 2
+    },
+    "lastError": "ForebetNHL: listing fetch blocked by Cloudflare",
     "lastSuccessAt": "2026-10-23T20:58:44.735454Z",
     "meta": {
       "attemptedUrls": 1,
@@ -6339,7 +6400,7 @@
       "updatedAt": "2026-10-23T20:58:44.735454Z"
     },
     "note": "ForebetNHL matched 2 published prediction(s) against 2 official 2026-10-23 matchup(s).",
-    "ok": true,
+    "ok": false,
     "picks": [
       {
         "away_team": "Montreal Canadiens",
@@ -6394,36 +6455,36 @@
         "units": 0
       }
     ],
-    "refreshStatus": "ok",
+    "refreshStatus": "error",
     "scraped_tip_feed": true,
     "updatedAt": "2026-10-23T20:58:44.735454Z"
   },
   "forebet_wnba": {
     "date": "2026-10-23",
-    "generatedAt": "2026-10-23T20:58:06.020345Z",
-    "generatedBy": "local:external-feed-refresh",
-    "lastAttemptAt": "2026-10-23T20:58:06.020345Z",
+    "generatedAt": "2026-10-23T21:29:48.760240Z",
+    "generatedBy": "github-actions:external-feed-refresh",
+    "lastAttemptAt": "2026-10-23T21:29:48.760240Z",
     "lastAttemptDate": "2026-10-23",
-    "lastSuccessAt": "2026-10-23T20:58:06.020345Z",
+    "lastSuccessAt": "2026-10-23T21:29:48.760240Z",
     "meta": {
       "attemptedUrls": 0,
       "blockedUrls": 0,
       "date": "2026-10-23",
       "expectedMatchups": 0,
       "feed": "forebet_wnba",
-      "from": "local",
-      "leagues": "mlb,wnba,mls,cfb,nfl",
+      "from": "github-actions",
+      "leagues": "nba,mlb,wnba,cfb,nfl",
       "matchedPicks": 0,
       "missingMatchups": [],
       "officialMatchups": 0,
       "unpublishedMatchups": [],
-      "updatedAt": "2026-10-23T20:58:06.020345Z"
+      "updatedAt": "2026-10-23T21:29:48.760240Z"
     },
     "note": "ForebetWNBA has no official 2026-10-23 matchups.",
     "ok": true,
     "picks": [],
     "refreshStatus": "ok",
-    "updatedAt": "2026-10-23T20:58:06.020345Z"
+    "updatedAt": "2026-10-23T21:29:48.760240Z"
   },
   "generatedAt": "2026-10-23T21:20:12.420620Z",
   "generatedBy": "github-actions:model-cache-refresh",
@@ -11081,17 +11142,22 @@
       "error": "ForebetCFB incomplete official slate coverage: 4/5",
       "generatedAt": "2026-10-23T20:58:19.805546Z",
       "generatedBy": "local:external-feed-refresh",
-      "lastAttemptAt": "2026-10-23T20:58:19.805546Z",
+      "lastAttemptAt": "2026-10-23T21:29:48.760240Z",
       "lastAttemptDate": "2026-10-23",
       "lastAttemptMeta": {
-        "blockedUrls": 0,
-        "matchedPicks": 4,
+        "blockedUrl": "https://www.forebet.com/en/american-football/usa/ncaa",
+        "blockedUrls": 1,
+        "matchedPicks": 0,
         "missingMatchups": [
-          "Massachusetts Minutemen @ UConn Huskies"
+          "Duke Blue Devils @ Virginia Cavaliers",
+          "Massachusetts Minutemen @ UConn Huskies",
+          "Army Black Knights @ Tulsa Golden Hurricane",
+          "Air Force Falcons @ Wyoming Cowboys",
+          "NC State Wolfpack @ Stanford Cardinal"
         ],
         "officialMatchups": 5
       },
-      "lastError": "ForebetCFB incomplete official slate coverage: 4/5",
+      "lastError": "ForebetCFB: listing fetch blocked by Cloudflare",
       "meta": {
         "attemptedUrls": 1,
         "blockedUrls": 0,
@@ -11435,7 +11501,6 @@
           "units": 0.0
         }
       ],
-      "preserved_after_refresh_error": true,
       "refreshStatus": "error",
       "scraped_tip_feed": true,
       "updatedAt": "2026-10-23T20:58:19.805546Z"
@@ -11444,8 +11509,18 @@
       "date": "2026-10-23",
       "generatedAt": "2026-10-23T20:57:40.515002Z",
       "generatedBy": "local:external-feed-refresh",
-      "lastAttemptAt": "2026-10-23T20:57:40.515002Z",
+      "lastAttemptAt": "2026-10-23T21:29:48.760240Z",
       "lastAttemptDate": "2026-10-23",
+      "lastAttemptMeta": {
+        "blockedUrl": "https://www.forebet.com/en/baseball/usa/mlb",
+        "blockedUrls": 1,
+        "matchedPicks": 0,
+        "missingMatchups": [
+          "Tampa Bay Rays @ Milwaukee Brewers"
+        ],
+        "officialMatchups": 1
+      },
+      "lastError": "ForebetMLB: listing fetch blocked by Cloudflare",
       "lastSuccessAt": "2026-10-23T20:57:40.515002Z",
       "meta": {
         "attemptedUrls": 1,
@@ -11463,7 +11538,7 @@
         "updatedAt": "2026-10-23T20:57:40.515002Z"
       },
       "note": "ForebetMLB matched 1 published prediction(s) against 1 official 2026-10-23 matchup(s).",
-      "ok": true,
+      "ok": false,
       "picks": [
         {
           "away_team": "Tampa Bay Rays",
@@ -11546,52 +11621,64 @@
           "units": 0.0
         }
       ],
-      "refreshStatus": "ok",
+      "refreshStatus": "error",
       "scraped_tip_feed": true,
       "updatedAt": "2026-10-23T20:57:40.515002Z"
     },
     "forebet_mls": {
       "date": "2026-10-23",
-      "generatedAt": "2026-10-23T20:58:12.829491Z",
-      "generatedBy": "local:external-feed-refresh",
-      "lastAttemptAt": "2026-10-23T20:58:12.829491Z",
+      "generatedAt": "2026-10-23T21:29:48.760240Z",
+      "generatedBy": "github-actions:external-feed-refresh",
+      "lastAttemptAt": "2026-10-23T21:29:48.760240Z",
       "lastAttemptDate": "2026-10-23",
-      "lastSuccessAt": "2026-10-23T20:58:12.829491Z",
+      "lastSuccessAt": "2026-10-23T21:29:48.760240Z",
       "meta": {
         "attemptedUrls": 0,
         "blockedUrls": 0,
         "date": "2026-10-23",
         "expectedMatchups": 0,
         "feed": "forebet_mls",
-        "from": "local",
-        "leagues": "mlb,wnba,mls,cfb,nfl",
+        "from": "github-actions",
+        "leagues": "nba,mlb,wnba,cfb,nfl",
         "matchedPicks": 0,
         "missingMatchups": [],
         "officialMatchups": 0,
         "unpublishedMatchups": [],
-        "updatedAt": "2026-10-23T20:58:12.829491Z"
+        "updatedAt": "2026-10-23T21:29:48.760240Z"
       },
       "note": "ForebetMLS has no official 2026-10-23 matchups.",
       "ok": true,
       "picks": [],
       "refreshStatus": "ok",
-      "updatedAt": "2026-10-23T20:58:12.829491Z"
+      "updatedAt": "2026-10-23T21:29:48.760240Z"
     },
     "forebet_nba": {
       "date": "2026-10-23",
       "generatedAt": "2026-10-23T19:03:40.865898Z",
       "generatedBy": "local:external-feed-refresh",
-      "lastAttemptAt": "2026-10-23T20:58:55.739777Z",
+      "lastAttemptAt": "2026-10-23T21:29:48.760240Z",
       "lastAttemptDate": "2026-10-23",
       "lastAttemptMeta": {
-        "blockedUrls": 0,
-        "matchedPicks": 11,
+        "blockedUrl": "https://www.forebet.com/en/basketball/usa/nba",
+        "blockedUrls": 1,
+        "matchedPicks": 0,
         "missingMatchups": [
-          "Chicago Bulls @ Milwaukee Bucks"
+          "Chicago Bulls @ Milwaukee Bucks",
+          "New York Knicks @ Boston Celtics",
+          "Atlanta Hawks @ Charlotte Hornets",
+          "Dallas Mavericks @ Indiana Pacers",
+          "Minnesota Timberwolves @ Orlando Magic",
+          "Toronto Raptors @ Washington Wizards",
+          "Detroit Pistons @ Miami Heat",
+          "Houston Rockets @ San Antonio Spurs",
+          "New Orleans Pelicans @ Utah Jazz",
+          "Memphis Grizzlies @ Golden State Warriors",
+          "LA Clippers @ Los Angeles Lakers",
+          "Portland Trail Blazers @ Sacramento Kings"
         ],
         "officialMatchups": 12
       },
-      "lastError": "ForebetNBA incomplete official slate coverage: 11/12",
+      "lastError": "ForebetNBA: listing fetch blocked by Cloudflare",
       "lastSuccessAt": "2026-10-23T19:03:40.865898Z",
       "meta": {
         "attemptedUrls": 1,
@@ -12578,37 +12665,48 @@
     },
     "forebet_nfl": {
       "date": "2026-10-23",
-      "generatedAt": "2026-10-23T20:58:37.849543Z",
-      "generatedBy": "local:external-feed-refresh",
-      "lastAttemptAt": "2026-10-23T20:58:37.849543Z",
+      "generatedAt": "2026-10-23T21:29:48.760240Z",
+      "generatedBy": "github-actions:external-feed-refresh",
+      "lastAttemptAt": "2026-10-23T21:29:48.760240Z",
       "lastAttemptDate": "2026-10-23",
-      "lastSuccessAt": "2026-10-23T20:58:37.849543Z",
+      "lastSuccessAt": "2026-10-23T21:29:48.760240Z",
       "meta": {
         "attemptedUrls": 0,
         "blockedUrls": 0,
         "date": "2026-10-23",
         "expectedMatchups": 0,
         "feed": "forebet_nfl",
-        "from": "local",
-        "leagues": "mlb,wnba,mls,cfb,nfl",
+        "from": "github-actions",
+        "leagues": "nba,mlb,wnba,cfb,nfl",
         "matchedPicks": 0,
         "missingMatchups": [],
         "officialMatchups": 0,
         "unpublishedMatchups": [],
-        "updatedAt": "2026-10-23T20:58:37.849543Z"
+        "updatedAt": "2026-10-23T21:29:48.760240Z"
       },
       "note": "ForebetNFL has no official 2026-10-23 matchups.",
       "ok": true,
       "picks": [],
       "refreshStatus": "ok",
-      "updatedAt": "2026-10-23T20:58:37.849543Z"
+      "updatedAt": "2026-10-23T21:29:48.760240Z"
     },
     "forebet_nhl": {
       "date": "2026-10-23",
       "generatedAt": "2026-10-23T20:58:44.735454Z",
       "generatedBy": "local:external-feed-refresh",
-      "lastAttemptAt": "2026-10-23T20:58:44.735454Z",
+      "lastAttemptAt": "2026-10-23T21:29:48.760240Z",
       "lastAttemptDate": "2026-10-23",
+      "lastAttemptMeta": {
+        "blockedUrl": "https://www.forebet.com/en/hockey/usa/nhl",
+        "blockedUrls": 1,
+        "matchedPicks": 0,
+        "missingMatchups": [
+          "Montreal Canadiens @ Chicago Blackhawks",
+          "Tampa Bay Lightning @ Colorado Avalanche"
+        ],
+        "officialMatchups": 2
+      },
+      "lastError": "ForebetNHL: listing fetch blocked by Cloudflare",
       "lastSuccessAt": "2026-10-23T20:58:44.735454Z",
       "meta": {
         "attemptedUrls": 1,
@@ -12626,7 +12724,7 @@
         "updatedAt": "2026-10-23T20:58:44.735454Z"
       },
       "note": "ForebetNHL matched 2 published prediction(s) against 2 official 2026-10-23 matchup(s).",
-      "ok": true,
+      "ok": false,
       "picks": [
         {
           "away_team": "Montreal Canadiens",
@@ -12697,36 +12795,36 @@
           "units": 0
         }
       ],
-      "refreshStatus": "ok",
+      "refreshStatus": "error",
       "scraped_tip_feed": true,
       "updatedAt": "2026-10-23T20:58:44.735454Z"
     },
     "forebet_wnba": {
       "date": "2026-10-23",
-      "generatedAt": "2026-10-23T20:58:06.020345Z",
-      "generatedBy": "local:external-feed-refresh",
-      "lastAttemptAt": "2026-10-23T20:58:06.020345Z",
+      "generatedAt": "2026-10-23T21:29:48.760240Z",
+      "generatedBy": "github-actions:external-feed-refresh",
+      "lastAttemptAt": "2026-10-23T21:29:48.760240Z",
       "lastAttemptDate": "2026-10-23",
-      "lastSuccessAt": "2026-10-23T20:58:06.020345Z",
+      "lastSuccessAt": "2026-10-23T21:29:48.760240Z",
       "meta": {
         "attemptedUrls": 0,
         "blockedUrls": 0,
         "date": "2026-10-23",
         "expectedMatchups": 0,
         "feed": "forebet_wnba",
-        "from": "local",
-        "leagues": "mlb,wnba,mls,cfb,nfl",
+        "from": "github-actions",
+        "leagues": "nba,mlb,wnba,cfb,nfl",
         "matchedPicks": 0,
         "missingMatchups": [],
         "officialMatchups": 0,
         "unpublishedMatchups": [],
-        "updatedAt": "2026-10-23T20:58:06.020345Z"
+        "updatedAt": "2026-10-23T21:29:48.760240Z"
       },
       "note": "ForebetWNBA has no official 2026-10-23 matchups.",
       "ok": true,
       "picks": [],
       "refreshStatus": "ok",
-      "updatedAt": "2026-10-23T20:58:06.020345Z"
+      "updatedAt": "2026-10-23T21:29:48.760240Z"
     },
     "mlb_first_five": {
       "consensus_gate_version": "mlb_team_consensus_v1.2.0",
@@ -28643,11 +28741,11 @@
     "sportsgambler_cfb": {
       "date": "2026-10-23",
       "errors": [],
-      "generatedAt": "2026-10-23T18:35:36.234477Z",
+      "generatedAt": "2026-10-23T21:29:48.760240Z",
       "generatedBy": "github-actions:external-feed-refresh",
-      "lastAttemptAt": "2026-10-23T18:35:36.234477Z",
+      "lastAttemptAt": "2026-10-23T21:29:48.760240Z",
       "lastAttemptDate": "2026-10-23",
-      "lastSuccessAt": "2026-10-23T18:35:36.234477Z",
+      "lastSuccessAt": "2026-10-23T21:29:48.760240Z",
       "meta": {
         "date": "2026-10-23",
         "feed": "sportsgambler_cfb",
@@ -28663,7 +28761,7 @@
         "pick_count": 3,
         "provider": "sportsgambler",
         "sportErrors": {},
-        "updatedAt": "2026-10-23T18:35:36.234477Z",
+        "updatedAt": "2026-10-23T21:29:48.760240Z",
         "zeroSlateSports": [
           "wnba",
           "nfl"
@@ -28819,16 +28917,16 @@
       ],
       "refreshStatus": "ok",
       "scraped_tip_feed": true,
-      "updatedAt": "2026-10-23T18:35:36.234477Z"
+      "updatedAt": "2026-10-23T21:29:48.760240Z"
     },
     "sportsgambler_mlb": {
       "date": "2026-10-23",
       "errors": [],
-      "generatedAt": "2026-10-23T18:35:36.234477Z",
+      "generatedAt": "2026-10-23T21:29:48.760240Z",
       "generatedBy": "github-actions:external-feed-refresh",
-      "lastAttemptAt": "2026-10-23T18:35:36.234477Z",
+      "lastAttemptAt": "2026-10-23T21:29:48.760240Z",
       "lastAttemptDate": "2026-10-23",
-      "lastSuccessAt": "2026-10-23T18:35:36.234477Z",
+      "lastSuccessAt": "2026-10-23T21:29:48.760240Z",
       "meta": {
         "date": "2026-10-23",
         "feed": "sportsgambler_mlb",
@@ -28844,7 +28942,7 @@
         "pick_count": 1,
         "provider": "sportsgambler",
         "sportErrors": {},
-        "updatedAt": "2026-10-23T18:35:36.234477Z",
+        "updatedAt": "2026-10-23T21:29:48.760240Z",
         "zeroSlateSports": [
           "wnba",
           "nfl"
@@ -28904,16 +29002,16 @@
       ],
       "refreshStatus": "ok",
       "scraped_tip_feed": true,
-      "updatedAt": "2026-10-23T18:35:36.234477Z"
+      "updatedAt": "2026-10-23T21:29:48.760240Z"
     },
     "sportsgambler_nba": {
       "date": "2026-10-23",
       "errors": [],
-      "generatedAt": "2026-10-23T18:35:36.234477Z",
+      "generatedAt": "2026-10-23T21:29:48.760240Z",
       "generatedBy": "github-actions:external-feed-refresh",
-      "lastAttemptAt": "2026-10-23T18:35:36.234477Z",
+      "lastAttemptAt": "2026-10-23T21:29:48.760240Z",
       "lastAttemptDate": "2026-10-23",
-      "lastSuccessAt": "2026-10-23T18:35:36.234477Z",
+      "lastSuccessAt": "2026-10-23T21:29:48.760240Z",
       "meta": {
         "date": "2026-10-23",
         "feed": "sportsgambler_nba",
@@ -28929,7 +29027,7 @@
         "pick_count": 11,
         "provider": "sportsgambler",
         "sportErrors": {},
-        "updatedAt": "2026-10-23T18:35:36.234477Z",
+        "updatedAt": "2026-10-23T21:29:48.760240Z",
         "zeroSlateSports": [
           "wnba",
           "nfl"
@@ -29335,47 +29433,6 @@
           "date": "2026-10-23",
           "decision": "PASS",
           "edge": null,
-          "game": "Sacramento Kings vs Portland Trail Blazers",
-          "market_line": 232.5,
-          "market_no_vig_selected_probability": 0.5,
-          "market_odds_captured_at": "2026-10-23T19:02:27.791061Z",
-          "market_odds_provider": "espn_scoreboard:DraftKings",
-          "market_over_odds": -110,
-          "market_under_odds": -110,
-          "market_updated_at": "2026-10-23T19:02:27.791061Z",
-          "matchup": "Sacramento Kings vs Portland Trail Blazers",
-          "odds": -108,
-          "opposite_odds": -110,
-          "pick": "Under 232.5 Points (Sacramento Kings vs Portland Trail Blazers)",
-          "pregame_snapshot": {
-            "date": "2026-10-23",
-            "decision": "PASS",
-            "edge": null,
-            "game": "Sacramento Kings vs Portland Trail Blazers",
-            "matchup": "Sacramento Kings vs Portland Trail Blazers",
-            "odds": -108,
-            "pick": "Under 232.5 Points (Sacramento Kings vs Portland Trail Blazers)",
-            "probability": null,
-            "scraped_tip_demoted": true,
-            "source": "SportsGamblerNBA",
-            "source_decision": "BET",
-            "source_units": 1,
-            "sport": "NBA",
-            "units": 0
-          },
-          "probability": null,
-          "scraped_tip_demoted": true,
-          "selected_odds": -110,
-          "source": "SportsGamblerNBA",
-          "source_decision": "BET",
-          "source_units": 1,
-          "sport": "NBA",
-          "units": 0
-        },
-        {
-          "date": "2026-10-23",
-          "decision": "PASS",
-          "edge": null,
           "game": "Golden State Warriors vs Memphis Grizzlies",
           "market_away_odds": 136,
           "market_home_odds": -162,
@@ -29419,20 +29476,61 @@
           "source_units": 1,
           "sport": "NBA",
           "units": 0
+        },
+        {
+          "date": "2026-10-23",
+          "decision": "PASS",
+          "edge": null,
+          "game": "Sacramento Kings vs Portland Trail Blazers",
+          "market_line": 232.5,
+          "market_no_vig_selected_probability": 0.5,
+          "market_odds_captured_at": "2026-10-23T19:02:27.791061Z",
+          "market_odds_provider": "espn_scoreboard:DraftKings",
+          "market_over_odds": -110,
+          "market_under_odds": -110,
+          "market_updated_at": "2026-10-23T19:02:27.791061Z",
+          "matchup": "Sacramento Kings vs Portland Trail Blazers",
+          "odds": -108,
+          "opposite_odds": -110,
+          "pick": "Under 232.5 Points (Sacramento Kings vs Portland Trail Blazers)",
+          "pregame_snapshot": {
+            "date": "2026-10-23",
+            "decision": "PASS",
+            "edge": null,
+            "game": "Sacramento Kings vs Portland Trail Blazers",
+            "matchup": "Sacramento Kings vs Portland Trail Blazers",
+            "odds": -108,
+            "pick": "Under 232.5 Points (Sacramento Kings vs Portland Trail Blazers)",
+            "probability": null,
+            "scraped_tip_demoted": true,
+            "source": "SportsGamblerNBA",
+            "source_decision": "BET",
+            "source_units": 1,
+            "sport": "NBA",
+            "units": 0
+          },
+          "probability": null,
+          "scraped_tip_demoted": true,
+          "selected_odds": -110,
+          "source": "SportsGamblerNBA",
+          "source_decision": "BET",
+          "source_units": 1,
+          "sport": "NBA",
+          "units": 0
         }
       ],
       "refreshStatus": "ok",
       "scraped_tip_feed": true,
-      "updatedAt": "2026-10-23T18:35:36.234477Z"
+      "updatedAt": "2026-10-23T21:29:48.760240Z"
     },
     "sportsgambler_nfl": {
       "date": "2026-10-23",
       "errors": [],
-      "generatedAt": "2026-10-23T18:35:36.234477Z",
+      "generatedAt": "2026-10-23T21:29:48.760240Z",
       "generatedBy": "github-actions:external-feed-refresh",
-      "lastAttemptAt": "2026-10-23T18:35:36.234477Z",
+      "lastAttemptAt": "2026-10-23T21:29:48.760240Z",
       "lastAttemptDate": "2026-10-23",
-      "lastSuccessAt": "2026-10-23T18:35:36.234477Z",
+      "lastSuccessAt": "2026-10-23T21:29:48.760240Z",
       "meta": {
         "date": "2026-10-23",
         "feed": "sportsgambler_nfl",
@@ -29448,7 +29546,7 @@
         "pick_count": 0,
         "provider": "sportsgambler",
         "sportErrors": {},
-        "updatedAt": "2026-10-23T18:35:36.234477Z",
+        "updatedAt": "2026-10-23T21:29:48.760240Z",
         "zeroSlateSports": [
           "wnba",
           "nfl"
@@ -29458,16 +29556,16 @@
       "ok": true,
       "picks": [],
       "refreshStatus": "ok",
-      "updatedAt": "2026-10-23T18:35:36.234477Z"
+      "updatedAt": "2026-10-23T21:29:48.760240Z"
     },
     "sportsgambler_wnba": {
       "date": "2026-10-23",
       "errors": [],
-      "generatedAt": "2026-10-23T18:35:36.234477Z",
+      "generatedAt": "2026-10-23T21:29:48.760240Z",
       "generatedBy": "github-actions:external-feed-refresh",
-      "lastAttemptAt": "2026-10-23T18:35:36.234477Z",
+      "lastAttemptAt": "2026-10-23T21:29:48.760240Z",
       "lastAttemptDate": "2026-10-23",
-      "lastSuccessAt": "2026-10-23T18:35:36.234477Z",
+      "lastSuccessAt": "2026-10-23T21:29:48.760240Z",
       "meta": {
         "date": "2026-10-23",
         "feed": "sportsgambler_wnba",
@@ -29483,7 +29581,7 @@
         "pick_count": 0,
         "provider": "sportsgambler",
         "sportErrors": {},
-        "updatedAt": "2026-10-23T18:35:36.234477Z",
+        "updatedAt": "2026-10-23T21:29:48.760240Z",
         "zeroSlateSports": [
           "wnba",
           "nfl"
@@ -29493,7 +29591,7 @@
       "ok": true,
       "picks": [],
       "refreshStatus": "ok",
-      "updatedAt": "2026-10-23T18:35:36.234477Z"
+      "updatedAt": "2026-10-23T21:29:48.760240Z"
     },
     "sportytrader_cfb": {
       "date": "2026-10-23",
@@ -29501,9 +29599,9 @@
       "errors": [
         "cfb: no picks parsed (SportyTrader CFB: no previews for 2026-10-23; 5 previews for later dates (next 2026-10-24). | Diagnostics: listingPages=1 cards=5 officialMatchupCards=0.)"
       ],
-      "generatedAt": "2026-10-23T18:35:36.234477Z",
+      "generatedAt": "2026-10-23T21:29:48.760240Z",
       "generatedBy": "github-actions:external-feed-refresh",
-      "lastAttemptAt": "2026-10-23T18:35:36.234477Z",
+      "lastAttemptAt": "2026-10-23T21:29:48.760240Z",
       "lastAttemptDate": "2026-10-23",
       "lastError": "cfb: no picks parsed (SportyTrader CFB: no previews for 2026-10-23; 5 previews for later dates (next 2026-10-24). | Diagnostics: listingPages=1 cards=5 officialMatchupCards=0.)",
       "meta": {
@@ -29527,7 +29625,7 @@
         "sportErrors": {
           "cfb": "cfb: no picks parsed (SportyTrader CFB: no previews for 2026-10-23; 5 previews for later dates (next 2026-10-24). | Diagnostics: listingPages=1 cards=5 officialMatchupCards=0.)"
         },
-        "updatedAt": "2026-10-23T18:35:36.234477Z",
+        "updatedAt": "2026-10-23T21:29:48.760240Z",
         "zeroSlateSports": [
           "wnba",
           "nfl"
@@ -29537,16 +29635,16 @@
       "ok": false,
       "picks": [],
       "refreshStatus": "error",
-      "updatedAt": "2026-10-23T18:35:36.234477Z"
+      "updatedAt": "2026-10-23T21:29:48.760240Z"
     },
     "sportytrader_mlb": {
       "date": "2026-10-23",
       "errors": [],
-      "generatedAt": "2026-10-23T18:35:36.234477Z",
+      "generatedAt": "2026-10-23T21:29:48.760240Z",
       "generatedBy": "github-actions:external-feed-refresh",
-      "lastAttemptAt": "2026-10-23T18:35:36.234477Z",
+      "lastAttemptAt": "2026-10-23T21:29:48.760240Z",
       "lastAttemptDate": "2026-10-23",
-      "lastSuccessAt": "2026-10-23T18:35:36.234477Z",
+      "lastSuccessAt": "2026-10-23T21:29:48.760240Z",
       "meta": {
         "date": "2026-10-23",
         "feed": "sportytrader_mlb",
@@ -29566,7 +29664,7 @@
         "sportErrors": {
           "cfb": "cfb: no picks parsed (SportyTrader CFB: no previews for 2026-10-23; 5 previews for later dates (next 2026-10-24). | Diagnostics: listingPages=1 cards=5 officialMatchupCards=0.)"
         },
-        "updatedAt": "2026-10-23T18:35:36.234477Z",
+        "updatedAt": "2026-10-23T21:29:48.760240Z",
         "zeroSlateSports": [
           "wnba",
           "nfl"
@@ -29626,16 +29724,16 @@
       ],
       "refreshStatus": "ok",
       "scraped_tip_feed": true,
-      "updatedAt": "2026-10-23T18:35:36.234477Z"
+      "updatedAt": "2026-10-23T21:29:48.760240Z"
     },
     "sportytrader_nba": {
       "date": "2026-10-23",
       "errors": [],
-      "generatedAt": "2026-10-23T18:35:36.234477Z",
+      "generatedAt": "2026-10-23T21:29:48.760240Z",
       "generatedBy": "github-actions:external-feed-refresh",
-      "lastAttemptAt": "2026-10-23T18:35:36.234477Z",
+      "lastAttemptAt": "2026-10-23T21:29:48.760240Z",
       "lastAttemptDate": "2026-10-23",
-      "lastSuccessAt": "2026-10-23T18:35:36.234477Z",
+      "lastSuccessAt": "2026-10-23T21:29:48.760240Z",
       "meta": {
         "date": "2026-10-23",
         "feed": "sportytrader_nba",
@@ -29650,68 +29748,20 @@
         "optionalErrors": [
           "cfb: no picks parsed (SportyTrader CFB: no previews for 2026-10-23; 5 previews for later dates (next 2026-10-24). | Diagnostics: listingPages=1 cards=5 officialMatchupCards=0.)"
         ],
-        "pick_count": 12,
+        "pick_count": 11,
         "provider": "sportytrader",
         "sportErrors": {
           "cfb": "cfb: no picks parsed (SportyTrader CFB: no previews for 2026-10-23; 5 previews for later dates (next 2026-10-24). | Diagnostics: listingPages=1 cards=5 officialMatchupCards=0.)"
         },
-        "updatedAt": "2026-10-23T18:35:36.234477Z",
+        "updatedAt": "2026-10-23T21:29:48.760240Z",
         "zeroSlateSports": [
           "wnba",
           "nfl"
         ]
       },
-      "note": "Scheduled sportytrader_nba refresh returned 12 pick(s).",
+      "note": "Scheduled sportytrader_nba refresh returned 11 pick(s).",
       "ok": true,
       "picks": [
-        {
-          "date": "2026-10-23",
-          "decision": "PASS",
-          "edge": null,
-          "game": "Milwaukee Bucks vs Chicago Bulls",
-          "market_away_odds": -102,
-          "market_home_odds": -118,
-          "market_no_vig_selected_probability": 0.517364,
-          "market_odds_captured_at": "2026-10-23T19:02:27.791061Z",
-          "market_odds_provider": "espn_scoreboard:DraftKings",
-          "market_updated_at": "2026-10-23T19:02:27.791061Z",
-          "matchup": "Milwaukee Bucks vs Chicago Bulls",
-          "odds": null,
-          "opposite_odds": -102,
-          "pick": "Milwaukee Bucks win the match (Bucks vs Bulls)",
-          "pregame_snapshot": {
-            "date": "2026-10-23",
-            "decision": "PASS",
-            "edge": null,
-            "game": "Milwaukee Bucks vs Chicago Bulls",
-            "market_away_odds": -105,
-            "market_home_odds": -115,
-            "market_no_vig_selected_probability": 0.510834,
-            "market_odds_captured_at": "2026-10-23T11:58:41.997984Z",
-            "market_odds_provider": "espn_scoreboard:DraftKings",
-            "market_updated_at": "2026-10-23T11:58:41.997984Z",
-            "matchup": "Milwaukee Bucks vs Chicago Bulls",
-            "odds": null,
-            "opposite_odds": -105,
-            "pick": "Milwaukee Bucks win the match (Bucks vs Bulls)",
-            "probability": null,
-            "scraped_tip_demoted": true,
-            "selected_odds": -115,
-            "source": "SportyTraderNBA",
-            "source_decision": "BET",
-            "source_units": 1,
-            "sport": "NBA",
-            "units": 0
-          },
-          "probability": null,
-          "scraped_tip_demoted": true,
-          "selected_odds": -118,
-          "source": "SportyTraderNBA",
-          "source_decision": "BET",
-          "source_units": 1,
-          "sport": "NBA",
-          "units": 0
-        },
         {
           "date": "2026-10-23",
           "decision": "PASS",
@@ -30240,16 +30290,16 @@
       ],
       "refreshStatus": "ok",
       "scraped_tip_feed": true,
-      "updatedAt": "2026-10-23T18:35:36.234477Z"
+      "updatedAt": "2026-10-23T21:29:48.760240Z"
     },
     "sportytrader_nfl": {
       "date": "2026-10-23",
       "errors": [],
-      "generatedAt": "2026-10-23T18:35:36.234477Z",
+      "generatedAt": "2026-10-23T21:29:48.760240Z",
       "generatedBy": "github-actions:external-feed-refresh",
-      "lastAttemptAt": "2026-10-23T18:35:36.234477Z",
+      "lastAttemptAt": "2026-10-23T21:29:48.760240Z",
       "lastAttemptDate": "2026-10-23",
-      "lastSuccessAt": "2026-10-23T18:35:36.234477Z",
+      "lastSuccessAt": "2026-10-23T21:29:48.760240Z",
       "meta": {
         "date": "2026-10-23",
         "feed": "sportytrader_nfl",
@@ -30269,7 +30319,7 @@
         "sportErrors": {
           "cfb": "cfb: no picks parsed (SportyTrader CFB: no previews for 2026-10-23; 5 previews for later dates (next 2026-10-24). | Diagnostics: listingPages=1 cards=5 officialMatchupCards=0.)"
         },
-        "updatedAt": "2026-10-23T18:35:36.234477Z",
+        "updatedAt": "2026-10-23T21:29:48.760240Z",
         "zeroSlateSports": [
           "wnba",
           "nfl"
@@ -30279,16 +30329,16 @@
       "ok": true,
       "picks": [],
       "refreshStatus": "ok",
-      "updatedAt": "2026-10-23T18:35:36.234477Z"
+      "updatedAt": "2026-10-23T21:29:48.760240Z"
     },
     "sportytrader_wnba": {
       "date": "2026-10-23",
       "errors": [],
-      "generatedAt": "2026-10-23T18:35:36.234477Z",
+      "generatedAt": "2026-10-23T21:29:48.760240Z",
       "generatedBy": "github-actions:external-feed-refresh",
-      "lastAttemptAt": "2026-10-23T18:35:36.234477Z",
+      "lastAttemptAt": "2026-10-23T21:29:48.760240Z",
       "lastAttemptDate": "2026-10-23",
-      "lastSuccessAt": "2026-10-23T18:35:36.234477Z",
+      "lastSuccessAt": "2026-10-23T21:29:48.760240Z",
       "meta": {
         "date": "2026-10-23",
         "feed": "sportytrader_wnba",
@@ -30308,7 +30358,7 @@
         "sportErrors": {
           "cfb": "cfb: no picks parsed (SportyTrader CFB: no previews for 2026-10-23; 5 previews for later dates (next 2026-10-24). | Diagnostics: listingPages=1 cards=5 officialMatchupCards=0.)"
         },
-        "updatedAt": "2026-10-23T18:35:36.234477Z",
+        "updatedAt": "2026-10-23T21:29:48.760240Z",
         "zeroSlateSports": [
           "wnba",
           "nfl"
@@ -30318,7 +30368,7 @@
       "ok": true,
       "picks": [],
       "refreshStatus": "ok",
-      "updatedAt": "2026-10-23T18:35:36.234477Z"
+      "updatedAt": "2026-10-23T21:29:48.760240Z"
     },
     "tennis": {
       "date": "2026-10-23",
@@ -32984,11 +33034,11 @@
     },
     "tennistonic_tennis": {
       "date": "2026-10-23",
-      "generatedAt": "2026-10-23T21:15:09.859962Z",
-      "generatedBy": "local:external-feed-refresh",
-      "lastAttemptAt": "2026-10-23T21:15:09.859962Z",
+      "generatedAt": "2026-10-23T21:29:48.760240Z",
+      "generatedBy": "github-actions:external-feed-refresh",
+      "lastAttemptAt": "2026-10-23T21:29:48.760240Z",
       "lastAttemptDate": "2026-10-23",
-      "lastSuccessAt": "2026-10-23T21:15:09.859962Z",
+      "lastSuccessAt": "2026-10-23T21:29:48.760240Z",
       "meta": {
         "attemptedUrls": 54,
         "blockedUrls": 0,
@@ -32996,9 +33046,9 @@
         "expectedMatchups": 14,
         "failedUrls": 0,
         "feed": "tennistonic_tennis",
-        "from": "local",
+        "from": "github-actions",
         "interrupted": false,
-        "leagues": "tennis",
+        "leagues": "nba,mlb,wnba,cfb,nfl",
         "matchedPicks": 14,
         "missingMatchups": [],
         "officialMatchups": 34,
@@ -33027,7 +33077,7 @@
           "Zhang Shuai vs Kayla Day",
           "Daria Kasatkina vs Ma YeXin"
         ],
-        "updatedAt": "2026-10-23T21:15:09.859962Z"
+        "updatedAt": "2026-10-23T21:29:48.760240Z"
       },
       "note": "TennisTonic matched 14 tennis prediction(s) against 34 official 2026-10-23 singles matchup(s).",
       "ok": true,
@@ -33427,7 +33477,7 @@
       ],
       "refreshStatus": "ok",
       "scraped_tip_feed": true,
-      "updatedAt": "2026-10-23T21:15:09.859962Z"
+      "updatedAt": "2026-10-23T21:29:48.760240Z"
     },
     "wnba": {
       "date": "2026-10-23",
@@ -46464,7 +46514,7 @@
     "standings_date": "2026-04-17",
     "team_totals_without_mean": 0
   },
-  "publishedAt": "2026-10-23T21:20:45.276727Z",
+  "publishedAt": "2026-10-23T21:31:06.050651Z",
   "scores24_cfb": {
     "date": "2026-10-23",
     "generatedAt": "2026-10-23T20:06:30.298388Z",
@@ -47128,11 +47178,11 @@
   "sportsgambler_cfb": {
     "date": "2026-10-23",
     "errors": [],
-    "generatedAt": "2026-10-23T18:35:36.234477Z",
+    "generatedAt": "2026-10-23T21:29:48.760240Z",
     "generatedBy": "github-actions:external-feed-refresh",
-    "lastAttemptAt": "2026-10-23T18:35:36.234477Z",
+    "lastAttemptAt": "2026-10-23T21:29:48.760240Z",
     "lastAttemptDate": "2026-10-23",
-    "lastSuccessAt": "2026-10-23T18:35:36.234477Z",
+    "lastSuccessAt": "2026-10-23T21:29:48.760240Z",
     "meta": {
       "date": "2026-10-23",
       "feed": "sportsgambler_cfb",
@@ -47148,7 +47198,7 @@
       "pick_count": 3,
       "provider": "sportsgambler",
       "sportErrors": {},
-      "updatedAt": "2026-10-23T18:35:36.234477Z",
+      "updatedAt": "2026-10-23T21:29:48.760240Z",
       "zeroSlateSports": [
         "wnba",
         "nfl"
@@ -47208,16 +47258,16 @@
     ],
     "refreshStatus": "ok",
     "scraped_tip_feed": true,
-    "updatedAt": "2026-10-23T18:35:36.234477Z"
+    "updatedAt": "2026-10-23T21:29:48.760240Z"
   },
   "sportsgambler_mlb": {
     "date": "2026-10-23",
     "errors": [],
-    "generatedAt": "2026-10-23T18:35:36.234477Z",
+    "generatedAt": "2026-10-23T21:29:48.760240Z",
     "generatedBy": "github-actions:external-feed-refresh",
-    "lastAttemptAt": "2026-10-23T18:35:36.234477Z",
+    "lastAttemptAt": "2026-10-23T21:29:48.760240Z",
     "lastAttemptDate": "2026-10-23",
-    "lastSuccessAt": "2026-10-23T18:35:36.234477Z",
+    "lastSuccessAt": "2026-10-23T21:29:48.760240Z",
     "meta": {
       "date": "2026-10-23",
       "feed": "sportsgambler_mlb",
@@ -47233,7 +47283,7 @@
       "pick_count": 1,
       "provider": "sportsgambler",
       "sportErrors": {},
-      "updatedAt": "2026-10-23T18:35:36.234477Z",
+      "updatedAt": "2026-10-23T21:29:48.760240Z",
       "zeroSlateSports": [
         "wnba",
         "nfl"
@@ -47261,16 +47311,16 @@
     ],
     "refreshStatus": "ok",
     "scraped_tip_feed": true,
-    "updatedAt": "2026-10-23T18:35:36.234477Z"
+    "updatedAt": "2026-10-23T21:29:48.760240Z"
   },
   "sportsgambler_nba": {
     "date": "2026-10-23",
     "errors": [],
-    "generatedAt": "2026-10-23T18:35:36.234477Z",
+    "generatedAt": "2026-10-23T21:29:48.760240Z",
     "generatedBy": "github-actions:external-feed-refresh",
-    "lastAttemptAt": "2026-10-23T18:35:36.234477Z",
+    "lastAttemptAt": "2026-10-23T21:29:48.760240Z",
     "lastAttemptDate": "2026-10-23",
-    "lastSuccessAt": "2026-10-23T18:35:36.234477Z",
+    "lastSuccessAt": "2026-10-23T21:29:48.760240Z",
     "meta": {
       "date": "2026-10-23",
       "feed": "sportsgambler_nba",
@@ -47286,7 +47336,7 @@
       "pick_count": 11,
       "provider": "sportsgambler",
       "sportErrors": {},
-      "updatedAt": "2026-10-23T18:35:36.234477Z",
+      "updatedAt": "2026-10-23T21:29:48.760240Z",
       "zeroSlateSports": [
         "wnba",
         "nfl"
@@ -47443,10 +47493,10 @@
         "date": "2026-10-23",
         "decision": "PASS",
         "edge": null,
-        "game": "Sacramento Kings vs Portland Trail Blazers",
-        "matchup": "Sacramento Kings vs Portland Trail Blazers",
-        "odds": -108,
-        "pick": "Under 232.5 Points (Sacramento Kings vs Portland Trail Blazers)",
+        "game": "Golden State Warriors vs Memphis Grizzlies",
+        "matchup": "Golden State Warriors vs Memphis Grizzlies",
+        "odds": -139,
+        "pick": "Warriors Moneyline (Golden State Warriors vs Memphis Grizzlies)",
         "probability": null,
         "scraped_tip_demoted": true,
         "source": "SportsGamblerNBA",
@@ -47459,10 +47509,10 @@
         "date": "2026-10-23",
         "decision": "PASS",
         "edge": null,
-        "game": "Golden State Warriors vs Memphis Grizzlies",
-        "matchup": "Golden State Warriors vs Memphis Grizzlies",
-        "odds": -139,
-        "pick": "Warriors Moneyline (Golden State Warriors vs Memphis Grizzlies)",
+        "game": "Sacramento Kings vs Portland Trail Blazers",
+        "matchup": "Sacramento Kings vs Portland Trail Blazers",
+        "odds": -108,
+        "pick": "Under 232.5 Points (Sacramento Kings vs Portland Trail Blazers)",
         "probability": null,
         "scraped_tip_demoted": true,
         "source": "SportsGamblerNBA",
@@ -47474,16 +47524,16 @@
     ],
     "refreshStatus": "ok",
     "scraped_tip_feed": true,
-    "updatedAt": "2026-10-23T18:35:36.234477Z"
+    "updatedAt": "2026-10-23T21:29:48.760240Z"
   },
   "sportsgambler_nfl": {
     "date": "2026-10-23",
     "errors": [],
-    "generatedAt": "2026-10-23T18:35:36.234477Z",
+    "generatedAt": "2026-10-23T21:29:48.760240Z",
     "generatedBy": "github-actions:external-feed-refresh",
-    "lastAttemptAt": "2026-10-23T18:35:36.234477Z",
+    "lastAttemptAt": "2026-10-23T21:29:48.760240Z",
     "lastAttemptDate": "2026-10-23",
-    "lastSuccessAt": "2026-10-23T18:35:36.234477Z",
+    "lastSuccessAt": "2026-10-23T21:29:48.760240Z",
     "meta": {
       "date": "2026-10-23",
       "feed": "sportsgambler_nfl",
@@ -47499,7 +47549,7 @@
       "pick_count": 0,
       "provider": "sportsgambler",
       "sportErrors": {},
-      "updatedAt": "2026-10-23T18:35:36.234477Z",
+      "updatedAt": "2026-10-23T21:29:48.760240Z",
       "zeroSlateSports": [
         "wnba",
         "nfl"
@@ -47509,16 +47559,16 @@
     "ok": true,
     "picks": [],
     "refreshStatus": "ok",
-    "updatedAt": "2026-10-23T18:35:36.234477Z"
+    "updatedAt": "2026-10-23T21:29:48.760240Z"
   },
   "sportsgambler_wnba": {
     "date": "2026-10-23",
     "errors": [],
-    "generatedAt": "2026-10-23T18:35:36.234477Z",
+    "generatedAt": "2026-10-23T21:29:48.760240Z",
     "generatedBy": "github-actions:external-feed-refresh",
-    "lastAttemptAt": "2026-10-23T18:35:36.234477Z",
+    "lastAttemptAt": "2026-10-23T21:29:48.760240Z",
     "lastAttemptDate": "2026-10-23",
-    "lastSuccessAt": "2026-10-23T18:35:36.234477Z",
+    "lastSuccessAt": "2026-10-23T21:29:48.760240Z",
     "meta": {
       "date": "2026-10-23",
       "feed": "sportsgambler_wnba",
@@ -47534,7 +47584,7 @@
       "pick_count": 0,
       "provider": "sportsgambler",
       "sportErrors": {},
-      "updatedAt": "2026-10-23T18:35:36.234477Z",
+      "updatedAt": "2026-10-23T21:29:48.760240Z",
       "zeroSlateSports": [
         "wnba",
         "nfl"
@@ -47544,7 +47594,7 @@
     "ok": true,
     "picks": [],
     "refreshStatus": "ok",
-    "updatedAt": "2026-10-23T18:35:36.234477Z"
+    "updatedAt": "2026-10-23T21:29:48.760240Z"
   },
   "sportytrader_cfb": {
     "date": "2026-10-23",
@@ -47552,9 +47602,9 @@
     "errors": [
       "cfb: no picks parsed (SportyTrader CFB: no previews for 2026-10-23; 5 previews for later dates (next 2026-10-24). | Diagnostics: listingPages=1 cards=5 officialMatchupCards=0.)"
     ],
-    "generatedAt": "2026-10-23T18:35:36.234477Z",
+    "generatedAt": "2026-10-23T21:29:48.760240Z",
     "generatedBy": "github-actions:external-feed-refresh",
-    "lastAttemptAt": "2026-10-23T18:35:36.234477Z",
+    "lastAttemptAt": "2026-10-23T21:29:48.760240Z",
     "lastAttemptDate": "2026-10-23",
     "lastError": "cfb: no picks parsed (SportyTrader CFB: no previews for 2026-10-23; 5 previews for later dates (next 2026-10-24). | Diagnostics: listingPages=1 cards=5 officialMatchupCards=0.)",
     "meta": {
@@ -47578,7 +47628,7 @@
       "sportErrors": {
         "cfb": "cfb: no picks parsed (SportyTrader CFB: no previews for 2026-10-23; 5 previews for later dates (next 2026-10-24). | Diagnostics: listingPages=1 cards=5 officialMatchupCards=0.)"
       },
-      "updatedAt": "2026-10-23T18:35:36.234477Z",
+      "updatedAt": "2026-10-23T21:29:48.760240Z",
       "zeroSlateSports": [
         "wnba",
         "nfl"
@@ -47588,16 +47638,16 @@
     "ok": false,
     "picks": [],
     "refreshStatus": "error",
-    "updatedAt": "2026-10-23T18:35:36.234477Z"
+    "updatedAt": "2026-10-23T21:29:48.760240Z"
   },
   "sportytrader_mlb": {
     "date": "2026-10-23",
     "errors": [],
-    "generatedAt": "2026-10-23T18:35:36.234477Z",
+    "generatedAt": "2026-10-23T21:29:48.760240Z",
     "generatedBy": "github-actions:external-feed-refresh",
-    "lastAttemptAt": "2026-10-23T18:35:36.234477Z",
+    "lastAttemptAt": "2026-10-23T21:29:48.760240Z",
     "lastAttemptDate": "2026-10-23",
-    "lastSuccessAt": "2026-10-23T18:35:36.234477Z",
+    "lastSuccessAt": "2026-10-23T21:29:48.760240Z",
     "meta": {
       "date": "2026-10-23",
       "feed": "sportytrader_mlb",
@@ -47617,7 +47667,7 @@
       "sportErrors": {
         "cfb": "cfb: no picks parsed (SportyTrader CFB: no previews for 2026-10-23; 5 previews for later dates (next 2026-10-24). | Diagnostics: listingPages=1 cards=5 officialMatchupCards=0.)"
       },
-      "updatedAt": "2026-10-23T18:35:36.234477Z",
+      "updatedAt": "2026-10-23T21:29:48.760240Z",
       "zeroSlateSports": [
         "wnba",
         "nfl"
@@ -47645,16 +47695,16 @@
     ],
     "refreshStatus": "ok",
     "scraped_tip_feed": true,
-    "updatedAt": "2026-10-23T18:35:36.234477Z"
+    "updatedAt": "2026-10-23T21:29:48.760240Z"
   },
   "sportytrader_nba": {
     "date": "2026-10-23",
     "errors": [],
-    "generatedAt": "2026-10-23T18:35:36.234477Z",
+    "generatedAt": "2026-10-23T21:29:48.760240Z",
     "generatedBy": "github-actions:external-feed-refresh",
-    "lastAttemptAt": "2026-10-23T18:35:36.234477Z",
+    "lastAttemptAt": "2026-10-23T21:29:48.760240Z",
     "lastAttemptDate": "2026-10-23",
-    "lastSuccessAt": "2026-10-23T18:35:36.234477Z",
+    "lastSuccessAt": "2026-10-23T21:29:48.760240Z",
     "meta": {
       "date": "2026-10-23",
       "feed": "sportytrader_nba",
@@ -47669,36 +47719,20 @@
       "optionalErrors": [
         "cfb: no picks parsed (SportyTrader CFB: no previews for 2026-10-23; 5 previews for later dates (next 2026-10-24). | Diagnostics: listingPages=1 cards=5 officialMatchupCards=0.)"
       ],
-      "pick_count": 12,
+      "pick_count": 11,
       "provider": "sportytrader",
       "sportErrors": {
         "cfb": "cfb: no picks parsed (SportyTrader CFB: no previews for 2026-10-23; 5 previews for later dates (next 2026-10-24). | Diagnostics: listingPages=1 cards=5 officialMatchupCards=0.)"
       },
-      "updatedAt": "2026-10-23T18:35:36.234477Z",
+      "updatedAt": "2026-10-23T21:29:48.760240Z",
       "zeroSlateSports": [
         "wnba",
         "nfl"
       ]
     },
-    "note": "Scheduled sportytrader_nba refresh returned 12 pick(s).",
+    "note": "Scheduled sportytrader_nba refresh returned 11 pick(s).",
     "ok": true,
     "picks": [
-      {
-        "date": "2026-10-23",
-        "decision": "PASS",
-        "edge": null,
-        "game": "Milwaukee Bucks vs Chicago Bulls",
-        "matchup": "Milwaukee Bucks vs Chicago Bulls",
-        "odds": null,
-        "pick": "Milwaukee Bucks win the match (Bucks vs Bulls)",
-        "probability": null,
-        "scraped_tip_demoted": true,
-        "source": "SportyTraderNBA",
-        "source_decision": "BET",
-        "source_units": 1,
-        "sport": "NBA",
-        "units": 0
-      },
       {
         "date": "2026-10-23",
         "decision": "PASS",
@@ -47880,16 +47914,16 @@
     ],
     "refreshStatus": "ok",
     "scraped_tip_feed": true,
-    "updatedAt": "2026-10-23T18:35:36.234477Z"
+    "updatedAt": "2026-10-23T21:29:48.760240Z"
   },
   "sportytrader_nfl": {
     "date": "2026-10-23",
     "errors": [],
-    "generatedAt": "2026-10-23T18:35:36.234477Z",
+    "generatedAt": "2026-10-23T21:29:48.760240Z",
     "generatedBy": "github-actions:external-feed-refresh",
-    "lastAttemptAt": "2026-10-23T18:35:36.234477Z",
+    "lastAttemptAt": "2026-10-23T21:29:48.760240Z",
     "lastAttemptDate": "2026-10-23",
-    "lastSuccessAt": "2026-10-23T18:35:36.234477Z",
+    "lastSuccessAt": "2026-10-23T21:29:48.760240Z",
     "meta": {
       "date": "2026-10-23",
       "feed": "sportytrader_nfl",
@@ -47909,7 +47943,7 @@
       "sportErrors": {
         "cfb": "cfb: no picks parsed (SportyTrader CFB: no previews for 2026-10-23; 5 previews for later dates (next 2026-10-24). | Diagnostics: listingPages=1 cards=5 officialMatchupCards=0.)"
       },
-      "updatedAt": "2026-10-23T18:35:36.234477Z",
+      "updatedAt": "2026-10-23T21:29:48.760240Z",
       "zeroSlateSports": [
         "wnba",
         "nfl"
@@ -47919,16 +47953,16 @@
     "ok": true,
     "picks": [],
     "refreshStatus": "ok",
-    "updatedAt": "2026-10-23T18:35:36.234477Z"
+    "updatedAt": "2026-10-23T21:29:48.760240Z"
   },
   "sportytrader_wnba": {
     "date": "2026-10-23",
     "errors": [],
-    "generatedAt": "2026-10-23T18:35:36.234477Z",
+    "generatedAt": "2026-10-23T21:29:48.760240Z",
     "generatedBy": "github-actions:external-feed-refresh",
-    "lastAttemptAt": "2026-10-23T18:35:36.234477Z",
+    "lastAttemptAt": "2026-10-23T21:29:48.760240Z",
     "lastAttemptDate": "2026-10-23",
-    "lastSuccessAt": "2026-10-23T18:35:36.234477Z",
+    "lastSuccessAt": "2026-10-23T21:29:48.760240Z",
     "meta": {
       "date": "2026-10-23",
       "feed": "sportytrader_wnba",
@@ -47948,7 +47982,7 @@
       "sportErrors": {
         "cfb": "cfb: no picks parsed (SportyTrader CFB: no previews for 2026-10-23; 5 previews for later dates (next 2026-10-24). | Diagnostics: listingPages=1 cards=5 officialMatchupCards=0.)"
       },
-      "updatedAt": "2026-10-23T18:35:36.234477Z",
+      "updatedAt": "2026-10-23T21:29:48.760240Z",
       "zeroSlateSports": [
         "wnba",
         "nfl"
@@ -47958,15 +47992,15 @@
     "ok": true,
     "picks": [],
     "refreshStatus": "ok",
-    "updatedAt": "2026-10-23T18:35:36.234477Z"
+    "updatedAt": "2026-10-23T21:29:48.760240Z"
   },
   "tennistonic_tennis": {
     "date": "2026-10-23",
-    "generatedAt": "2026-10-23T21:15:09.859962Z",
-    "generatedBy": "local:external-feed-refresh",
-    "lastAttemptAt": "2026-10-23T21:15:09.859962Z",
+    "generatedAt": "2026-10-23T21:29:48.760240Z",
+    "generatedBy": "github-actions:external-feed-refresh",
+    "lastAttemptAt": "2026-10-23T21:29:48.760240Z",
     "lastAttemptDate": "2026-10-23",
-    "lastSuccessAt": "2026-10-23T21:15:09.859962Z",
+    "lastSuccessAt": "2026-10-23T21:29:48.760240Z",
     "meta": {
       "attemptedUrls": 54,
       "blockedUrls": 0,
@@ -47974,9 +48008,9 @@
       "expectedMatchups": 14,
       "failedUrls": 0,
       "feed": "tennistonic_tennis",
-      "from": "local",
+      "from": "github-actions",
       "interrupted": false,
-      "leagues": "tennis",
+      "leagues": "nba,mlb,wnba,cfb,nfl",
       "matchedPicks": 14,
       "missingMatchups": [],
       "officialMatchups": 34,
@@ -48005,7 +48039,7 @@
         "Zhang Shuai vs Kayla Day",
         "Daria Kasatkina vs Ma YeXin"
       ],
-      "updatedAt": "2026-10-23T21:15:09.859962Z"
+      "updatedAt": "2026-10-23T21:29:48.760240Z"
     },
     "note": "TennisTonic matched 14 tennis prediction(s) against 34 official 2026-10-23 singles matchup(s).",
     "ok": true,
@@ -48405,9 +48439,9 @@
     ],
     "refreshStatus": "ok",
     "scraped_tip_feed": true,
-    "updatedAt": "2026-10-23T21:15:09.859962Z"
+    "updatedAt": "2026-10-23T21:29:48.760240Z"
   },
-  "updatedAt": "2026-10-23T21:20:12.420620Z",
+  "updatedAt": "2026-10-23T21:29:48.760240Z",
   "wnba": {
     "date": "2026-10-23",
     "note": "No WNBA picks today \u2014 off-season or no edge found.",
