@@ -26,5 +26,5 @@ def test_dev_checks_sparse_checkouts_keep_required_inputs():
     assert configs["smoke"]["sparse-checkout"].splitlines() == [
         "/*", "!/data/", "/data/calibration/", "!/data/calibration/team_prop_pregame_ledger/",
         "/data/model_cache/", "/data/player_props_cache/", "/data/player_props_snapshots/",
-        "/data/nfl/", "/data/wnba/",
+        "/data/nfl/", "/data/wnba/", "/data/nba/",
     ]

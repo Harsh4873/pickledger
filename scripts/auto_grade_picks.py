@@ -517,6 +517,15 @@ def main() -> int:
             f"changed={certified_summary['changed']}"
         )
 
+    from scripts.sync_nba_prediction_log import sync_nba_prediction_log
+
+    nba_log = sync_nba_prediction_log(repo_root=REPO_ROOT, backfill_cache=True, grade=True)
+    print(
+        "[auto-grade] nba prediction log: "
+        f"{nba_log['graded']} graded / {nba_log['total']} row(s) "
+        f"(platt_eligible={nba_log['platt_eligible']})"
+    )
+
     ledger, ledger_changed = rebuild_outcome_ledger()
     print(
         "[auto-grade] outcome ledger: "

@@ -3836,7 +3836,14 @@ def _parse_nba_output(output: str, source_label: str = "NBA Model") -> list[dict
             # Sanity gate: never publish a NBA spread > 16 pts from the new model.
             if source_label == "NBA New" and abs(parsed_margin) > 16.0:
                 decision = "PASS"
-            if spread_val > 0 and (decision == "BET" or parsed_new_format):
+            # NBA New stdout already reports Model Confidence for the picked
+            # side (>=50%). Default the row to a moneyline label; a live
+            # spread market below overwrites this. Projected-margin labels
+            # used to survive into the no-price path and then get a
+            # moneyline attached later.
+            if source_label == "NBA New":
+                pick_text = f"{winner} ML ({matchup})"
+            elif spread_val > 0 and (decision == "BET" or parsed_new_format):
                 pick_text = f"{winner} -{spread_val:.1f} ({matchup})"
             else:
                 pick_text = f"{winner} ML ({matchup})"
@@ -3935,9 +3942,10 @@ def _parse_nba_output(output: str, source_label: str = "NBA Model") -> list[dict
                         _ml_pick_implied = (
                             (_raw_home / _denom) if winner_is_home else (_raw_away / _denom)
                         )
-                        _model_pick_prob = (
-                            float(prob) if winner_is_home else (1.0 - float(prob))
-                        ) if prob is not None else 0.5
+                        # Model Confidence / Winner Prob is already the picked
+                        # side. Flipping away picks here published 25% for a
+                        # 75% away favorite.
+                        _model_pick_prob = float(prob) if prob is not None else 0.5
                         _ml_edge_val = round((_model_pick_prob - _ml_pick_implied) * 100, 2)
 
                         # Quarter-Kelly on the ML; capped at 5%.
@@ -3976,10 +3984,8 @@ def _parse_nba_output(output: str, source_label: str = "NBA Model") -> list[dict
                         # demotes it to PASS/0u if no posted price attaches
                         # (the lone live 2026 row published BET, odds null,
                         # 1.13u and graded as a loss nobody could have placed).
-                        _conv_prob = float(prob) if prob is not None else 0.5
-                        _winner_prob = (
-                            _conv_prob if winner_is_home else (1.0 - _conv_prob)
-                        )
+                        _winner_prob = float(prob) if prob is not None else 0.5
+                        pick["pick"] = f"{winner} ML ({matchup})"
                         pick["probability"] = _winner_prob
                         pick["prob"] = _winner_prob
                         # Sliding stake: 0.25u at 55% prob, ~1.5u at 75% prob.

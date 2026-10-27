@@ -291,6 +291,8 @@ def test_nba_new_no_market_row_is_provisional_and_labelled_unpriced(monkeypatch)
     side = [p for p in picks if p.get("market_type") != "totals"][0]
     assert side["decision"] in ("LEAN", "BET")
     assert side["odds"] is None
+    assert side["pick"] == "Pistons ML (Grizzlies @ Pistons)"
+    assert side["probability"] == 0.66
     assert side["pricing_type"] == "unpriced" and side["market_priced"] is False
     assert side["decision_basis"] == "model_conviction_pending_price"
     # No total row is invented when there is no market total.
