@@ -403,6 +403,15 @@ def main() -> int:
             print(f"[model-cache] {key}: {'ok' if ok else 'error'} ({pick_count} pick(s))")
 
     payload = _write_json_cache(date_iso, _build_payload(date_iso, results, errors))
+    if "nba" in selected:
+        from scripts.sync_nba_prediction_log import sync_nba_prediction_log
+
+        nba_log = sync_nba_prediction_log(repo_root=REPO_ROOT)
+        print(
+            "[nba-prediction-log] "
+            f"total={nba_log['total']} graded={nba_log['graded']} "
+            f"platt_eligible={nba_log['platt_eligible']} created={nba_log['created']}"
+        )
     success_count = sum(
         1 for result in results.values()
         if isinstance(result, dict) and result.get("ok")

@@ -103,7 +103,11 @@ class PlattScaler:
 
 
 def _default_prediction_log_path() -> Path:
-    return Path(__file__).resolve().parent / "logs" / "predictions.csv"
+    try:
+        from prediction_logging import default_prediction_log_path
+    except ImportError:
+        return Path(__file__).resolve().parent.parent / "data" / "nba" / "predictions.csv"
+    return default_prediction_log_path()
 
 
 def _class_balance_summary(outcomes: list[int]) -> tuple[str, str, list[float], bool]:

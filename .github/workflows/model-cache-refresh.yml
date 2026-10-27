@@ -130,29 +130,38 @@ jobs:
           # Always publish the canonical Pages branch, including manual runs.
           BRANCH="main"
           python -m scripts.team_prop_pregame_ledger --migrate
-          if [ -z "$(git status --porcelain -- data/model_cache data/parlay_cards data/profit_desk 'data/calibration/team_prop_pregame_ledger*')" ]; then
-            echo "No model-cache, parlay-card, Profit Desk, or team-prop ledger change — skipping commit."
+          if [ -z "$(git status --porcelain -- data/model_cache data/parlay_cards data/profit_desk data/nba 'data/calibration/team_prop_pregame_ledger*')" ]; then
+            echo "No model-cache, parlay-card, Profit Desk, NBA log, or team-prop ledger change; skipping commit."
             echo "changed=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
           GENERATED_CACHE="${RUNNER_TEMP}/model-cache-latest.json"
           GENERATED_TEAM_LEDGER="${RUNNER_TEMP}/team-prop-pregame-ledger"
+          GENERATED_NBA_LOG="${RUNNER_TEMP}/nba-predictions.csv"
           cp data/model_cache/latest.json "$GENERATED_CACHE"
           mkdir -p "$GENERATED_TEAM_LEDGER/data/calibration"
           cp -R data/calibration/team_prop_pregame_ledger "$GENERATED_TEAM_LEDGER/data/calibration/"
+          if [ -f data/nba/predictions.csv ]; then
+            cp data/nba/predictions.csv "$GENERATED_NBA_LOG"
+          fi
           for attempt in 1 2 3 4 5; do
             git fetch origin "$BRANCH"
             git reset --hard "origin/${BRANCH}"
             python scripts/merge_model_cache_payload.py "$GENERATED_CACHE"
             # Union generated history with concurrent publications and grades.
             python -m scripts.team_prop_pregame_ledger --migrate --merge-from "$GENERATED_TEAM_LEDGER"
+            if [ -f "$GENERATED_NBA_LOG" ]; then
+              python scripts/sync_nba_prediction_log.py --merge-from "$GENERATED_NBA_LOG"
+            else
+              python scripts/sync_nba_prediction_log.py
+            fi
             CACHE_DATE=$(python -c "import json; print(json.load(open('data/model_cache/latest.json'))['date'])")
             python scripts/build_parlay_cards.py --date "$CACHE_DATE"
             python scripts/build_profit_desk.py --date "$CACHE_DATE"
             # Dev Checks enforces the size budget; here it only warns so an
             # unrelated large file cannot block model publication.
             python scripts/check_data_file_sizes.py || echo "::warning::Committed data JSON exceeds the size budget; see the size check output above."
-            git add -A data/model_cache data/parlay_cards data/profit_desk 'data/calibration/team_prop_pregame_ledger*'
+            git add -A data/model_cache data/parlay_cards data/profit_desk data/nba 'data/calibration/team_prop_pregame_ledger*'
             if git diff --cached --quiet; then
               echo "No staged cache change after merge — skipping commit."
               echo "changed=false" >> "$GITHUB_OUTPUT"
