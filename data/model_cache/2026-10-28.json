@@ -1153,13 +1153,14 @@
   },
   "date": "2026-10-28",
   "errors": [],
-  "externalFeedsUpdatedAt": "2026-10-28T12:15:09.743084Z",
+  "externalFeedsUpdatedAt": "2026-10-28T13:25:03.936016Z",
   "external_feed_errors": [
-    "forebet_mls: ForebetMLS: listing fetch blocked by Cloudflare",
-    "forebet_mlb: ForebetMLB: listing fetch blocked by Cloudflare",
+    "scores24_nba: Scores24NBA has 1 unmatched official 2026-10-28 matchup(s); retry will resume the same-day checkpoint",
     "forebet_cfb: ForebetCFB: listing fetch blocked by Cloudflare",
-    "forebet_nhl: ForebetNHL: listing fetch blocked by Cloudflare",
-    "forebet_nba: ForebetNBA: listing fetch blocked by Cloudflare"
+    "forebet_mlb: ForebetMLB: listing fetch blocked by Cloudflare",
+    "forebet_mls: ForebetMLS: listing fetch blocked by Cloudflare",
+    "forebet_nba: ForebetNBA: listing fetch blocked by Cloudflare",
+    "forebet_nhl: ForebetNHL: listing fetch blocked by Cloudflare"
   ],
   "external_feeds": {
     "forebet_cfb": {
@@ -1929,14 +1930,13 @@
     },
     "scores24_cfb": {
       "date": "2026-10-28",
-      "error": "Scores24CFB scrape timed out after 160s with 1 matched pick(s) of 2 official matchup(s)",
-      "generatedAt": "2026-10-28T11:49:44.332211Z",
+      "generatedAt": "2026-10-28T13:25:03.936016Z",
       "generatedBy": "local:external-feed-refresh",
-      "lastAttemptAt": "2026-10-28T11:49:44.332211Z",
+      "lastAttemptAt": "2026-10-28T13:25:03.936016Z",
       "lastAttemptDate": "2026-10-28",
-      "lastError": "Scores24CFB scrape timed out after 160s with 1 matched pick(s) of 2 official matchup(s)",
+      "lastSuccessAt": "2026-10-28T13:25:03.936016Z",
       "meta": {
-        "attemptedUrls": 10,
+        "attemptedUrls": 2,
         "blockRetryRounds": 0,
         "blockedUrls": 0,
         "checkpointedPicks": 0,
@@ -1944,20 +1944,18 @@
         "expectedMatchups": 2,
         "feed": "scores24_cfb",
         "from": "local",
-        "leagues": "mlb,wnba,cfb,nfl,nba",
+        "leagues": "nba,mlb,wnba,cfb,nfl",
+        "listingLinks": 8,
         "listingResolved": true,
         "listingUrlsAttempted": 3,
-        "matchedPicks": 1,
-        "missingMatchups": [
-          "Jacksonville State Gamecocks @ New Mexico State Aggies"
-        ],
+        "matchedPicks": 2,
+        "missingMatchups": [],
         "officialMatchups": 2,
-        "timedOut": true,
         "unpublishedMatchups": [],
-        "updatedAt": "2026-10-28T11:49:44.332211Z"
+        "updatedAt": "2026-10-28T13:25:03.936016Z"
       },
-      "note": "Scheduled scores24_cfb refresh returned 1 pick(s).",
-      "ok": false,
+      "note": "Scores24CFB matched 2 published editorial choice(s) against 2 official 2026-10-28 matchup(s).",
+      "ok": true,
       "picks": [
         {
           "away_team": "Kennesaw State Owls",
@@ -1979,11 +1977,32 @@
           "start_time": "2026-10-28T23:00Z",
           "tip": "Middle Tennessee Blue Raiders Total Over (26,5)",
           "units": 0
+        },
+        {
+          "away_team": "Jacksonville State Gamecocks",
+          "date": "2026-10-28",
+          "decision": "PASS",
+          "edge": null,
+          "game": "Jacksonville State Gamecocks @ New Mexico State Aggies",
+          "home_team": "New Mexico State Aggies",
+          "matchup": "Jacksonville State Gamecocks @ New Mexico State Aggies",
+          "odds": 100,
+          "pick": "Total Over (51,5) (Jacksonville State Gamecocks @ New Mexico State Aggies)",
+          "probability": null,
+          "scraped_tip_demoted": true,
+          "source": "Scores24CFB",
+          "source_decision": "BET",
+          "source_units": 1,
+          "source_url": "https://scores24.live/en/american-football/m-28-10-2026-new-mexico-state-aggies-jacksonville-state-gamecocks-prediction",
+          "sport": "CFB",
+          "start_time": "2026-10-29T00:00Z",
+          "tip": "Total Over (51,5)",
+          "units": 0
         }
       ],
-      "refreshStatus": "error",
+      "refreshStatus": "ok",
       "scraped_tip_feed": true,
-      "updatedAt": "2026-10-28T11:49:44.332211Z"
+      "updatedAt": "2026-10-28T13:25:03.936016Z"
     },
     "scores24_fifa_world_cup": {
       "date": "2026-09-09",
@@ -2016,11 +2035,11 @@
     },
     "scores24_mlb": {
       "date": "2026-10-28",
-      "generatedAt": "2026-10-28T11:46:23.813301Z",
+      "generatedAt": "2026-10-28T13:25:03.936016Z",
       "generatedBy": "local:external-feed-refresh",
-      "lastAttemptAt": "2026-10-28T11:46:23.813301Z",
+      "lastAttemptAt": "2026-10-28T13:25:03.936016Z",
       "lastAttemptDate": "2026-10-28",
-      "lastSuccessAt": "2026-10-28T11:46:23.813301Z",
+      "lastSuccessAt": "2026-10-28T13:25:03.936016Z",
       "meta": {
         "attemptedUrls": 1,
         "blockRetryRounds": 0,
@@ -2030,7 +2049,7 @@
         "expectedMatchups": 1,
         "feed": "scores24_mlb",
         "from": "local",
-        "leagues": "mlb,wnba,cfb,nfl,nba",
+        "leagues": "nba,mlb,wnba,cfb,nfl",
         "listingLinks": 6,
         "listingResolved": true,
         "listingUrlsAttempted": 1,
@@ -2038,7 +2057,7 @@
         "missingMatchups": [],
         "officialMatchups": 1,
         "unpublishedMatchups": [],
-        "updatedAt": "2026-10-28T11:46:23.813301Z"
+        "updatedAt": "2026-10-28T13:25:03.936016Z"
       },
       "note": "Scores24MLB matched 1 published editorial choice(s) against 1 official 2026-10-28 matchup(s).",
       "ok": true,
@@ -2067,18 +2086,18 @@
       ],
       "refreshStatus": "ok",
       "scraped_tip_feed": true,
-      "updatedAt": "2026-10-28T11:46:23.813301Z"
+      "updatedAt": "2026-10-28T13:25:03.936016Z"
     },
     "scores24_nba": {
       "date": "2026-10-28",
-      "error": "Scores24NBA scrape timed out after 160s with 8 matched pick(s) of 12 official matchup(s)",
-      "generatedAt": "2026-10-28T11:55:27.033858Z",
+      "error": "Scores24NBA has 1 unmatched official 2026-10-28 matchup(s); retry will resume the same-day checkpoint",
+      "generatedAt": "2026-10-28T13:25:03.936016Z",
       "generatedBy": "local:external-feed-refresh",
-      "lastAttemptAt": "2026-10-28T11:55:27.033858Z",
+      "lastAttemptAt": "2026-10-28T13:25:03.936016Z",
       "lastAttemptDate": "2026-10-28",
-      "lastError": "Scores24NBA scrape timed out after 160s with 8 matched pick(s) of 12 official matchup(s)",
+      "lastError": "Scores24NBA has 1 unmatched official 2026-10-28 matchup(s); retry will resume the same-day checkpoint",
       "meta": {
-        "attemptedUrls": 10,
+        "attemptedUrls": 23,
         "blockRetryRounds": 0,
         "blockedUrls": 0,
         "checkpointedPicks": 0,
@@ -2086,22 +2105,19 @@
         "expectedMatchups": 12,
         "feed": "scores24_nba",
         "from": "local",
-        "leagues": "mlb,wnba,cfb,nfl,nba",
+        "leagues": "nba,mlb,wnba,cfb,nfl",
         "listingResolved": true,
         "listingUrlsAttempted": 3,
-        "matchedPicks": 8,
+        "matchedPicks": 11,
         "missingMatchups": [
-          "Houston Rockets @ Milwaukee Bucks",
-          "Golden State Warriors @ Minnesota Timberwolves",
-          "Denver Nuggets @ New Orleans Pelicans",
           "Los Angeles Lakers @ LA Clippers"
         ],
         "officialMatchups": 12,
         "timedOut": true,
         "unpublishedMatchups": [],
-        "updatedAt": "2026-10-28T11:55:27.033858Z"
+        "updatedAt": "2026-10-28T13:25:03.936016Z"
       },
-      "note": "Scheduled scores24_nba refresh returned 8 pick(s).",
+      "note": "Scheduled scores24_nba refresh returned 11 pick(s).",
       "ok": false,
       "picks": [
         {
@@ -2196,8 +2212,8 @@
           "game": "Orlando Magic @ Toronto Raptors",
           "home_team": "Toronto Raptors",
           "matchup": "Orlando Magic @ Toronto Raptors",
-          "odds": -154,
-          "pick": "Total Under (226,5) (Orlando Magic @ Toronto Raptors)",
+          "odds": -200,
+          "pick": "Toronto Raptors ML (Orlando Magic @ Toronto Raptors)",
           "probability": null,
           "scraped_tip_demoted": true,
           "source": "Scores24NBA",
@@ -2206,7 +2222,7 @@
           "source_url": "https://scores24.live/en/basketball/m-28-10-2026-toronto-raptors-orlando-magic-prediction",
           "sport": "NBA",
           "start_time": "2026-10-28T23:30Z",
-          "tip": "Total Under (226,5)",
+          "tip": "Toronto Raptors Win",
           "units": 0
         },
         {
@@ -2231,6 +2247,69 @@
           "units": 0
         },
         {
+          "away_team": "Houston Rockets",
+          "date": "2026-10-28",
+          "decision": "PASS",
+          "edge": null,
+          "game": "Houston Rockets @ Milwaukee Bucks",
+          "home_team": "Milwaukee Bucks",
+          "matchup": "Houston Rockets @ Milwaukee Bucks",
+          "odds": -109,
+          "pick": "Milwaukee Bucks Handicap (+7,5) (Houston Rockets @ Milwaukee Bucks)",
+          "probability": null,
+          "scraped_tip_demoted": true,
+          "source": "Scores24NBA",
+          "source_decision": "BET",
+          "source_units": 1,
+          "source_url": "https://scores24.live/en/basketball/m-29-10-2026-milwaukee-bucks-houston-rockets-prediction",
+          "sport": "NBA",
+          "start_time": "2026-10-29T00:00Z",
+          "tip": "Milwaukee Bucks Handicap (+7,5)",
+          "units": 0
+        },
+        {
+          "away_team": "Golden State Warriors",
+          "date": "2026-10-28",
+          "decision": "PASS",
+          "edge": null,
+          "game": "Golden State Warriors @ Minnesota Timberwolves",
+          "home_team": "Minnesota Timberwolves",
+          "matchup": "Golden State Warriors @ Minnesota Timberwolves",
+          "odds": -182,
+          "pick": "Golden State Warriors Handicap (+9,5) (Golden State Warriors @ Minnesota Timberwolves)",
+          "probability": null,
+          "scraped_tip_demoted": true,
+          "source": "Scores24NBA",
+          "source_decision": "BET",
+          "source_units": 1,
+          "source_url": "https://scores24.live/en/basketball/m-29-10-2026-minnesota-timberwolves-golden-state-warriors-prediction",
+          "sport": "NBA",
+          "start_time": "2026-10-29T00:00Z",
+          "tip": "Golden State Warriors Handicap (+9,5)",
+          "units": 0
+        },
+        {
+          "away_team": "Denver Nuggets",
+          "date": "2026-10-28",
+          "decision": "PASS",
+          "edge": null,
+          "game": "Denver Nuggets @ New Orleans Pelicans",
+          "home_team": "New Orleans Pelicans",
+          "matchup": "Denver Nuggets @ New Orleans Pelicans",
+          "odds": -110,
+          "pick": "Total Over (239,5) (Denver Nuggets @ New Orleans Pelicans)",
+          "probability": null,
+          "scraped_tip_demoted": true,
+          "source": "Scores24NBA",
+          "source_decision": "BET",
+          "source_units": 1,
+          "source_url": "https://scores24.live/en/basketball/m-29-10-2026-new-orleans-pelicans-denver-nuggets-prediction",
+          "sport": "NBA",
+          "start_time": "2026-10-29T00:00Z",
+          "tip": "Total Over (239,5)",
+          "units": 0
+        },
+        {
           "away_team": "San Antonio Spurs",
           "date": "2026-10-28",
           "decision": "PASS",
@@ -2238,8 +2317,8 @@
           "game": "San Antonio Spurs @ Utah Jazz",
           "home_team": "Utah Jazz",
           "matchup": "San Antonio Spurs @ Utah Jazz",
-          "odds": -112,
-          "pick": "Total Under (234,5) (San Antonio Spurs @ Utah Jazz)",
+          "odds": -161,
+          "pick": "San Antonio Spurs Handicap (-9,5) (San Antonio Spurs @ Utah Jazz)",
           "probability": null,
           "scraped_tip_demoted": true,
           "source": "Scores24NBA",
@@ -2248,7 +2327,7 @@
           "source_url": "https://scores24.live/en/basketball/m-29-10-2026-utah-jazz-san-antonio-spurs-prediction",
           "sport": "NBA",
           "start_time": "2026-10-29T01:00Z",
-          "tip": "Total Under (234,5)",
+          "tip": "San Antonio Spurs Handicap (-9,5)",
           "units": 0
         },
         {
@@ -2275,7 +2354,7 @@
       ],
       "refreshStatus": "error",
       "scraped_tip_feed": true,
-      "updatedAt": "2026-10-28T11:55:27.033858Z"
+      "updatedAt": "2026-10-28T13:25:03.936016Z"
     },
     "scores24_nba_summer": {
       "date": "2026-09-09",
@@ -2308,11 +2387,11 @@
     },
     "scores24_nfl": {
       "date": "2026-10-28",
-      "generatedAt": "2026-10-28T11:53:56.215746Z",
+      "generatedAt": "2026-10-28T13:25:03.936016Z",
       "generatedBy": "local:external-feed-refresh",
-      "lastAttemptAt": "2026-10-28T11:53:56.215746Z",
+      "lastAttemptAt": "2026-10-28T13:25:03.936016Z",
       "lastAttemptDate": "2026-10-28",
-      "lastSuccessAt": "2026-10-28T11:53:56.215746Z",
+      "lastSuccessAt": "2026-10-28T13:25:03.936016Z",
       "meta": {
         "attemptedUrls": 0,
         "blockRetryRounds": 0,
@@ -2322,44 +2401,56 @@
         "expectedMatchups": 0,
         "feed": "scores24_nfl",
         "from": "local",
-        "leagues": "mlb,wnba,cfb,nfl,nba",
+        "leagues": "nba,mlb,wnba,cfb,nfl",
         "matchedPicks": 0,
         "missingMatchups": [],
         "officialMatchups": 0,
         "unpublishedMatchups": [],
-        "updatedAt": "2026-10-28T11:53:56.215746Z"
+        "updatedAt": "2026-10-28T13:25:03.936016Z"
       },
       "note": "Scores24NFL has no official 2026-10-28 matchups.",
       "ok": true,
       "picks": [],
       "refreshStatus": "ok",
-      "updatedAt": "2026-10-28T11:53:56.215746Z"
+      "updatedAt": "2026-10-28T13:25:03.936016Z"
     },
     "scores24_tennis": {
       "date": "2026-10-28",
-      "error": "Scores24Tennis stopped before finishing the 2026-10-28 slate (timeout); 2 pick(s) checkpointed.",
-      "generatedAt": "2026-10-28T11:59:39.139717Z",
+      "generatedAt": "2026-10-28T13:25:03.936016Z",
       "generatedBy": "local:external-feed-refresh",
-      "lastAttemptAt": "2026-10-28T11:59:39.139717Z",
+      "lastAttemptAt": "2026-10-28T13:25:03.936016Z",
       "lastAttemptDate": "2026-10-28",
-      "lastError": "Scores24Tennis stopped before finishing the 2026-10-28 slate (timeout); 2 pick(s) checkpointed.",
+      "lastSuccessAt": "2026-10-28T13:25:03.936016Z",
       "meta": {
-        "attemptedUrls": 13,
+        "attemptedUrls": 14,
         "blockedUrls": 0,
         "checkpointedPicks": 2,
         "date": "2026-10-28",
-        "expectedMatchups": 50,
+        "expectedMatchups": 2,
         "feed": "scores24_tennis",
         "from": "local",
         "interrupted": false,
-        "leagues": "mlb,wnba,cfb,nfl,nba",
+        "leagues": "nba,mlb,wnba,cfb,nfl",
         "listingResolved": true,
         "matchedPicks": 2,
         "missingMatchups": [],
-        "officialMatchups": 50,
+        "officialMatchups": 52,
         "resumedPicks": 0,
-        "timedOut": true,
-        "unattemptedMatchups": [
+        "timedOut": false,
+        "unattemptedMatchups": [],
+        "unpublishedMatchups": [
+          "Brandon Nakashima vs Tallon Griekspoor",
+          "Daniil Medvedev vs Daniel Merida",
+          "Frances Tiafoe vs Lorenzo Musetti",
+          "Adrian Mannarino vs Jakub Mensik",
+          "Alex de Minaur vs Learner Tien",
+          "Luciano Darderi vs Tommy Paul",
+          "Matteo Berrettini vs Flavio Cobolli",
+          "Jan-Lennard Struff vs Yannick Hanfmann",
+          "Denis Shapovalov vs Remy Bertola",
+          "Casper Ruud vs Nuno Borges",
+          "Ugo Humbert vs Novak Djokovic",
+          "Rinky Hijikata vs Taylor Fritz",
           "Rafael Jodar vs Valentin Vacherot",
           "Jiri Lehecka vs Daniel Altmaier",
           "Jerome Kym vs Ben Shelton",
@@ -2385,9 +2476,11 @@
           "Katarina Zavatska vs Laura Mair",
           "Caroline Werner vs Elsa Jacquemot",
           "Oksana Selekhmeteva vs Elizara Yaneva",
-          "Alina Charaeva vs Gabriela Knutson",
           "Noma Noha Akugue vs Linda Klimovicova",
+          "Alina Charaeva vs Gabriela Knutson",
           "Ayla Aksu vs Lucrezia Stefanini",
+          "Erika Andreeva vs Marina Bassols Ribera",
+          "Lisa Pigato vs Martyna Kubka",
           "Carole Monnet vs Carmen Andreea Herea",
           "Elizabeth Mandlik vs Selena Janicijevic",
           "Adriana Reami vs Fiona Ferro",
@@ -2397,24 +2490,10 @@
           "Martina Colmegna vs Tatjana Maria",
           "Bianca Andreescu vs Diletta Cherubini"
         ],
-        "unpublishedMatchups": [
-          "Brandon Nakashima vs Tallon Griekspoor",
-          "Daniil Medvedev vs Daniel Merida",
-          "Frances Tiafoe vs Lorenzo Musetti",
-          "Adrian Mannarino vs Jakub Mensik",
-          "Alex de Minaur vs Learner Tien",
-          "Luciano Darderi vs Tommy Paul",
-          "Matteo Berrettini vs Flavio Cobolli",
-          "Jan-Lennard Struff vs Yannick Hanfmann",
-          "Denis Shapovalov vs Remy Bertola",
-          "Casper Ruud vs Nuno Borges",
-          "Ugo Humbert vs Novak Djokovic",
-          "Rinky Hijikata vs Taylor Fritz"
-        ],
-        "updatedAt": "2026-10-28T11:59:39.139717Z"
+        "updatedAt": "2026-10-28T13:25:03.936016Z"
       },
-      "note": "Scores24Tennis matched 2 tennis prediction(s) against 50 official 2026-10-28 singles matchup(s).",
-      "ok": false,
+      "note": "Scores24Tennis matched 2 tennis prediction(s) against 52 official 2026-10-28 singles matchup(s).",
+      "ok": true,
       "picks": [
         {
           "away_team": "Nikoloz Basilashvili",
@@ -2471,17 +2550,17 @@
           "units": 0
         }
       ],
-      "refreshStatus": "error",
+      "refreshStatus": "ok",
       "scraped_tip_feed": true,
-      "updatedAt": "2026-10-28T11:59:39.139717Z"
+      "updatedAt": "2026-10-28T13:25:03.936016Z"
     },
     "scores24_wnba": {
       "date": "2026-10-28",
-      "generatedAt": "2026-10-28T11:48:13.628197Z",
+      "generatedAt": "2026-10-28T13:25:03.936016Z",
       "generatedBy": "local:external-feed-refresh",
-      "lastAttemptAt": "2026-10-28T11:48:13.628197Z",
+      "lastAttemptAt": "2026-10-28T13:25:03.936016Z",
       "lastAttemptDate": "2026-10-28",
-      "lastSuccessAt": "2026-10-28T11:48:13.628197Z",
+      "lastSuccessAt": "2026-10-28T13:25:03.936016Z",
       "meta": {
         "attemptedUrls": 0,
         "blockRetryRounds": 0,
@@ -2491,18 +2570,18 @@
         "expectedMatchups": 0,
         "feed": "scores24_wnba",
         "from": "local",
-        "leagues": "mlb,wnba,cfb,nfl,nba",
+        "leagues": "nba,mlb,wnba,cfb,nfl",
         "matchedPicks": 0,
         "missingMatchups": [],
         "officialMatchups": 0,
         "unpublishedMatchups": [],
-        "updatedAt": "2026-10-28T11:48:13.628197Z"
+        "updatedAt": "2026-10-28T13:25:03.936016Z"
       },
       "note": "Scores24WNBA has no official 2026-10-28 matchups.",
       "ok": true,
       "picks": [],
       "refreshStatus": "ok",
-      "updatedAt": "2026-10-28T11:48:13.628197Z"
+      "updatedAt": "2026-10-28T13:25:03.936016Z"
     },
     "sportsgambler_cfb": {
       "date": "2026-10-28",
@@ -15778,7 +15857,7 @@
           "sport": "MLB",
           "start_time": "2026-10-29T00:00:00Z",
           "team": "Milwaukee Brewers",
-          "units": 0.0,
+          "units": 0,
           "walk_forward_bootstrap": false,
           "walk_forward_roi": -0.49262497615593803,
           "walk_forward_samples": 33
@@ -22690,7 +22769,7 @@
             "source": "model-cache-refresh",
             "trusted": true
           },
-          "decision": "PASS",
+          "decision": "BET",
           "decision_basis": "model_conviction_pending_price",
           "edge": 13.17,
           "home_team": "Hawks",
@@ -22761,7 +22840,7 @@
           "sport": "NBA",
           "staking_policy": "awaiting_approved_holdout",
           "team": "Hawks",
-          "units": 0
+          "units": 1.5
         },
         {
           "assumed_odds_replaced": true,
@@ -23039,7 +23118,7 @@
             "source": "model-cache-refresh",
             "trusted": true
           },
-          "decision": "PASS",
+          "decision": "BET",
           "decision_basis": "model_conviction_pending_price",
           "edge": 9.25,
           "home_team": "Raptors",
@@ -23110,7 +23189,7 @@
           "sport": "NBA",
           "staking_policy": "awaiting_approved_holdout",
           "team": "Raptors",
-          "units": 0
+          "units": 1.5
         },
         {
           "assumed_odds_replaced": true,
@@ -23302,7 +23381,7 @@
             "source": "model-cache-refresh",
             "trusted": true
           },
-          "decision": "PASS",
+          "decision": "BET",
           "decision_basis": "model_conviction_pending_price",
           "edge": 13.17,
           "home_team": "Timberwolves",
@@ -23373,7 +23452,7 @@
           "sport": "NBA",
           "staking_policy": "awaiting_approved_holdout",
           "team": "Timberwolves",
-          "units": 0
+          "units": 1.5
         },
         {
           "away_team": "Nuggets",
@@ -23541,7 +23620,7 @@
             "source": "model-cache-refresh",
             "trusted": true
           },
-          "decision": "PASS",
+          "decision": "LEAN",
           "decision_basis": "model_conviction_pending_price",
           "edge": 5.3,
           "home_team": "Mavericks",
@@ -23612,7 +23691,7 @@
           "sport": "NBA",
           "staking_policy": "awaiting_approved_holdout",
           "team": "Thunder",
-          "units": 0
+          "units": 1.5
         },
         {
           "assumed_odds_replaced": true,
@@ -23632,7 +23711,7 @@
             "source": "model-cache-refresh",
             "trusted": true
           },
-          "decision": "PASS",
+          "decision": "BET",
           "decision_basis": "model_conviction_pending_price",
           "edge": 7.79,
           "home_team": "Clippers",
@@ -23703,7 +23782,7 @@
           "sport": "NBA",
           "staking_policy": "awaiting_approved_holdout",
           "team": "Lakers",
-          "units": 0
+          "units": 1.5
         }
       ],
       "prediction_model_version": "nba:334626a85bb02ded",
@@ -46206,14 +46285,13 @@
     },
     "scores24_cfb": {
       "date": "2026-10-28",
-      "error": "Scores24CFB scrape timed out after 160s with 1 matched pick(s) of 2 official matchup(s)",
-      "generatedAt": "2026-10-28T11:49:44.332211Z",
+      "generatedAt": "2026-10-28T13:25:03.936016Z",
       "generatedBy": "local:external-feed-refresh",
-      "lastAttemptAt": "2026-10-28T11:49:44.332211Z",
+      "lastAttemptAt": "2026-10-28T13:25:03.936016Z",
       "lastAttemptDate": "2026-10-28",
-      "lastError": "Scores24CFB scrape timed out after 160s with 1 matched pick(s) of 2 official matchup(s)",
+      "lastSuccessAt": "2026-10-28T13:25:03.936016Z",
       "meta": {
-        "attemptedUrls": 10,
+        "attemptedUrls": 2,
         "blockRetryRounds": 0,
         "blockedUrls": 0,
         "checkpointedPicks": 0,
@@ -46221,20 +46299,18 @@
         "expectedMatchups": 2,
         "feed": "scores24_cfb",
         "from": "local",
-        "leagues": "mlb,wnba,cfb,nfl,nba",
+        "leagues": "nba,mlb,wnba,cfb,nfl",
+        "listingLinks": 8,
         "listingResolved": true,
         "listingUrlsAttempted": 3,
-        "matchedPicks": 1,
-        "missingMatchups": [
-          "Jacksonville State Gamecocks @ New Mexico State Aggies"
-        ],
+        "matchedPicks": 2,
+        "missingMatchups": [],
         "officialMatchups": 2,
-        "timedOut": true,
         "unpublishedMatchups": [],
-        "updatedAt": "2026-10-28T11:49:44.332211Z"
+        "updatedAt": "2026-10-28T13:25:03.936016Z"
       },
-      "note": "Scheduled scores24_cfb refresh returned 1 pick(s).",
-      "ok": false,
+      "note": "Scores24CFB matched 2 published editorial choice(s) against 2 official 2026-10-28 matchup(s).",
+      "ok": true,
       "picks": [
         {
           "away_team": "Kennesaw State Owls",
@@ -46277,19 +46353,61 @@
           "start_time": "2026-10-28T23:00Z",
           "tip": "Middle Tennessee Blue Raiders Total Over (26,5)",
           "units": 0
+        },
+        {
+          "away_team": "Jacksonville State Gamecocks",
+          "date": "2026-10-28",
+          "decision": "PASS",
+          "edge": null,
+          "game": "Jacksonville State Gamecocks @ New Mexico State Aggies",
+          "home_team": "New Mexico State Aggies",
+          "matchup": "Jacksonville State Gamecocks @ New Mexico State Aggies",
+          "odds": 100,
+          "pick": "Total Over (51,5) (Jacksonville State Gamecocks @ New Mexico State Aggies)",
+          "pregame_snapshot": {
+            "away_team": "Jacksonville State Gamecocks",
+            "date": "2026-10-28",
+            "decision": "PASS",
+            "edge": null,
+            "game": "Jacksonville State Gamecocks @ New Mexico State Aggies",
+            "home_team": "New Mexico State Aggies",
+            "matchup": "Jacksonville State Gamecocks @ New Mexico State Aggies",
+            "odds": 100,
+            "pick": "Total Over (51,5) (Jacksonville State Gamecocks @ New Mexico State Aggies)",
+            "probability": null,
+            "scraped_tip_demoted": true,
+            "source": "Scores24CFB",
+            "source_decision": "BET",
+            "source_units": 1,
+            "source_url": "https://scores24.live/en/american-football/m-28-10-2026-new-mexico-state-aggies-jacksonville-state-gamecocks-prediction",
+            "sport": "CFB",
+            "start_time": "2026-10-29T00:00Z",
+            "tip": "Total Over (51,5)",
+            "units": 0
+          },
+          "probability": null,
+          "scraped_tip_demoted": true,
+          "source": "Scores24CFB",
+          "source_decision": "BET",
+          "source_units": 1,
+          "source_url": "https://scores24.live/en/american-football/m-28-10-2026-new-mexico-state-aggies-jacksonville-state-gamecocks-prediction",
+          "sport": "CFB",
+          "start_time": "2026-10-29T00:00Z",
+          "tip": "Total Over (51,5)",
+          "units": 0
         }
       ],
-      "refreshStatus": "error",
+      "refreshStatus": "ok",
       "scraped_tip_feed": true,
-      "updatedAt": "2026-10-28T11:49:44.332211Z"
+      "updatedAt": "2026-10-28T13:25:03.936016Z"
     },
     "scores24_mlb": {
       "date": "2026-10-28",
-      "generatedAt": "2026-10-28T11:46:23.813301Z",
+      "generatedAt": "2026-10-28T13:25:03.936016Z",
       "generatedBy": "local:external-feed-refresh",
-      "lastAttemptAt": "2026-10-28T11:46:23.813301Z",
+      "lastAttemptAt": "2026-10-28T13:25:03.936016Z",
       "lastAttemptDate": "2026-10-28",
-      "lastSuccessAt": "2026-10-28T11:46:23.813301Z",
+      "lastSuccessAt": "2026-10-28T13:25:03.936016Z",
       "meta": {
         "attemptedUrls": 1,
         "blockRetryRounds": 0,
@@ -46299,7 +46417,7 @@
         "expectedMatchups": 1,
         "feed": "scores24_mlb",
         "from": "local",
-        "leagues": "mlb,wnba,cfb,nfl,nba",
+        "leagues": "nba,mlb,wnba,cfb,nfl",
         "listingLinks": 6,
         "listingResolved": true,
         "listingUrlsAttempted": 1,
@@ -46307,7 +46425,7 @@
         "missingMatchups": [],
         "officialMatchups": 1,
         "unpublishedMatchups": [],
-        "updatedAt": "2026-10-28T11:46:23.813301Z"
+        "updatedAt": "2026-10-28T13:25:03.936016Z"
       },
       "note": "Scores24MLB matched 1 published editorial choice(s) against 1 official 2026-10-28 matchup(s).",
       "ok": true,
@@ -46365,18 +46483,18 @@
       ],
       "refreshStatus": "ok",
       "scraped_tip_feed": true,
-      "updatedAt": "2026-10-28T11:46:23.813301Z"
+      "updatedAt": "2026-10-28T13:25:03.936016Z"
     },
     "scores24_nba": {
       "date": "2026-10-28",
-      "error": "Scores24NBA scrape timed out after 160s with 8 matched pick(s) of 12 official matchup(s)",
-      "generatedAt": "2026-10-28T11:55:27.033858Z",
+      "error": "Scores24NBA has 1 unmatched official 2026-10-28 matchup(s); retry will resume the same-day checkpoint",
+      "generatedAt": "2026-10-28T13:25:03.936016Z",
       "generatedBy": "local:external-feed-refresh",
-      "lastAttemptAt": "2026-10-28T11:55:27.033858Z",
+      "lastAttemptAt": "2026-10-28T13:25:03.936016Z",
       "lastAttemptDate": "2026-10-28",
-      "lastError": "Scores24NBA scrape timed out after 160s with 8 matched pick(s) of 12 official matchup(s)",
+      "lastError": "Scores24NBA has 1 unmatched official 2026-10-28 matchup(s); retry will resume the same-day checkpoint",
       "meta": {
-        "attemptedUrls": 10,
+        "attemptedUrls": 23,
         "blockRetryRounds": 0,
         "blockedUrls": 0,
         "checkpointedPicks": 0,
@@ -46384,22 +46502,19 @@
         "expectedMatchups": 12,
         "feed": "scores24_nba",
         "from": "local",
-        "leagues": "mlb,wnba,cfb,nfl,nba",
+        "leagues": "nba,mlb,wnba,cfb,nfl",
         "listingResolved": true,
         "listingUrlsAttempted": 3,
-        "matchedPicks": 8,
+        "matchedPicks": 11,
         "missingMatchups": [
-          "Houston Rockets @ Milwaukee Bucks",
-          "Golden State Warriors @ Minnesota Timberwolves",
-          "Denver Nuggets @ New Orleans Pelicans",
           "Los Angeles Lakers @ LA Clippers"
         ],
         "officialMatchups": 12,
         "timedOut": true,
         "unpublishedMatchups": [],
-        "updatedAt": "2026-10-28T11:55:27.033858Z"
+        "updatedAt": "2026-10-28T13:25:03.936016Z"
       },
-      "note": "Scheduled scores24_nba refresh returned 8 pick(s).",
+      "note": "Scheduled scores24_nba refresh returned 11 pick(s).",
       "ok": false,
       "picks": [
         {
@@ -46602,8 +46717,8 @@
           "game": "Orlando Magic @ Toronto Raptors",
           "home_team": "Toronto Raptors",
           "matchup": "Orlando Magic @ Toronto Raptors",
-          "odds": -154,
-          "pick": "Total Under (226,5) (Orlando Magic @ Toronto Raptors)",
+          "odds": -200,
+          "pick": "Toronto Raptors ML (Orlando Magic @ Toronto Raptors)",
           "pregame_snapshot": {
             "away_team": "Orlando Magic",
             "date": "2026-10-28",
@@ -46612,8 +46727,8 @@
             "game": "Orlando Magic @ Toronto Raptors",
             "home_team": "Toronto Raptors",
             "matchup": "Orlando Magic @ Toronto Raptors",
-            "odds": -154,
-            "pick": "Total Under (226,5) (Orlando Magic @ Toronto Raptors)",
+            "odds": -200,
+            "pick": "Toronto Raptors ML (Orlando Magic @ Toronto Raptors)",
             "probability": null,
             "scraped_tip_demoted": true,
             "source": "Scores24NBA",
@@ -46622,7 +46737,7 @@
             "source_url": "https://scores24.live/en/basketball/m-28-10-2026-toronto-raptors-orlando-magic-prediction",
             "sport": "NBA",
             "start_time": "2026-10-28T23:30Z",
-            "tip": "Total Under (226,5)",
+            "tip": "Toronto Raptors Win",
             "units": 0
           },
           "probability": null,
@@ -46633,7 +46748,7 @@
           "source_url": "https://scores24.live/en/basketball/m-28-10-2026-toronto-raptors-orlando-magic-prediction",
           "sport": "NBA",
           "start_time": "2026-10-28T23:30Z",
-          "tip": "Total Under (226,5)",
+          "tip": "Toronto Raptors Win",
           "units": 0
         },
         {
@@ -46679,6 +46794,132 @@
           "units": 0
         },
         {
+          "away_team": "Houston Rockets",
+          "date": "2026-10-28",
+          "decision": "PASS",
+          "edge": null,
+          "game": "Houston Rockets @ Milwaukee Bucks",
+          "home_team": "Milwaukee Bucks",
+          "matchup": "Houston Rockets @ Milwaukee Bucks",
+          "odds": -109,
+          "pick": "Milwaukee Bucks Handicap (+7,5) (Houston Rockets @ Milwaukee Bucks)",
+          "pregame_snapshot": {
+            "away_team": "Houston Rockets",
+            "date": "2026-10-28",
+            "decision": "PASS",
+            "edge": null,
+            "game": "Houston Rockets @ Milwaukee Bucks",
+            "home_team": "Milwaukee Bucks",
+            "matchup": "Houston Rockets @ Milwaukee Bucks",
+            "odds": -109,
+            "pick": "Milwaukee Bucks Handicap (+7,5) (Houston Rockets @ Milwaukee Bucks)",
+            "probability": null,
+            "scraped_tip_demoted": true,
+            "source": "Scores24NBA",
+            "source_decision": "BET",
+            "source_units": 1,
+            "source_url": "https://scores24.live/en/basketball/m-29-10-2026-milwaukee-bucks-houston-rockets-prediction",
+            "sport": "NBA",
+            "start_time": "2026-10-29T00:00Z",
+            "tip": "Milwaukee Bucks Handicap (+7,5)",
+            "units": 0
+          },
+          "probability": null,
+          "scraped_tip_demoted": true,
+          "source": "Scores24NBA",
+          "source_decision": "BET",
+          "source_units": 1,
+          "source_url": "https://scores24.live/en/basketball/m-29-10-2026-milwaukee-bucks-houston-rockets-prediction",
+          "sport": "NBA",
+          "start_time": "2026-10-29T00:00Z",
+          "tip": "Milwaukee Bucks Handicap (+7,5)",
+          "units": 0
+        },
+        {
+          "away_team": "Golden State Warriors",
+          "date": "2026-10-28",
+          "decision": "PASS",
+          "edge": null,
+          "game": "Golden State Warriors @ Minnesota Timberwolves",
+          "home_team": "Minnesota Timberwolves",
+          "matchup": "Golden State Warriors @ Minnesota Timberwolves",
+          "odds": -182,
+          "pick": "Golden State Warriors Handicap (+9,5) (Golden State Warriors @ Minnesota Timberwolves)",
+          "pregame_snapshot": {
+            "away_team": "Golden State Warriors",
+            "date": "2026-10-28",
+            "decision": "PASS",
+            "edge": null,
+            "game": "Golden State Warriors @ Minnesota Timberwolves",
+            "home_team": "Minnesota Timberwolves",
+            "matchup": "Golden State Warriors @ Minnesota Timberwolves",
+            "odds": -182,
+            "pick": "Golden State Warriors Handicap (+9,5) (Golden State Warriors @ Minnesota Timberwolves)",
+            "probability": null,
+            "scraped_tip_demoted": true,
+            "source": "Scores24NBA",
+            "source_decision": "BET",
+            "source_units": 1,
+            "source_url": "https://scores24.live/en/basketball/m-29-10-2026-minnesota-timberwolves-golden-state-warriors-prediction",
+            "sport": "NBA",
+            "start_time": "2026-10-29T00:00Z",
+            "tip": "Golden State Warriors Handicap (+9,5)",
+            "units": 0
+          },
+          "probability": null,
+          "scraped_tip_demoted": true,
+          "source": "Scores24NBA",
+          "source_decision": "BET",
+          "source_units": 1,
+          "source_url": "https://scores24.live/en/basketball/m-29-10-2026-minnesota-timberwolves-golden-state-warriors-prediction",
+          "sport": "NBA",
+          "start_time": "2026-10-29T00:00Z",
+          "tip": "Golden State Warriors Handicap (+9,5)",
+          "units": 0
+        },
+        {
+          "away_team": "Denver Nuggets",
+          "date": "2026-10-28",
+          "decision": "PASS",
+          "edge": null,
+          "game": "Denver Nuggets @ New Orleans Pelicans",
+          "home_team": "New Orleans Pelicans",
+          "matchup": "Denver Nuggets @ New Orleans Pelicans",
+          "odds": -110,
+          "pick": "Total Over (239,5) (Denver Nuggets @ New Orleans Pelicans)",
+          "pregame_snapshot": {
+            "away_team": "Denver Nuggets",
+            "date": "2026-10-28",
+            "decision": "PASS",
+            "edge": null,
+            "game": "Denver Nuggets @ New Orleans Pelicans",
+            "home_team": "New Orleans Pelicans",
+            "matchup": "Denver Nuggets @ New Orleans Pelicans",
+            "odds": -110,
+            "pick": "Total Over (239,5) (Denver Nuggets @ New Orleans Pelicans)",
+            "probability": null,
+            "scraped_tip_demoted": true,
+            "source": "Scores24NBA",
+            "source_decision": "BET",
+            "source_units": 1,
+            "source_url": "https://scores24.live/en/basketball/m-29-10-2026-new-orleans-pelicans-denver-nuggets-prediction",
+            "sport": "NBA",
+            "start_time": "2026-10-29T00:00Z",
+            "tip": "Total Over (239,5)",
+            "units": 0
+          },
+          "probability": null,
+          "scraped_tip_demoted": true,
+          "source": "Scores24NBA",
+          "source_decision": "BET",
+          "source_units": 1,
+          "source_url": "https://scores24.live/en/basketball/m-29-10-2026-new-orleans-pelicans-denver-nuggets-prediction",
+          "sport": "NBA",
+          "start_time": "2026-10-29T00:00Z",
+          "tip": "Total Over (239,5)",
+          "units": 0
+        },
+        {
           "away_team": "San Antonio Spurs",
           "date": "2026-10-28",
           "decision": "PASS",
@@ -46686,8 +46927,8 @@
           "game": "San Antonio Spurs @ Utah Jazz",
           "home_team": "Utah Jazz",
           "matchup": "San Antonio Spurs @ Utah Jazz",
-          "odds": -112,
-          "pick": "Total Under (234,5) (San Antonio Spurs @ Utah Jazz)",
+          "odds": -161,
+          "pick": "San Antonio Spurs Handicap (-9,5) (San Antonio Spurs @ Utah Jazz)",
           "pregame_snapshot": {
             "away_team": "San Antonio Spurs",
             "date": "2026-10-28",
@@ -46696,8 +46937,8 @@
             "game": "San Antonio Spurs @ Utah Jazz",
             "home_team": "Utah Jazz",
             "matchup": "San Antonio Spurs @ Utah Jazz",
-            "odds": -112,
-            "pick": "Total Under (234,5) (San Antonio Spurs @ Utah Jazz)",
+            "odds": -161,
+            "pick": "San Antonio Spurs Handicap (-9,5) (San Antonio Spurs @ Utah Jazz)",
             "probability": null,
             "scraped_tip_demoted": true,
             "source": "Scores24NBA",
@@ -46706,7 +46947,7 @@
             "source_url": "https://scores24.live/en/basketball/m-29-10-2026-utah-jazz-san-antonio-spurs-prediction",
             "sport": "NBA",
             "start_time": "2026-10-29T01:00Z",
-            "tip": "Total Under (234,5)",
+            "tip": "San Antonio Spurs Handicap (-9,5)",
             "units": 0
           },
           "probability": null,
@@ -46717,7 +46958,7 @@
           "source_url": "https://scores24.live/en/basketball/m-29-10-2026-utah-jazz-san-antonio-spurs-prediction",
           "sport": "NBA",
           "start_time": "2026-10-29T01:00Z",
-          "tip": "Total Under (234,5)",
+          "tip": "San Antonio Spurs Handicap (-9,5)",
           "units": 0
         },
         {
@@ -46765,15 +47006,15 @@
       ],
       "refreshStatus": "error",
       "scraped_tip_feed": true,
-      "updatedAt": "2026-10-28T11:55:27.033858Z"
+      "updatedAt": "2026-10-28T13:25:03.936016Z"
     },
     "scores24_nfl": {
       "date": "2026-10-28",
-      "generatedAt": "2026-10-28T11:53:56.215746Z",
+      "generatedAt": "2026-10-28T13:25:03.936016Z",
       "generatedBy": "local:external-feed-refresh",
-      "lastAttemptAt": "2026-10-28T11:53:56.215746Z",
+      "lastAttemptAt": "2026-10-28T13:25:03.936016Z",
       "lastAttemptDate": "2026-10-28",
-      "lastSuccessAt": "2026-10-28T11:53:56.215746Z",
+      "lastSuccessAt": "2026-10-28T13:25:03.936016Z",
       "meta": {
         "attemptedUrls": 0,
         "blockRetryRounds": 0,
@@ -46783,44 +47024,56 @@
         "expectedMatchups": 0,
         "feed": "scores24_nfl",
         "from": "local",
-        "leagues": "mlb,wnba,cfb,nfl,nba",
+        "leagues": "nba,mlb,wnba,cfb,nfl",
         "matchedPicks": 0,
         "missingMatchups": [],
         "officialMatchups": 0,
         "unpublishedMatchups": [],
-        "updatedAt": "2026-10-28T11:53:56.215746Z"
+        "updatedAt": "2026-10-28T13:25:03.936016Z"
       },
       "note": "Scores24NFL has no official 2026-10-28 matchups.",
       "ok": true,
       "picks": [],
       "refreshStatus": "ok",
-      "updatedAt": "2026-10-28T11:53:56.215746Z"
+      "updatedAt": "2026-10-28T13:25:03.936016Z"
     },
     "scores24_tennis": {
       "date": "2026-10-28",
-      "error": "Scores24Tennis stopped before finishing the 2026-10-28 slate (timeout); 2 pick(s) checkpointed.",
-      "generatedAt": "2026-10-28T11:59:39.139717Z",
+      "generatedAt": "2026-10-28T13:25:03.936016Z",
       "generatedBy": "local:external-feed-refresh",
-      "lastAttemptAt": "2026-10-28T11:59:39.139717Z",
+      "lastAttemptAt": "2026-10-28T13:25:03.936016Z",
       "lastAttemptDate": "2026-10-28",
-      "lastError": "Scores24Tennis stopped before finishing the 2026-10-28 slate (timeout); 2 pick(s) checkpointed.",
+      "lastSuccessAt": "2026-10-28T13:25:03.936016Z",
       "meta": {
-        "attemptedUrls": 13,
+        "attemptedUrls": 14,
         "blockedUrls": 0,
         "checkpointedPicks": 2,
         "date": "2026-10-28",
-        "expectedMatchups": 50,
+        "expectedMatchups": 2,
         "feed": "scores24_tennis",
         "from": "local",
         "interrupted": false,
-        "leagues": "mlb,wnba,cfb,nfl,nba",
+        "leagues": "nba,mlb,wnba,cfb,nfl",
         "listingResolved": true,
         "matchedPicks": 2,
         "missingMatchups": [],
-        "officialMatchups": 50,
+        "officialMatchups": 52,
         "resumedPicks": 0,
-        "timedOut": true,
-        "unattemptedMatchups": [
+        "timedOut": false,
+        "unattemptedMatchups": [],
+        "unpublishedMatchups": [
+          "Brandon Nakashima vs Tallon Griekspoor",
+          "Daniil Medvedev vs Daniel Merida",
+          "Frances Tiafoe vs Lorenzo Musetti",
+          "Adrian Mannarino vs Jakub Mensik",
+          "Alex de Minaur vs Learner Tien",
+          "Luciano Darderi vs Tommy Paul",
+          "Matteo Berrettini vs Flavio Cobolli",
+          "Jan-Lennard Struff vs Yannick Hanfmann",
+          "Denis Shapovalov vs Remy Bertola",
+          "Casper Ruud vs Nuno Borges",
+          "Ugo Humbert vs Novak Djokovic",
+          "Rinky Hijikata vs Taylor Fritz",
           "Rafael Jodar vs Valentin Vacherot",
           "Jiri Lehecka vs Daniel Altmaier",
           "Jerome Kym vs Ben Shelton",
@@ -46846,9 +47099,11 @@
           "Katarina Zavatska vs Laura Mair",
           "Caroline Werner vs Elsa Jacquemot",
           "Oksana Selekhmeteva vs Elizara Yaneva",
-          "Alina Charaeva vs Gabriela Knutson",
           "Noma Noha Akugue vs Linda Klimovicova",
+          "Alina Charaeva vs Gabriela Knutson",
           "Ayla Aksu vs Lucrezia Stefanini",
+          "Erika Andreeva vs Marina Bassols Ribera",
+          "Lisa Pigato vs Martyna Kubka",
           "Carole Monnet vs Carmen Andreea Herea",
           "Elizabeth Mandlik vs Selena Janicijevic",
           "Adriana Reami vs Fiona Ferro",
@@ -46858,24 +47113,10 @@
           "Martina Colmegna vs Tatjana Maria",
           "Bianca Andreescu vs Diletta Cherubini"
         ],
-        "unpublishedMatchups": [
-          "Brandon Nakashima vs Tallon Griekspoor",
-          "Daniil Medvedev vs Daniel Merida",
-          "Frances Tiafoe vs Lorenzo Musetti",
-          "Adrian Mannarino vs Jakub Mensik",
-          "Alex de Minaur vs Learner Tien",
-          "Luciano Darderi vs Tommy Paul",
-          "Matteo Berrettini vs Flavio Cobolli",
-          "Jan-Lennard Struff vs Yannick Hanfmann",
-          "Denis Shapovalov vs Remy Bertola",
-          "Casper Ruud vs Nuno Borges",
-          "Ugo Humbert vs Novak Djokovic",
-          "Rinky Hijikata vs Taylor Fritz"
-        ],
-        "updatedAt": "2026-10-28T11:59:39.139717Z"
+        "updatedAt": "2026-10-28T13:25:03.936016Z"
       },
-      "note": "Scores24Tennis matched 2 tennis prediction(s) against 50 official 2026-10-28 singles matchup(s).",
-      "ok": false,
+      "note": "Scores24Tennis matched 2 tennis prediction(s) against 52 official 2026-10-28 singles matchup(s).",
+      "ok": true,
       "picks": [
         {
           "away_team": "Nikoloz Basilashvili",
@@ -46932,17 +47173,17 @@
           "units": 0
         }
       ],
-      "refreshStatus": "error",
+      "refreshStatus": "ok",
       "scraped_tip_feed": true,
-      "updatedAt": "2026-10-28T11:59:39.139717Z"
+      "updatedAt": "2026-10-28T13:25:03.936016Z"
     },
     "scores24_wnba": {
       "date": "2026-10-28",
-      "generatedAt": "2026-10-28T11:48:13.628197Z",
+      "generatedAt": "2026-10-28T13:25:03.936016Z",
       "generatedBy": "local:external-feed-refresh",
-      "lastAttemptAt": "2026-10-28T11:48:13.628197Z",
+      "lastAttemptAt": "2026-10-28T13:25:03.936016Z",
       "lastAttemptDate": "2026-10-28",
-      "lastSuccessAt": "2026-10-28T11:48:13.628197Z",
+      "lastSuccessAt": "2026-10-28T13:25:03.936016Z",
       "meta": {
         "attemptedUrls": 0,
         "blockRetryRounds": 0,
@@ -46952,18 +47193,18 @@
         "expectedMatchups": 0,
         "feed": "scores24_wnba",
         "from": "local",
-        "leagues": "mlb,wnba,cfb,nfl,nba",
+        "leagues": "nba,mlb,wnba,cfb,nfl",
         "matchedPicks": 0,
         "missingMatchups": [],
         "officialMatchups": 0,
         "unpublishedMatchups": [],
-        "updatedAt": "2026-10-28T11:48:13.628197Z"
+        "updatedAt": "2026-10-28T13:25:03.936016Z"
       },
       "note": "Scores24WNBA has no official 2026-10-28 matchups.",
       "ok": true,
       "picks": [],
       "refreshStatus": "ok",
-      "updatedAt": "2026-10-28T11:48:13.628197Z"
+      "updatedAt": "2026-10-28T13:25:03.936016Z"
     },
     "sportsgambler_cfb": {
       "date": "2026-10-28",
@@ -77181,17 +77422,16 @@
     "standings_date": "2026-04-17",
     "team_totals_without_mean": 0
   },
-  "publishedAt": "2026-10-28T12:15:13.585150Z",
+  "publishedAt": "2026-10-28T13:32:29.534240Z",
   "scores24_cfb": {
     "date": "2026-10-28",
-    "error": "Scores24CFB scrape timed out after 160s with 1 matched pick(s) of 2 official matchup(s)",
-    "generatedAt": "2026-10-28T11:49:44.332211Z",
+    "generatedAt": "2026-10-28T13:25:03.936016Z",
     "generatedBy": "local:external-feed-refresh",
-    "lastAttemptAt": "2026-10-28T11:49:44.332211Z",
+    "lastAttemptAt": "2026-10-28T13:25:03.936016Z",
     "lastAttemptDate": "2026-10-28",
-    "lastError": "Scores24CFB scrape timed out after 160s with 1 matched pick(s) of 2 official matchup(s)",
+    "lastSuccessAt": "2026-10-28T13:25:03.936016Z",
     "meta": {
-      "attemptedUrls": 10,
+      "attemptedUrls": 2,
       "blockRetryRounds": 0,
       "blockedUrls": 0,
       "checkpointedPicks": 0,
@@ -77199,20 +77439,18 @@
       "expectedMatchups": 2,
       "feed": "scores24_cfb",
       "from": "local",
-      "leagues": "mlb,wnba,cfb,nfl,nba",
+      "leagues": "nba,mlb,wnba,cfb,nfl",
+      "listingLinks": 8,
       "listingResolved": true,
       "listingUrlsAttempted": 3,
-      "matchedPicks": 1,
-      "missingMatchups": [
-        "Jacksonville State Gamecocks @ New Mexico State Aggies"
-      ],
+      "matchedPicks": 2,
+      "missingMatchups": [],
       "officialMatchups": 2,
-      "timedOut": true,
       "unpublishedMatchups": [],
-      "updatedAt": "2026-10-28T11:49:44.332211Z"
+      "updatedAt": "2026-10-28T13:25:03.936016Z"
     },
-    "note": "Scheduled scores24_cfb refresh returned 1 pick(s).",
-    "ok": false,
+    "note": "Scores24CFB matched 2 published editorial choice(s) against 2 official 2026-10-28 matchup(s).",
+    "ok": true,
     "picks": [
       {
         "away_team": "Kennesaw State Owls",
@@ -77234,19 +77472,40 @@
         "start_time": "2026-10-28T23:00Z",
         "tip": "Middle Tennessee Blue Raiders Total Over (26,5)",
         "units": 0
+      },
+      {
+        "away_team": "Jacksonville State Gamecocks",
+        "date": "2026-10-28",
+        "decision": "PASS",
+        "edge": null,
+        "game": "Jacksonville State Gamecocks @ New Mexico State Aggies",
+        "home_team": "New Mexico State Aggies",
+        "matchup": "Jacksonville State Gamecocks @ New Mexico State Aggies",
+        "odds": 100,
+        "pick": "Total Over (51,5) (Jacksonville State Gamecocks @ New Mexico State Aggies)",
+        "probability": null,
+        "scraped_tip_demoted": true,
+        "source": "Scores24CFB",
+        "source_decision": "BET",
+        "source_units": 1,
+        "source_url": "https://scores24.live/en/american-football/m-28-10-2026-new-mexico-state-aggies-jacksonville-state-gamecocks-prediction",
+        "sport": "CFB",
+        "start_time": "2026-10-29T00:00Z",
+        "tip": "Total Over (51,5)",
+        "units": 0
       }
     ],
-    "refreshStatus": "error",
+    "refreshStatus": "ok",
     "scraped_tip_feed": true,
-    "updatedAt": "2026-10-28T11:49:44.332211Z"
+    "updatedAt": "2026-10-28T13:25:03.936016Z"
   },
   "scores24_mlb": {
     "date": "2026-10-28",
-    "generatedAt": "2026-10-28T11:46:23.813301Z",
+    "generatedAt": "2026-10-28T13:25:03.936016Z",
     "generatedBy": "local:external-feed-refresh",
-    "lastAttemptAt": "2026-10-28T11:46:23.813301Z",
+    "lastAttemptAt": "2026-10-28T13:25:03.936016Z",
     "lastAttemptDate": "2026-10-28",
-    "lastSuccessAt": "2026-10-28T11:46:23.813301Z",
+    "lastSuccessAt": "2026-10-28T13:25:03.936016Z",
     "meta": {
       "attemptedUrls": 1,
       "blockRetryRounds": 0,
@@ -77256,7 +77515,7 @@
       "expectedMatchups": 1,
       "feed": "scores24_mlb",
       "from": "local",
-      "leagues": "mlb,wnba,cfb,nfl,nba",
+      "leagues": "nba,mlb,wnba,cfb,nfl",
       "listingLinks": 6,
       "listingResolved": true,
       "listingUrlsAttempted": 1,
@@ -77264,7 +77523,7 @@
       "missingMatchups": [],
       "officialMatchups": 1,
       "unpublishedMatchups": [],
-      "updatedAt": "2026-10-28T11:46:23.813301Z"
+      "updatedAt": "2026-10-28T13:25:03.936016Z"
     },
     "note": "Scores24MLB matched 1 published editorial choice(s) against 1 official 2026-10-28 matchup(s).",
     "ok": true,
@@ -77293,18 +77552,18 @@
     ],
     "refreshStatus": "ok",
     "scraped_tip_feed": true,
-    "updatedAt": "2026-10-28T11:46:23.813301Z"
+    "updatedAt": "2026-10-28T13:25:03.936016Z"
   },
   "scores24_nba": {
     "date": "2026-10-28",
-    "error": "Scores24NBA scrape timed out after 160s with 8 matched pick(s) of 12 official matchup(s)",
-    "generatedAt": "2026-10-28T11:55:27.033858Z",
+    "error": "Scores24NBA has 1 unmatched official 2026-10-28 matchup(s); retry will resume the same-day checkpoint",
+    "generatedAt": "2026-10-28T13:25:03.936016Z",
     "generatedBy": "local:external-feed-refresh",
-    "lastAttemptAt": "2026-10-28T11:55:27.033858Z",
+    "lastAttemptAt": "2026-10-28T13:25:03.936016Z",
     "lastAttemptDate": "2026-10-28",
-    "lastError": "Scores24NBA scrape timed out after 160s with 8 matched pick(s) of 12 official matchup(s)",
+    "lastError": "Scores24NBA has 1 unmatched official 2026-10-28 matchup(s); retry will resume the same-day checkpoint",
     "meta": {
-      "attemptedUrls": 10,
+      "attemptedUrls": 23,
       "blockRetryRounds": 0,
       "blockedUrls": 0,
       "checkpointedPicks": 0,
@@ -77312,22 +77571,19 @@
       "expectedMatchups": 12,
       "feed": "scores24_nba",
       "from": "local",
-      "leagues": "mlb,wnba,cfb,nfl,nba",
+      "leagues": "nba,mlb,wnba,cfb,nfl",
       "listingResolved": true,
       "listingUrlsAttempted": 3,
-      "matchedPicks": 8,
+      "matchedPicks": 11,
       "missingMatchups": [
-        "Houston Rockets @ Milwaukee Bucks",
-        "Golden State Warriors @ Minnesota Timberwolves",
-        "Denver Nuggets @ New Orleans Pelicans",
         "Los Angeles Lakers @ LA Clippers"
       ],
       "officialMatchups": 12,
       "timedOut": true,
       "unpublishedMatchups": [],
-      "updatedAt": "2026-10-28T11:55:27.033858Z"
+      "updatedAt": "2026-10-28T13:25:03.936016Z"
     },
-    "note": "Scheduled scores24_nba refresh returned 8 pick(s).",
+    "note": "Scheduled scores24_nba refresh returned 11 pick(s).",
     "ok": false,
     "picks": [
       {
@@ -77422,8 +77678,8 @@
         "game": "Orlando Magic @ Toronto Raptors",
         "home_team": "Toronto Raptors",
         "matchup": "Orlando Magic @ Toronto Raptors",
-        "odds": -154,
-        "pick": "Total Under (226,5) (Orlando Magic @ Toronto Raptors)",
+        "odds": -200,
+        "pick": "Toronto Raptors ML (Orlando Magic @ Toronto Raptors)",
         "probability": null,
         "scraped_tip_demoted": true,
         "source": "Scores24NBA",
@@ -77432,7 +77688,7 @@
         "source_url": "https://scores24.live/en/basketball/m-28-10-2026-toronto-raptors-orlando-magic-prediction",
         "sport": "NBA",
         "start_time": "2026-10-28T23:30Z",
-        "tip": "Total Under (226,5)",
+        "tip": "Toronto Raptors Win",
         "units": 0
       },
       {
@@ -77457,6 +77713,69 @@
         "units": 0
       },
       {
+        "away_team": "Houston Rockets",
+        "date": "2026-10-28",
+        "decision": "PASS",
+        "edge": null,
+        "game": "Houston Rockets @ Milwaukee Bucks",
+        "home_team": "Milwaukee Bucks",
+        "matchup": "Houston Rockets @ Milwaukee Bucks",
+        "odds": -109,
+        "pick": "Milwaukee Bucks Handicap (+7,5) (Houston Rockets @ Milwaukee Bucks)",
+        "probability": null,
+        "scraped_tip_demoted": true,
+        "source": "Scores24NBA",
+        "source_decision": "BET",
+        "source_units": 1,
+        "source_url": "https://scores24.live/en/basketball/m-29-10-2026-milwaukee-bucks-houston-rockets-prediction",
+        "sport": "NBA",
+        "start_time": "2026-10-29T00:00Z",
+        "tip": "Milwaukee Bucks Handicap (+7,5)",
+        "units": 0
+      },
+      {
+        "away_team": "Golden State Warriors",
+        "date": "2026-10-28",
+        "decision": "PASS",
+        "edge": null,
+        "game": "Golden State Warriors @ Minnesota Timberwolves",
+        "home_team": "Minnesota Timberwolves",
+        "matchup": "Golden State Warriors @ Minnesota Timberwolves",
+        "odds": -182,
+        "pick": "Golden State Warriors Handicap (+9,5) (Golden State Warriors @ Minnesota Timberwolves)",
+        "probability": null,
+        "scraped_tip_demoted": true,
+        "source": "Scores24NBA",
+        "source_decision": "BET",
+        "source_units": 1,
+        "source_url": "https://scores24.live/en/basketball/m-29-10-2026-minnesota-timberwolves-golden-state-warriors-prediction",
+        "sport": "NBA",
+        "start_time": "2026-10-29T00:00Z",
+        "tip": "Golden State Warriors Handicap (+9,5)",
+        "units": 0
+      },
+      {
+        "away_team": "Denver Nuggets",
+        "date": "2026-10-28",
+        "decision": "PASS",
+        "edge": null,
+        "game": "Denver Nuggets @ New Orleans Pelicans",
+        "home_team": "New Orleans Pelicans",
+        "matchup": "Denver Nuggets @ New Orleans Pelicans",
+        "odds": -110,
+        "pick": "Total Over (239,5) (Denver Nuggets @ New Orleans Pelicans)",
+        "probability": null,
+        "scraped_tip_demoted": true,
+        "source": "Scores24NBA",
+        "source_decision": "BET",
+        "source_units": 1,
+        "source_url": "https://scores24.live/en/basketball/m-29-10-2026-new-orleans-pelicans-denver-nuggets-prediction",
+        "sport": "NBA",
+        "start_time": "2026-10-29T00:00Z",
+        "tip": "Total Over (239,5)",
+        "units": 0
+      },
+      {
         "away_team": "San Antonio Spurs",
         "date": "2026-10-28",
         "decision": "PASS",
@@ -77464,8 +77783,8 @@
         "game": "San Antonio Spurs @ Utah Jazz",
         "home_team": "Utah Jazz",
         "matchup": "San Antonio Spurs @ Utah Jazz",
-        "odds": -112,
-        "pick": "Total Under (234,5) (San Antonio Spurs @ Utah Jazz)",
+        "odds": -161,
+        "pick": "San Antonio Spurs Handicap (-9,5) (San Antonio Spurs @ Utah Jazz)",
         "probability": null,
         "scraped_tip_demoted": true,
         "source": "Scores24NBA",
@@ -77474,7 +77793,7 @@
         "source_url": "https://scores24.live/en/basketball/m-29-10-2026-utah-jazz-san-antonio-spurs-prediction",
         "sport": "NBA",
         "start_time": "2026-10-29T01:00Z",
-        "tip": "Total Under (234,5)",
+        "tip": "San Antonio Spurs Handicap (-9,5)",
         "units": 0
       },
       {
@@ -77501,15 +77820,15 @@
     ],
     "refreshStatus": "error",
     "scraped_tip_feed": true,
-    "updatedAt": "2026-10-28T11:55:27.033858Z"
+    "updatedAt": "2026-10-28T13:25:03.936016Z"
   },
   "scores24_nfl": {
     "date": "2026-10-28",
-    "generatedAt": "2026-10-28T11:53:56.215746Z",
+    "generatedAt": "2026-10-28T13:25:03.936016Z",
     "generatedBy": "local:external-feed-refresh",
-    "lastAttemptAt": "2026-10-28T11:53:56.215746Z",
+    "lastAttemptAt": "2026-10-28T13:25:03.936016Z",
     "lastAttemptDate": "2026-10-28",
-    "lastSuccessAt": "2026-10-28T11:53:56.215746Z",
+    "lastSuccessAt": "2026-10-28T13:25:03.936016Z",
     "meta": {
       "attemptedUrls": 0,
       "blockRetryRounds": 0,
@@ -77519,44 +77838,56 @@
       "expectedMatchups": 0,
       "feed": "scores24_nfl",
       "from": "local",
-      "leagues": "mlb,wnba,cfb,nfl,nba",
+      "leagues": "nba,mlb,wnba,cfb,nfl",
       "matchedPicks": 0,
       "missingMatchups": [],
       "officialMatchups": 0,
       "unpublishedMatchups": [],
-      "updatedAt": "2026-10-28T11:53:56.215746Z"
+      "updatedAt": "2026-10-28T13:25:03.936016Z"
     },
     "note": "Scores24NFL has no official 2026-10-28 matchups.",
     "ok": true,
     "picks": [],
     "refreshStatus": "ok",
-    "updatedAt": "2026-10-28T11:53:56.215746Z"
+    "updatedAt": "2026-10-28T13:25:03.936016Z"
   },
   "scores24_tennis": {
     "date": "2026-10-28",
-    "error": "Scores24Tennis stopped before finishing the 2026-10-28 slate (timeout); 2 pick(s) checkpointed.",
-    "generatedAt": "2026-10-28T11:59:39.139717Z",
+    "generatedAt": "2026-10-28T13:25:03.936016Z",
     "generatedBy": "local:external-feed-refresh",
-    "lastAttemptAt": "2026-10-28T11:59:39.139717Z",
+    "lastAttemptAt": "2026-10-28T13:25:03.936016Z",
     "lastAttemptDate": "2026-10-28",
-    "lastError": "Scores24Tennis stopped before finishing the 2026-10-28 slate (timeout); 2 pick(s) checkpointed.",
+    "lastSuccessAt": "2026-10-28T13:25:03.936016Z",
     "meta": {
-      "attemptedUrls": 13,
+      "attemptedUrls": 14,
       "blockedUrls": 0,
       "checkpointedPicks": 2,
       "date": "2026-10-28",
-      "expectedMatchups": 50,
+      "expectedMatchups": 2,
       "feed": "scores24_tennis",
       "from": "local",
       "interrupted": false,
-      "leagues": "mlb,wnba,cfb,nfl,nba",
+      "leagues": "nba,mlb,wnba,cfb,nfl",
       "listingResolved": true,
       "matchedPicks": 2,
       "missingMatchups": [],
-      "officialMatchups": 50,
+      "officialMatchups": 52,
       "resumedPicks": 0,
-      "timedOut": true,
-      "unattemptedMatchups": [
+      "timedOut": false,
+      "unattemptedMatchups": [],
+      "unpublishedMatchups": [
+        "Brandon Nakashima vs Tallon Griekspoor",
+        "Daniil Medvedev vs Daniel Merida",
+        "Frances Tiafoe vs Lorenzo Musetti",
+        "Adrian Mannarino vs Jakub Mensik",
+        "Alex de Minaur vs Learner Tien",
+        "Luciano Darderi vs Tommy Paul",
+        "Matteo Berrettini vs Flavio Cobolli",
+        "Jan-Lennard Struff vs Yannick Hanfmann",
+        "Denis Shapovalov vs Remy Bertola",
+        "Casper Ruud vs Nuno Borges",
+        "Ugo Humbert vs Novak Djokovic",
+        "Rinky Hijikata vs Taylor Fritz",
         "Rafael Jodar vs Valentin Vacherot",
         "Jiri Lehecka vs Daniel Altmaier",
         "Jerome Kym vs Ben Shelton",
@@ -77582,9 +77913,11 @@
         "Katarina Zavatska vs Laura Mair",
         "Caroline Werner vs Elsa Jacquemot",
         "Oksana Selekhmeteva vs Elizara Yaneva",
-        "Alina Charaeva vs Gabriela Knutson",
         "Noma Noha Akugue vs Linda Klimovicova",
+        "Alina Charaeva vs Gabriela Knutson",
         "Ayla Aksu vs Lucrezia Stefanini",
+        "Erika Andreeva vs Marina Bassols Ribera",
+        "Lisa Pigato vs Martyna Kubka",
         "Carole Monnet vs Carmen Andreea Herea",
         "Elizabeth Mandlik vs Selena Janicijevic",
         "Adriana Reami vs Fiona Ferro",
@@ -77594,24 +77927,10 @@
         "Martina Colmegna vs Tatjana Maria",
         "Bianca Andreescu vs Diletta Cherubini"
       ],
-      "unpublishedMatchups": [
-        "Brandon Nakashima vs Tallon Griekspoor",
-        "Daniil Medvedev vs Daniel Merida",
-        "Frances Tiafoe vs Lorenzo Musetti",
-        "Adrian Mannarino vs Jakub Mensik",
-        "Alex de Minaur vs Learner Tien",
-        "Luciano Darderi vs Tommy Paul",
-        "Matteo Berrettini vs Flavio Cobolli",
-        "Jan-Lennard Struff vs Yannick Hanfmann",
-        "Denis Shapovalov vs Remy Bertola",
-        "Casper Ruud vs Nuno Borges",
-        "Ugo Humbert vs Novak Djokovic",
-        "Rinky Hijikata vs Taylor Fritz"
-      ],
-      "updatedAt": "2026-10-28T11:59:39.139717Z"
+      "updatedAt": "2026-10-28T13:25:03.936016Z"
     },
-    "note": "Scores24Tennis matched 2 tennis prediction(s) against 50 official 2026-10-28 singles matchup(s).",
-    "ok": false,
+    "note": "Scores24Tennis matched 2 tennis prediction(s) against 52 official 2026-10-28 singles matchup(s).",
+    "ok": true,
     "picks": [
       {
         "away_team": "Nikoloz Basilashvili",
@@ -77668,17 +77987,17 @@
         "units": 0
       }
     ],
-    "refreshStatus": "error",
+    "refreshStatus": "ok",
     "scraped_tip_feed": true,
-    "updatedAt": "2026-10-28T11:59:39.139717Z"
+    "updatedAt": "2026-10-28T13:25:03.936016Z"
   },
   "scores24_wnba": {
     "date": "2026-10-28",
-    "generatedAt": "2026-10-28T11:48:13.628197Z",
+    "generatedAt": "2026-10-28T13:25:03.936016Z",
     "generatedBy": "local:external-feed-refresh",
-    "lastAttemptAt": "2026-10-28T11:48:13.628197Z",
+    "lastAttemptAt": "2026-10-28T13:25:03.936016Z",
     "lastAttemptDate": "2026-10-28",
-    "lastSuccessAt": "2026-10-28T11:48:13.628197Z",
+    "lastSuccessAt": "2026-10-28T13:25:03.936016Z",
     "meta": {
       "attemptedUrls": 0,
       "blockRetryRounds": 0,
@@ -77688,18 +78007,18 @@
       "expectedMatchups": 0,
       "feed": "scores24_wnba",
       "from": "local",
-      "leagues": "mlb,wnba,cfb,nfl,nba",
+      "leagues": "nba,mlb,wnba,cfb,nfl",
       "matchedPicks": 0,
       "missingMatchups": [],
       "officialMatchups": 0,
       "unpublishedMatchups": [],
-      "updatedAt": "2026-10-28T11:48:13.628197Z"
+      "updatedAt": "2026-10-28T13:25:03.936016Z"
     },
     "note": "Scores24WNBA has no official 2026-10-28 matchups.",
     "ok": true,
     "picks": [],
     "refreshStatus": "ok",
-    "updatedAt": "2026-10-28T11:48:13.628197Z"
+    "updatedAt": "2026-10-28T13:25:03.936016Z"
   },
   "sportsgambler_cfb": {
     "date": "2026-10-28",
@@ -79588,7 +79907,7 @@
     "scraped_tip_feed": true,
     "updatedAt": "2026-10-28T12:02:44.062354Z"
   },
-  "updatedAt": "2026-10-28T12:15:09.743084Z",
+  "updatedAt": "2026-10-28T13:25:03.936016Z",
   "wnba": {
     "date": "2026-10-28",
     "note": "No WNBA picks today \u2014 off-season or no edge found.",
