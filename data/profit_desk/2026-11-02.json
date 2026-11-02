@@ -168,6 +168,178 @@
     },
     {
       "blockers": [
+        "edge_insufficient_source_samples",
+        "edge_insufficient_segment_samples",
+        "edge_insufficient_distinct_prior_dates",
+        "edge_negative_chronological_evidence_half",
+        "edge_probability_positive_ev_below_0.80",
+        "edge_conservative_probability_margin_below_0.02",
+        "edge_non_positive_conservative_ev",
+        "value_insufficient_source_samples",
+        "value_insufficient_distinct_prior_dates",
+        "value_negative_chronological_evidence_half",
+        "value_non_positive_flat_roi",
+        "value_probability_positive_ev_below_0.70",
+        "value_insufficient_market_family_samples",
+        "value_insufficient_market_family_dates",
+        "value_negative_market_family_half",
+        "value_non_positive_market_family_roi",
+        "value_market_family_probability_positive_ev_below_0.70",
+        "awaiting_approved_holdout"
+      ],
+      "canonicalGame": "2026-11-02:nba:heat|lakers",
+      "consensusSources": [],
+      "date": "2026-11-02",
+      "decimalOdds": 1.8,
+      "decision": "PASS",
+      "dedupeRule": "exact_market_identity_best_executable_price",
+      "direction": "side",
+      "duplicateCount": 1,
+      "duplicateSources": [
+        "NBA New"
+      ],
+      "edgeQualified": false,
+      "estimate": {
+        "alpha": -0.012769,
+        "alphaStdError": 0.093062,
+        "breakEvenProbability": 0.555556,
+        "conservativeExpectedValue": -0.279216,
+        "expectedValue": -0.064542,
+        "lowerProbability": 0.400436,
+        "marketProbability": 0.532468,
+        "method": "market_baseline_plus_hierarchically_shrunk_prior_residual",
+        "probability": 0.519699,
+        "probabilityPositiveEv": 0.350007,
+        "sourceAlpha": -0.031464,
+        "value": {
+          "alpha": -0.031464,
+          "alphaStdError": 0.064836,
+          "conservativeExpectedValue": -0.206197,
+          "expectedValue": -0.056635,
+          "lowerProbability": 0.441002,
+          "method": "source_flat_roi_shrunk_residual_vs_break_even",
+          "probability": 0.524092,
+          "probabilityPositiveEv": 0.313737
+        }
+      },
+      "evidence": {
+        "chronologicalHalvesNonnegative": false,
+        "cutoffExclusive": "2026-11-02",
+        "distinctDates": 3,
+        "firstHalfFlatNetUnits": -1.0,
+        "flatNetUnits": 0.6388,
+        "flatRoi": 0.212932,
+        "losses": 1,
+        "marketFamilyChronologicalHalvesNonnegative": false,
+        "marketFamilyDistinctDates": 6,
+        "marketFamilyFirstHalfFlatNetUnits": -4.5268,
+        "marketFamilyFlatRoi": -0.269306,
+        "marketFamilyProbabilityPositiveEv": 0.313737,
+        "marketFamilySamples": 17,
+        "marketFamilySecondHalfFlatNetUnits": -0.0514,
+        "modelVersion": "source_identity:nba",
+        "policyVersion": "profit_desk_policy_v2",
+        "priorOnly": true,
+        "pushes": 0,
+        "secondHalfFlatNetUnits": 1.6388,
+        "segmentDistinctDates": 3,
+        "segmentEvidenceKey": "team|nba|nba|source_identity:nba|market|side|0.50_0.55",
+        "segmentSamples": 3,
+        "sourceChronologicalHalvesNonnegative": false,
+        "sourceDistinctDates": 6,
+        "sourceEvidenceKey": "team|nba|nba",
+        "sourceFirstHalfFlatNetUnits": -4.5268,
+        "sourceFlatNetUnits": -4.5782,
+        "sourceFlatRoi": -0.269306,
+        "sourceLosses": 10,
+        "sourceSamples": 17,
+        "sourceSecondHalfFlatNetUnits": -0.0514,
+        "sourceWins": 7,
+        "wins": 2
+      },
+      "game": "Heat @ Lakers",
+      "gradeSupportSource": "repository_grader_default",
+      "gradeSupported": true,
+      "id": "profit-365fb55f475ac22d7433b6f0",
+      "lane": null,
+      "laneBlockers": {
+        "edge": [
+          "edge_insufficient_source_samples",
+          "edge_insufficient_segment_samples",
+          "edge_insufficient_distinct_prior_dates",
+          "edge_negative_chronological_evidence_half",
+          "edge_probability_positive_ev_below_0.80",
+          "edge_conservative_probability_margin_below_0.02",
+          "edge_non_positive_conservative_ev"
+        ],
+        "structural": [],
+        "value": [
+          "value_insufficient_source_samples",
+          "value_insufficient_distinct_prior_dates",
+          "value_negative_chronological_evidence_half",
+          "value_non_positive_flat_roi",
+          "value_probability_positive_ev_below_0.70",
+          "value_insufficient_market_family_samples",
+          "value_insufficient_market_family_dates",
+          "value_negative_market_family_half",
+          "value_non_positive_market_family_roi",
+          "value_market_family_probability_positive_ev_below_0.70"
+        ]
+      },
+      "line": null,
+      "liveQualified": false,
+      "market": "market",
+      "marketFamily": "market",
+      "marketIdentity": "market:2ff7d8f938cbbef7832dca41",
+      "mode": "team",
+      "modelVersion": "source_identity:nba",
+      "oddsAmerican": -125,
+      "pick": "Lakers ML (Heat @ Lakers)",
+      "player": null,
+      "policyVersion": "profit_desk_policy_v2",
+      "price": {
+        "ageHours": 0.201,
+        "breakEvenProbability": 0.555556,
+        "decimalOdds": 1.8,
+        "eligibleForAlphaEstimate": true,
+        "fresh": true,
+        "freshPregame": true,
+        "maxAgeHours": 24.0,
+        "noVigInputs": {
+          "field": "market_no_vig_selected_probability"
+        },
+        "noVigMethod": "explicit:pick.market_no_vig_selected_probability",
+        "noVigProbability": 0.532468,
+        "noVigVerified": true,
+        "observedExecutable": true,
+        "oddsAmerican": -125,
+        "publishTime": "2026-11-02T16:16:59.442133Z",
+        "quality": "verified_no_vig",
+        "source": "espn_scoreboard:DraftKings",
+        "sourceField": "pick.price_source",
+        "startLeadHours": 10.918,
+        "startTime": "2026-11-03T03:00Z",
+        "tier": "A",
+        "tierLabel": "certified_executable",
+        "timestamp": "2026-11-02T16:04:56.653441Z",
+        "timestampField": "pick.market_updated_at",
+        "twoSided": true,
+        "updatedAt": "2026-11-02T16:04:56.653441Z"
+      },
+      "rawModelProbabilityIgnored": 0.75,
+      "result": "pending",
+      "shadowDecision": "BET",
+      "shadowOnly": true,
+      "shadowQualified": false,
+      "source": "NBA New",
+      "sourceKey": "nba",
+      "sport": "NBA",
+      "stakeUnits": 0.0,
+      "tier": "watch",
+      "valueQualified": false
+    },
+    {
+      "blockers": [
         "edge_negative_chronological_evidence_half",
         "edge_probability_positive_ev_below_0.80",
         "edge_conservative_probability_margin_below_0.02",
@@ -492,182 +664,6 @@
     },
     {
       "blockers": [
-        "missing_or_invalid_game_start_time",
-        "edge_insufficient_source_samples",
-        "edge_insufficient_segment_samples",
-        "edge_insufficient_distinct_prior_dates",
-        "edge_negative_chronological_evidence_half",
-        "edge_probability_positive_ev_below_0.80",
-        "edge_conservative_probability_margin_below_0.02",
-        "edge_non_positive_conservative_ev",
-        "value_insufficient_source_samples",
-        "value_insufficient_distinct_prior_dates",
-        "value_negative_chronological_evidence_half",
-        "value_non_positive_flat_roi",
-        "value_probability_positive_ev_below_0.70",
-        "value_insufficient_market_family_samples",
-        "value_insufficient_market_family_dates",
-        "value_negative_market_family_half",
-        "value_non_positive_market_family_roi",
-        "value_market_family_probability_positive_ev_below_0.70",
-        "awaiting_approved_holdout"
-      ],
-      "canonicalGame": "2026-11-02:nba:heat|lakers",
-      "consensusSources": [],
-      "date": "2026-11-02",
-      "decimalOdds": 1.8,
-      "decision": "PASS",
-      "dedupeRule": "exact_market_identity_best_executable_price",
-      "direction": "side",
-      "duplicateCount": 1,
-      "duplicateSources": [
-        "NBA New"
-      ],
-      "edgeQualified": false,
-      "estimate": {
-        "alpha": -0.012769,
-        "alphaStdError": 0.093062,
-        "breakEvenProbability": 0.555556,
-        "conservativeExpectedValue": -0.279216,
-        "expectedValue": -0.064542,
-        "lowerProbability": 0.400436,
-        "marketProbability": 0.532468,
-        "method": "market_baseline_plus_hierarchically_shrunk_prior_residual",
-        "probability": 0.519699,
-        "probabilityPositiveEv": 0.350007,
-        "sourceAlpha": -0.031464,
-        "value": {
-          "alpha": -0.031464,
-          "alphaStdError": 0.064836,
-          "conservativeExpectedValue": -0.206197,
-          "expectedValue": -0.056635,
-          "lowerProbability": 0.441002,
-          "method": "source_flat_roi_shrunk_residual_vs_break_even",
-          "probability": 0.524092,
-          "probabilityPositiveEv": 0.313737
-        }
-      },
-      "evidence": {
-        "chronologicalHalvesNonnegative": false,
-        "cutoffExclusive": "2026-11-02",
-        "distinctDates": 3,
-        "firstHalfFlatNetUnits": -1.0,
-        "flatNetUnits": 0.6388,
-        "flatRoi": 0.212932,
-        "losses": 1,
-        "marketFamilyChronologicalHalvesNonnegative": false,
-        "marketFamilyDistinctDates": 6,
-        "marketFamilyFirstHalfFlatNetUnits": -4.5268,
-        "marketFamilyFlatRoi": -0.269306,
-        "marketFamilyProbabilityPositiveEv": 0.313737,
-        "marketFamilySamples": 17,
-        "marketFamilySecondHalfFlatNetUnits": -0.0514,
-        "modelVersion": "source_identity:nba",
-        "policyVersion": "profit_desk_policy_v2",
-        "priorOnly": true,
-        "pushes": 0,
-        "secondHalfFlatNetUnits": 1.6388,
-        "segmentDistinctDates": 3,
-        "segmentEvidenceKey": "team|nba|nba|source_identity:nba|market|side|0.50_0.55",
-        "segmentSamples": 3,
-        "sourceChronologicalHalvesNonnegative": false,
-        "sourceDistinctDates": 6,
-        "sourceEvidenceKey": "team|nba|nba",
-        "sourceFirstHalfFlatNetUnits": -4.5268,
-        "sourceFlatNetUnits": -4.5782,
-        "sourceFlatRoi": -0.269306,
-        "sourceLosses": 10,
-        "sourceSamples": 17,
-        "sourceSecondHalfFlatNetUnits": -0.0514,
-        "sourceWins": 7,
-        "wins": 2
-      },
-      "game": "Heat @ Lakers",
-      "gradeSupportSource": "repository_grader_default",
-      "gradeSupported": true,
-      "id": "profit-365fb55f475ac22d7433b6f0",
-      "lane": null,
-      "laneBlockers": {
-        "edge": [
-          "edge_insufficient_source_samples",
-          "edge_insufficient_segment_samples",
-          "edge_insufficient_distinct_prior_dates",
-          "edge_negative_chronological_evidence_half",
-          "edge_probability_positive_ev_below_0.80",
-          "edge_conservative_probability_margin_below_0.02",
-          "edge_non_positive_conservative_ev"
-        ],
-        "structural": [
-          "missing_or_invalid_game_start_time"
-        ],
-        "value": [
-          "value_insufficient_source_samples",
-          "value_insufficient_distinct_prior_dates",
-          "value_negative_chronological_evidence_half",
-          "value_non_positive_flat_roi",
-          "value_probability_positive_ev_below_0.70",
-          "value_insufficient_market_family_samples",
-          "value_insufficient_market_family_dates",
-          "value_negative_market_family_half",
-          "value_non_positive_market_family_roi",
-          "value_market_family_probability_positive_ev_below_0.70"
-        ]
-      },
-      "line": null,
-      "liveQualified": false,
-      "market": "market",
-      "marketFamily": "market",
-      "marketIdentity": "market:2ff7d8f938cbbef7832dca41",
-      "mode": "team",
-      "modelVersion": "source_identity:nba",
-      "oddsAmerican": -125,
-      "pick": "Lakers ML (Heat @ Lakers)",
-      "player": null,
-      "policyVersion": "profit_desk_policy_v2",
-      "price": {
-        "ageHours": 0.201,
-        "breakEvenProbability": 0.555556,
-        "decimalOdds": 1.8,
-        "eligibleForAlphaEstimate": true,
-        "fresh": false,
-        "freshPregame": false,
-        "maxAgeHours": 24.0,
-        "noVigInputs": {
-          "field": "market_no_vig_selected_probability"
-        },
-        "noVigMethod": "explicit:pick.market_no_vig_selected_probability",
-        "noVigProbability": 0.532468,
-        "noVigVerified": true,
-        "observedExecutable": true,
-        "oddsAmerican": -125,
-        "publishTime": "2026-11-02T16:16:59.442133Z",
-        "quality": "verified_no_vig",
-        "source": "espn_scoreboard:DraftKings",
-        "sourceField": "pick.price_source",
-        "startLeadHours": null,
-        "startTime": null,
-        "tier": "A",
-        "tierLabel": "certified_executable",
-        "timestamp": "2026-11-02T16:04:56.653441Z",
-        "timestampField": "pick.market_updated_at",
-        "twoSided": true,
-        "updatedAt": "2026-11-02T16:04:56.653441Z"
-      },
-      "rawModelProbabilityIgnored": 0.75,
-      "result": "pending",
-      "shadowDecision": "BET",
-      "shadowOnly": true,
-      "shadowQualified": false,
-      "source": "NBA New",
-      "sourceKey": "nba",
-      "sport": "NBA",
-      "stakeUnits": 0.0,
-      "tier": "avoid",
-      "valueQualified": false
-    },
-    {
-      "blockers": [
-        "missing_or_invalid_game_start_time",
         "edge_insufficient_source_samples",
         "edge_insufficient_segment_samples",
         "edge_insufficient_distinct_prior_dates",
@@ -772,9 +768,7 @@
           "edge_conservative_probability_margin_below_0.02",
           "edge_non_positive_conservative_ev"
         ],
-        "structural": [
-          "missing_or_invalid_game_start_time"
-        ],
+        "structural": [],
         "value": [
           "value_insufficient_source_samples",
           "value_insufficient_distinct_prior_dates",
@@ -804,8 +798,8 @@
         "breakEvenProbability": 0.444444,
         "decimalOdds": 2.25,
         "eligibleForAlphaEstimate": true,
-        "fresh": false,
-        "freshPregame": false,
+        "fresh": true,
+        "freshPregame": true,
         "maxAgeHours": 24.0,
         "noVigInputs": {
           "field": "market_no_vig_selected_probability"
@@ -819,8 +813,8 @@
         "quality": "verified_no_vig",
         "source": "espn_scoreboard:DraftKings",
         "sourceField": "pick.price_source",
-        "startLeadHours": null,
-        "startTime": null,
+        "startLeadHours": 8.418,
+        "startTime": "2026-11-03T00:30Z",
         "tier": "A",
         "tierLabel": "certified_executable",
         "timestamp": "2026-11-02T16:04:56.653441Z",
@@ -837,12 +831,11 @@
       "sourceKey": "nba",
       "sport": "NBA",
       "stakeUnits": 0.0,
-      "tier": "avoid",
+      "tier": "watch",
       "valueQualified": false
     },
     {
       "blockers": [
-        "missing_or_invalid_game_start_time",
         "edge_insufficient_source_samples",
         "edge_insufficient_segment_samples",
         "edge_insufficient_distinct_prior_dates",
@@ -947,9 +940,7 @@
           "edge_conservative_probability_margin_below_0.02",
           "edge_non_positive_conservative_ev"
         ],
-        "structural": [
-          "missing_or_invalid_game_start_time"
-        ],
+        "structural": [],
         "value": [
           "value_insufficient_source_samples",
           "value_insufficient_distinct_prior_dates",
@@ -979,8 +970,8 @@
         "breakEvenProbability": 0.675325,
         "decimalOdds": 1.480769,
         "eligibleForAlphaEstimate": true,
-        "fresh": false,
-        "freshPregame": false,
+        "fresh": true,
+        "freshPregame": true,
         "maxAgeHours": 24.0,
         "noVigInputs": {
           "field": "market_no_vig_selected_probability"
@@ -994,8 +985,8 @@
         "quality": "verified_no_vig",
         "source": "espn_scoreboard:DraftKings",
         "sourceField": "pick.price_source",
-        "startLeadHours": null,
-        "startTime": null,
+        "startLeadHours": 8.418,
+        "startTime": "2026-11-03T00:30Z",
         "tier": "A",
         "tierLabel": "certified_executable",
         "timestamp": "2026-11-02T16:04:56.653441Z",
@@ -1012,12 +1003,11 @@
       "sourceKey": "nba",
       "sport": "NBA",
       "stakeUnits": 0.0,
-      "tier": "avoid",
+      "tier": "watch",
       "valueQualified": false
     },
     {
       "blockers": [
-        "missing_or_invalid_game_start_time",
         "edge_insufficient_source_samples",
         "edge_insufficient_segment_samples",
         "edge_insufficient_distinct_prior_dates",
@@ -1122,9 +1112,7 @@
           "edge_conservative_probability_margin_below_0.02",
           "edge_non_positive_conservative_ev"
         ],
-        "structural": [
-          "missing_or_invalid_game_start_time"
-        ],
+        "structural": [],
         "value": [
           "value_insufficient_source_samples",
           "value_insufficient_distinct_prior_dates",
@@ -1154,8 +1142,8 @@
         "breakEvenProbability": 0.671053,
         "decimalOdds": 1.490196,
         "eligibleForAlphaEstimate": true,
-        "fresh": false,
-        "freshPregame": false,
+        "fresh": true,
+        "freshPregame": true,
         "maxAgeHours": 24.0,
         "noVigInputs": {
           "field": "market_no_vig_selected_probability"
@@ -1169,8 +1157,8 @@
         "quality": "verified_no_vig",
         "source": "espn_scoreboard:DraftKings",
         "sourceField": "pick.price_source",
-        "startLeadHours": null,
-        "startTime": null,
+        "startLeadHours": 10.918,
+        "startTime": "2026-11-03T03:00Z",
         "tier": "A",
         "tierLabel": "certified_executable",
         "timestamp": "2026-11-02T16:04:56.653441Z",
@@ -1187,12 +1175,11 @@
       "sourceKey": "nba",
       "sport": "NBA",
       "stakeUnits": 0.0,
-      "tier": "avoid",
+      "tier": "watch",
       "valueQualified": false
     },
     {
       "blockers": [
-        "missing_or_invalid_game_start_time",
         "edge_insufficient_source_samples",
         "edge_insufficient_segment_samples",
         "edge_insufficient_distinct_prior_dates",
@@ -1297,9 +1284,7 @@
           "edge_conservative_probability_margin_below_0.02",
           "edge_non_positive_conservative_ev"
         ],
-        "structural": [
-          "missing_or_invalid_game_start_time"
-        ],
+        "structural": [],
         "value": [
           "value_insufficient_source_samples",
           "value_insufficient_distinct_prior_dates",
@@ -1329,8 +1314,8 @@
         "breakEvenProbability": 0.665552,
         "decimalOdds": 1.502513,
         "eligibleForAlphaEstimate": true,
-        "fresh": false,
-        "freshPregame": false,
+        "fresh": true,
+        "freshPregame": true,
         "maxAgeHours": 24.0,
         "noVigInputs": {
           "field": "market_no_vig_selected_probability"
@@ -1344,8 +1329,8 @@
         "quality": "verified_no_vig",
         "source": "espn_scoreboard:DraftKings",
         "sourceField": "pick.price_source",
-        "startLeadHours": null,
-        "startTime": null,
+        "startLeadHours": 8.418,
+        "startTime": "2026-11-03T00:30Z",
         "tier": "A",
         "tierLabel": "certified_executable",
         "timestamp": "2026-11-02T16:04:56.653441Z",
@@ -1362,12 +1347,11 @@
       "sourceKey": "nba",
       "sport": "NBA",
       "stakeUnits": 0.0,
-      "tier": "avoid",
+      "tier": "watch",
       "valueQualified": false
     },
     {
       "blockers": [
-        "missing_or_invalid_game_start_time",
         "edge_insufficient_source_samples",
         "edge_insufficient_segment_samples",
         "edge_insufficient_distinct_prior_dates",
@@ -1472,9 +1456,7 @@
           "edge_conservative_probability_margin_below_0.02",
           "edge_non_positive_conservative_ev"
         ],
-        "structural": [
-          "missing_or_invalid_game_start_time"
-        ],
+        "structural": [],
         "value": [
           "value_insufficient_source_samples",
           "value_insufficient_distinct_prior_dates",
@@ -1504,8 +1486,8 @@
         "breakEvenProbability": 0.662162,
         "decimalOdds": 1.510204,
         "eligibleForAlphaEstimate": true,
-        "fresh": false,
-        "freshPregame": false,
+        "fresh": true,
+        "freshPregame": true,
         "maxAgeHours": 24.0,
         "noVigInputs": {
           "field": "market_no_vig_selected_probability"
@@ -1519,8 +1501,8 @@
         "quality": "verified_no_vig",
         "source": "espn_scoreboard:DraftKings",
         "sourceField": "pick.price_source",
-        "startLeadHours": null,
-        "startTime": null,
+        "startLeadHours": 8.918,
+        "startTime": "2026-11-03T01:00Z",
         "tier": "A",
         "tierLabel": "certified_executable",
         "timestamp": "2026-11-02T16:04:56.653441Z",
@@ -1537,12 +1519,11 @@
       "sourceKey": "nba",
       "sport": "NBA",
       "stakeUnits": 0.0,
-      "tier": "avoid",
+      "tier": "watch",
       "valueQualified": false
     },
     {
       "blockers": [
-        "missing_or_invalid_game_start_time",
         "edge_insufficient_source_samples",
         "edge_insufficient_segment_samples",
         "edge_insufficient_distinct_prior_dates",
@@ -1647,9 +1628,7 @@
           "edge_conservative_probability_margin_below_0.02",
           "edge_non_positive_conservative_ev"
         ],
-        "structural": [
-          "missing_or_invalid_game_start_time"
-        ],
+        "structural": [],
         "value": [
           "value_insufficient_source_samples",
           "value_insufficient_distinct_prior_dates",
@@ -1679,8 +1658,8 @@
         "breakEvenProbability": 0.656357,
         "decimalOdds": 1.52356,
         "eligibleForAlphaEstimate": true,
-        "fresh": false,
-        "freshPregame": false,
+        "fresh": true,
+        "freshPregame": true,
         "maxAgeHours": 24.0,
         "noVigInputs": {
           "field": "market_no_vig_selected_probability"
@@ -1694,8 +1673,8 @@
         "quality": "verified_no_vig",
         "source": "espn_scoreboard:DraftKings",
         "sourceField": "pick.price_source",
-        "startLeadHours": null,
-        "startTime": null,
+        "startLeadHours": 9.418,
+        "startTime": "2026-11-03T01:30Z",
         "tier": "A",
         "tierLabel": "certified_executable",
         "timestamp": "2026-11-02T16:04:56.653441Z",
@@ -1712,12 +1691,11 @@
       "sourceKey": "nba",
       "sport": "NBA",
       "stakeUnits": 0.0,
-      "tier": "avoid",
+      "tier": "watch",
       "valueQualified": false
     },
     {
       "blockers": [
-        "missing_or_invalid_game_start_time",
         "edge_insufficient_source_samples",
         "edge_insufficient_segment_samples",
         "edge_insufficient_distinct_prior_dates",
@@ -1822,9 +1800,7 @@
           "edge_conservative_probability_margin_below_0.02",
           "edge_non_positive_conservative_ev"
         ],
-        "structural": [
-          "missing_or_invalid_game_start_time"
-        ],
+        "structural": [],
         "value": [
           "value_insufficient_source_samples",
           "value_insufficient_distinct_prior_dates",
@@ -1854,8 +1830,8 @@
         "breakEvenProbability": 0.641577,
         "decimalOdds": 1.558659,
         "eligibleForAlphaEstimate": true,
-        "fresh": false,
-        "freshPregame": false,
+        "fresh": true,
+        "freshPregame": true,
         "maxAgeHours": 24.0,
         "noVigInputs": {
           "field": "market_no_vig_selected_probability"
@@ -1869,8 +1845,8 @@
         "quality": "verified_no_vig",
         "source": "espn_scoreboard:DraftKings",
         "sourceField": "pick.price_source",
-        "startLeadHours": null,
-        "startTime": null,
+        "startLeadHours": 7.918,
+        "startTime": "2026-11-03T00:00Z",
         "tier": "A",
         "tierLabel": "certified_executable",
         "timestamp": "2026-11-02T16:04:56.653441Z",
@@ -1887,12 +1863,11 @@
       "sourceKey": "nba",
       "sport": "NBA",
       "stakeUnits": 0.0,
-      "tier": "avoid",
+      "tier": "watch",
       "valueQualified": false
     },
     {
       "blockers": [
-        "missing_or_invalid_game_start_time",
         "edge_insufficient_source_samples",
         "edge_insufficient_segment_samples",
         "edge_insufficient_distinct_prior_dates",
@@ -1997,9 +1972,7 @@
           "edge_conservative_probability_margin_below_0.02",
           "edge_non_positive_conservative_ev"
         ],
-        "structural": [
-          "missing_or_invalid_game_start_time"
-        ],
+        "structural": [],
         "value": [
           "value_insufficient_source_samples",
           "value_insufficient_distinct_prior_dates",
@@ -2029,8 +2002,8 @@
         "breakEvenProbability": 0.406504,
         "decimalOdds": 2.46,
         "eligibleForAlphaEstimate": true,
-        "fresh": false,
-        "freshPregame": false,
+        "fresh": true,
+        "freshPregame": true,
         "maxAgeHours": 24.0,
         "noVigInputs": {
           "field": "market_no_vig_selected_probability"
@@ -2044,8 +2017,8 @@
         "quality": "verified_no_vig",
         "source": "espn_scoreboard:DraftKings",
         "sourceField": "pick.price_source",
-        "startLeadHours": null,
-        "startTime": null,
+        "startLeadHours": 9.918,
+        "startTime": "2026-11-03T02:00Z",
         "tier": "A",
         "tierLabel": "certified_executable",
         "timestamp": "2026-11-02T16:04:56.653441Z",
@@ -2062,12 +2035,11 @@
       "sourceKey": "nba",
       "sport": "NBA",
       "stakeUnits": 0.0,
-      "tier": "avoid",
+      "tier": "watch",
       "valueQualified": false
     },
     {
       "blockers": [
-        "missing_or_invalid_game_start_time",
         "edge_insufficient_source_samples",
         "edge_insufficient_segment_samples",
         "edge_insufficient_distinct_prior_dates",
@@ -2172,9 +2144,7 @@
           "edge_conservative_probability_margin_below_0.02",
           "edge_non_positive_conservative_ev"
         ],
-        "structural": [
-          "missing_or_invalid_game_start_time"
-        ],
+        "structural": [],
         "value": [
           "value_insufficient_source_samples",
           "value_insufficient_distinct_prior_dates",
@@ -2204,8 +2174,8 @@
         "breakEvenProbability": 0.598394,
         "decimalOdds": 1.671141,
         "eligibleForAlphaEstimate": true,
-        "fresh": false,
-        "freshPregame": false,
+        "fresh": true,
+        "freshPregame": true,
         "maxAgeHours": 24.0,
         "noVigInputs": {
           "field": "market_no_vig_selected_probability"
@@ -2219,8 +2189,8 @@
         "quality": "verified_no_vig",
         "source": "espn_scoreboard:DraftKings",
         "sourceField": "pick.price_source",
-        "startLeadHours": null,
-        "startTime": null,
+        "startLeadHours": 10.918,
+        "startTime": "2026-11-03T03:00Z",
         "tier": "A",
         "tierLabel": "certified_executable",
         "timestamp": "2026-11-02T16:04:56.653441Z",
@@ -2237,7 +2207,7 @@
       "sourceKey": "nba",
       "sport": "NBA",
       "stakeUnits": 0.0,
-      "tier": "avoid",
+      "tier": "watch",
       "valueQualified": false
     }
   ],
@@ -2316,7 +2286,7 @@
         "sourceKey": "nfl",
         "sport": "NFL",
         "stakeUnits": 0,
-        "startTime": "2026-11-03T01:15:00Z",
+        "startTime": "2026-11-03T01:15Z",
         "websiteDecision": "PASS"
       }
     ],
@@ -4391,7 +4361,7 @@
     }
   ],
   "summary": {
-    "avoid": 10,
+    "avoid": 0,
     "candidateCount": 13,
     "candidatesEvaluated": 13,
     "deduplicatedPicks": 0,
@@ -4444,7 +4414,7 @@
         "watchlist": 0
       },
       "team": {
-        "avoid": 10,
+        "avoid": 0,
         "candidateCount": 13,
         "candidates": 13,
         "candidatesEvaluated": 13,
@@ -4457,7 +4427,7 @@
         "selected": 0,
         "shadowQualified": 0,
         "valueQualified": 0,
-        "watchlist": 3
+        "watchlist": 13
       }
     },
     "observedPriceCandidates": 13,
@@ -4494,6 +4464,6 @@
     },
     "sourcesTracked": 36,
     "valueQualified": 0,
-    "watchlist": 3
+    "watchlist": 13
   }
 }
