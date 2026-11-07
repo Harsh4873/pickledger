@@ -1,11 +1,16 @@
 import pandas as pd
+
+try:
+    from .nba_season import nba_season_label
+except ImportError:
+    from nba_season import nba_season_label
 from nba_api.stats.endpoints import leaguedashteamstats
 
 def get_real_stats():
     # Fetch advanced team stats for the current season
     stats = leaguedashteamstats.LeagueDashTeamStats(
         measure_type_detailed_defense='Advanced',
-        season='2025-26',
+        season=nba_season_label(),
         per_mode_detailed='PerGame'
     )
     df = stats.get_data_frames()[0]

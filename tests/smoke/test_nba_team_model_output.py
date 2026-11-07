@@ -128,10 +128,14 @@ def test_prediction_log_upserts_and_survives_on_committed_data_path(tmp_path):
     assert changed is False
     assert rows[0]["actual_home_win"] == "1"
 
-    scaler, diag = fit_platt_scaler_from_log(log_path=str(log_path), min_samples=50)
+    scaler, diag = fit_platt_scaler_from_log(log_path=str(log_path), min_samples=50, since="")
     assert diag.sample_count == 1
     assert scaler.fitted is False
-    assert scaler.confidence_cap == 0.75
+    # Below the minimum the model's own probability stands; there is no 75% cap.
+    assert scaler.confidence_cap is None
+    assert scaler.calibrate(0.86) == pytest.approx(0.86)
+    # The default fit window starts after this row's model, so it is not used.
+    assert fit_platt_scaler_from_log(log_path=str(log_path), min_samples=50)[1].sample_count == 0
 
 
 def test_sync_grades_from_espn_and_graded_picks_without_inventing(tmp_path, monkeypatch):

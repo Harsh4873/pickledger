@@ -13,6 +13,11 @@ Formula:
 """
 from nba_api.stats.endpoints import teamplayeronoffsummary
 from nba_api.stats.static import teams
+
+try:
+    from .nba_season import nba_season_label
+except ImportError:
+    from nba_season import nba_season_label
 import os
 import time
 
@@ -25,7 +30,7 @@ def get_team_id(team_name: str) -> int:
             return t['id']
     return None
 
-def fetch_player_on_off(team_name: str, season: str = '2025-26') -> dict:
+def fetch_player_on_off(team_name: str, season: str | None = None) -> dict:
     """
     Fetches on/off court net rating for every player on a team.
     
@@ -41,6 +46,7 @@ def fetch_player_on_off(team_name: str, season: str = '2025-26') -> dict:
         'Cooper Flagg': { ... }
     }
     """
+    season = season or nba_season_label()
     team_id = get_team_id(team_name)
     if not team_id:
         print(f"WARNING: Could not find team ID for '{team_name}'")
@@ -104,7 +110,7 @@ def fetch_player_on_off(team_name: str, season: str = '2025-26') -> dict:
     
     return results
 
-def calculate_injury_adjustment(team_name: str, players_out: list, season: str = '2025-26') -> tuple:
+def calculate_injury_adjustment(team_name: str, players_out: list, season: str | None = None) -> tuple:
     """
     Given a team and a list of player names who are OUT,
     calculate the total probability adjustment using real on/off data.
@@ -182,7 +188,7 @@ def calculate_injury_adjustment(team_name: str, players_out: list, season: str =
     reason_str = ", ".join(reasons) if reasons else "No injury adjustments"
     return total_adj, reason_str
 
-def print_team_impact_report(team_name: str, season: str = '2025-26'):
+def print_team_impact_report(team_name: str, season: str | None = None):
     """Pretty-print the on/off impact for every player on a team, sorted by impact."""
     data = fetch_player_on_off(team_name, season)
     

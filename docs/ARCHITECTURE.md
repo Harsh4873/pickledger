@@ -138,6 +138,30 @@ forces evaluation against a clean identity champion.
 
 `scripts/cache_manifest.py` updates the dated-cache manifest whenever model or feed caches are written or merged.
 
+## NBA team model
+
+`NBAPredictionModel/run_live.py` (NBA New) takes its season from the slate date
+(`nba_season.py`), so nothing pins a stale season label. Hosted runners cannot
+reach stats.nba.com, so team ratings come from ESPN records. Early in a season
+those records are a handful of games, so each team's margin and win rate lean
+on last season: this season gets weight `games / (games + 15)` and last season
+enters at 70% of its edge over an average team (`blend_prior_season`). The NBA
+API path applies the same weights. The layer-1 win-rate terms compare both
+teams' records, and the summed layer probability is held to [0.03, 0.97] before
+the spread term.
+
+Injury absences use on/off data when a player has 10+ games of it. Otherwise
+the player's ESPN minutes size the absence, scaled by the share of the team
+rating built while that player was on the floor; players outside the rotation
+in both seasons are neutral.
+
+The Platt layer fits raw probabilities from `data/nba/predictions.csv`, only
+rows from `PLATT_FIT_SINCE` on, with priors centred on no change and no
+home/away reweighting. Below 50 graded rows the raw probability stands. On a
+point-in-time backtest of 2025-26 and early 2026-27 (1,327 games rebuilt from
+box scores) the raw probability is close to calibrated (Platt slope 1.01; log
+loss 0.600 against 0.728 for the season-only, overflowing version).
+
 ## NBA player props
 
 `nba_player_props` scores ESPN posted DraftKings markets with the four heuristic

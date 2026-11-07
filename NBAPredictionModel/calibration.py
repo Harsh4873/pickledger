@@ -6,6 +6,14 @@ from pathlib import Path
 _PROB_EPSILON = 1e-6
 MIN_PLATT_SAMPLES = 50
 UNCALIBRATED_CONFIDENCE_CAP = 0.75
+# Logged rows before this date came from the model whose layer sum overflowed to
+# 99.9999% and whose early-season inputs were a handful of games. They describe a
+# different model, and fitting on them flattened every probability toward 51%.
+PLATT_FIT_SINCE = "2026-11-08"
+# Priors on the Platt fit, centred on no change. A season of graded games is needed
+# before the data can move the slope far from 1.
+PLATT_SLOPE_PRIOR_SD = 0.15
+PLATT_INTERCEPT_PRIOR_SD = 0.15
 
 
 def _clamp_probability(probability: float) -> float:
@@ -63,32 +71,66 @@ class PlattScaler:
         raw_probabilities: list[float],
         outcomes: list[int],
         sample_weights: list[float] | None = None,
-        iterations: int = 600,
-        learning_rate: float = 0.35,
+        iterations: int = 100,
     ):
+        """
+        Maximum a posteriori Platt fit. Gaussian priors centred on no change
+        (slope 1, intercept 0) keep a small or lopsided sample from flattening
+        every probability, which is what an unregularised fit on 80 games did.
+        """
         if not raw_probabilities or len(raw_probabilities) != len(outcomes):
             raise ValueError("PlattScaler.fit requires matching probability and outcome arrays.")
 
         xs = [_logit(prob) for prob in raw_probabilities]
         ys = [1 if int(outcome) else 0 for outcome in outcomes]
         weights = sample_weights or [1.0] * len(xs)
+        slope_precision = 1.0 / (PLATT_SLOPE_PRIOR_SD ** 2)
+        intercept_precision = 1.0 / (PLATT_INTERCEPT_PRIOR_SD ** 2)
+
+        def objective(slope: float, intercept: float) -> float:
+            total = 0.5 * ((slope_precision * (slope - 1.0) ** 2) + (intercept_precision * intercept ** 2))
+            for x_value, outcome, weight in zip(xs, ys, weights):
+                score = (slope * x_value) + intercept
+                # -log(sigmoid(score)) for a home win, -log(1 - sigmoid(score)) otherwise.
+                margin = -score if outcome else score
+                total += weight * (max(margin, 0.0) + math.log1p(math.exp(-abs(margin))))
+            return total
 
         a = 1.0
         b = 0.0
-        total_weight = sum(weights)
-        if total_weight <= 0:
-            total_weight = float(len(xs))
+        current = objective(a, b)
         for _ in range(iterations):
-            grad_a = 0.0
-            grad_b = 0.0
+            grad_a = slope_precision * (a - 1.0)
+            grad_b = intercept_precision * b
+            hess_aa = slope_precision
+            hess_ab = 0.0
+            hess_bb = intercept_precision
             for x_value, outcome, weight in zip(xs, ys, weights):
                 prediction = _sigmoid((a * x_value) + b)
                 error = prediction - outcome
+                variance = prediction * (1.0 - prediction)
                 grad_a += weight * error * x_value
                 grad_b += weight * error
-
-            a -= learning_rate * (grad_a / total_weight)
-            b -= learning_rate * (grad_b / total_weight)
+                hess_aa += weight * variance * x_value * x_value
+                hess_ab += weight * variance * x_value
+                hess_bb += weight * variance
+            determinant = (hess_aa * hess_bb) - (hess_ab * hess_ab)
+            step_a = ((hess_bb * grad_a) - (hess_ab * grad_b)) / determinant
+            step_b = ((hess_aa * grad_b) - (hess_ab * grad_a)) / determinant
+            # Saturated scores (a logged 99.9999%) make full Newton steps overshoot,
+            # so halve the step until the objective improves.
+            scale = 1.0
+            while scale > 1e-6:
+                candidate = objective(a - (scale * step_a), b - (scale * step_b))
+                if candidate <= current:
+                    break
+                scale *= 0.5
+            a -= scale * step_a
+            b -= scale * step_b
+            improvement = current - candidate
+            current = candidate
+            if max(abs(scale * step_a), abs(scale * step_b)) < 1e-10 or improvement < 1e-12:
+                break
 
         self.a = a
         self.b = b
@@ -110,26 +152,12 @@ def _default_prediction_log_path() -> Path:
     return default_prediction_log_path()
 
 
-def _class_balance_summary(outcomes: list[int]) -> tuple[str, str, list[float], bool]:
+def _class_balance_summary(outcomes: list[int]) -> str:
     sample_count = len(outcomes)
     if sample_count == 0:
-        return "", "", [], False
-
+        return ""
     home_wins = sum(outcomes)
-    away_wins = sample_count - home_wins
-    before = f"before={home_wins}/{sample_count} home wins ({(home_wins / sample_count) * 100:.1f}%)"
-
-    if home_wins == 0 or away_wins == 0:
-        return before, "after=single-class sample, no balancing possible", [1.0] * sample_count, False
-
-    home_weight = sample_count / (2.0 * home_wins)
-    away_weight = sample_count / (2.0 * away_wins)
-    sample_weights = [home_weight if outcome == 1 else away_weight for outcome in outcomes]
-    weighted_home = sum(weight for weight, outcome in zip(sample_weights, outcomes) if outcome == 1)
-    weighted_away = sum(weight for weight, outcome in zip(sample_weights, outcomes) if outcome == 0)
-    after = f"after={weighted_home:.1f}/{(weighted_home + weighted_away):.1f} effective home-win weight ({(weighted_home / (weighted_home + weighted_away)) * 100:.1f}%)"
-    is_imbalanced = abs((home_wins / sample_count) - 0.5) >= 0.03
-    return before, after, sample_weights, is_imbalanced
+    return f"{home_wins}/{sample_count} home wins ({(home_wins / sample_count) * 100:.1f}%)"
 
 
 def _extract_logged_raw_probability(row: dict[str, str]) -> float | None:
@@ -143,12 +171,14 @@ def _extract_logged_raw_probability(row: dict[str, str]) -> float | None:
         return None
 
 
-def _load_logged_outcomes(prediction_log: Path) -> tuple[list[float], list[int]]:
+def _load_logged_outcomes(prediction_log: Path, since: str = "") -> tuple[list[float], list[int]]:
     raw_probabilities: list[float] = []
     outcomes: list[int] = []
     with prediction_log.open("r", encoding="utf-8", newline="") as handle:
         reader = csv.DictReader(handle)
         for row in reader:
+            if since and str(row.get("game_date", "")).strip() < since:
+                continue
             outcome_value = str(row.get("actual_home_win", "")).strip()
             raw_value = _extract_logged_raw_probability(row)
             if raw_value is None or outcome_value == "":
@@ -165,69 +195,53 @@ def _fit_scaler_from_samples(
     raw_probabilities: list[float],
     outcomes: list[int],
     min_samples: int,
+    since: str = "",
 ) -> tuple[PlattScaler, CalibrationDiagnostics]:
     sample_count = len(raw_probabilities)
-    class_distribution, balanced_distribution, sample_weights, is_imbalanced = _class_balance_summary(outcomes)
+    class_distribution = _class_balance_summary(outcomes)
+    window = f" since {since}" if since else ""
     if sample_count < min_samples:
-        scaler = PlattScaler(
-            confidence_cap=UNCALIBRATED_CONFIDENCE_CAP,
-            log_flag="[UNCALIBRATED]",
-        )
+        # Below the minimum the model's own probability stands. The old 75% cap
+        # turned every heavy favourite into a fake edge against the market.
+        scaler = PlattScaler(log_flag="[UNCALIBRATED]")
         note = (
-            "Calibration wrapper is active, but "
-            f"fewer than {MIN_PLATT_SAMPLES} logged predictions have realized outcomes. "
-            f"Confidence is temporarily capped at {UNCALIBRATED_CONFIDENCE_CAP * 100:.0f}% "
-            "until the sample is large enough."
+            f"{sample_count} graded prediction(s){window}; Platt scaling starts at {min_samples}. "
+            "Probabilities are the model's raw output, which a point-in-time backtest found close to calibrated."
         )
-        if sample_count == 0:
-            note = (
-                "Calibration wrapper is active, but there are no logged outcomes yet. "
-                f"Confidence is temporarily capped at {UNCALIBRATED_CONFIDENCE_CAP * 100:.0f}% "
-                f"until {MIN_PLATT_SAMPLES}+ predictions have actual_home_win recorded."
-            )
         return scaler, CalibrationDiagnostics(
             fitted=False,
             sample_count=sample_count,
             note=note,
-            class_distribution=class_distribution or "before=0 samples",
-            balanced_distribution=balanced_distribution or "after=not available",
+            class_distribution=class_distribution or "0 samples",
             log_flag="[UNCALIBRATED]",
         )
 
-    scaler = PlattScaler()
-
-    if is_imbalanced:
-        scaler.fit(raw_probabilities, outcomes, sample_weights=sample_weights)
-        note = (
-            f"Platt scaling fitted from {sample_count} logged predictions with realized outcomes "
-            f"using balanced class weights ({class_distribution}; {balanced_distribution})."
-        )
-    else:
-        scaler.fit(raw_probabilities, outcomes)
-        note = (
-            f"Platt scaling fitted from {sample_count} logged predictions with realized outcomes. "
-            f"Class balance was close to even ({class_distribution})."
-        )
-
+    # Home wins are not reweighted: the model already prices home court, and
+    # balancing the classes would push every home team toward 50%.
+    scaler = PlattScaler().fit(raw_probabilities, outcomes)
+    note = (
+        f"Platt scaling fitted from {sample_count} graded predictions{window} ({class_distribution}), "
+        f"held near no change by its priors: slope {scaler.a:.2f}, intercept {scaler.b:+.2f}."
+    )
     return scaler, CalibrationDiagnostics(
         fitted=True,
         sample_count=sample_count,
         note=note,
         class_distribution=class_distribution,
-        balanced_distribution=balanced_distribution,
     )
 
 
 def fit_platt_scaler_from_log(
     log_path: str | None = None,
     min_samples: int = MIN_PLATT_SAMPLES,
+    since: str = PLATT_FIT_SINCE,
 ) -> tuple[PlattScaler, CalibrationDiagnostics]:
     prediction_log = Path(log_path) if log_path else _default_prediction_log_path()
     if not prediction_log.exists():
-        return _fit_scaler_from_samples([], [], min_samples=min_samples)
+        return _fit_scaler_from_samples([], [], min_samples=min_samples, since=since)
 
-    raw_probabilities, outcomes = _load_logged_outcomes(prediction_log)
-    return _fit_scaler_from_samples(raw_probabilities, outcomes, min_samples=min_samples)
+    raw_probabilities, outcomes = _load_logged_outcomes(prediction_log, since=since)
+    return _fit_scaler_from_samples(raw_probabilities, outcomes, min_samples=min_samples, since=since)
 
 
 def load_platt_scaler(log_path: str | None = None) -> tuple[PlattScaler, CalibrationDiagnostics]:

@@ -14,14 +14,24 @@ import requests
 from bs4 import BeautifulSoup
 from nba_api.stats.static import teams
 from nba_api.stats.endpoints import (
-    commonteamroster, 
+    commonteamroster,
     leaguegamefinder,
     leaguedashteamstats,
     scoreboardv2
 )
 
+try:
+    from .nba_season import espn_season_year, nba_season_label, previous_season_label
+except ImportError:
+    from nba_season import espn_season_year, nba_season_label, previous_season_label
+
 _nba_teams = teams.get_teams()
 _GARBAGE_TIME_MARGIN_CAP = 15.0
+# Early-season records are a handful of games, so team margins and win rates lean on last
+# season until this season's sample is larger: equal weight at this many games played.
+NBA_PRIOR_SEASON_GAMES = 15.0
+# Share of last season's edge over an average team that carries into the new season.
+NBA_PRIOR_SEASON_CARRYOVER = 0.7
 REQUEST_PAUSE_SECONDS = 0.1 if os.environ.get("RENDER", "").strip().lower() == "true" else 0.6
 ESPN_NBA_TEAMS_URL = "http://site.api.espn.com/apis/site/v2/sports/basketball/nba/teams"
 ESPN_NBA_SCOREBOARD_URL = "http://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard"
@@ -117,15 +127,105 @@ def _clamp_metric(value: float, low: float, high: float) -> float:
     return max(low, min(high, value))
 
 
-def _espn_fallback_team_stats(team_name: str, team: dict) -> dict:
+def _record_games(record: dict) -> float:
+    games = record.get("gamesPlayed")
+    if games is None:
+        games = float(record.get("wins", 0.0) or 0.0) + float(record.get("losses", 0.0) or 0.0)
+    return max(0.0, float(games or 0.0))
+
+
+def _record_has_scoring(record: dict) -> bool:
+    return _record_games(record) > 0 and float(record.get("avgPointsFor", 0.0) or 0.0) > 0
+
+
+def prior_season_shrink(games: float, prior_record: dict | None) -> tuple[float, float, float] | None:
+    """
+    (weight on this season, last season's margin, last season's win rate) for a team
+    with `games` played, or None when there is no usable prior-season record. Last
+    season enters at NBA_PRIOR_SEASON_CARRYOVER of its edge over an average team.
+    """
+    prior = prior_record or {}
+    if not _record_has_scoring(prior):
+        return None
+    games = max(0.0, float(games or 0.0))
+    weight = games / (games + NBA_PRIOR_SEASON_GAMES)
+    prior_for = float(prior.get("avgPointsFor", 0.0) or 0.0)
+    prior_against = float(prior.get("avgPointsAgainst", prior_for) or prior_for)
+    margin = NBA_PRIOR_SEASON_CARRYOVER * float(prior.get("differential", prior_for - prior_against))
+    win = 0.5 + NBA_PRIOR_SEASON_CARRYOVER * (_clamp_metric(float(prior.get("winPercent", 0.5)), 0.0, 1.0) - 0.5)
+    return weight, margin, win
+
+
+def blend_prior_season(record: dict, prior_record: dict | None) -> dict:
+    """
+    Scoring margin and win rate for one team, leaning on last season while this season
+    is only a handful of games. This season gets weight games / (games + NBA_PRIOR_SEASON_GAMES);
+    last season enters at NBA_PRIOR_SEASON_CARRYOVER of its edge over an average team.
+    The scoring level (points for plus against) stays this season's; only the margin blends.
+    """
+    has_current = _record_has_scoring(record)
+    games = _record_games(record) if has_current else 0.0
+    current_for = float(record.get("avgPointsFor", 0.0) or 0.0)
+    current_against = float(record.get("avgPointsAgainst", current_for) or current_for)
+    current_diff = float(record.get("differential", current_for - current_against)) if has_current else 0.0
+    current_win = _clamp_metric(float(record.get("winPercent", 0.5)), 0.0, 1.0) if has_current else 0.5
+
+    shrink = prior_season_shrink(games, prior_record)
+    if shrink:
+        weight, prior_diff, prior_win = shrink
+    else:
+        weight, prior_diff, prior_win = (1.0 if has_current else 0.0), 0.0, 0.5
+    point_diff = (weight * current_diff) + ((1.0 - weight) * prior_diff)
+    win_pct = (weight * current_win) + ((1.0 - weight) * prior_win)
+    if has_current:
+        level = (current_for + current_against) / 2.0
+    elif shrink:
+        prior = prior_record or {}
+        level = (float(prior["avgPointsFor"]) + float(prior.get("avgPointsAgainst", prior["avgPointsFor"]))) / 2.0
+    else:
+        level = 112.0
+    return {
+        "points_for": level + (point_diff / 2.0),
+        "points_against": level - (point_diff / 2.0),
+        "point_diff": point_diff,
+        "win_pct": _clamp_metric(win_pct, 0.0, 1.0),
+        "current_season_weight": weight,
+        "games_played": games,
+    }
+
+
+def _espn_team_record(slug: str, season_year: int | None = None) -> dict[str, float]:
+    suffix = f"?season={season_year}" if season_year else ""
+    return _espn_total_record(_fetch_espn_json(f"{ESPN_NBA_TEAMS_URL}/{slug}{suffix}"))
+
+
+def _espn_fallback_team_stats(team_name: str, team: dict, season_year: int | None = None) -> dict:
     slug = str(team.get("abbreviation") or team.get("id") or "").strip().lower()
     stats = _espn_stat_lookup(_fetch_espn_json(f"{ESPN_NBA_TEAMS_URL}/{slug}/statistics"))
-    record = _espn_total_record(_fetch_espn_json(f"{ESPN_NBA_TEAMS_URL}/{slug}"))
+    record = _espn_team_record(slug, season_year)
+    prior_record = None
+    if season_year:
+        try:
+            prior_record = _espn_team_record(slug, season_year - 1)
+        except (requests.RequestException, ValueError):
+            prior_record = None
+    return espn_fallback_payload(team_name, team, stats, record, prior_record)
 
-    points_for = float(record.get("avgPointsFor", stats.get("avgPoints", 112.0)))
-    points_against = float(record.get("avgPointsAgainst", points_for))
-    point_diff = float(record.get("differential", points_for - points_against))
-    win_pct = _clamp_metric(float(record.get("winPercent", 0.5)), 0.0, 1.0)
+
+def espn_fallback_payload(
+    team_name: str,
+    team: dict,
+    stats: dict[str, float],
+    record: dict[str, float],
+    prior_record: dict[str, float] | None = None,
+) -> dict:
+    blended = blend_prior_season(record, prior_record)
+    points_for = blended["points_for"]
+    points_against = blended["points_against"]
+    point_diff = blended["point_diff"]
+    win_pct = blended["win_pct"]
+    # Shooting efficiency describes this season's shots, so it uses this season's scoring.
+    season_points = float(record.get("avgPointsFor", 0.0) or 0.0) if _record_has_scoring(record) else float(stats.get("avgPoints", points_for))
     fga = max(float(stats.get("avgFieldGoalsAttempted", 88.0)), 1.0)
     fgm = float(stats.get("avgFieldGoalsMade", fga * 0.47))
     three_made = float(stats.get("avgThreePointFieldGoalsMade", 12.0))
@@ -135,7 +235,7 @@ def _espn_fallback_team_stats(team_name: str, team: dict) -> dict:
     defensive_rebounds = float(stats.get("avgDefensiveRebounds", rebounds * 0.72))
     offensive_rebounds = float(stats.get("avgOffensiveRebounds", rebounds - defensive_rebounds))
     shooting_denom = max(2.0 * (fga + 0.44 * fta), 1.0)
-    ts_pct = _clamp_metric(points_for / shooting_denom, 0.45, 0.70)
+    ts_pct = _clamp_metric(season_points / shooting_denom, 0.45, 0.70)
     efg_pct = _clamp_metric((fgm + (0.5 * three_made)) / fga, 0.40, 0.70)
     tov_pct = _clamp_metric(turnovers / max(fga + (0.44 * fta) + turnovers, 1.0), 0.08, 0.22)
     reb_pct = _clamp_metric(0.50 + ((rebounds - 43.0) / 200.0), 0.45, 0.55)
@@ -182,11 +282,13 @@ def _espn_fallback_team_stats(team_name: str, team: dict) -> dict:
         "is_4_in_5_nights": False,
         "is_5_in_7_nights": False,
         "current_road_trip_length": 0,
+        "current_season_weight": blended["current_season_weight"],
+        "games_played": blended["games_played"],
         "stats_source": "ESPN team statistics fallback",
     }
 
 
-def fetch_espn_team_stats_fallback(upcoming_games: list[dict] | None = None) -> dict:
+def fetch_espn_team_stats_fallback(upcoming_games: list[dict] | None = None, season: str | None = None) -> dict:
     team_names: list[str] = []
     for game in upcoming_games or []:
         for key in ("away_team", "home_team"):
@@ -197,16 +299,72 @@ def fetch_espn_team_stats_fallback(upcoming_games: list[dict] | None = None) -> 
         return {}
 
     catalog = _espn_team_catalog()
+    season_year = espn_season_year(season or nba_season_label())
     result: dict[str, dict] = {}
     for team_name in team_names:
         team = _find_espn_team(team_name, catalog)
         if not team:
             continue
-        payload = _espn_fallback_team_stats(team_name, team)
+        payload = _espn_fallback_team_stats(team_name, team, season_year)
         result[team_name] = payload
         result[str(team.get("displayName") or team_name)] = payload
         result[_team_key(str(team.get("displayName") or team_name))] = payload
     return result
+
+
+def _espn_player_season_minutes(slug: str, season_year: int) -> dict[str, tuple[float, float]]:
+    payload = _fetch_espn_json(f"{ESPN_NBA_TEAMS_URL}/{slug}/athletes/statistics?season={season_year}")
+    results = payload.get("results") if isinstance(payload.get("results"), list) else []
+    leaders = results[0].get("leaders") if results and isinstance(results[0], dict) else []
+    minutes: dict[str, tuple[float, float]] = {}
+    for leader in leaders or []:
+        if not isinstance(leader, dict):
+            continue
+        name = str((leader.get("athlete") or {}).get("displayName") or "").strip()
+        values = {}
+        for category in leader.get("statistics") or []:
+            for stat in (category.get("stats") or []) if isinstance(category, dict) else []:
+                if isinstance(stat, dict) and stat.get("name"):
+                    values[str(stat["name"])] = stat.get("value")
+        try:
+            games = float(values.get("gamesPlayed") or 0.0)
+            per_game = float(values.get("avgMinutes") or 0.0)
+        except (TypeError, ValueError):
+            continue
+        if name:
+            minutes[name] = (games, per_game)
+    return minutes
+
+
+def fetch_espn_player_minutes(team_name: str, season: str | None = None) -> dict:
+    """
+    Games played and minutes per game for each player on a team, this season and
+    last, from ESPN. Sizes injury absences when stats.nba.com on/off data is out.
+    `current_weight` is this season's share of the team rating (blend_prior_season).
+    """
+    team = _find_espn_team(team_name, _espn_team_catalog())
+    if not team:
+        return {}
+    slug = str(team.get("abbreviation") or team.get("id") or "").strip().lower()
+    season_year = espn_season_year(season or nba_season_label())
+    current = _espn_player_season_minutes(slug, season_year)
+    try:
+        prior = _espn_player_season_minutes(slug, season_year - 1)
+    except (requests.RequestException, ValueError):
+        prior = {}
+    team_games = max((games for games, _ in current.values()), default=0.0)
+    prior_team_games = max((games for games, _ in prior.values()), default=0.0)
+    players = {}
+    for name in set(current) | set(prior):
+        games, per_game = current.get(name, (0.0, 0.0))
+        prior_games, prior_per_game = prior.get(name, (0.0, 0.0))
+        players[name] = {"gp": games, "mpg": per_game, "prior_gp": prior_games, "prior_mpg": prior_per_game}
+    return {
+        "team_games": team_games,
+        "prior_team_games": prior_team_games,
+        "current_weight": team_games / (team_games + NBA_PRIOR_SEASON_GAMES) if prior_team_games > 0 else 1.0,
+        "players": players,
+    }
 
 
 def fetch_espn_roster_fallback(team_name: str) -> list:
@@ -378,7 +536,7 @@ def _calculate_current_road_trip_length(team_games: pd.DataFrame, today_site: st
 
 
 def fetch_team_schedule_context(
-    season: str = '2025-26',
+    season: str | None = None,
     as_of_date: str | None = None,
     upcoming_games: list[dict] | None = None,
 ) -> dict:
@@ -389,6 +547,7 @@ def fetch_team_schedule_context(
     drag, and rolling 5/10-game form windows weighted toward the most recent
     games.
     """
+    season = season or nba_season_label(as_of_date)
     _pause()
     finder = leaguegamefinder.LeagueGameFinder(
         season_nullable=season,
@@ -492,7 +651,7 @@ def _is_valid_scoreboard_team_name(value: object) -> bool:
         return False
     return not text.isdigit()
 
-def fetch_roster(team_name: str, season: str = '2025-26') -> list:
+def fetch_roster(team_name: str, season: str | None = None) -> list:
     """
     Fetch the current roster for a team.
     Returns list of dicts: [{'name': 'Cooper Flagg', 'num': '32', 'position': 'F', 'age': 19}, ...]
@@ -504,7 +663,7 @@ def fetch_roster(team_name: str, season: str = '2025-26') -> list:
     
     _pause()
     try:
-        roster = commonteamroster.CommonTeamRoster(team_id=team_id, season=season)
+        roster = commonteamroster.CommonTeamRoster(team_id=team_id, season=season or nba_season_label())
         df = roster.get_data_frames()[0]
     except Exception as exc:
         fallback = fetch_espn_roster_fallback(team_name)
@@ -524,16 +683,49 @@ def fetch_roster(team_name: str, season: str = '2025-26') -> list:
         })
     return players
 
+_PRIOR_MARGIN_FIELDS = (
+    "net_rating", "season_net_rating", "last10_net_rating",
+    "raw_recent_5_point_diff", "raw_recent_10_point_diff", "raw_weighted_point_diff",
+    "capped_recent_5_point_diff", "capped_recent_10_point_diff", "capped_weighted_point_diff",
+    "recent_5_point_diff", "recent_10_point_diff", "weighted_point_diff",
+)
+_PRIOR_WIN_FIELDS = ("win_pct", "recent_5_win_pct", "recent_10_win_pct", "weighted_win_pct")
+
+
+def regress_payload_toward_prior(payload: dict, games: float, prior_record: dict | None) -> dict:
+    """
+    Pull an NBA API team payload's margins and win rates toward last season with the
+    same weights as the ESPN path. Offense and defense keep their midpoint; only the gap moves.
+    """
+    shrink = prior_season_shrink(games, prior_record)
+    if not shrink:
+        payload["current_season_weight"] = 1.0
+        return payload
+    weight, margin, win = shrink
+    for field in _PRIOR_MARGIN_FIELDS:
+        payload[field] = (weight * float(payload[field])) + ((1.0 - weight) * margin)
+    for field in _PRIOR_WIN_FIELDS:
+        payload[field] = (weight * float(payload[field])) + ((1.0 - weight) * win)
+    level = (float(payload["off_rating"]) + float(payload["def_rating"])) / 2.0
+    gap = (weight * (float(payload["off_rating"]) - float(payload["def_rating"]))) + ((1.0 - weight) * margin)
+    payload["off_rating"] = level + (gap / 2.0)
+    payload["def_rating"] = level - (gap / 2.0)
+    payload["current_season_weight"] = weight
+    return payload
+
+
 def fetch_all_team_stats(
-    season: str = '2025-26',
+    season: str | None = None,
     as_of_date: str | None = None,
     upcoming_games: list[dict] | None = None,
 ) -> dict:
     """
     Fetch advanced stats for all teams.
     Returns dict keyed by team name.
-    Blends season-long and last-10-game Net Rating (70/30).
+    Blends season-long and last-10-game Net Rating (70/30), then leans on last
+    season while this season is only a few games old.
     """
+    season = season or nba_season_label(as_of_date)
     _pause()
     try:
         stats = leaguedashteamstats.LeagueDashTeamStats(
@@ -543,7 +735,7 @@ def fetch_all_team_stats(
         )
         df = stats.get_data_frames()[0]
     except Exception as exc:
-        fallback = fetch_espn_team_stats_fallback(upcoming_games)
+        fallback = fetch_espn_team_stats_fallback(upcoming_games, season=season)
         if fallback:
             print(f"WARNING: NBA API team stats failed ({exc}); using ESPN team statistics fallback.")
             return fallback
@@ -566,6 +758,26 @@ def fetch_all_team_stats(
     except Exception as e:
         print(f"  ⚠️ Could not fetch last-10 stats: {e}. Using season-only.")
         last10_lookup = {}
+
+    prior_lookup = {}
+    try:
+        _pause()
+        prior_df = leaguedashteamstats.LeagueDashTeamStats(
+            measure_type_detailed_defense='Advanced',
+            season=previous_season_label(season),
+            per_mode_detailed='PerGame'
+        ).get_data_frames()[0]
+        for _, prior_row in prior_df.iterrows():
+            prior_lookup[prior_row['TEAM_NAME']] = {
+                'gamesPlayed': float(prior_row.get('GP', 0) or 0),
+                'avgPointsFor': float(prior_row['OFF_RATING']),
+                'avgPointsAgainst': float(prior_row['DEF_RATING']),
+                'differential': float(prior_row['NET_RATING']),
+                'winPercent': float(prior_row['W_PCT']),
+            }
+        print(f"  ✅ {previous_season_label(season)} stats fetched for the early-season prior.")
+    except Exception as exc:
+        print(f"  ⚠️ Could not fetch {previous_season_label(season)} stats: {exc}. Using this season only.")
 
     four_factor_lookup = {}
     try:
@@ -652,6 +864,7 @@ def fetch_all_team_stats(
             'current_road_trip_length': context.get('current_road_trip_length', 0),
             'stats_source': 'NBA API',
         }
+        regress_payload_toward_prior(result[short_name], float(row.get('GP', 0) or 0), prior_lookup.get(full_name))
         # Also store by full name
         result[full_name] = result[short_name]
     

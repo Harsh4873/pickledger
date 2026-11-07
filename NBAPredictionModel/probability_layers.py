@@ -3,8 +3,14 @@ import re
 from functools import lru_cache
 
 from data_models import Team, GameContext
+try:
+    from .nba_season import nba_season_label
+except ImportError:
+    from nba_season import nba_season_label
 
 _PROB_EPSILON = 1e-6
+# Bounds on the summed layer probability before it meets the spread term.
+LAYER_PROBABILITY_FLOOR = 0.03
 _MIN_ON_OFF_SAMPLE_GAMES = 10
 _DEFAULT_UNMATCHED_PLAYER_PENALTY = 0.05
 _ROTATION_BROKEN_MULTIPLIER = 1.5
@@ -117,6 +123,59 @@ def _fetch_team_on_off_data(team_name: str, season: str) -> dict:
     except Exception as exc:
         print(f"  WARNING: Could not fetch on/off data for {team_name}: {exc}")
         return {}
+
+
+def _fetch_team_minutes(team_name: str, season: str) -> dict:
+    try:
+        from live_data import fetch_espn_player_minutes
+    except Exception as exc:
+        print(f"  WARNING: Could not import ESPN minutes lookup for {team_name}: {exc}")
+        return {}
+
+    try:
+        return fetch_espn_player_minutes(team_name, season) or {}
+    except Exception as exc:
+        print(f"  WARNING: Could not fetch ESPN minutes for {team_name}: {exc}")
+        return {}
+
+
+def _minutes_based_player_penalty(player_name: str, status: str, absence_probability: float, minutes: dict) -> tuple[float, str, dict]:
+    """
+    Absence penalty when on/off data is unavailable. The flat default charged a
+    two-way player like a star and charged again for players whose absence the
+    team rating already holds. Here the default scales with minutes per game, and
+    only with the part of the rating built while the player was on the floor:
+    this season's games he played, at this season's weight, plus last season's.
+    A player outside the rotation in both seasons costs nothing.
+    """
+    players = minutes.get("players") or {}
+    matched = _match_player_name(player_name, list(players))
+    if not matched:
+        return (
+            0.0,
+            f"{player_name} {status} ({absence_probability:.0%} miss, no minutes this season or last, so neutral)",
+            {"matched_name": player_name, "base_penalty": 0.0, "expected_penalty": 0.0, "mpg": 0.0, "gp": 0, "impact": 0.0},
+        )
+    row = players[matched]
+    games = float(row.get("gp") or 0.0)
+    prior_games = float(row.get("prior_gp") or 0.0)
+    mpg = float(row.get("mpg") or 0.0) if games > 0 else float(row.get("prior_mpg") or 0.0)
+    team_games = float(minutes.get("team_games") or 0.0)
+    prior_team_games = float(minutes.get("prior_team_games") or 0.0)
+    weight = float(minutes.get("current_weight", 1.0))
+    share_now = min(1.0, games / team_games) if team_games > 0 else 0.0
+    share_before = min(1.0, prior_games / prior_team_games) if prior_team_games > 0 else 0.0
+    in_rating = (weight * share_now) + ((1.0 - weight) * share_before)
+    base_penalty = _DEFAULT_UNMATCHED_PLAYER_PENALTY * min(1.0, mpg / 30.0)
+    expected_penalty = base_penalty * in_rating * absence_probability
+    return (
+        -expected_penalty,
+        (
+            f"{matched} {status} ({absence_probability:.0%} miss, {mpg:.0f} MPG, "
+            f"{in_rating:.0%} of rating with him, EV {-expected_penalty*100:+.1f}%)"
+        ),
+        {"matched_name": matched, "base_penalty": base_penalty, "expected_penalty": expected_penalty, "mpg": mpg, "gp": int(games), "impact": 0.0},
+    )
 
 
 @lru_cache(maxsize=64)
@@ -261,7 +320,7 @@ def _calculate_expected_player_penalty(player_name: str, status: str, absence_pr
     )
 
 
-def calculate_injury_adjustment(team_name: str, injury_entries: list[dict], season: str = "2025-26") -> tuple[float, str]:
+def calculate_injury_adjustment(team_name: str, injury_entries: list[dict], season: str | None = None) -> tuple[float, str]:
     """
     NBANEW injury adjustment based on expected absence value and positional depth.
 
@@ -273,7 +332,9 @@ def calculate_injury_adjustment(team_name: str, injury_entries: list[dict], seas
     if not injury_entries:
         return 0.0, "No expected injury absences"
 
+    season = season or nba_season_label()
     player_data = _fetch_team_on_off_data(team_name, season)
+    minutes = None
     position_lookup, depth_chart = _build_roster_context(team_name, season, player_data)
 
     total_adj = 0.0
@@ -287,12 +348,26 @@ def calculate_injury_adjustment(team_name: str, injury_entries: list[dict], seas
         if not player_name or absence_probability <= 0.0:
             continue
 
-        player_adj, reason, details = _calculate_expected_player_penalty(
-            player_name,
-            status,
-            absence_probability,
-            player_data,
-        )
+        on_off_match = _match_player_name(player_name, list(player_data.keys()))
+        on_off_games = int((player_data.get(on_off_match) or {}).get("gp", 0) or 0) if on_off_match else 0
+        if on_off_games < _MIN_ON_OFF_SAMPLE_GAMES and minutes is None:
+            minutes = _fetch_team_minutes(team_name, season)
+        # On/off needs a sample; early in the season, and for players with no
+        # on/off row, the player's minutes size the absence instead.
+        if on_off_games < _MIN_ON_OFF_SAMPLE_GAMES and (minutes or {}).get("players"):
+            player_adj, reason, details = _minutes_based_player_penalty(
+                player_name,
+                status,
+                absence_probability,
+                minutes,
+            )
+        else:
+            player_adj, reason, details = _calculate_expected_player_penalty(
+                player_name,
+                status,
+                absence_probability,
+                player_data,
+            )
         total_adj += player_adj
         reasons.append(reason)
 
@@ -352,10 +427,25 @@ def calculate_layer1_base_rate(
     opp_team: Team,
     h2h_win_pct_2yr: float,
     use_capped_form: bool = False,
+    relative_records: bool = False,
 ) -> float:
     """
     Base rate blends season quality with recency-sensitive 5/10 game form.
+
+    With `relative_records`, each win-rate term compares the two teams
+    (0.5 + half the gap) instead of reading only this team's record, which
+    otherwise treats every opponent as average and inflates good home teams
+    against good visitors.
     """
+    if relative_records:
+        opp_stats = opp_team.team_stats
+
+        def record(field: str) -> float:
+            return 0.5 + (getattr(team.team_stats, field) - getattr(opp_stats, field)) / 2.0
+    else:
+        def record(field: str) -> float:
+            return getattr(team.team_stats, field)
+
     net_rtg_weight = 0.28
     recent_5_weight = 0.22
     recent_10_weight = 0.18
@@ -385,11 +475,11 @@ def calculate_layer1_base_rate(
 
     base_rate = (
         (net_rtg_prob * net_rtg_weight) +
-        (team.team_stats.recent_5_win_pct * recent_5_weight) +
-        (team.team_stats.recent_10_win_pct * recent_10_weight) +
-        (team.team_stats.weighted_win_pct * weighted_form_weight) +
+        (record("recent_5_win_pct") * recent_5_weight) +
+        (record("recent_10_win_pct") * recent_10_weight) +
+        (record("weighted_win_pct") * weighted_form_weight) +
         (recent_point_prob * recent_point_diff_weight) +
-        (team.team_stats.season_win_pct * season_weight) +
+        (record("season_win_pct") * season_weight) +
         (h2h_win_pct_2yr * h2h_weight) +
         home_court_prior
     )
@@ -611,8 +701,12 @@ def combine_home_win_probability(
     the team-strength, home-court, and recent-form signal; spread is a
     cross-check from the separate matchup margin path, not a second full pass
     over the same inputs.
+
+    The layers add percentage points, so a lopsided matchup can sum past 0 or 1.
+    Clamping only at the float limits turned those into 99.9999% calls, so the
+    layer probability is held to [LAYER_PROBABILITY_FLOOR, 1 - floor] first.
     """
-    base_prob = _clamp_probability(layer_probability)
+    base_prob = max(LAYER_PROBABILITY_FLOOR, min(1.0 - LAYER_PROBABILITY_FLOOR, float(layer_probability)))
     blended_logit = _logit(base_prob) + (predicted_spread / 10.0) * 0.30
     return _sigmoid(blended_logit)
 

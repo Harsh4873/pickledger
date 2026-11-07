@@ -18,7 +18,6 @@ from probability_layers import (
     calculate_layer2_situational,
     calculate_layer3_matchup_modifier,
     combine_home_win_probability,
-    extremize_probability,
     legacy_extremize_probability,
     legacy_predict_spread,
     legacy_predict_total_points,
@@ -237,6 +236,7 @@ def run_game(
         away_team,
         ctx.h2h_home_win_pct_2yr,
         use_capped_form=use_capped_form,
+        relative_records=variant == "new",
     )
 
     use_advanced_fatigue = variant == "new"
@@ -346,8 +346,11 @@ def run_game(
     else:
         predicted_spread = predict_spread(home_team, away_team, pace_context=tempo_context)
         raw_prob = combine_home_win_probability(layer_prob, predicted_spread, home_team, away_team)
-        ext_prob = extremize_probability(raw_prob)
-        calibrated_prob = calibrator.calibrate(ext_prob) if calibrator else ext_prob
+        # Extremizing (logit x1.3) made every bucket of the point-in-time backtest
+        # worse, and the Platt layer is fitted on raw probabilities, so it
+        # calibrates the raw probability directly.
+        ext_prob = raw_prob
+        calibrated_prob = calibrator.calibrate(raw_prob) if calibrator else raw_prob
         predicted_total = predict_total_points(ctx, pace_context=tempo_context)
         variant_note = calibration_note
         decision_override = None

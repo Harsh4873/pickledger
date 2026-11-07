@@ -247,7 +247,7 @@ def test_nba_team_stats_fall_back_to_espn_when_nba_api_times_out(monkeypatch):
         "Knicks": {"stats_source": "ESPN team statistics fallback"},
     }
     monkeypatch.setattr(live_data.leaguedashteamstats, "LeagueDashTeamStats", BrokenTeamStats)
-    monkeypatch.setattr(live_data, "fetch_espn_team_stats_fallback", lambda _games: fallback)
+    monkeypatch.setattr(live_data, "fetch_espn_team_stats_fallback", lambda _games, season=None: fallback)
 
     result = live_data.fetch_all_team_stats(
         upcoming_games=[{"away_team": "Spurs", "home_team": "Knicks"}],
