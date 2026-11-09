@@ -1172,6 +1172,37 @@ def test_shadowed_model_rows_are_research_input_but_never_stake():
     assert built["portfolio"]["live"] == []
 
 
+def test_published_unapproved_bet_is_research_input_but_never_stakes():
+    """NBA-style publish: BET stays on the row at 0u with awaiting-holdout."""
+    history = history_payloads(
+        wins_per_date=5, losses_per_date=3, days=20, target_date=LIVE_DATE, market="moneyline",
+    )
+    candidate_pick = make_pick(
+        pick="Same Market ML", market="moneyline", slate_date=LIVE_DATE, no_vig=None,
+    )
+    candidate_pick["shadow_decision"] = "BET"
+    candidate_pick["shadow_units"] = candidate_pick.get("units", 1)
+    candidate_pick["units"] = 0
+    candidate_pick["staking_policy"] = "awaiting_approved_holdout"
+    built = desk.build_profit_desk_payload(
+        LIVE_DATE,
+        make_payload([candidate_pick], slate_date=LIVE_DATE),
+        None,
+        team_history=history,
+        prop_history=[],
+        approvals=moneyline_approval(),
+    )
+    assert built["summary"]["inputPicks"] == 1
+    candidate = built["candidates"][0]
+    assert candidate["shadowOnly"] is True
+    assert candidate["decision"] == "BET"
+    assert candidate["liveQualified"] is False
+    assert candidate["stakeUnits"] == 0
+    assert candidate["tier"] == "watch"
+    assert "awaiting_approved_holdout" in candidate["blockers"]
+    assert built["portfolio"]["live"] == []
+
+
 def test_plain_pass_rows_still_never_enter_the_desk():
     built = desk.build_profit_desk_payload(
         LIVE_DATE,

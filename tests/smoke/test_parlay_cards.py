@@ -242,6 +242,28 @@ def test_collect_legs_enforces_odds_window():
     assert [leg.pick for leg in legs] == ["Fine ML"]
 
 
+def test_collect_legs_skips_unapproved_holdout_forecasts():
+    team_payload = make_payload(
+        {
+            "nba": [
+                {
+                    **make_pick(
+                        sport="NBA",
+                        source="NBA New",
+                        pick="Pistons ML (Wizards @ Pistons)",
+                        game="Wizards @ Pistons",
+                    ),
+                    "staking_policy": "awaiting_approved_holdout",
+                    "units": 0,
+                }
+            ],
+            "mlb_new": [make_pick(pick="Fine ML", game="E @ F", odds=-150)],
+        }
+    )
+    legs = parlays.collect_legs(DATE, team_payload, None, parlays.TrailingExcess())
+    assert [leg.pick for leg in legs] == ["Fine ML"]
+
+
 # ---------------------------------------------------------------------------
 # Combo validity
 # ---------------------------------------------------------------------------

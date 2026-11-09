@@ -1717,7 +1717,7 @@ function renderPickRow(pick: Pick): string {
       : ' data-home-pick-text role="button" tabindex="0" aria-expanded="false"';
   return `<div class="home-feed-row result-${pick.result}${isPlayer ? ' player-row' : ''}${hasResearch ? ' is-expandable' : ''}${expanded ? ' expanded' : ''}"${researchAttrs}>
     ${isPlayer ? '' : `<span class="home-feed-row-sport">${escapeHtml(pick.sport)}</span>`}
-    <div class="home-feed-row-body"><div class="home-feed-row-source">${escapeHtml(sourceName(pick))}</div><div class="home-feed-row-pick"${pickTextAttrs} title="${escapeHtml(pick.pick)}">${escapeHtml(pickSelectionText(pick))}</div><div class="home-feed-row-meta">${escapeHtml([formatOdds(pick), pick.odds != null && pick.price_verified !== true ? 'price unverified' : '', decision === 'PASS' ? '' : `${pick.units}u`, quarterKellyLabel(pick), formatStart(pick.start_time), activePickMode === 'player' ? '' : pick.decision].filter(Boolean).join(' | '))}</div>${researchDetailsHtml(pick, expanded)}</div>
+    <div class="home-feed-row-body"><div class="home-feed-row-source">${escapeHtml(sourceName(pick))}</div><div class="home-feed-row-pick"${pickTextAttrs} title="${escapeHtml(pick.pick)}">${escapeHtml(pickSelectionText(pick))}</div><div class="home-feed-row-meta">${escapeHtml([formatOdds(pick), pick.odds != null && pick.price_verified !== true ? 'price unverified' : '', decision === 'PASS' ? '' : `${pick.units}u`, stakingPolicyNote(pick), quarterKellyLabel(pick), formatStart(pick.start_time), activePickMode === 'player' ? '' : pick.decision].filter(Boolean).join(' | '))}</div>${researchDetailsHtml(pick, expanded)}</div>
     <div class="home-feed-row-pl ${pick.pl > 0 ? 'positive' : pick.pl < 0 ? 'negative' : 'neutral'}">${isUnsupportedPendingPick(pick) || (pick.result !== 'pending' && pick.price_verified !== true) ? 'P/L untracked' : pick.result === 'pending' ? decision === 'PASS' ? 'Pass' : `${pick.units}u risk` : signedUnits(pick.pl)}</div>
     <div class="home-feed-row-control">${pickResultBadge(pick)}</div>
   </div>`;
@@ -2194,6 +2194,12 @@ function dailyDecision(pick: Pick): string {
   return String(pick.decision || 'WATCH').trim().toUpperCase();
 }
 
+function stakingPolicyNote(pick: Pick): string {
+  const policy = String(pick.staking_policy || '').trim();
+  if (policy === 'awaiting_approved_holdout') return 'awaiting holdout';
+  return '';
+}
+
 function isPostedDecision(pick: Pick): boolean {
   const decision = dailyDecision(pick);
   return decision === 'BET' || decision === 'LEAN' || decision === 'PASS';
@@ -2445,6 +2451,7 @@ function dailyPickGroupCard(group: DailyPickGroup): string {
         formatOdds(sourcePick),
         sourceProbability == null ? '' : `${(sourceProbability * 100).toFixed(1)}%`,
         sourceEdge == null ? '' : `${sourceEdge >= 0 ? '+' : ''}${sourceEdge.toFixed(1)}% edge`,
+        stakingPolicyNote(sourcePick),
         settledResultText(sourcePick),
       ].filter(Boolean).join(' | ');
       return `<div class="daily-pick-source-row"><strong>${escapeHtml(sourceName(sourcePick))}</strong><span>${escapeHtml(sourceMeta)}</span></div>`;

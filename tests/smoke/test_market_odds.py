@@ -116,6 +116,24 @@ def test_scoreboard_parse_skips_live_games_and_prefers_close_prices():
     assert markets["spread"] == {"homeLine": 1.5, "home": -136, "away": 113}
 
 
+def test_replace_assumed_price_clears_pending_price_without_rewriting_decision():
+    pick = {
+        "odds": None,
+        "decision": "BET",
+        "units": 0.89,
+        "decision_basis": "model_conviction_pending_price",
+        "pricing_type": "unpriced",
+        "market_priced": False,
+    }
+    market_odds._replace_assumed_price(pick, -337, "espn_scoreboard:DraftKings")
+    assert pick["odds"] == -337
+    assert pick["market_priced"] is True
+    assert pick["assumed_odds_replaced"] is True
+    assert pick["decision"] == "BET"
+    assert pick["units"] == 0.89
+    assert pick["decision_basis"] == "model_conviction"
+
+
 def test_reversed_matchup_still_prices_the_correct_side():
     book = build_book([scoreboard_event()])
     payload = payload_with(

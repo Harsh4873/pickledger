@@ -60,10 +60,10 @@ ENGINE_CUTOVER_DATE = "2026-07-10"
 FIRST_LIVE_DATE = "2026-07-11"
 
 VISIBLE_DECISIONS = {"BET", "LEAN"}
-# scripts/model_stake_policy.py publishes every unapproved in-house BET/LEAN as
-# PASS @ 0u and keeps the proposal in shadow_decision. Those rows are still the
-# desk's research input: they are evaluated and accrue evidence, but they can
-# never stake here (the approval gate already said no).
+# scripts/model_stake_policy.py publishes unapproved in-house BET/LEAN at 0u
+# with staking_policy awaiting_approved_holdout (NHL/MLS frozen candidates
+# still use PASS + shadow_decision). Those rows are the desk's research input:
+# they accrue evidence, but they can never stake here.
 SHADOW_STAKING_POLICY = "awaiting_approved_holdout"
 MAX_PRICE_AGE_HOURS = 24.0
 MAX_PUBLISH_CLOCK_SKEW_MINUTES = 5.0
@@ -758,15 +758,15 @@ def _desk_decision(record: Mapping[str, Any]) -> tuple[str | None, bool]:
     if record.get("shadow_mode") is True:
         return None, False
     decision = _text(record.get("decision")).upper()
+    shadow = _text(record.get("shadow_decision")).upper()
+    awaiting = _text(record.get("staking_policy")) == SHADOW_STAKING_POLICY
+    if awaiting:
+        forecast = decision if decision in VISIBLE_DECISIONS else shadow
+        if forecast in VISIBLE_DECISIONS:
+            return forecast, True
+        return None, False
     if decision in VISIBLE_DECISIONS:
         return decision, False
-    shadow = _text(record.get("shadow_decision")).upper()
-    if (
-        decision == "PASS"
-        and shadow in VISIBLE_DECISIONS
-        and _text(record.get("staking_policy")) == SHADOW_STAKING_POLICY
-    ):
-        return shadow, True
     return None, False
 
 

@@ -913,8 +913,9 @@ def test_wnba_calibration_edge_uses_current_no_vig_without_erasing_fit():
     assert pick["calibrated_probability"] < pick["raw_probability"]
     assert pick["edge"] == pytest.approx((pick["calibrated_probability"] - .510834) * 100, abs=.01)
     assert pick["edge"] > 0
-    # Correcting the baseline is not permission to waive decision thresholds.
-    assert pick["decision"] == "PASS" and pick["units"] == 0
+    # Correcting the displayed edge must not hide the model's LEAN as PASS.
+    assert pick["raw_decision"] == "LEAN"
+    assert pick["decision"] == "LEAN"
 
 
 def test_wnba_side_specific_prices_and_no_invented_total():

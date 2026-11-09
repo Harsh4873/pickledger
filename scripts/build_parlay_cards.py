@@ -690,6 +690,10 @@ def collect_legs(
             # Shadow-mode models accumulate ledger evidence without any
             # public surface — including parlay legs.
             continue
+        if str(pick.get("staking_policy") or "").strip() == "awaiting_approved_holdout":
+            # Unapproved in-house forecasts may publish as BET/LEAN at 0u.
+            # They are not live stakes and must not seed parlay cards.
+            continue
         # scope=player rows in the TEAM payload (external prop feeds) face
         # the same market_priced gate as player-cache props.
         if (

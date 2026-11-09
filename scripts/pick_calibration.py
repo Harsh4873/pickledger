@@ -40,6 +40,15 @@ CALIBRATION_EXCLUDED_MODEL_KEYS = {"fifa_world_cup", "forebet_mls", "forebet_nhl
 # decision and stake publish untouched — there is no executable price for
 # the edge-based downgrade to protect.
 DECISION_DOWNGRADE_EXEMPT_MODEL_KEYS = {"mlb_inning"}
+# In-house team models own BET / LEAN / PASS. After a posted price attaches,
+# the pooled 3pp/7pp edge floor used to remap those forecasts to PASS even
+# when the model itself was BET or LEAN (NBA New from 2026-11-01 through
+# 2026-11-09 published zero coverage). Player-prop buckets still use the
+# edge floor. Units may still shrink with calibrated edge; unapproved
+# staking is zeroed later and is not an approval.
+FORECAST_DECISION_LOCKED_MODEL_KEYS = set(TEAM_PROP_MODEL_KEYS)
+PRICED_MODEL_CONVICTION = "model_conviction"
+PENDING_PRICE_DECISION_BASIS = "model_conviction_pending_price"
 # Models still accruing their own decided history must NOT inherit the pooled
 # "global" calibration. The global fit is dominated by other models/markets
 # and applying that cross-market probability shrink to a model without its own
@@ -322,7 +331,16 @@ def apply_calibration_to_pick(
     else:
         raw_decision = str(snapshot.get("decision") or pick.get("decision") or "").strip().upper()
     pick["raw_decision"] = raw_decision
-    if not downgrade_exempt and raw_decision in {"BET", "LEAN"} and adjusted_edge is not None:
+    if pick.get("market_priced") is True and pick.get("decision_basis") == PENDING_PRICE_DECISION_BASIS:
+        # Odds attached; the pending-price label is no longer true. Do not
+        # invent a sportsbook-fitted call here.
+        pick["decision_basis"] = PRICED_MODEL_CONVICTION
+    if str(model_key) in FORECAST_DECISION_LOCKED_MODEL_KEYS:
+        if raw_decision in {"BET", "LEAN", "PASS"}:
+            pick["decision"] = raw_decision
+            if raw_decision == "PASS":
+                pick["units"] = 0
+    elif not downgrade_exempt and raw_decision in {"BET", "LEAN"} and adjusted_edge is not None:
         if adjusted_edge < 3:
             pick["decision"] = "PASS"
             pick["units"] = 0

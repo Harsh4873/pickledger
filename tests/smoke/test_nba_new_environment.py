@@ -368,7 +368,10 @@ def test_nba_new_pass_spread_below_the_edge_gate_is_zero_units(monkeypatch):
 
 
 def test_nba_buckets_are_certified_and_frozen_like_other_team_models():
-    from scripts.pick_calibration import GLOBAL_FALLBACK_EXEMPT_MODEL_KEYS
+    from scripts.pick_calibration import (
+        FORECAST_DECISION_LOCKED_MODEL_KEYS,
+        GLOBAL_FALLBACK_EXEMPT_MODEL_KEYS,
+    )
     from scripts.refresh_model_cache import KICKOFF_FROZEN_MODEL_KEYS
     from scripts.team_prop_pregame_ledger import TEAM_PROP_MODEL_KEYS
 
@@ -376,6 +379,7 @@ def test_nba_buckets_are_certified_and_frozen_like_other_team_models():
         assert key in TEAM_PROP_MODEL_KEYS
         assert key in KICKOFF_FROZEN_MODEL_KEYS
         assert key in GLOBAL_FALLBACK_EXEMPT_MODEL_KEYS
+        assert key in FORECAST_DECISION_LOCKED_MODEL_KEYS
 
 
 def test_nba_unpriced_or_pass_rows_cannot_carry_stake_units():
