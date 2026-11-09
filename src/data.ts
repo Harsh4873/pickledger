@@ -24,6 +24,7 @@ export interface Pick {
   matchup?: string;
   game?: string;
   decision?: string;
+  staking_policy?: string;
   // True for rows that came from a scraped tipster feed rather than an
   // in-house model. Display-only: it drives the header's feed toggle and
   // nothing else.

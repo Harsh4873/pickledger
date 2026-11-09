@@ -382,7 +382,7 @@ def diagnose_ledger(ledger: Mapping[str, Any], freeze: Mapping[str, Any]) -> dic
             "Historical 2012-2025 residual-band search is mined and is not a holdout.",
             "Sunday 1pm ET slates were often first written after kickoff when a slow refresh restamped publication clocks.",
             "Serving-hash prediction_model_version values fragment the scorecard; new captures key on the fitted nfl_v1 label.",
-            "Unapproved BET/LEAN publish as PASS @ 0u with shadow_decision so the unused holdout can accumulate.",
+            "Unapproved BET/LEAN publish as BET/LEAN @ 0u with staking_policy awaiting_approved_holdout and shadow_decision so the unused holdout can accumulate.",
         ],
     }
 

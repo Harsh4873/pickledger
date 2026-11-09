@@ -2,7 +2,7 @@
 
 Status as of 2026-09-27: **no staking approval**. `data/calibration/staking_approvals.json` stays `{ "approvals": [] }` until the unused holdout actually clears.
 
-The team model still mints BET/LEAN from the frozen totals rule. The publication gate demotes those rows to visible PASS @ 0u and keeps `shadow_decision` / `shadow_units` for research grading.
+The team model still mints BET/LEAN from the frozen totals rule. The publication gate keeps that forecast visible as BET/LEAN at 0u with `staking_policy: awaiting_approved_holdout` (and `shadow_decision` / `shadow_units`) until an unused holdout actually clears. It does not hide the forecast as PASS.
 
 ## Why NFL cannot clear a real approval yet
 

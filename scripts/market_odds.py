@@ -628,6 +628,11 @@ def _replace_assumed_price(pick: dict[str, Any], real_odds: int, provider: str) 
     pick["price_source"] = provider
     pick["market_priced"] = True
     pick.pop("assumed_odds", None)
+    # Parser labels unpriced conviction as pending-price. A real posted quote
+    # confirms that row; do not leave the pending label on a priced pick, and
+    # do not rewrite BET/LEAN from the book's edge here.
+    if pick.get("decision_basis") == "model_conviction_pending_price":
+        pick["decision_basis"] = "model_conviction"
 
 
 def _attach_pick(

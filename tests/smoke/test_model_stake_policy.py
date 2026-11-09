@@ -23,8 +23,10 @@ def test_policy_demotes_unapproved_pick_and_preserves_shadow_decision():
     pick = {"decision": "BET", "units": 0.5, "market": "totals", "prediction_model_version": "mlb:v1"}
     payload = {"models": {"mlb_new": {"picks": [pick]}}}
     assert apply_stake_policy(payload, approvals={"approvals": []}, model_keys={"mlb_new"}) == 1
-    assert pick["decision"] == "PASS" and pick["units"] == 0
+    assert pick["decision"] == "BET" and pick["units"] == 0
     assert pick["shadow_decision"] == "BET" and pick["shadow_units"] == 0.5
+    assert pick["staking_policy"] == "awaiting_approved_holdout"
+    assert pick["decision_reason"] == "awaiting_approved_holdout"
 
 
 def test_policy_requires_exact_version_market_and_valid_holdout():
@@ -48,7 +50,8 @@ def test_policy_preserves_retained_pregame_bet_after_start():
     assert pick["decision"] == "BET" and pick["units"] == 0.5
     pick["certification_timing"]["published_at"] = "2026-09-25T20:00:00Z"
     assert apply_stake_policy(payload, approvals={"approvals": []}, model_keys={"mlb_new"}) == 1
-    assert pick["decision"] == "PASS" and pick["units"] == 0
+    assert pick["decision"] == "BET" and pick["units"] == 0
+    assert pick["staking_policy"] == "awaiting_approved_holdout"
 
 
 def test_policy_matches_nfl_fitted_artifact_not_serving_hash():
@@ -69,7 +72,8 @@ def test_policy_matches_nfl_fitted_artifact_not_serving_hash():
     hashed = _approval(model_key="nfl", model_version="nfl:deadbeefdeadbeef", market="totals")
     pick.update(decision="BET", units=0.5)
     assert apply_stake_policy(payload, approvals={"approvals": [hashed]}, model_keys={"nfl"}) == 1
-    assert pick["decision"] == "PASS" and pick["shadow_decision"] == "BET"
+    assert pick["decision"] == "BET" and pick["units"] == 0 and pick["shadow_decision"] == "BET"
+    assert pick["staking_policy"] == "awaiting_approved_holdout"
 
 
 def test_price_clock_rejects_missing_late_stale_and_post_start_quotes():

@@ -3,6 +3,11 @@
 Approvals are exact fitted-version, market, and variant matches. An approval
 must name a frozen rule and a reviewed, unused chronological holdout; this
 module deliberately cannot infer approval from a favorable scorecard.
+
+Unapproved in-house forecasts stay on the board as BET/LEAN at 0u with
+``staking_policy: awaiting_approved_holdout``. The gate does not hide those
+forecasts as PASS. NHL/MLS frozen candidates keep their public PASS + shadow
+contract until an exact approval restores them.
 """
 
 from __future__ import annotations
@@ -73,11 +78,35 @@ def _policy_version(pick: Mapping[str, Any], bucket: Mapping[str, Any]) -> str:
     )
 
 
+def _stamp_unapproved(pick: dict[str, Any], decision: str, *, publish_forecast: bool) -> None:
+    """Zero the stake and keep the holdout policy visible.
+
+    ``publish_forecast=True`` leaves the model's BET/LEAN on the row so the
+    Today board can show coverage. Frozen NHL/MLS candidates stay PASS until
+    an exact approval restores them.
+    """
+
+    pick.setdefault("source_decision", decision)
+    source_units = pick.get("raw_units")
+    if source_units is None:
+        source_units = pick.get("units")
+    pick.setdefault("source_units", source_units)
+    pick["shadow_decision"] = decision
+    if pick.get("shadow_units") is None:
+        pick["shadow_units"] = source_units
+    pick["units"] = 0
+    pick["staking_policy"] = "awaiting_approved_holdout"
+    pick.setdefault("source_decision_reason", pick.get("decision_reason"))
+    pick["decision_reason"] = "awaiting_approved_holdout"
+    pick["actionability"] = "research"
+    pick["decision"] = decision if publish_forecast else "PASS"
+
+
 def apply_stake_policy(
     payload: dict[str, Any], *, approvals: Mapping[str, Any] | None = None,
     model_keys: set[str], prop: bool = False,
 ) -> int:
-    """Demote unapproved model wagers to visible, zero-stake shadow picks."""
+    """Zero unapproved stakes without hiding the model's BET/LEAN forecast."""
 
     policy = approvals if approvals is not None else load_approvals()
     entries = policy.get("approvals")
@@ -150,6 +179,11 @@ def apply_stake_policy(
                         pick["decision_reason"] = "approved_holdout"
                         pick["actionability"] = "approved"
                     continue
+                # Frozen NHL/MLS keep PASS + shadow until an exact approval.
+                if decision in {"BET", "LEAN"}:
+                    _stamp_unapproved(pick, decision, publish_forecast=False)
+                    demoted += 1
+                continue
             if decision not in {"BET", "LEAN"}:
                 continue
             version = _policy_version(pick, bucket)
@@ -162,18 +196,8 @@ def apply_stake_policy(
                 or pick.get("market") or pick.get("market_type") or "unknown"
             ).strip().lower()
             variant = str(pick.get("model_variant") or "base") if prop else "base"
-            if not frozen_candidate and (model_key, version, market, variant) in allowed:
+            if (model_key, version, market, variant) in allowed:
                 continue
-            pick.setdefault("source_decision", decision)
-            pick.setdefault("source_units", pick.get("units"))
-            pick["shadow_decision"] = decision
-            pick["shadow_units"] = pick.get("shadow_units") if pick.get("decision") == "PASS" else pick.get("units")
-            pick["decision"] = "PASS"
-            pick["units"] = 0
-            pick["staking_policy"] = "awaiting_approved_holdout"
-            if frozen_candidate:
-                pick.setdefault("source_decision_reason", pick.get("decision_reason"))
-                pick["decision_reason"] = "awaiting_approved_holdout"
-                pick["actionability"] = "research"
+            _stamp_unapproved(pick, decision, publish_forecast=True)
             demoted += 1
     return demoted

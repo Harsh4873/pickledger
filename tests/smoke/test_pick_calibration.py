@@ -86,6 +86,44 @@ def test_calibration_downgrades_bet_to_lean_when_adjusted_edge_is_midrange():
     assert adjusted["pregame_snapshot"]["decision"] == "BET"
 
 
+def test_team_model_keeps_raw_bet_when_priced_edge_is_negative():
+    """NBA New (and other team models) must not hide a BET as PASS just because
+    the attached DraftKings price has no 3pp edge. Player props still remap."""
+    active = {
+        "version": "test-nba-lock",
+        "minimum_group_samples": 30,
+        "global": {"intercept": -3.0, "slope": 1.0, "samples": 100},
+        "groups": {},
+    }
+    nba = _pick(
+        sport="NBA",
+        source="NBA New",
+        pick="Cavaliers ML (Cavaliers @ Hornets)",
+        market="h2h",
+        decision="BET",
+        units=0.89,
+        probability=0.653,
+        edge=None,
+        odds=-337,
+        market_priced=True,
+        assumed_odds_replaced=True,
+        decision_basis="model_conviction_pending_price",
+        market_no_vig_selected_probability=0.740483,
+    )
+    props = _pick()
+    payload = {"models": {"nba": {"picks": [nba]}, "mlb_player_props": {"picks": [props]}}}
+
+    apply_calibration_to_payload(payload, active)
+    adjusted = payload["models"]["nba"]["picks"][0]
+
+    assert adjusted["raw_decision"] == "BET"
+    assert adjusted["decision"] == "BET"
+    assert adjusted["edge"] < 3
+    assert adjusted["units"] == 0
+    assert adjusted["decision_basis"] == "model_conviction"
+    assert payload["models"]["mlb_player_props"]["picks"][0]["decision"] == "PASS"
+
+
 def test_calibration_leaves_units_alone_when_no_edge_or_market_price_exists():
     active = {
         "version": "test-v3",

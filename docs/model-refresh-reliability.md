@@ -143,3 +143,18 @@ deployment rather than rerunning models. This clock fixes the scheduling
 dependency, not an Actions execution outage. Keep the 09:20 check until another
 independent clock with this contract is confirmed operational; it can then be
 an alert/check rather than a second unconditional model dispatch.
+
+## Forebet hosted-runner blocks (follow-up)
+
+Forebet NBA/NFL/NHL listing fetches still fail on GitHub-hosted runners when
+Cloudflare challenges the listing page. The scraper already retries once with
+browser TLS (`curl_cffi` Chrome impersonation) and the Forebet retry workflow
+redispatches after External Feed Refresh / Daily Refresh. A blocked listing
+must keep the last successful same-sport snapshot on its original date; it
+must never be relabeled as today's picks.
+
+No Cloudflare bypass belongs in this repository. A later owner-owned local
+publisher (the Scores24 pattern) is the honest reliability path. Until that
+exists, Source status should keep reporting the listing failure and the
+missing official matchups rather than inventing Monday coverage from a Sunday
+snapshot.
