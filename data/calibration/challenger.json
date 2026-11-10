@@ -1,6 +1,6 @@
 {
-  "decided_count": 7697,
-  "evaluated_at": "2026-09-25T22:21:18.474168Z",
+  "decided_count": 8698,
+  "evaluated_at": "2026-11-10T08:09:59.112388Z",
   "global": {
     "intercept": -0.14612681,
     "samples": 869,
@@ -77,34 +77,187 @@
   },
   "holdout": {
     "challenger": {
-      "brier_score": 0.25087988,
-      "calibration_error": 0.21441645,
-      "log_loss": 0.68351539,
-      "qualified_bets": 29,
-      "roi": -0.47916992,
-      "samples": 33
+      "brier_score": 0.18482735,
+      "calibration_error": 0.25856734,
+      "log_loss": 0.54315759,
+      "qualified_bets": 13,
+      "roi": 0.28569148,
+      "samples": 26
     },
     "champion": {
-      "brier_score": 0.24548424,
-      "calibration_error": 0.20551795,
-      "log_loss": 0.67257181,
-      "qualified_bets": 28,
-      "roi": -0.48144819,
-      "samples": 33
+      "brier_score": 0.1839825,
+      "calibration_error": 0.25802456,
+      "log_loss": 0.54141563,
+      "qualified_bets": 12,
+      "roi": 0.2888977,
+      "samples": 26
     }
   },
+  "holdout_describes": "selection_mapping_train_only",
   "minimum_group_samples": 30,
   "promotion": {
     "approved": false,
     "reasons": [
       "brier_improved=False",
       "calibration_improved=False",
-      "log_loss_safe=False",
+      "log_loss_safe=True",
       "roi_safe=True"
     ]
   },
+  "refit_mapping_all_rows": {
+    "global": {
+      "intercept": -0.15537722,
+      "samples": 895,
+      "shrinkage_prior_samples": 120.0,
+      "slope": 0.75416777
+    },
+    "groups": {
+      "model:forebet_mlb|source:forebetmlb|sport:mlb|bet:moneyline": {
+        "intercept": -0.23016248,
+        "samples": 121,
+        "shrinkage_prior_samples": 80.0,
+        "slope": 0.70842334
+      },
+      "model:forebet_wnba|source:forebetwnba|sport:wnba|bet:moneyline": {
+        "intercept": -0.06161932,
+        "samples": 66,
+        "shrinkage_prior_samples": 80.0,
+        "slope": 0.82410273
+      },
+      "model:mlb_first_five|source:mlb first five|sport:mlb|bet:f5_side": {
+        "intercept": -0.25940261,
+        "samples": 33,
+        "shrinkage_prior_samples": 80.0,
+        "slope": 0.6951368
+      },
+      "model:mlb_first_five|source:mlb first five|sport:mlb|bet:f5_total": {
+        "intercept": -0.20464494,
+        "samples": 81,
+        "shrinkage_prior_samples": 80.0,
+        "slope": 0.71567623
+      },
+      "model:mlb_new|source:mlb model|sport:mlb|bet:h2h": {
+        "intercept": -0.12834192,
+        "samples": 113,
+        "shrinkage_prior_samples": 80.0,
+        "slope": 0.6651631
+      },
+      "model:mlb_new|source:mlb model|sport:mlb|bet:totals": {
+        "intercept": -0.07723999,
+        "samples": 193,
+        "shrinkage_prior_samples": 80.0,
+        "slope": 0.82513693
+      },
+      "model:mlb_team_total|source:mlb team total|sport:mlb|bet:team_total": {
+        "intercept": -0.09730157,
+        "samples": 38,
+        "shrinkage_prior_samples": 80.0,
+        "slope": 0.76946741
+      },
+      "model:nba_summer|source:nba summer league|sport:nba summer|bet:h2h": {
+        "intercept": -0.22279774,
+        "samples": 72,
+        "shrinkage_prior_samples": 80.0,
+        "slope": 0.69644747
+      },
+      "model:wnba|source:wnba model|sport:wnba|bet:h2h": {
+        "intercept": -0.12783971,
+        "samples": 33,
+        "shrinkage_prior_samples": 80.0,
+        "slope": 0.78013054
+      },
+      "model:wnba|source:wnba model|sport:wnba|bet:spread": {
+        "intercept": -0.16600986,
+        "samples": 54,
+        "shrinkage_prior_samples": 80.0,
+        "slope": 0.72781946
+      },
+      "model:wnba|source:wnba model|sport:wnba|bet:totals": {
+        "intercept": -0.27440138,
+        "samples": 78,
+        "shrinkage_prior_samples": 80.0,
+        "slope": 0.64710116
+      }
+    }
+  },
   "schema_version": 1,
-  "trainable_decided_count": 869,
+  "selection_mapping": {
+    "global": {
+      "intercept": -0.14612681,
+      "samples": 869,
+      "shrinkage_prior_samples": 120.0,
+      "slope": 0.74391563
+    },
+    "groups": {
+      "model:forebet_mlb|source:forebetmlb|sport:mlb|bet:moneyline": {
+        "intercept": -0.22218489,
+        "samples": 121,
+        "shrinkage_prior_samples": 80.0,
+        "slope": 0.69797955
+      },
+      "model:forebet_wnba|source:forebetwnba|sport:wnba|bet:moneyline": {
+        "intercept": -0.05309046,
+        "samples": 66,
+        "shrinkage_prior_samples": 80.0,
+        "slope": 0.81375439
+      },
+      "model:mlb_first_five|source:mlb first five|sport:mlb|bet:f5_side": {
+        "intercept": -0.25051318,
+        "samples": 33,
+        "shrinkage_prior_samples": 80.0,
+        "slope": 0.68473157
+      },
+      "model:mlb_first_five|source:mlb first five|sport:mlb|bet:f5_total": {
+        "intercept": -0.19570904,
+        "samples": 81,
+        "shrinkage_prior_samples": 80.0,
+        "slope": 0.70523225
+      },
+      "model:mlb_new|source:mlb model|sport:mlb|bet:h2h": {
+        "intercept": -0.13078712,
+        "samples": 105,
+        "shrinkage_prior_samples": 80.0,
+        "slope": 0.63576963
+      },
+      "model:mlb_new|source:mlb model|sport:mlb|bet:totals": {
+        "intercept": -0.07001223,
+        "samples": 193,
+        "shrinkage_prior_samples": 80.0,
+        "slope": 0.81424106
+      },
+      "model:mlb_team_total|source:mlb team total|sport:mlb|bet:team_total": {
+        "intercept": -0.08868398,
+        "samples": 38,
+        "shrinkage_prior_samples": 80.0,
+        "slope": 0.75902018
+      },
+      "model:nba_summer|source:nba summer league|sport:nba summer|bet:h2h": {
+        "intercept": -0.21321897,
+        "samples": 72,
+        "shrinkage_prior_samples": 80.0,
+        "slope": 0.68682732
+      },
+      "model:wnba|source:wnba model|sport:wnba|bet:h2h": {
+        "intercept": -0.11894236,
+        "samples": 33,
+        "shrinkage_prior_samples": 80.0,
+        "slope": 0.76975444
+      },
+      "model:wnba|source:wnba model|sport:wnba|bet:spread": {
+        "intercept": -0.15601322,
+        "samples": 52,
+        "shrinkage_prior_samples": 80.0,
+        "slope": 0.71727489
+      },
+      "model:wnba|source:wnba model|sport:wnba|bet:totals": {
+        "intercept": -0.25806324,
+        "samples": 75,
+        "shrinkage_prior_samples": 80.0,
+        "slope": 0.64131395
+      }
+    }
+  },
+  "trainable_decided_count": 895,
   "training_contract_version": 2,
-  "version": "cal-v2-7697-2026-09-25"
+  "version": "cal-v2-8698-2026-11-10"
 }
