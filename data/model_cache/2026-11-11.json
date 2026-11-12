@@ -1705,9 +1705,11 @@
   },
   "date": "2026-11-11",
   "errors": [],
-  "externalFeedsUpdatedAt": "2026-11-11T23:29:00.259670Z",
+  "externalFeedsUpdatedAt": "2026-11-12T01:47:57.646302Z",
   "external_feed_errors": [
-    "forebet_cfb: ForebetCFB incomplete official slate coverage: 1/3"
+    "forebet_cfb: ForebetCFB: listing fetch blocked by Cloudflare",
+    "forebet_nhl: ForebetNHL: listing fetch blocked by Cloudflare",
+    "forebet_nba: ForebetNBA: listing fetch blocked by Cloudflare"
   ],
   "external_feeds": {
     "forebet_cfb": {
@@ -1715,18 +1717,20 @@
       "error": "ForebetCFB incomplete official slate coverage: 1/3",
       "generatedAt": "2026-11-11T23:25:34.180931Z",
       "generatedBy": "local:external-feed-refresh",
-      "lastAttemptAt": "2026-11-11T23:25:34.180931Z",
+      "lastAttemptAt": "2026-11-12T01:47:57.646302Z",
       "lastAttemptDate": "2026-11-11",
       "lastAttemptMeta": {
-        "blockedUrls": 0,
-        "matchedPicks": 1,
+        "blockedUrl": "https://www.forebet.com/en/american-football/usa/ncaa",
+        "blockedUrls": 1,
+        "matchedPicks": 0,
         "missingMatchups": [
           "Buffalo Bulls @ Ball State Cardinals",
+          "Sacramento State Hornets @ Central Michigan Chippewas",
           "Massachusetts Minutemen @ Toledo Rockets"
         ],
         "officialMatchups": 3
       },
-      "lastError": "ForebetCFB incomplete official slate coverage: 1/3",
+      "lastError": "ForebetCFB: listing fetch blocked by Cloudflare",
       "meta": {
         "attemptedUrls": 1,
         "blockedUrls": 0,
@@ -1784,64 +1788,83 @@
     },
     "forebet_mlb": {
       "date": "2026-11-11",
-      "generatedAt": "2026-11-11T23:25:14.590031Z",
-      "generatedBy": "local:external-feed-refresh",
-      "lastAttemptAt": "2026-11-11T23:25:14.590031Z",
+      "generatedAt": "2026-11-12T01:47:57.646302Z",
+      "generatedBy": "github-actions:external-feed-refresh",
+      "lastAttemptAt": "2026-11-12T01:47:57.646302Z",
       "lastAttemptDate": "2026-11-11",
-      "lastSuccessAt": "2026-11-11T23:25:14.590031Z",
+      "lastSuccessAt": "2026-11-12T01:47:57.646302Z",
       "meta": {
         "attemptedUrls": 0,
         "blockedUrls": 0,
         "date": "2026-11-11",
         "expectedMatchups": 0,
         "feed": "forebet_mlb",
-        "from": "local",
-        "leagues": "mlb,wnba,mls,cfb,nfl",
+        "from": "github-actions",
+        "leagues": "nba,mlb,wnba,cfb,nfl",
         "matchedPicks": 0,
         "missingMatchups": [],
         "officialMatchups": 0,
         "unpublishedMatchups": [],
-        "updatedAt": "2026-11-11T23:25:14.590031Z"
+        "updatedAt": "2026-11-12T01:47:57.646302Z"
       },
       "note": "ForebetMLB has no official 2026-11-11 matchups.",
       "ok": true,
       "picks": [],
       "refreshStatus": "ok",
-      "updatedAt": "2026-11-11T23:25:14.590031Z"
+      "updatedAt": "2026-11-12T01:47:57.646302Z"
     },
     "forebet_mls": {
       "date": "2026-11-11",
-      "generatedAt": "2026-11-11T23:25:27.696974Z",
-      "generatedBy": "local:external-feed-refresh",
-      "lastAttemptAt": "2026-11-11T23:25:27.696974Z",
+      "generatedAt": "2026-11-12T01:47:57.646302Z",
+      "generatedBy": "github-actions:external-feed-refresh",
+      "lastAttemptAt": "2026-11-12T01:47:57.646302Z",
       "lastAttemptDate": "2026-11-11",
-      "lastSuccessAt": "2026-11-11T23:25:27.696974Z",
+      "lastSuccessAt": "2026-11-12T01:47:57.646302Z",
       "meta": {
         "attemptedUrls": 0,
         "blockedUrls": 0,
         "date": "2026-11-11",
         "expectedMatchups": 0,
         "feed": "forebet_mls",
-        "from": "local",
-        "leagues": "mlb,wnba,mls,cfb,nfl",
+        "from": "github-actions",
+        "leagues": "nba,mlb,wnba,cfb,nfl",
         "matchedPicks": 0,
         "missingMatchups": [],
         "officialMatchups": 0,
         "unpublishedMatchups": [],
-        "updatedAt": "2026-11-11T23:25:27.696974Z"
+        "updatedAt": "2026-11-12T01:47:57.646302Z"
       },
       "note": "ForebetMLS has no official 2026-11-11 matchups.",
       "ok": true,
       "picks": [],
       "refreshStatus": "ok",
-      "updatedAt": "2026-11-11T23:25:27.696974Z"
+      "updatedAt": "2026-11-12T01:47:57.646302Z"
     },
     "forebet_nba": {
       "date": "2026-11-11",
       "generatedAt": "2026-11-11T23:26:14.576872Z",
       "generatedBy": "local:external-feed-refresh",
-      "lastAttemptAt": "2026-11-11T23:26:14.576872Z",
+      "lastAttemptAt": "2026-11-12T01:47:57.646302Z",
       "lastAttemptDate": "2026-11-11",
+      "lastAttemptMeta": {
+        "blockedUrl": "https://www.forebet.com/en/basketball/usa/nba",
+        "blockedUrls": 1,
+        "matchedPicks": 0,
+        "missingMatchups": [
+          "Washington Wizards @ Indiana Pacers",
+          "Cleveland Cavaliers @ New York Knicks",
+          "Boston Celtics @ Toronto Raptors",
+          "San Antonio Spurs @ Chicago Bulls",
+          "Denver Nuggets @ Memphis Grizzlies",
+          "Los Angeles Lakers @ Milwaukee Bucks",
+          "Brooklyn Nets @ New Orleans Pelicans",
+          "Orlando Magic @ Utah Jazz",
+          "Golden State Warriors @ Houston Rockets",
+          "Oklahoma City Thunder @ Portland Trail Blazers"
+        ],
+        "officialMatchups": 10
+      },
+      "lastError": "ForebetNBA: listing fetch blocked by Cloudflare",
       "lastSuccessAt": "2026-11-11T23:26:14.576872Z",
       "meta": {
         "attemptedUrls": 1,
@@ -1859,7 +1882,7 @@
         "updatedAt": "2026-11-11T23:26:14.576872Z"
       },
       "note": "ForebetNBA matched 10 published prediction(s) against 10 official 2026-11-11 matchup(s).",
-      "ok": true,
+      "ok": false,
       "picks": [
         {
           "away_team": "Washington Wizards",
@@ -2122,43 +2145,58 @@
           "units": 0
         }
       ],
-      "refreshStatus": "ok",
+      "refreshStatus": "error",
       "scraped_tip_feed": true,
       "updatedAt": "2026-11-11T23:26:14.576872Z"
     },
     "forebet_nfl": {
       "date": "2026-11-11",
-      "generatedAt": "2026-11-11T23:25:55.996863Z",
-      "generatedBy": "local:external-feed-refresh",
-      "lastAttemptAt": "2026-11-11T23:25:55.996863Z",
+      "generatedAt": "2026-11-12T01:47:57.646302Z",
+      "generatedBy": "github-actions:external-feed-refresh",
+      "lastAttemptAt": "2026-11-12T01:47:57.646302Z",
       "lastAttemptDate": "2026-11-11",
-      "lastSuccessAt": "2026-11-11T23:25:55.996863Z",
+      "lastSuccessAt": "2026-11-12T01:47:57.646302Z",
       "meta": {
         "attemptedUrls": 0,
         "blockedUrls": 0,
         "date": "2026-11-11",
         "expectedMatchups": 0,
         "feed": "forebet_nfl",
-        "from": "local",
-        "leagues": "mlb,wnba,mls,cfb,nfl",
+        "from": "github-actions",
+        "leagues": "nba,mlb,wnba,cfb,nfl",
         "matchedPicks": 0,
         "missingMatchups": [],
         "officialMatchups": 0,
         "unpublishedMatchups": [],
-        "updatedAt": "2026-11-11T23:25:55.996863Z"
+        "updatedAt": "2026-11-12T01:47:57.646302Z"
       },
       "note": "ForebetNFL has no official 2026-11-11 matchups.",
       "ok": true,
       "picks": [],
       "refreshStatus": "ok",
-      "updatedAt": "2026-11-11T23:25:55.996863Z"
+      "updatedAt": "2026-11-12T01:47:57.646302Z"
     },
     "forebet_nhl": {
       "date": "2026-11-11",
       "generatedAt": "2026-11-11T23:26:02.466410Z",
       "generatedBy": "local:external-feed-refresh",
-      "lastAttemptAt": "2026-11-11T23:26:02.466410Z",
+      "lastAttemptAt": "2026-11-12T01:47:57.646302Z",
       "lastAttemptDate": "2026-11-11",
+      "lastAttemptMeta": {
+        "blockedUrl": "https://www.forebet.com/en/hockey/usa/nhl",
+        "blockedUrls": 1,
+        "matchedPicks": 0,
+        "missingMatchups": [
+          "Tampa Bay Lightning @ Buffalo Sabres",
+          "New York Rangers @ Calgary Flames",
+          "Philadelphia Flyers @ Edmonton Oilers",
+          "Utah Mammoth @ Vegas Golden Knights",
+          "Nashville Predators @ Anaheim Ducks",
+          "Pittsburgh Penguins @ San Jose Sharks"
+        ],
+        "officialMatchups": 6
+      },
+      "lastError": "ForebetNHL: listing fetch blocked by Cloudflare",
       "lastSuccessAt": "2026-11-11T23:26:02.466410Z",
       "meta": {
         "attemptedUrls": 1,
@@ -2176,7 +2214,7 @@
         "updatedAt": "2026-11-11T23:26:02.466410Z"
       },
       "note": "ForebetNHL matched 6 published prediction(s) against 6 official 2026-11-11 matchup(s).",
-      "ok": true,
+      "ok": false,
       "picks": [
         {
           "away_team": "Tampa Bay Lightning",
@@ -2335,36 +2373,36 @@
           "units": 0
         }
       ],
-      "refreshStatus": "ok",
+      "refreshStatus": "error",
       "scraped_tip_feed": true,
       "updatedAt": "2026-11-11T23:26:02.466410Z"
     },
     "forebet_wnba": {
       "date": "2026-11-11",
-      "generatedAt": "2026-11-11T23:25:21.251934Z",
-      "generatedBy": "local:external-feed-refresh",
-      "lastAttemptAt": "2026-11-11T23:25:21.251934Z",
+      "generatedAt": "2026-11-12T01:47:57.646302Z",
+      "generatedBy": "github-actions:external-feed-refresh",
+      "lastAttemptAt": "2026-11-12T01:47:57.646302Z",
       "lastAttemptDate": "2026-11-11",
-      "lastSuccessAt": "2026-11-11T23:25:21.251934Z",
+      "lastSuccessAt": "2026-11-12T01:47:57.646302Z",
       "meta": {
         "attemptedUrls": 0,
         "blockedUrls": 0,
         "date": "2026-11-11",
         "expectedMatchups": 0,
         "feed": "forebet_wnba",
-        "from": "local",
-        "leagues": "mlb,wnba,mls,cfb,nfl",
+        "from": "github-actions",
+        "leagues": "nba,mlb,wnba,cfb,nfl",
         "matchedPicks": 0,
         "missingMatchups": [],
         "officialMatchups": 0,
         "unpublishedMatchups": [],
-        "updatedAt": "2026-11-11T23:25:21.251934Z"
+        "updatedAt": "2026-11-12T01:47:57.646302Z"
       },
       "note": "ForebetWNBA has no official 2026-11-11 matchups.",
       "ok": true,
       "picks": [],
       "refreshStatus": "ok",
-      "updatedAt": "2026-11-11T23:25:21.251934Z"
+      "updatedAt": "2026-11-12T01:47:57.646302Z"
     },
     "scores24_cfb": {
       "date": "2026-11-11",
@@ -3929,18 +3967,20 @@
     "error": "ForebetCFB incomplete official slate coverage: 1/3",
     "generatedAt": "2026-11-11T23:25:34.180931Z",
     "generatedBy": "local:external-feed-refresh",
-    "lastAttemptAt": "2026-11-11T23:25:34.180931Z",
+    "lastAttemptAt": "2026-11-12T01:47:57.646302Z",
     "lastAttemptDate": "2026-11-11",
     "lastAttemptMeta": {
-      "blockedUrls": 0,
-      "matchedPicks": 1,
+      "blockedUrl": "https://www.forebet.com/en/american-football/usa/ncaa",
+      "blockedUrls": 1,
+      "matchedPicks": 0,
       "missingMatchups": [
         "Buffalo Bulls @ Ball State Cardinals",
+        "Sacramento State Hornets @ Central Michigan Chippewas",
         "Massachusetts Minutemen @ Toledo Rockets"
       ],
       "officialMatchups": 3
     },
-    "lastError": "ForebetCFB incomplete official slate coverage: 1/3",
+    "lastError": "ForebetCFB: listing fetch blocked by Cloudflare",
     "meta": {
       "attemptedUrls": 1,
       "blockedUrls": 0,
@@ -3998,64 +4038,83 @@
   },
   "forebet_mlb": {
     "date": "2026-11-11",
-    "generatedAt": "2026-11-11T23:25:14.590031Z",
-    "generatedBy": "local:external-feed-refresh",
-    "lastAttemptAt": "2026-11-11T23:25:14.590031Z",
+    "generatedAt": "2026-11-12T01:47:57.646302Z",
+    "generatedBy": "github-actions:external-feed-refresh",
+    "lastAttemptAt": "2026-11-12T01:47:57.646302Z",
     "lastAttemptDate": "2026-11-11",
-    "lastSuccessAt": "2026-11-11T23:25:14.590031Z",
+    "lastSuccessAt": "2026-11-12T01:47:57.646302Z",
     "meta": {
       "attemptedUrls": 0,
       "blockedUrls": 0,
       "date": "2026-11-11",
       "expectedMatchups": 0,
       "feed": "forebet_mlb",
-      "from": "local",
-      "leagues": "mlb,wnba,mls,cfb,nfl",
+      "from": "github-actions",
+      "leagues": "nba,mlb,wnba,cfb,nfl",
       "matchedPicks": 0,
       "missingMatchups": [],
       "officialMatchups": 0,
       "unpublishedMatchups": [],
-      "updatedAt": "2026-11-11T23:25:14.590031Z"
+      "updatedAt": "2026-11-12T01:47:57.646302Z"
     },
     "note": "ForebetMLB has no official 2026-11-11 matchups.",
     "ok": true,
     "picks": [],
     "refreshStatus": "ok",
-    "updatedAt": "2026-11-11T23:25:14.590031Z"
+    "updatedAt": "2026-11-12T01:47:57.646302Z"
   },
   "forebet_mls": {
     "date": "2026-11-11",
-    "generatedAt": "2026-11-11T23:25:27.696974Z",
-    "generatedBy": "local:external-feed-refresh",
-    "lastAttemptAt": "2026-11-11T23:25:27.696974Z",
+    "generatedAt": "2026-11-12T01:47:57.646302Z",
+    "generatedBy": "github-actions:external-feed-refresh",
+    "lastAttemptAt": "2026-11-12T01:47:57.646302Z",
     "lastAttemptDate": "2026-11-11",
-    "lastSuccessAt": "2026-11-11T23:25:27.696974Z",
+    "lastSuccessAt": "2026-11-12T01:47:57.646302Z",
     "meta": {
       "attemptedUrls": 0,
       "blockedUrls": 0,
       "date": "2026-11-11",
       "expectedMatchups": 0,
       "feed": "forebet_mls",
-      "from": "local",
-      "leagues": "mlb,wnba,mls,cfb,nfl",
+      "from": "github-actions",
+      "leagues": "nba,mlb,wnba,cfb,nfl",
       "matchedPicks": 0,
       "missingMatchups": [],
       "officialMatchups": 0,
       "unpublishedMatchups": [],
-      "updatedAt": "2026-11-11T23:25:27.696974Z"
+      "updatedAt": "2026-11-12T01:47:57.646302Z"
     },
     "note": "ForebetMLS has no official 2026-11-11 matchups.",
     "ok": true,
     "picks": [],
     "refreshStatus": "ok",
-    "updatedAt": "2026-11-11T23:25:27.696974Z"
+    "updatedAt": "2026-11-12T01:47:57.646302Z"
   },
   "forebet_nba": {
     "date": "2026-11-11",
     "generatedAt": "2026-11-11T23:26:14.576872Z",
     "generatedBy": "local:external-feed-refresh",
-    "lastAttemptAt": "2026-11-11T23:26:14.576872Z",
+    "lastAttemptAt": "2026-11-12T01:47:57.646302Z",
     "lastAttemptDate": "2026-11-11",
+    "lastAttemptMeta": {
+      "blockedUrl": "https://www.forebet.com/en/basketball/usa/nba",
+      "blockedUrls": 1,
+      "matchedPicks": 0,
+      "missingMatchups": [
+        "Washington Wizards @ Indiana Pacers",
+        "Cleveland Cavaliers @ New York Knicks",
+        "Boston Celtics @ Toronto Raptors",
+        "San Antonio Spurs @ Chicago Bulls",
+        "Denver Nuggets @ Memphis Grizzlies",
+        "Los Angeles Lakers @ Milwaukee Bucks",
+        "Brooklyn Nets @ New Orleans Pelicans",
+        "Orlando Magic @ Utah Jazz",
+        "Golden State Warriors @ Houston Rockets",
+        "Oklahoma City Thunder @ Portland Trail Blazers"
+      ],
+      "officialMatchups": 10
+    },
+    "lastError": "ForebetNBA: listing fetch blocked by Cloudflare",
     "lastSuccessAt": "2026-11-11T23:26:14.576872Z",
     "meta": {
       "attemptedUrls": 1,
@@ -4073,7 +4132,7 @@
       "updatedAt": "2026-11-11T23:26:14.576872Z"
     },
     "note": "ForebetNBA matched 10 published prediction(s) against 10 official 2026-11-11 matchup(s).",
-    "ok": true,
+    "ok": false,
     "picks": [
       {
         "away_team": "Washington Wizards",
@@ -4336,43 +4395,58 @@
         "units": 0
       }
     ],
-    "refreshStatus": "ok",
+    "refreshStatus": "error",
     "scraped_tip_feed": true,
     "updatedAt": "2026-11-11T23:26:14.576872Z"
   },
   "forebet_nfl": {
     "date": "2026-11-11",
-    "generatedAt": "2026-11-11T23:25:55.996863Z",
-    "generatedBy": "local:external-feed-refresh",
-    "lastAttemptAt": "2026-11-11T23:25:55.996863Z",
+    "generatedAt": "2026-11-12T01:47:57.646302Z",
+    "generatedBy": "github-actions:external-feed-refresh",
+    "lastAttemptAt": "2026-11-12T01:47:57.646302Z",
     "lastAttemptDate": "2026-11-11",
-    "lastSuccessAt": "2026-11-11T23:25:55.996863Z",
+    "lastSuccessAt": "2026-11-12T01:47:57.646302Z",
     "meta": {
       "attemptedUrls": 0,
       "blockedUrls": 0,
       "date": "2026-11-11",
       "expectedMatchups": 0,
       "feed": "forebet_nfl",
-      "from": "local",
-      "leagues": "mlb,wnba,mls,cfb,nfl",
+      "from": "github-actions",
+      "leagues": "nba,mlb,wnba,cfb,nfl",
       "matchedPicks": 0,
       "missingMatchups": [],
       "officialMatchups": 0,
       "unpublishedMatchups": [],
-      "updatedAt": "2026-11-11T23:25:55.996863Z"
+      "updatedAt": "2026-11-12T01:47:57.646302Z"
     },
     "note": "ForebetNFL has no official 2026-11-11 matchups.",
     "ok": true,
     "picks": [],
     "refreshStatus": "ok",
-    "updatedAt": "2026-11-11T23:25:55.996863Z"
+    "updatedAt": "2026-11-12T01:47:57.646302Z"
   },
   "forebet_nhl": {
     "date": "2026-11-11",
     "generatedAt": "2026-11-11T23:26:02.466410Z",
     "generatedBy": "local:external-feed-refresh",
-    "lastAttemptAt": "2026-11-11T23:26:02.466410Z",
+    "lastAttemptAt": "2026-11-12T01:47:57.646302Z",
     "lastAttemptDate": "2026-11-11",
+    "lastAttemptMeta": {
+      "blockedUrl": "https://www.forebet.com/en/hockey/usa/nhl",
+      "blockedUrls": 1,
+      "matchedPicks": 0,
+      "missingMatchups": [
+        "Tampa Bay Lightning @ Buffalo Sabres",
+        "New York Rangers @ Calgary Flames",
+        "Philadelphia Flyers @ Edmonton Oilers",
+        "Utah Mammoth @ Vegas Golden Knights",
+        "Nashville Predators @ Anaheim Ducks",
+        "Pittsburgh Penguins @ San Jose Sharks"
+      ],
+      "officialMatchups": 6
+    },
+    "lastError": "ForebetNHL: listing fetch blocked by Cloudflare",
     "lastSuccessAt": "2026-11-11T23:26:02.466410Z",
     "meta": {
       "attemptedUrls": 1,
@@ -4390,7 +4464,7 @@
       "updatedAt": "2026-11-11T23:26:02.466410Z"
     },
     "note": "ForebetNHL matched 6 published prediction(s) against 6 official 2026-11-11 matchup(s).",
-    "ok": true,
+    "ok": false,
     "picks": [
       {
         "away_team": "Tampa Bay Lightning",
@@ -4549,36 +4623,36 @@
         "units": 0
       }
     ],
-    "refreshStatus": "ok",
+    "refreshStatus": "error",
     "scraped_tip_feed": true,
     "updatedAt": "2026-11-11T23:26:02.466410Z"
   },
   "forebet_wnba": {
     "date": "2026-11-11",
-    "generatedAt": "2026-11-11T23:25:21.251934Z",
-    "generatedBy": "local:external-feed-refresh",
-    "lastAttemptAt": "2026-11-11T23:25:21.251934Z",
+    "generatedAt": "2026-11-12T01:47:57.646302Z",
+    "generatedBy": "github-actions:external-feed-refresh",
+    "lastAttemptAt": "2026-11-12T01:47:57.646302Z",
     "lastAttemptDate": "2026-11-11",
-    "lastSuccessAt": "2026-11-11T23:25:21.251934Z",
+    "lastSuccessAt": "2026-11-12T01:47:57.646302Z",
     "meta": {
       "attemptedUrls": 0,
       "blockedUrls": 0,
       "date": "2026-11-11",
       "expectedMatchups": 0,
       "feed": "forebet_wnba",
-      "from": "local",
-      "leagues": "mlb,wnba,mls,cfb,nfl",
+      "from": "github-actions",
+      "leagues": "nba,mlb,wnba,cfb,nfl",
       "matchedPicks": 0,
       "missingMatchups": [],
       "officialMatchups": 0,
       "unpublishedMatchups": [],
-      "updatedAt": "2026-11-11T23:25:21.251934Z"
+      "updatedAt": "2026-11-12T01:47:57.646302Z"
     },
     "note": "ForebetWNBA has no official 2026-11-11 matchups.",
     "ok": true,
     "picks": [],
     "refreshStatus": "ok",
-    "updatedAt": "2026-11-11T23:25:21.251934Z"
+    "updatedAt": "2026-11-12T01:47:57.646302Z"
   },
   "generatedAt": "2026-11-11T19:52:52.944231Z",
   "generatedBy": "github-actions:model-cache-refresh",
@@ -6407,18 +6481,20 @@
       "error": "ForebetCFB incomplete official slate coverage: 1/3",
       "generatedAt": "2026-11-11T23:25:34.180931Z",
       "generatedBy": "local:external-feed-refresh",
-      "lastAttemptAt": "2026-11-11T23:25:34.180931Z",
+      "lastAttemptAt": "2026-11-12T01:47:57.646302Z",
       "lastAttemptDate": "2026-11-11",
       "lastAttemptMeta": {
-        "blockedUrls": 0,
-        "matchedPicks": 1,
+        "blockedUrl": "https://www.forebet.com/en/american-football/usa/ncaa",
+        "blockedUrls": 1,
+        "matchedPicks": 0,
         "missingMatchups": [
           "Buffalo Bulls @ Ball State Cardinals",
+          "Sacramento State Hornets @ Central Michigan Chippewas",
           "Massachusetts Minutemen @ Toledo Rockets"
         ],
         "officialMatchups": 3
       },
-      "lastError": "ForebetCFB incomplete official slate coverage: 1/3",
+      "lastError": "ForebetCFB: listing fetch blocked by Cloudflare",
       "meta": {
         "attemptedUrls": 1,
         "blockedUrls": 0,
@@ -6530,64 +6606,83 @@
     },
     "forebet_mlb": {
       "date": "2026-11-11",
-      "generatedAt": "2026-11-11T23:25:14.590031Z",
-      "generatedBy": "local:external-feed-refresh",
-      "lastAttemptAt": "2026-11-11T23:25:14.590031Z",
+      "generatedAt": "2026-11-12T01:47:57.646302Z",
+      "generatedBy": "github-actions:external-feed-refresh",
+      "lastAttemptAt": "2026-11-12T01:47:57.646302Z",
       "lastAttemptDate": "2026-11-11",
-      "lastSuccessAt": "2026-11-11T23:25:14.590031Z",
+      "lastSuccessAt": "2026-11-12T01:47:57.646302Z",
       "meta": {
         "attemptedUrls": 0,
         "blockedUrls": 0,
         "date": "2026-11-11",
         "expectedMatchups": 0,
         "feed": "forebet_mlb",
-        "from": "local",
-        "leagues": "mlb,wnba,mls,cfb,nfl",
+        "from": "github-actions",
+        "leagues": "nba,mlb,wnba,cfb,nfl",
         "matchedPicks": 0,
         "missingMatchups": [],
         "officialMatchups": 0,
         "unpublishedMatchups": [],
-        "updatedAt": "2026-11-11T23:25:14.590031Z"
+        "updatedAt": "2026-11-12T01:47:57.646302Z"
       },
       "note": "ForebetMLB has no official 2026-11-11 matchups.",
       "ok": true,
       "picks": [],
       "refreshStatus": "ok",
-      "updatedAt": "2026-11-11T23:25:14.590031Z"
+      "updatedAt": "2026-11-12T01:47:57.646302Z"
     },
     "forebet_mls": {
       "date": "2026-11-11",
-      "generatedAt": "2026-11-11T23:25:27.696974Z",
-      "generatedBy": "local:external-feed-refresh",
-      "lastAttemptAt": "2026-11-11T23:25:27.696974Z",
+      "generatedAt": "2026-11-12T01:47:57.646302Z",
+      "generatedBy": "github-actions:external-feed-refresh",
+      "lastAttemptAt": "2026-11-12T01:47:57.646302Z",
       "lastAttemptDate": "2026-11-11",
-      "lastSuccessAt": "2026-11-11T23:25:27.696974Z",
+      "lastSuccessAt": "2026-11-12T01:47:57.646302Z",
       "meta": {
         "attemptedUrls": 0,
         "blockedUrls": 0,
         "date": "2026-11-11",
         "expectedMatchups": 0,
         "feed": "forebet_mls",
-        "from": "local",
-        "leagues": "mlb,wnba,mls,cfb,nfl",
+        "from": "github-actions",
+        "leagues": "nba,mlb,wnba,cfb,nfl",
         "matchedPicks": 0,
         "missingMatchups": [],
         "officialMatchups": 0,
         "unpublishedMatchups": [],
-        "updatedAt": "2026-11-11T23:25:27.696974Z"
+        "updatedAt": "2026-11-12T01:47:57.646302Z"
       },
       "note": "ForebetMLS has no official 2026-11-11 matchups.",
       "ok": true,
       "picks": [],
       "refreshStatus": "ok",
-      "updatedAt": "2026-11-11T23:25:27.696974Z"
+      "updatedAt": "2026-11-12T01:47:57.646302Z"
     },
     "forebet_nba": {
       "date": "2026-11-11",
       "generatedAt": "2026-11-11T23:26:14.576872Z",
       "generatedBy": "local:external-feed-refresh",
-      "lastAttemptAt": "2026-11-11T23:26:14.576872Z",
+      "lastAttemptAt": "2026-11-12T01:47:57.646302Z",
       "lastAttemptDate": "2026-11-11",
+      "lastAttemptMeta": {
+        "blockedUrl": "https://www.forebet.com/en/basketball/usa/nba",
+        "blockedUrls": 1,
+        "matchedPicks": 0,
+        "missingMatchups": [
+          "Washington Wizards @ Indiana Pacers",
+          "Cleveland Cavaliers @ New York Knicks",
+          "Boston Celtics @ Toronto Raptors",
+          "San Antonio Spurs @ Chicago Bulls",
+          "Denver Nuggets @ Memphis Grizzlies",
+          "Los Angeles Lakers @ Milwaukee Bucks",
+          "Brooklyn Nets @ New Orleans Pelicans",
+          "Orlando Magic @ Utah Jazz",
+          "Golden State Warriors @ Houston Rockets",
+          "Oklahoma City Thunder @ Portland Trail Blazers"
+        ],
+        "officialMatchups": 10
+      },
+      "lastError": "ForebetNBA: listing fetch blocked by Cloudflare",
       "lastSuccessAt": "2026-11-11T23:26:14.576872Z",
       "meta": {
         "attemptedUrls": 1,
@@ -6605,7 +6700,7 @@
         "updatedAt": "2026-11-11T23:26:14.576872Z"
       },
       "note": "ForebetNBA matched 10 published prediction(s) against 10 official 2026-11-11 matchup(s).",
-      "ok": true,
+      "ok": false,
       "picks": [
         {
           "away_team": "Washington Wizards",
@@ -7408,43 +7503,58 @@
           "units": 0.0
         }
       ],
-      "refreshStatus": "ok",
+      "refreshStatus": "error",
       "scraped_tip_feed": true,
       "updatedAt": "2026-11-11T23:26:14.576872Z"
     },
     "forebet_nfl": {
       "date": "2026-11-11",
-      "generatedAt": "2026-11-11T23:25:55.996863Z",
-      "generatedBy": "local:external-feed-refresh",
-      "lastAttemptAt": "2026-11-11T23:25:55.996863Z",
+      "generatedAt": "2026-11-12T01:47:57.646302Z",
+      "generatedBy": "github-actions:external-feed-refresh",
+      "lastAttemptAt": "2026-11-12T01:47:57.646302Z",
       "lastAttemptDate": "2026-11-11",
-      "lastSuccessAt": "2026-11-11T23:25:55.996863Z",
+      "lastSuccessAt": "2026-11-12T01:47:57.646302Z",
       "meta": {
         "attemptedUrls": 0,
         "blockedUrls": 0,
         "date": "2026-11-11",
         "expectedMatchups": 0,
         "feed": "forebet_nfl",
-        "from": "local",
-        "leagues": "mlb,wnba,mls,cfb,nfl",
+        "from": "github-actions",
+        "leagues": "nba,mlb,wnba,cfb,nfl",
         "matchedPicks": 0,
         "missingMatchups": [],
         "officialMatchups": 0,
         "unpublishedMatchups": [],
-        "updatedAt": "2026-11-11T23:25:55.996863Z"
+        "updatedAt": "2026-11-12T01:47:57.646302Z"
       },
       "note": "ForebetNFL has no official 2026-11-11 matchups.",
       "ok": true,
       "picks": [],
       "refreshStatus": "ok",
-      "updatedAt": "2026-11-11T23:25:55.996863Z"
+      "updatedAt": "2026-11-12T01:47:57.646302Z"
     },
     "forebet_nhl": {
       "date": "2026-11-11",
       "generatedAt": "2026-11-11T23:26:02.466410Z",
       "generatedBy": "local:external-feed-refresh",
-      "lastAttemptAt": "2026-11-11T23:26:02.466410Z",
+      "lastAttemptAt": "2026-11-12T01:47:57.646302Z",
       "lastAttemptDate": "2026-11-11",
+      "lastAttemptMeta": {
+        "blockedUrl": "https://www.forebet.com/en/hockey/usa/nhl",
+        "blockedUrls": 1,
+        "matchedPicks": 0,
+        "missingMatchups": [
+          "Tampa Bay Lightning @ Buffalo Sabres",
+          "New York Rangers @ Calgary Flames",
+          "Philadelphia Flyers @ Edmonton Oilers",
+          "Utah Mammoth @ Vegas Golden Knights",
+          "Nashville Predators @ Anaheim Ducks",
+          "Pittsburgh Penguins @ San Jose Sharks"
+        ],
+        "officialMatchups": 6
+      },
+      "lastError": "ForebetNHL: listing fetch blocked by Cloudflare",
       "lastSuccessAt": "2026-11-11T23:26:02.466410Z",
       "meta": {
         "attemptedUrls": 1,
@@ -7462,7 +7572,7 @@
         "updatedAt": "2026-11-11T23:26:02.466410Z"
       },
       "note": "ForebetNHL matched 6 published prediction(s) against 6 official 2026-11-11 matchup(s).",
-      "ok": true,
+      "ok": false,
       "picks": [
         {
           "away_team": "Tampa Bay Lightning",
@@ -7669,36 +7779,36 @@
           "units": 0
         }
       ],
-      "refreshStatus": "ok",
+      "refreshStatus": "error",
       "scraped_tip_feed": true,
       "updatedAt": "2026-11-11T23:26:02.466410Z"
     },
     "forebet_wnba": {
       "date": "2026-11-11",
-      "generatedAt": "2026-11-11T23:25:21.251934Z",
-      "generatedBy": "local:external-feed-refresh",
-      "lastAttemptAt": "2026-11-11T23:25:21.251934Z",
+      "generatedAt": "2026-11-12T01:47:57.646302Z",
+      "generatedBy": "github-actions:external-feed-refresh",
+      "lastAttemptAt": "2026-11-12T01:47:57.646302Z",
       "lastAttemptDate": "2026-11-11",
-      "lastSuccessAt": "2026-11-11T23:25:21.251934Z",
+      "lastSuccessAt": "2026-11-12T01:47:57.646302Z",
       "meta": {
         "attemptedUrls": 0,
         "blockedUrls": 0,
         "date": "2026-11-11",
         "expectedMatchups": 0,
         "feed": "forebet_wnba",
-        "from": "local",
-        "leagues": "mlb,wnba,mls,cfb,nfl",
+        "from": "github-actions",
+        "leagues": "nba,mlb,wnba,cfb,nfl",
         "matchedPicks": 0,
         "missingMatchups": [],
         "officialMatchups": 0,
         "unpublishedMatchups": [],
-        "updatedAt": "2026-11-11T23:25:21.251934Z"
+        "updatedAt": "2026-11-12T01:47:57.646302Z"
       },
       "note": "ForebetWNBA has no official 2026-11-11 matchups.",
       "ok": true,
       "picks": [],
       "refreshStatus": "ok",
-      "updatedAt": "2026-11-11T23:25:21.251934Z"
+      "updatedAt": "2026-11-12T01:47:57.646302Z"
     },
     "mlb_first_five": {
       "consensus_gate_version": "mlb_team_consensus_v1.2.0",
@@ -88901,7 +89011,7 @@
     "standings_date": "2026-04-17",
     "team_totals_without_mean": 0
   },
-  "publishedAt": "2026-11-11T23:29:05.166311Z",
+  "publishedAt": "2026-11-12T01:47:59.799587Z",
   "scores24_cfb": {
     "date": "2026-11-11",
     "generatedAt": "2026-11-11T23:05:36.450955Z",
@@ -90227,7 +90337,7 @@
     "scraped_tip_feed": true,
     "updatedAt": "2026-11-11T23:27:52.605087Z"
   },
-  "updatedAt": "2026-11-11T23:29:00.259670Z",
+  "updatedAt": "2026-11-12T01:47:57.646302Z",
   "wnba": {
     "date": "2026-11-11",
     "note": "No WNBA picks today \u2014 off-season or no edge found.",
