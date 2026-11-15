@@ -552,11 +552,12 @@
   },
   "date": "2026-11-15",
   "errors": [],
-  "externalFeedsUpdatedAt": "2026-11-15T20:24:30.047718Z",
+  "externalFeedsUpdatedAt": "2026-11-15T20:25:58.922248Z",
   "external_feed_errors": [
     "forebet_cfb: ForebetCFB: listing fetch blocked by Cloudflare",
-    "forebet_nfl: ForebetNFL: listing fetch blocked by Cloudflare",
     "forebet_nba: ForebetNBA: listing fetch blocked by Cloudflare",
+    "forebet_nfl: ForebetNFL: listing fetch blocked by Cloudflare",
+    "forebet_nhl: ForebetNHL: listing fetch blocked by Cloudflare",
     "tennistonic_tennis: TennisTonic incomplete 2026-11-15 slate (blocked or failed requests): 0 verified pick(s) of 19 official matchup(s)."
   ],
   "external_feeds": {
@@ -565,7 +566,7 @@
       "error": "ForebetCFB incomplete official slate coverage: 52/55",
       "generatedAt": "2026-11-14T23:48:38.139503Z",
       "generatedBy": "local:external-feed-refresh",
-      "lastAttemptAt": "2026-11-15T20:24:30.047718Z",
+      "lastAttemptAt": "2026-11-15T19:28:36.268820Z",
       "lastAttemptDate": "2026-11-15",
       "lastAttemptMeta": {
         "blockedUrl": "https://www.forebet.com/en/american-football/usa/ncaa",
@@ -2049,7 +2050,7 @@
       "date": "2026-11-14",
       "generatedAt": "2026-11-14T23:49:25.744989Z",
       "generatedBy": "local:external-feed-refresh",
-      "lastAttemptAt": "2026-11-15T20:24:30.047718Z",
+      "lastAttemptAt": "2026-11-15T19:28:36.268820Z",
       "lastAttemptDate": "2026-11-15",
       "lastAttemptMeta": {
         "blockedUrl": "https://www.forebet.com/en/basketball/usa/nba",
@@ -2231,9 +2232,9 @@
     "forebet_nfl": {
       "date": "2026-11-15",
       "error": "ForebetNFL: listing fetch blocked by Cloudflare",
-      "generatedAt": "2026-11-15T20:24:30.047718Z",
+      "generatedAt": "2026-11-15T19:28:36.268820Z",
       "generatedBy": "github-actions:external-feed-refresh",
-      "lastAttemptAt": "2026-11-15T20:24:30.047718Z",
+      "lastAttemptAt": "2026-11-15T19:28:36.268820Z",
       "lastAttemptDate": "2026-11-15",
       "lastAttemptMeta": {
         "blockedUrl": "https://www.forebet.com/en/american-football/usa/nfl",
@@ -2282,38 +2283,52 @@
         ],
         "officialMatchups": 12,
         "unpublishedMatchups": [],
-        "updatedAt": "2026-11-15T20:24:30.047718Z"
+        "updatedAt": "2026-11-15T19:28:36.268820Z"
       },
       "note": "Scheduled forebet_nfl refresh returned 0 pick(s).",
       "ok": false,
       "picks": [],
       "refreshStatus": "error",
-      "updatedAt": "2026-11-15T20:24:30.047718Z"
+      "updatedAt": "2026-11-15T19:28:36.268820Z"
     },
     "forebet_nhl": {
       "date": "2026-11-15",
-      "generatedAt": "2026-11-15T20:24:30.047718Z",
-      "generatedBy": "github-actions:external-feed-refresh",
-      "lastAttemptAt": "2026-11-15T20:24:30.047718Z",
+      "generatedAt": "2026-11-15T18:29:48.121065Z",
+      "generatedBy": "local:external-feed-refresh",
+      "lastAttemptAt": "2026-11-15T19:28:36.268820Z",
       "lastAttemptDate": "2026-11-15",
-      "lastSuccessAt": "2026-11-15T20:24:30.047718Z",
+      "lastAttemptMeta": {
+        "blockedUrl": "https://www.forebet.com/en/hockey/usa/nhl",
+        "blockedUrls": 1,
+        "matchedPicks": 0,
+        "missingMatchups": [
+          "Edmonton Oilers @ Philadelphia Flyers",
+          "Florida Panthers @ Dallas Stars",
+          "Calgary Flames @ Anaheim Ducks",
+          "Vancouver Canucks @ Vegas Golden Knights",
+          "Nashville Predators @ San Jose Sharks"
+        ],
+        "officialMatchups": 5
+      },
+      "lastError": "ForebetNHL: listing fetch blocked by Cloudflare",
+      "lastSuccessAt": "2026-11-15T18:29:48.121065Z",
       "meta": {
         "attemptedUrls": 1,
         "blockedUrls": 0,
         "date": "2026-11-15",
         "expectedMatchups": 5,
         "feed": "forebet_nhl",
-        "from": "github-actions",
-        "leagues": "nba,mlb,wnba,cfb,nfl",
+        "from": "local",
+        "leagues": "mlb,wnba,mls,cfb,nfl",
         "listedRows": 401,
         "matchedPicks": 5,
         "missingMatchups": [],
         "officialMatchups": 5,
         "unpublishedMatchups": [],
-        "updatedAt": "2026-11-15T20:24:30.047718Z"
+        "updatedAt": "2026-11-15T18:29:48.121065Z"
       },
       "note": "ForebetNHL matched 5 published prediction(s) against 5 official 2026-11-15 matchup(s).",
-      "ok": true,
+      "ok": false,
       "picks": [
         {
           "away_team": "Edmonton Oilers",
@@ -2446,9 +2461,9 @@
           "units": 0
         }
       ],
-      "refreshStatus": "ok",
+      "refreshStatus": "error",
       "scraped_tip_feed": true,
-      "updatedAt": "2026-11-15T20:24:30.047718Z"
+      "updatedAt": "2026-11-15T18:29:48.121065Z"
     },
     "forebet_wnba": {
       "date": "2026-11-15",
@@ -2479,29 +2494,29 @@
     },
     "scores24_cfb": {
       "date": "2026-11-15",
-      "generatedAt": "2026-11-15T18:19:04.115495Z",
+      "generatedAt": "2026-11-15T20:22:53.961001Z",
       "generatedBy": "local:external-feed-refresh",
-      "lastAttemptAt": "2026-11-15T18:19:04.115495Z",
+      "lastAttemptAt": "2026-11-15T20:22:53.961001Z",
       "lastAttemptDate": "2026-11-15",
-      "lastSuccessAt": "2026-11-15T18:19:04.115495Z",
+      "lastSuccessAt": "2026-11-15T20:22:53.961001Z",
       "meta": {
-        "attemptedUrls": 1,
+        "attemptedUrls": 0,
         "blockRetryRounds": 0,
         "blockedUrls": 0,
-        "checkpointedPicks": 0,
+        "checkpointedPicks": 1,
         "date": "2026-11-15",
         "expectedMatchups": 1,
         "feed": "scores24_cfb",
         "from": "local",
         "leagues": "mlb,wnba,cfb,nfl,nba",
-        "listingLinks": 19,
-        "listingResolved": true,
-        "listingUrlsAttempted": 3,
+        "listingLinks": 0,
+        "listingResolved": false,
+        "listingUrlsAttempted": 0,
         "matchedPicks": 1,
         "missingMatchups": [],
         "officialMatchups": 1,
         "unpublishedMatchups": [],
-        "updatedAt": "2026-11-15T18:19:04.115495Z"
+        "updatedAt": "2026-11-15T20:22:53.961001Z"
       },
       "note": "Scores24CFB matched 1 published editorial choice(s) against 1 official 2026-11-15 matchup(s).",
       "ok": true,
@@ -2530,7 +2545,7 @@
       ],
       "refreshStatus": "ok",
       "scraped_tip_feed": true,
-      "updatedAt": "2026-11-15T18:19:04.115495Z"
+      "updatedAt": "2026-11-15T20:22:53.961001Z"
     },
     "scores24_fifa": {
       "date": "2026-11-04",
@@ -2579,11 +2594,11 @@
     },
     "scores24_mlb": {
       "date": "2026-11-15",
-      "generatedAt": "2026-11-15T18:16:00.432026Z",
+      "generatedAt": "2026-11-15T20:19:49.514882Z",
       "generatedBy": "local:external-feed-refresh",
-      "lastAttemptAt": "2026-11-15T18:16:00.432026Z",
+      "lastAttemptAt": "2026-11-15T20:19:49.514882Z",
       "lastAttemptDate": "2026-11-15",
-      "lastSuccessAt": "2026-11-15T18:16:00.432026Z",
+      "lastSuccessAt": "2026-11-15T20:19:49.514882Z",
       "meta": {
         "attemptedUrls": 0,
         "blockRetryRounds": 0,
@@ -2598,39 +2613,39 @@
         "missingMatchups": [],
         "officialMatchups": 0,
         "unpublishedMatchups": [],
-        "updatedAt": "2026-11-15T18:16:00.432026Z"
+        "updatedAt": "2026-11-15T20:19:49.514882Z"
       },
       "note": "Scores24MLB has no official 2026-11-15 matchups.",
       "ok": true,
       "picks": [],
       "refreshStatus": "ok",
-      "updatedAt": "2026-11-15T18:16:00.432026Z"
+      "updatedAt": "2026-11-15T20:19:49.514882Z"
     },
     "scores24_nba": {
       "date": "2026-11-15",
-      "generatedAt": "2026-11-15T18:25:37.248921Z",
+      "generatedAt": "2026-11-15T20:25:58.922248Z",
       "generatedBy": "local:external-feed-refresh",
-      "lastAttemptAt": "2026-11-15T18:25:37.248921Z",
+      "lastAttemptAt": "2026-11-15T20:25:58.922248Z",
       "lastAttemptDate": "2026-11-15",
-      "lastSuccessAt": "2026-11-15T18:25:37.248921Z",
+      "lastSuccessAt": "2026-11-15T20:25:58.922248Z",
       "meta": {
-        "attemptedUrls": 9,
+        "attemptedUrls": 0,
         "blockRetryRounds": 0,
         "blockedUrls": 0,
-        "checkpointedPicks": 0,
+        "checkpointedPicks": 9,
         "date": "2026-11-15",
         "expectedMatchups": 9,
         "feed": "scores24_nba",
         "from": "local",
         "leagues": "mlb,wnba,cfb,nfl,nba",
-        "listingLinks": 22,
-        "listingResolved": true,
-        "listingUrlsAttempted": 3,
+        "listingLinks": 0,
+        "listingResolved": false,
+        "listingUrlsAttempted": 0,
         "matchedPicks": 9,
         "missingMatchups": [],
         "officialMatchups": 9,
         "unpublishedMatchups": [],
-        "updatedAt": "2026-11-15T18:25:37.248921Z"
+        "updatedAt": "2026-11-15T20:25:58.922248Z"
       },
       "note": "Scores24NBA matched 9 published editorial choice(s) against 9 official 2026-11-15 matchup(s).",
       "ok": true,
@@ -2827,7 +2842,7 @@
       ],
       "refreshStatus": "ok",
       "scraped_tip_feed": true,
-      "updatedAt": "2026-11-15T18:25:37.248921Z"
+      "updatedAt": "2026-11-15T20:25:58.922248Z"
     },
     "scores24_nba_summer": {
       "date": "2026-11-04",
@@ -2860,29 +2875,29 @@
     },
     "scores24_nfl": {
       "date": "2026-11-15",
-      "generatedAt": "2026-11-15T18:21:14.382727Z",
+      "generatedAt": "2026-11-15T20:24:26.384842Z",
       "generatedBy": "local:external-feed-refresh",
-      "lastAttemptAt": "2026-11-15T18:21:14.382727Z",
+      "lastAttemptAt": "2026-11-15T20:24:26.384842Z",
       "lastAttemptDate": "2026-11-15",
-      "lastSuccessAt": "2026-11-15T18:21:14.382727Z",
+      "lastSuccessAt": "2026-11-15T20:24:26.384842Z",
       "meta": {
-        "attemptedUrls": 12,
+        "attemptedUrls": 0,
         "blockRetryRounds": 0,
         "blockedUrls": 0,
-        "checkpointedPicks": 0,
+        "checkpointedPicks": 12,
         "date": "2026-11-15",
         "expectedMatchups": 12,
         "feed": "scores24_nfl",
         "from": "local",
         "leagues": "mlb,wnba,cfb,nfl,nba",
-        "listingLinks": 12,
-        "listingResolved": true,
-        "listingUrlsAttempted": 3,
+        "listingLinks": 0,
+        "listingResolved": false,
+        "listingUrlsAttempted": 0,
         "matchedPicks": 12,
         "missingMatchups": [],
         "officialMatchups": 12,
         "unpublishedMatchups": [],
-        "updatedAt": "2026-11-15T18:21:14.382727Z"
+        "updatedAt": "2026-11-15T20:24:26.384842Z"
       },
       "note": "Scores24NFL matched 12 published editorial choice(s) against 12 official 2026-11-15 matchup(s).",
       "ok": true,
@@ -3142,7 +3157,7 @@
       ],
       "refreshStatus": "ok",
       "scraped_tip_feed": true,
-      "updatedAt": "2026-11-15T18:21:14.382727Z"
+      "updatedAt": "2026-11-15T20:24:26.384842Z"
     },
     "scores24_tennis": {
       "date": "2026-11-15",
@@ -3199,11 +3214,11 @@
     },
     "scores24_wnba": {
       "date": "2026-11-15",
-      "generatedAt": "2026-11-15T18:17:32.030785Z",
+      "generatedAt": "2026-11-15T20:21:21.628396Z",
       "generatedBy": "local:external-feed-refresh",
-      "lastAttemptAt": "2026-11-15T18:17:32.030785Z",
+      "lastAttemptAt": "2026-11-15T20:21:21.628396Z",
       "lastAttemptDate": "2026-11-15",
-      "lastSuccessAt": "2026-11-15T18:17:32.030785Z",
+      "lastSuccessAt": "2026-11-15T20:21:21.628396Z",
       "meta": {
         "attemptedUrls": 0,
         "blockRetryRounds": 0,
@@ -3218,13 +3233,13 @@
         "missingMatchups": [],
         "officialMatchups": 0,
         "unpublishedMatchups": [],
-        "updatedAt": "2026-11-15T18:17:32.030785Z"
+        "updatedAt": "2026-11-15T20:21:21.628396Z"
       },
       "note": "Scores24WNBA has no official 2026-11-15 matchups.",
       "ok": true,
       "picks": [],
       "refreshStatus": "ok",
-      "updatedAt": "2026-11-15T18:17:32.030785Z"
+      "updatedAt": "2026-11-15T20:21:21.628396Z"
     },
     "sportsgambler_cfb": {
       "date": "2026-11-14",
@@ -4984,7 +4999,7 @@
     "error": "ForebetCFB incomplete official slate coverage: 52/55",
     "generatedAt": "2026-11-14T23:48:38.139503Z",
     "generatedBy": "local:external-feed-refresh",
-    "lastAttemptAt": "2026-11-15T20:24:30.047718Z",
+    "lastAttemptAt": "2026-11-15T19:28:36.268820Z",
     "lastAttemptDate": "2026-11-15",
     "lastAttemptMeta": {
       "blockedUrl": "https://www.forebet.com/en/american-football/usa/ncaa",
@@ -7824,7 +7839,7 @@
     "date": "2026-11-14",
     "generatedAt": "2026-11-14T23:49:25.744989Z",
     "generatedBy": "local:external-feed-refresh",
-    "lastAttemptAt": "2026-11-15T20:24:30.047718Z",
+    "lastAttemptAt": "2026-11-15T19:28:36.268820Z",
     "lastAttemptDate": "2026-11-15",
     "lastAttemptMeta": {
       "blockedUrl": "https://www.forebet.com/en/basketball/usa/nba",
@@ -8136,9 +8151,9 @@
   "forebet_nfl": {
     "date": "2026-11-15",
     "error": "ForebetNFL: listing fetch blocked by Cloudflare",
-    "generatedAt": "2026-11-15T20:24:30.047718Z",
+    "generatedAt": "2026-11-15T19:28:36.268820Z",
     "generatedBy": "github-actions:external-feed-refresh",
-    "lastAttemptAt": "2026-11-15T20:24:30.047718Z",
+    "lastAttemptAt": "2026-11-15T19:28:36.268820Z",
     "lastAttemptDate": "2026-11-15",
     "lastAttemptMeta": {
       "blockedUrl": "https://www.forebet.com/en/american-football/usa/nfl",
@@ -8187,38 +8202,52 @@
       ],
       "officialMatchups": 12,
       "unpublishedMatchups": [],
-      "updatedAt": "2026-11-15T20:24:30.047718Z"
+      "updatedAt": "2026-11-15T19:28:36.268820Z"
     },
     "note": "Scheduled forebet_nfl refresh returned 0 pick(s).",
     "ok": false,
     "picks": [],
     "refreshStatus": "error",
-    "updatedAt": "2026-11-15T20:24:30.047718Z"
+    "updatedAt": "2026-11-15T19:28:36.268820Z"
   },
   "forebet_nhl": {
     "date": "2026-11-15",
-    "generatedAt": "2026-11-15T20:24:30.047718Z",
-    "generatedBy": "github-actions:external-feed-refresh",
-    "lastAttemptAt": "2026-11-15T20:24:30.047718Z",
+    "generatedAt": "2026-11-15T18:29:48.121065Z",
+    "generatedBy": "local:external-feed-refresh",
+    "lastAttemptAt": "2026-11-15T19:28:36.268820Z",
     "lastAttemptDate": "2026-11-15",
-    "lastSuccessAt": "2026-11-15T20:24:30.047718Z",
+    "lastAttemptMeta": {
+      "blockedUrl": "https://www.forebet.com/en/hockey/usa/nhl",
+      "blockedUrls": 1,
+      "matchedPicks": 0,
+      "missingMatchups": [
+        "Edmonton Oilers @ Philadelphia Flyers",
+        "Florida Panthers @ Dallas Stars",
+        "Calgary Flames @ Anaheim Ducks",
+        "Vancouver Canucks @ Vegas Golden Knights",
+        "Nashville Predators @ San Jose Sharks"
+      ],
+      "officialMatchups": 5
+    },
+    "lastError": "ForebetNHL: listing fetch blocked by Cloudflare",
+    "lastSuccessAt": "2026-11-15T18:29:48.121065Z",
     "meta": {
       "attemptedUrls": 1,
       "blockedUrls": 0,
       "date": "2026-11-15",
       "expectedMatchups": 5,
       "feed": "forebet_nhl",
-      "from": "github-actions",
-      "leagues": "nba,mlb,wnba,cfb,nfl",
+      "from": "local",
+      "leagues": "mlb,wnba,mls,cfb,nfl",
       "listedRows": 401,
       "matchedPicks": 5,
       "missingMatchups": [],
       "officialMatchups": 5,
       "unpublishedMatchups": [],
-      "updatedAt": "2026-11-15T20:24:30.047718Z"
+      "updatedAt": "2026-11-15T18:29:48.121065Z"
     },
     "note": "ForebetNHL matched 5 published prediction(s) against 5 official 2026-11-15 matchup(s).",
-    "ok": true,
+    "ok": false,
     "picks": [
       {
         "away_team": "Edmonton Oilers",
@@ -8351,9 +8380,9 @@
         "units": 0
       }
     ],
-    "refreshStatus": "ok",
+    "refreshStatus": "error",
     "scraped_tip_feed": true,
-    "updatedAt": "2026-11-15T20:24:30.047718Z"
+    "updatedAt": "2026-11-15T18:29:48.121065Z"
   },
   "forebet_wnba": {
     "date": "2026-11-15",
@@ -9056,7 +9085,7 @@
       "error": "ForebetCFB incomplete official slate coverage: 52/55",
       "generatedAt": "2026-11-14T23:48:38.139503Z",
       "generatedBy": "local:external-feed-refresh",
-      "lastAttemptAt": "2026-11-15T20:24:30.047718Z",
+      "lastAttemptAt": "2026-11-15T19:28:36.268820Z",
       "lastAttemptDate": "2026-11-15",
       "lastAttemptMeta": {
         "blockedUrl": "https://www.forebet.com/en/american-football/usa/ncaa",
@@ -12520,7 +12549,7 @@
       "date": "2026-11-14",
       "generatedAt": "2026-11-14T23:49:25.744989Z",
       "generatedBy": "local:external-feed-refresh",
-      "lastAttemptAt": "2026-11-15T20:24:30.047718Z",
+      "lastAttemptAt": "2026-11-15T19:28:36.268820Z",
       "lastAttemptDate": "2026-11-15",
       "lastAttemptMeta": {
         "blockedUrl": "https://www.forebet.com/en/basketball/usa/nba",
@@ -12892,9 +12921,9 @@
     "forebet_nfl": {
       "date": "2026-11-15",
       "error": "ForebetNFL: listing fetch blocked by Cloudflare",
-      "generatedAt": "2026-11-15T20:24:30.047718Z",
+      "generatedAt": "2026-11-15T19:28:36.268820Z",
       "generatedBy": "github-actions:external-feed-refresh",
-      "lastAttemptAt": "2026-11-15T20:24:30.047718Z",
+      "lastAttemptAt": "2026-11-15T19:28:36.268820Z",
       "lastAttemptDate": "2026-11-15",
       "lastAttemptMeta": {
         "blockedUrl": "https://www.forebet.com/en/american-football/usa/nfl",
@@ -12943,38 +12972,52 @@
         ],
         "officialMatchups": 12,
         "unpublishedMatchups": [],
-        "updatedAt": "2026-11-15T20:24:30.047718Z"
+        "updatedAt": "2026-11-15T19:28:36.268820Z"
       },
       "note": "Scheduled forebet_nfl refresh returned 0 pick(s).",
       "ok": false,
       "picks": [],
       "refreshStatus": "error",
-      "updatedAt": "2026-11-15T20:24:30.047718Z"
+      "updatedAt": "2026-11-15T19:28:36.268820Z"
     },
     "forebet_nhl": {
       "date": "2026-11-15",
-      "generatedAt": "2026-11-15T20:24:30.047718Z",
-      "generatedBy": "github-actions:external-feed-refresh",
-      "lastAttemptAt": "2026-11-15T20:24:30.047718Z",
+      "generatedAt": "2026-11-15T18:29:48.121065Z",
+      "generatedBy": "local:external-feed-refresh",
+      "lastAttemptAt": "2026-11-15T19:28:36.268820Z",
       "lastAttemptDate": "2026-11-15",
-      "lastSuccessAt": "2026-11-15T20:24:30.047718Z",
+      "lastAttemptMeta": {
+        "blockedUrl": "https://www.forebet.com/en/hockey/usa/nhl",
+        "blockedUrls": 1,
+        "matchedPicks": 0,
+        "missingMatchups": [
+          "Edmonton Oilers @ Philadelphia Flyers",
+          "Florida Panthers @ Dallas Stars",
+          "Calgary Flames @ Anaheim Ducks",
+          "Vancouver Canucks @ Vegas Golden Knights",
+          "Nashville Predators @ San Jose Sharks"
+        ],
+        "officialMatchups": 5
+      },
+      "lastError": "ForebetNHL: listing fetch blocked by Cloudflare",
+      "lastSuccessAt": "2026-11-15T18:29:48.121065Z",
       "meta": {
         "attemptedUrls": 1,
         "blockedUrls": 0,
         "date": "2026-11-15",
         "expectedMatchups": 5,
         "feed": "forebet_nhl",
-        "from": "github-actions",
-        "leagues": "nba,mlb,wnba,cfb,nfl",
+        "from": "local",
+        "leagues": "mlb,wnba,mls,cfb,nfl",
         "listedRows": 401,
         "matchedPicks": 5,
         "missingMatchups": [],
         "officialMatchups": 5,
         "unpublishedMatchups": [],
-        "updatedAt": "2026-11-15T20:24:30.047718Z"
+        "updatedAt": "2026-11-15T18:29:48.121065Z"
       },
       "note": "ForebetNHL matched 5 published prediction(s) against 5 official 2026-11-15 matchup(s).",
-      "ok": true,
+      "ok": false,
       "picks": [
         {
           "away_team": "Edmonton Oilers",
@@ -13147,9 +13190,9 @@
           "units": 0
         }
       ],
-      "refreshStatus": "ok",
+      "refreshStatus": "error",
       "scraped_tip_feed": true,
-      "updatedAt": "2026-11-15T20:24:30.047718Z"
+      "updatedAt": "2026-11-15T18:29:48.121065Z"
     },
     "forebet_wnba": {
       "date": "2026-11-15",
@@ -47613,29 +47656,29 @@
     },
     "scores24_cfb": {
       "date": "2026-11-15",
-      "generatedAt": "2026-11-15T18:19:04.115495Z",
+      "generatedAt": "2026-11-15T20:22:53.961001Z",
       "generatedBy": "local:external-feed-refresh",
-      "lastAttemptAt": "2026-11-15T18:19:04.115495Z",
+      "lastAttemptAt": "2026-11-15T20:22:53.961001Z",
       "lastAttemptDate": "2026-11-15",
-      "lastSuccessAt": "2026-11-15T18:19:04.115495Z",
+      "lastSuccessAt": "2026-11-15T20:22:53.961001Z",
       "meta": {
-        "attemptedUrls": 1,
+        "attemptedUrls": 0,
         "blockRetryRounds": 0,
         "blockedUrls": 0,
-        "checkpointedPicks": 0,
+        "checkpointedPicks": 1,
         "date": "2026-11-15",
         "expectedMatchups": 1,
         "feed": "scores24_cfb",
         "from": "local",
         "leagues": "mlb,wnba,cfb,nfl,nba",
-        "listingLinks": 19,
-        "listingResolved": true,
-        "listingUrlsAttempted": 3,
+        "listingLinks": 0,
+        "listingResolved": false,
+        "listingUrlsAttempted": 0,
         "matchedPicks": 1,
         "missingMatchups": [],
         "officialMatchups": 1,
         "unpublishedMatchups": [],
-        "updatedAt": "2026-11-15T18:19:04.115495Z"
+        "updatedAt": "2026-11-15T20:22:53.961001Z"
       },
       "note": "Scores24CFB matched 1 published editorial choice(s) against 1 official 2026-11-15 matchup(s).",
       "ok": true,
@@ -47685,15 +47728,15 @@
       ],
       "refreshStatus": "ok",
       "scraped_tip_feed": true,
-      "updatedAt": "2026-11-15T18:19:04.115495Z"
+      "updatedAt": "2026-11-15T20:22:53.961001Z"
     },
     "scores24_mlb": {
       "date": "2026-11-15",
-      "generatedAt": "2026-11-15T18:16:00.432026Z",
+      "generatedAt": "2026-11-15T20:19:49.514882Z",
       "generatedBy": "local:external-feed-refresh",
-      "lastAttemptAt": "2026-11-15T18:16:00.432026Z",
+      "lastAttemptAt": "2026-11-15T20:19:49.514882Z",
       "lastAttemptDate": "2026-11-15",
-      "lastSuccessAt": "2026-11-15T18:16:00.432026Z",
+      "lastSuccessAt": "2026-11-15T20:19:49.514882Z",
       "meta": {
         "attemptedUrls": 0,
         "blockRetryRounds": 0,
@@ -47708,39 +47751,39 @@
         "missingMatchups": [],
         "officialMatchups": 0,
         "unpublishedMatchups": [],
-        "updatedAt": "2026-11-15T18:16:00.432026Z"
+        "updatedAt": "2026-11-15T20:19:49.514882Z"
       },
       "note": "Scores24MLB has no official 2026-11-15 matchups.",
       "ok": true,
       "picks": [],
       "refreshStatus": "ok",
-      "updatedAt": "2026-11-15T18:16:00.432026Z"
+      "updatedAt": "2026-11-15T20:19:49.514882Z"
     },
     "scores24_nba": {
       "date": "2026-11-15",
-      "generatedAt": "2026-11-15T18:25:37.248921Z",
+      "generatedAt": "2026-11-15T20:25:58.922248Z",
       "generatedBy": "local:external-feed-refresh",
-      "lastAttemptAt": "2026-11-15T18:25:37.248921Z",
+      "lastAttemptAt": "2026-11-15T20:25:58.922248Z",
       "lastAttemptDate": "2026-11-15",
-      "lastSuccessAt": "2026-11-15T18:25:37.248921Z",
+      "lastSuccessAt": "2026-11-15T20:25:58.922248Z",
       "meta": {
-        "attemptedUrls": 9,
+        "attemptedUrls": 0,
         "blockRetryRounds": 0,
         "blockedUrls": 0,
-        "checkpointedPicks": 0,
+        "checkpointedPicks": 9,
         "date": "2026-11-15",
         "expectedMatchups": 9,
         "feed": "scores24_nba",
         "from": "local",
         "leagues": "mlb,wnba,cfb,nfl,nba",
-        "listingLinks": 22,
-        "listingResolved": true,
-        "listingUrlsAttempted": 3,
+        "listingLinks": 0,
+        "listingResolved": false,
+        "listingUrlsAttempted": 0,
         "matchedPicks": 9,
         "missingMatchups": [],
         "officialMatchups": 9,
         "unpublishedMatchups": [],
-        "updatedAt": "2026-11-15T18:25:37.248921Z"
+        "updatedAt": "2026-11-15T20:25:58.922248Z"
       },
       "note": "Scores24NBA matched 9 published editorial choice(s) against 9 official 2026-11-15 matchup(s).",
       "ok": true,
@@ -48158,33 +48201,33 @@
       ],
       "refreshStatus": "ok",
       "scraped_tip_feed": true,
-      "updatedAt": "2026-11-15T18:25:37.248921Z"
+      "updatedAt": "2026-11-15T20:25:58.922248Z"
     },
     "scores24_nfl": {
       "date": "2026-11-15",
-      "generatedAt": "2026-11-15T18:21:14.382727Z",
+      "generatedAt": "2026-11-15T20:24:26.384842Z",
       "generatedBy": "local:external-feed-refresh",
-      "lastAttemptAt": "2026-11-15T18:21:14.382727Z",
+      "lastAttemptAt": "2026-11-15T20:24:26.384842Z",
       "lastAttemptDate": "2026-11-15",
-      "lastSuccessAt": "2026-11-15T18:21:14.382727Z",
+      "lastSuccessAt": "2026-11-15T20:24:26.384842Z",
       "meta": {
-        "attemptedUrls": 12,
+        "attemptedUrls": 0,
         "blockRetryRounds": 0,
         "blockedUrls": 0,
-        "checkpointedPicks": 0,
+        "checkpointedPicks": 12,
         "date": "2026-11-15",
         "expectedMatchups": 12,
         "feed": "scores24_nfl",
         "from": "local",
         "leagues": "mlb,wnba,cfb,nfl,nba",
-        "listingLinks": 12,
-        "listingResolved": true,
-        "listingUrlsAttempted": 3,
+        "listingLinks": 0,
+        "listingResolved": false,
+        "listingUrlsAttempted": 0,
         "matchedPicks": 12,
         "missingMatchups": [],
         "officialMatchups": 12,
         "unpublishedMatchups": [],
-        "updatedAt": "2026-11-15T18:21:14.382727Z"
+        "updatedAt": "2026-11-15T20:24:26.384842Z"
       },
       "note": "Scores24NFL matched 12 published editorial choice(s) against 12 official 2026-11-15 matchup(s).",
       "ok": true,
@@ -48696,7 +48739,7 @@
       ],
       "refreshStatus": "ok",
       "scraped_tip_feed": true,
-      "updatedAt": "2026-11-15T18:21:14.382727Z"
+      "updatedAt": "2026-11-15T20:24:26.384842Z"
     },
     "scores24_tennis": {
       "date": "2026-11-15",
@@ -48753,11 +48796,11 @@
     },
     "scores24_wnba": {
       "date": "2026-11-15",
-      "generatedAt": "2026-11-15T18:17:32.030785Z",
+      "generatedAt": "2026-11-15T20:21:21.628396Z",
       "generatedBy": "local:external-feed-refresh",
-      "lastAttemptAt": "2026-11-15T18:17:32.030785Z",
+      "lastAttemptAt": "2026-11-15T20:21:21.628396Z",
       "lastAttemptDate": "2026-11-15",
-      "lastSuccessAt": "2026-11-15T18:17:32.030785Z",
+      "lastSuccessAt": "2026-11-15T20:21:21.628396Z",
       "meta": {
         "attemptedUrls": 0,
         "blockRetryRounds": 0,
@@ -48772,13 +48815,13 @@
         "missingMatchups": [],
         "officialMatchups": 0,
         "unpublishedMatchups": [],
-        "updatedAt": "2026-11-15T18:17:32.030785Z"
+        "updatedAt": "2026-11-15T20:21:21.628396Z"
       },
       "note": "Scores24WNBA has no official 2026-11-15 matchups.",
       "ok": true,
       "picks": [],
       "refreshStatus": "ok",
-      "updatedAt": "2026-11-15T18:17:32.030785Z"
+      "updatedAt": "2026-11-15T20:21:21.628396Z"
     },
     "sportsgambler_cfb": {
       "date": "2026-11-14",
@@ -87794,32 +87837,32 @@
     "standings_date": "2026-04-17",
     "team_totals_without_mean": 0
   },
-  "publishedAt": "2026-11-15T20:24:35.145810Z",
+  "publishedAt": "2026-11-15T20:26:02.090033Z",
   "scores24_cfb": {
     "date": "2026-11-15",
-    "generatedAt": "2026-11-15T18:19:04.115495Z",
+    "generatedAt": "2026-11-15T20:22:53.961001Z",
     "generatedBy": "local:external-feed-refresh",
-    "lastAttemptAt": "2026-11-15T18:19:04.115495Z",
+    "lastAttemptAt": "2026-11-15T20:22:53.961001Z",
     "lastAttemptDate": "2026-11-15",
-    "lastSuccessAt": "2026-11-15T18:19:04.115495Z",
+    "lastSuccessAt": "2026-11-15T20:22:53.961001Z",
     "meta": {
-      "attemptedUrls": 1,
+      "attemptedUrls": 0,
       "blockRetryRounds": 0,
       "blockedUrls": 0,
-      "checkpointedPicks": 0,
+      "checkpointedPicks": 1,
       "date": "2026-11-15",
       "expectedMatchups": 1,
       "feed": "scores24_cfb",
       "from": "local",
       "leagues": "mlb,wnba,cfb,nfl,nba",
-      "listingLinks": 19,
-      "listingResolved": true,
-      "listingUrlsAttempted": 3,
+      "listingLinks": 0,
+      "listingResolved": false,
+      "listingUrlsAttempted": 0,
       "matchedPicks": 1,
       "missingMatchups": [],
       "officialMatchups": 1,
       "unpublishedMatchups": [],
-      "updatedAt": "2026-11-15T18:19:04.115495Z"
+      "updatedAt": "2026-11-15T20:22:53.961001Z"
     },
     "note": "Scores24CFB matched 1 published editorial choice(s) against 1 official 2026-11-15 matchup(s).",
     "ok": true,
@@ -87848,15 +87891,15 @@
     ],
     "refreshStatus": "ok",
     "scraped_tip_feed": true,
-    "updatedAt": "2026-11-15T18:19:04.115495Z"
+    "updatedAt": "2026-11-15T20:22:53.961001Z"
   },
   "scores24_mlb": {
     "date": "2026-11-15",
-    "generatedAt": "2026-11-15T18:16:00.432026Z",
+    "generatedAt": "2026-11-15T20:19:49.514882Z",
     "generatedBy": "local:external-feed-refresh",
-    "lastAttemptAt": "2026-11-15T18:16:00.432026Z",
+    "lastAttemptAt": "2026-11-15T20:19:49.514882Z",
     "lastAttemptDate": "2026-11-15",
-    "lastSuccessAt": "2026-11-15T18:16:00.432026Z",
+    "lastSuccessAt": "2026-11-15T20:19:49.514882Z",
     "meta": {
       "attemptedUrls": 0,
       "blockRetryRounds": 0,
@@ -87871,39 +87914,39 @@
       "missingMatchups": [],
       "officialMatchups": 0,
       "unpublishedMatchups": [],
-      "updatedAt": "2026-11-15T18:16:00.432026Z"
+      "updatedAt": "2026-11-15T20:19:49.514882Z"
     },
     "note": "Scores24MLB has no official 2026-11-15 matchups.",
     "ok": true,
     "picks": [],
     "refreshStatus": "ok",
-    "updatedAt": "2026-11-15T18:16:00.432026Z"
+    "updatedAt": "2026-11-15T20:19:49.514882Z"
   },
   "scores24_nba": {
     "date": "2026-11-15",
-    "generatedAt": "2026-11-15T18:25:37.248921Z",
+    "generatedAt": "2026-11-15T20:25:58.922248Z",
     "generatedBy": "local:external-feed-refresh",
-    "lastAttemptAt": "2026-11-15T18:25:37.248921Z",
+    "lastAttemptAt": "2026-11-15T20:25:58.922248Z",
     "lastAttemptDate": "2026-11-15",
-    "lastSuccessAt": "2026-11-15T18:25:37.248921Z",
+    "lastSuccessAt": "2026-11-15T20:25:58.922248Z",
     "meta": {
-      "attemptedUrls": 9,
+      "attemptedUrls": 0,
       "blockRetryRounds": 0,
       "blockedUrls": 0,
-      "checkpointedPicks": 0,
+      "checkpointedPicks": 9,
       "date": "2026-11-15",
       "expectedMatchups": 9,
       "feed": "scores24_nba",
       "from": "local",
       "leagues": "mlb,wnba,cfb,nfl,nba",
-      "listingLinks": 22,
-      "listingResolved": true,
-      "listingUrlsAttempted": 3,
+      "listingLinks": 0,
+      "listingResolved": false,
+      "listingUrlsAttempted": 0,
       "matchedPicks": 9,
       "missingMatchups": [],
       "officialMatchups": 9,
       "unpublishedMatchups": [],
-      "updatedAt": "2026-11-15T18:25:37.248921Z"
+      "updatedAt": "2026-11-15T20:25:58.922248Z"
     },
     "note": "Scores24NBA matched 9 published editorial choice(s) against 9 official 2026-11-15 matchup(s).",
     "ok": true,
@@ -88100,33 +88143,33 @@
     ],
     "refreshStatus": "ok",
     "scraped_tip_feed": true,
-    "updatedAt": "2026-11-15T18:25:37.248921Z"
+    "updatedAt": "2026-11-15T20:25:58.922248Z"
   },
   "scores24_nfl": {
     "date": "2026-11-15",
-    "generatedAt": "2026-11-15T18:21:14.382727Z",
+    "generatedAt": "2026-11-15T20:24:26.384842Z",
     "generatedBy": "local:external-feed-refresh",
-    "lastAttemptAt": "2026-11-15T18:21:14.382727Z",
+    "lastAttemptAt": "2026-11-15T20:24:26.384842Z",
     "lastAttemptDate": "2026-11-15",
-    "lastSuccessAt": "2026-11-15T18:21:14.382727Z",
+    "lastSuccessAt": "2026-11-15T20:24:26.384842Z",
     "meta": {
-      "attemptedUrls": 12,
+      "attemptedUrls": 0,
       "blockRetryRounds": 0,
       "blockedUrls": 0,
-      "checkpointedPicks": 0,
+      "checkpointedPicks": 12,
       "date": "2026-11-15",
       "expectedMatchups": 12,
       "feed": "scores24_nfl",
       "from": "local",
       "leagues": "mlb,wnba,cfb,nfl,nba",
-      "listingLinks": 12,
-      "listingResolved": true,
-      "listingUrlsAttempted": 3,
+      "listingLinks": 0,
+      "listingResolved": false,
+      "listingUrlsAttempted": 0,
       "matchedPicks": 12,
       "missingMatchups": [],
       "officialMatchups": 12,
       "unpublishedMatchups": [],
-      "updatedAt": "2026-11-15T18:21:14.382727Z"
+      "updatedAt": "2026-11-15T20:24:26.384842Z"
     },
     "note": "Scores24NFL matched 12 published editorial choice(s) against 12 official 2026-11-15 matchup(s).",
     "ok": true,
@@ -88386,7 +88429,7 @@
     ],
     "refreshStatus": "ok",
     "scraped_tip_feed": true,
-    "updatedAt": "2026-11-15T18:21:14.382727Z"
+    "updatedAt": "2026-11-15T20:24:26.384842Z"
   },
   "scores24_tennis": {
     "date": "2026-11-15",
@@ -88443,11 +88486,11 @@
   },
   "scores24_wnba": {
     "date": "2026-11-15",
-    "generatedAt": "2026-11-15T18:17:32.030785Z",
+    "generatedAt": "2026-11-15T20:21:21.628396Z",
     "generatedBy": "local:external-feed-refresh",
-    "lastAttemptAt": "2026-11-15T18:17:32.030785Z",
+    "lastAttemptAt": "2026-11-15T20:21:21.628396Z",
     "lastAttemptDate": "2026-11-15",
-    "lastSuccessAt": "2026-11-15T18:17:32.030785Z",
+    "lastSuccessAt": "2026-11-15T20:21:21.628396Z",
     "meta": {
       "attemptedUrls": 0,
       "blockRetryRounds": 0,
@@ -88462,13 +88505,13 @@
       "missingMatchups": [],
       "officialMatchups": 0,
       "unpublishedMatchups": [],
-      "updatedAt": "2026-11-15T18:17:32.030785Z"
+      "updatedAt": "2026-11-15T20:21:21.628396Z"
     },
     "note": "Scores24WNBA has no official 2026-11-15 matchups.",
     "ok": true,
     "picks": [],
     "refreshStatus": "ok",
-    "updatedAt": "2026-11-15T18:17:32.030785Z"
+    "updatedAt": "2026-11-15T20:21:21.628396Z"
   },
   "sportsgambler_cfb": {
     "date": "2026-11-14",
@@ -90398,7 +90441,7 @@
     "scraped_tip_feed": true,
     "updatedAt": "2026-11-15T18:31:35.463324Z"
   },
-  "updatedAt": "2026-11-15T20:24:30.047718Z",
+  "updatedAt": "2026-11-15T20:25:58.922248Z",
   "wnba": {
     "date": "2026-11-15",
     "note": "No WNBA picks today \u2014 off-season or no edge found.",
