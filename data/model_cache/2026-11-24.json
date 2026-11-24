@@ -1154,15 +1154,32 @@
   },
   "date": "2026-11-24",
   "errors": [],
-  "externalFeedsUpdatedAt": "2026-11-24T16:03:42.768956Z",
-  "external_feed_errors": [],
+  "externalFeedsUpdatedAt": "2026-11-24T16:05:51.608158Z",
+  "external_feed_errors": [
+    "sportytrader_cfb: cfb: empty parse despite nonempty official whitelist (No SportyTrader CFB picks parsed. | Diagnostics: listingPages=1 cards=0 officialMatchupCards=0.)",
+    "forebet_mls: ForebetMLS: listing fetch blocked by Cloudflare",
+    "forebet_cfb: ForebetCFB: listing fetch blocked by Cloudflare",
+    "forebet_nhl: ForebetNHL: listing fetch blocked by Cloudflare",
+    "forebet_nba: ForebetNBA: listing fetch blocked by Cloudflare"
+  ],
   "external_feeds": {
     "forebet_cfb": {
       "date": "2026-11-24",
       "generatedAt": "2026-11-24T16:00:32.542659Z",
       "generatedBy": "local:external-feed-refresh",
-      "lastAttemptAt": "2026-11-24T16:00:32.542659Z",
+      "lastAttemptAt": "2026-11-24T16:05:51.608158Z",
       "lastAttemptDate": "2026-11-24",
+      "lastAttemptMeta": {
+        "blockedUrl": "https://www.forebet.com/en/american-football/usa/ncaa",
+        "blockedUrls": 1,
+        "matchedPicks": 0,
+        "missingMatchups": [
+          "Kent State Golden Flashes @ Eastern Michigan Eagles",
+          "Miami (OH) RedHawks @ Western Michigan Broncos"
+        ],
+        "officialMatchups": 2
+      },
+      "lastError": "ForebetCFB: listing fetch blocked by Cloudflare",
       "lastSuccessAt": "2026-11-24T16:00:32.542659Z",
       "meta": {
         "attemptedUrls": 1,
@@ -1180,7 +1197,7 @@
         "updatedAt": "2026-11-24T16:00:32.542659Z"
       },
       "note": "ForebetCFB matched 2 published prediction(s) against 2 official 2026-11-24 matchup(s).",
-      "ok": true,
+      "ok": false,
       "picks": [
         {
           "away_team": "Kent State Golden Flashes",
@@ -1235,43 +1252,53 @@
           "units": 0
         }
       ],
-      "refreshStatus": "ok",
+      "refreshStatus": "error",
       "scraped_tip_feed": true,
       "updatedAt": "2026-11-24T16:00:32.542659Z"
     },
     "forebet_mlb": {
       "date": "2026-11-24",
-      "generatedAt": "2026-11-24T16:00:10.898862Z",
-      "generatedBy": "local:external-feed-refresh",
-      "lastAttemptAt": "2026-11-24T16:00:10.898862Z",
+      "generatedAt": "2026-11-24T16:05:51.608158Z",
+      "generatedBy": "github-actions:external-feed-refresh",
+      "lastAttemptAt": "2026-11-24T16:05:51.608158Z",
       "lastAttemptDate": "2026-11-24",
-      "lastSuccessAt": "2026-11-24T16:00:10.898862Z",
+      "lastSuccessAt": "2026-11-24T16:05:51.608158Z",
       "meta": {
         "attemptedUrls": 0,
         "blockedUrls": 0,
         "date": "2026-11-24",
         "expectedMatchups": 0,
         "feed": "forebet_mlb",
-        "from": "local",
-        "leagues": "mlb,wnba,mls,cfb,nfl",
+        "from": "github-actions",
+        "leagues": "nba,mlb,wnba,cfb,nfl",
         "matchedPicks": 0,
         "missingMatchups": [],
         "officialMatchups": 0,
         "unpublishedMatchups": [],
-        "updatedAt": "2026-11-24T16:00:10.898862Z"
+        "updatedAt": "2026-11-24T16:05:51.608158Z"
       },
       "note": "ForebetMLB has no official 2026-11-24 matchups.",
       "ok": true,
       "picks": [],
       "refreshStatus": "ok",
-      "updatedAt": "2026-11-24T16:00:10.898862Z"
+      "updatedAt": "2026-11-24T16:05:51.608158Z"
     },
     "forebet_mls": {
       "date": "2026-11-24",
       "generatedAt": "2026-11-24T16:00:23.428342Z",
       "generatedBy": "local:external-feed-refresh",
-      "lastAttemptAt": "2026-11-24T16:00:23.428342Z",
+      "lastAttemptAt": "2026-11-24T16:05:51.608158Z",
       "lastAttemptDate": "2026-11-24",
+      "lastAttemptMeta": {
+        "blockedUrl": "https://www.forebet.com/en/football-tips-and-predictions-for-usa/mls",
+        "blockedUrls": 1,
+        "matchedPicks": 0,
+        "missingMatchups": [
+          "Houston Dynamo FC @ San Jose Earthquakes"
+        ],
+        "officialMatchups": 1
+      },
+      "lastError": "ForebetMLS: listing fetch blocked by Cloudflare",
       "lastSuccessAt": "2026-11-24T16:00:23.428342Z",
       "meta": {
         "attemptedUrls": 1,
@@ -1289,7 +1316,7 @@
         "updatedAt": "2026-11-24T16:00:23.428342Z"
       },
       "note": "ForebetMLS matched 1 published prediction(s) against 1 official 2026-11-24 matchup(s).",
-      "ok": true,
+      "ok": false,
       "picks": [
         {
           "away_team": "Houston Dynamo FC",
@@ -1321,7 +1348,7 @@
           "units": 0
         }
       ],
-      "refreshStatus": "ok",
+      "refreshStatus": "error",
       "scraped_tip_feed": true,
       "updatedAt": "2026-11-24T16:00:23.428342Z"
     },
@@ -1329,8 +1356,20 @@
       "date": "2026-11-24",
       "generatedAt": "2026-11-24T16:01:16.723781Z",
       "generatedBy": "local:external-feed-refresh",
-      "lastAttemptAt": "2026-11-24T16:01:16.723781Z",
+      "lastAttemptAt": "2026-11-24T16:05:51.608158Z",
       "lastAttemptDate": "2026-11-24",
+      "lastAttemptMeta": {
+        "blockedUrl": "https://www.forebet.com/en/basketball/usa/nba",
+        "blockedUrls": 1,
+        "matchedPicks": 0,
+        "missingMatchups": [
+          "Detroit Pistons @ Orlando Magic",
+          "Boston Celtics @ Washington Wizards",
+          "Dallas Mavericks @ Denver Nuggets"
+        ],
+        "officialMatchups": 3
+      },
+      "lastError": "ForebetNBA: listing fetch blocked by Cloudflare",
       "lastSuccessAt": "2026-11-24T16:01:16.723781Z",
       "meta": {
         "attemptedUrls": 1,
@@ -1348,7 +1387,7 @@
         "updatedAt": "2026-11-24T16:01:16.723781Z"
       },
       "note": "ForebetNBA matched 3 published prediction(s) against 3 official 2026-11-24 matchup(s).",
-      "ok": true,
+      "ok": false,
       "picks": [
         {
           "away_team": "Detroit Pistons",
@@ -1429,43 +1468,53 @@
           "units": 0
         }
       ],
-      "refreshStatus": "ok",
+      "refreshStatus": "error",
       "scraped_tip_feed": true,
       "updatedAt": "2026-11-24T16:01:16.723781Z"
     },
     "forebet_nfl": {
       "date": "2026-11-24",
-      "generatedAt": "2026-11-24T16:00:57.062089Z",
-      "generatedBy": "local:external-feed-refresh",
-      "lastAttemptAt": "2026-11-24T16:00:57.062089Z",
+      "generatedAt": "2026-11-24T16:05:51.608158Z",
+      "generatedBy": "github-actions:external-feed-refresh",
+      "lastAttemptAt": "2026-11-24T16:05:51.608158Z",
       "lastAttemptDate": "2026-11-24",
-      "lastSuccessAt": "2026-11-24T16:00:57.062089Z",
+      "lastSuccessAt": "2026-11-24T16:05:51.608158Z",
       "meta": {
         "attemptedUrls": 0,
         "blockedUrls": 0,
         "date": "2026-11-24",
         "expectedMatchups": 0,
         "feed": "forebet_nfl",
-        "from": "local",
-        "leagues": "mlb,wnba,mls,cfb,nfl",
+        "from": "github-actions",
+        "leagues": "nba,mlb,wnba,cfb,nfl",
         "matchedPicks": 0,
         "missingMatchups": [],
         "officialMatchups": 0,
         "unpublishedMatchups": [],
-        "updatedAt": "2026-11-24T16:00:57.062089Z"
+        "updatedAt": "2026-11-24T16:05:51.608158Z"
       },
       "note": "ForebetNFL has no official 2026-11-24 matchups.",
       "ok": true,
       "picks": [],
       "refreshStatus": "ok",
-      "updatedAt": "2026-11-24T16:00:57.062089Z"
+      "updatedAt": "2026-11-24T16:05:51.608158Z"
     },
     "forebet_nhl": {
       "date": "2026-11-24",
       "generatedAt": "2026-11-24T16:01:03.448767Z",
       "generatedBy": "local:external-feed-refresh",
-      "lastAttemptAt": "2026-11-24T16:01:03.448767Z",
+      "lastAttemptAt": "2026-11-24T16:05:51.608158Z",
       "lastAttemptDate": "2026-11-24",
+      "lastAttemptMeta": {
+        "blockedUrl": "https://www.forebet.com/en/hockey/usa/nhl",
+        "blockedUrls": 1,
+        "matchedPicks": 0,
+        "missingMatchups": [
+          "Vegas Golden Knights @ Edmonton Oilers"
+        ],
+        "officialMatchups": 1
+      },
+      "lastError": "ForebetNHL: listing fetch blocked by Cloudflare",
       "lastSuccessAt": "2026-11-24T16:01:03.448767Z",
       "meta": {
         "attemptedUrls": 1,
@@ -1483,7 +1532,7 @@
         "updatedAt": "2026-11-24T16:01:03.448767Z"
       },
       "note": "ForebetNHL matched 1 published prediction(s) against 1 official 2026-11-24 matchup(s).",
-      "ok": true,
+      "ok": false,
       "picks": [
         {
           "away_team": "Vegas Golden Knights",
@@ -1512,36 +1561,36 @@
           "units": 0
         }
       ],
-      "refreshStatus": "ok",
+      "refreshStatus": "error",
       "scraped_tip_feed": true,
       "updatedAt": "2026-11-24T16:01:03.448767Z"
     },
     "forebet_wnba": {
       "date": "2026-11-24",
-      "generatedAt": "2026-11-24T16:00:17.147060Z",
-      "generatedBy": "local:external-feed-refresh",
-      "lastAttemptAt": "2026-11-24T16:00:17.147060Z",
+      "generatedAt": "2026-11-24T16:05:51.608158Z",
+      "generatedBy": "github-actions:external-feed-refresh",
+      "lastAttemptAt": "2026-11-24T16:05:51.608158Z",
       "lastAttemptDate": "2026-11-24",
-      "lastSuccessAt": "2026-11-24T16:00:17.147060Z",
+      "lastSuccessAt": "2026-11-24T16:05:51.608158Z",
       "meta": {
         "attemptedUrls": 0,
         "blockedUrls": 0,
         "date": "2026-11-24",
         "expectedMatchups": 0,
         "feed": "forebet_wnba",
-        "from": "local",
-        "leagues": "mlb,wnba,mls,cfb,nfl",
+        "from": "github-actions",
+        "leagues": "nba,mlb,wnba,cfb,nfl",
         "matchedPicks": 0,
         "missingMatchups": [],
         "officialMatchups": 0,
         "unpublishedMatchups": [],
-        "updatedAt": "2026-11-24T16:00:17.147060Z"
+        "updatedAt": "2026-11-24T16:05:51.608158Z"
       },
       "note": "ForebetWNBA has no official 2026-11-24 matchups.",
       "ok": true,
       "picks": [],
       "refreshStatus": "ok",
-      "updatedAt": "2026-11-24T16:00:17.147060Z"
+      "updatedAt": "2026-11-24T16:05:51.608158Z"
     },
     "scores24_cfb": {
       "date": "2026-11-24",
@@ -1925,11 +1974,11 @@
     "sportsgambler_cfb": {
       "date": "2026-11-24",
       "errors": [],
-      "generatedAt": "2026-11-24T04:27:00.067606Z",
+      "generatedAt": "2026-11-24T16:05:51.608158Z",
       "generatedBy": "github-actions:external-feed-refresh",
-      "lastAttemptAt": "2026-11-24T04:27:00.067606Z",
+      "lastAttemptAt": "2026-11-24T16:05:51.608158Z",
       "lastAttemptDate": "2026-11-24",
-      "lastSuccessAt": "2026-11-24T04:27:00.067606Z",
+      "lastSuccessAt": "2026-11-24T16:05:51.608158Z",
       "meta": {
         "date": "2026-11-24",
         "feed": "sportsgambler_cfb",
@@ -1940,15 +1989,11 @@
           "cfb": 2,
           "nba": 3
         },
-        "optionalErrors": [
-          "nba: empty parse despite nonempty official whitelist (No picks found.)"
-        ],
+        "optionalErrors": [],
         "pick_count": 1,
         "provider": "sportsgambler",
-        "sportErrors": {
-          "nba": "nba: empty parse despite nonempty official whitelist (No picks found.)"
-        },
-        "updatedAt": "2026-11-24T04:27:00.067606Z",
+        "sportErrors": {},
+        "updatedAt": "2026-11-24T16:05:51.608158Z",
         "zeroSlateSports": [
           "mlb",
           "wnba",
@@ -1979,7 +2024,7 @@
       ],
       "refreshStatus": "ok",
       "scraped_tip_feed": true,
-      "updatedAt": "2026-11-24T04:27:00.067606Z"
+      "updatedAt": "2026-11-24T16:05:51.608158Z"
     },
     "sportsgambler_fifa_world_cup": {
       "date": "2026-07-19",
@@ -2012,11 +2057,11 @@
     "sportsgambler_mlb": {
       "date": "2026-11-24",
       "errors": [],
-      "generatedAt": "2026-11-24T04:27:00.067606Z",
+      "generatedAt": "2026-11-24T16:05:51.608158Z",
       "generatedBy": "github-actions:external-feed-refresh",
-      "lastAttemptAt": "2026-11-24T04:27:00.067606Z",
+      "lastAttemptAt": "2026-11-24T16:05:51.608158Z",
       "lastAttemptDate": "2026-11-24",
-      "lastSuccessAt": "2026-11-24T04:27:00.067606Z",
+      "lastSuccessAt": "2026-11-24T16:05:51.608158Z",
       "meta": {
         "date": "2026-11-24",
         "feed": "sportsgambler_mlb",
@@ -2027,15 +2072,11 @@
           "cfb": 2,
           "nba": 3
         },
-        "optionalErrors": [
-          "nba: empty parse despite nonempty official whitelist (No picks found.)"
-        ],
+        "optionalErrors": [],
         "pick_count": 0,
         "provider": "sportsgambler",
-        "sportErrors": {
-          "nba": "nba: empty parse despite nonempty official whitelist (No picks found.)"
-        },
-        "updatedAt": "2026-11-24T04:27:00.067606Z",
+        "sportErrors": {},
+        "updatedAt": "2026-11-24T16:05:51.608158Z",
         "zeroSlateSports": [
           "mlb",
           "wnba",
@@ -2046,89 +2087,48 @@
       "ok": true,
       "picks": [],
       "refreshStatus": "ok",
-      "updatedAt": "2026-11-24T04:27:00.067606Z"
+      "updatedAt": "2026-11-24T16:05:51.608158Z"
     },
     "sportsgambler_nba": {
-      "date": "2026-11-23",
+      "date": "2026-11-24",
       "errors": [],
-      "generatedAt": "2026-11-23T19:31:50.355937Z",
+      "generatedAt": "2026-11-24T16:05:51.608158Z",
       "generatedBy": "github-actions:external-feed-refresh",
-      "lastAttemptAt": "2026-11-24T04:27:00.067606Z",
+      "lastAttemptAt": "2026-11-24T16:05:51.608158Z",
       "lastAttemptDate": "2026-11-24",
-      "lastError": "nba: empty parse despite nonempty official whitelist (No picks found.)",
-      "lastSuccessAt": "2026-11-23T19:31:50.355937Z",
+      "lastSuccessAt": "2026-11-24T16:05:51.608158Z",
       "meta": {
-        "date": "2026-11-23",
+        "date": "2026-11-24",
         "feed": "sportsgambler_nba",
         "from": "github-actions",
         "leagues": "nba,mlb,wnba,cfb,nfl",
         "noPreviewEvidence": {},
         "officialMatchupCounts": {
-          "nba": 10,
-          "nfl": 1
+          "cfb": 2,
+          "nba": 3
         },
         "optionalErrors": [],
-        "pick_count": 9,
+        "pick_count": 3,
         "provider": "sportsgambler",
         "sportErrors": {},
-        "updatedAt": "2026-11-23T19:31:50.355937Z",
+        "updatedAt": "2026-11-24T16:05:51.608158Z",
         "zeroSlateSports": [
           "mlb",
           "wnba",
-          "cfb"
+          "nfl"
         ]
       },
-      "note": "Scheduled sportsgambler_nba refresh returned 9 pick(s).",
-      "ok": false,
+      "note": "Scheduled sportsgambler_nba refresh returned 3 pick(s).",
+      "ok": true,
       "picks": [
         {
-          "date": "2026-11-23",
+          "date": "2026-11-24",
           "decision": "PASS",
           "edge": null,
-          "game": "Philadelphia 76ers vs Portland Trail Blazers",
-          "game_start_time": "2026-11-24T00:00Z",
-          "matchup": "Philadelphia 76ers vs Portland Trail Blazers",
-          "odds": -112,
-          "pick": "Trail Blazers +3.5 (Philadelphia 76ers vs Portland Trail Blazers)",
-          "probability": null,
-          "result": "win",
-          "scraped_tip_demoted": true,
-          "source": "SportsGamblerNBA",
-          "source_decision": "BET",
-          "source_units": 1,
-          "sport": "NBA",
-          "start_time": "2026-11-24T00:00Z",
-          "units": 0
-        },
-        {
-          "date": "2026-11-23",
-          "decision": "PASS",
-          "edge": null,
-          "game": "Charlotte Hornets vs Memphis Grizzlies",
-          "game_start_time": "2026-11-24T00:00Z",
-          "matchup": "Charlotte Hornets vs Memphis Grizzlies",
+          "game": "Orlando Magic vs Detroit Pistons",
+          "matchup": "Orlando Magic vs Detroit Pistons",
           "odds": -110,
-          "pick": "Grizzlies -3.5 (Charlotte Hornets vs Memphis Grizzlies)",
-          "probability": null,
-          "result": "win",
-          "scraped_tip_demoted": true,
-          "source": "SportsGamblerNBA",
-          "source_decision": "BET",
-          "source_units": 1,
-          "sport": "NBA",
-          "start_time": "2026-11-24T00:00Z",
-          "units": 0
-        },
-        {
-          "date": "2026-11-23",
-          "decision": "PASS",
-          "edge": null,
-          "game": "Minnesota Timberwolves vs Brooklyn Nets",
-          "grade_supported": false,
-          "market_type": "external_team_mismatch",
-          "matchup": "Minnesota Timberwolves vs Brooklyn Nets",
-          "odds": -106,
-          "pick": "Wolves -12.5 (Minnesota Timberwolves vs Brooklyn Nets)",
+          "pick": "Over 213.5 Points (Orlando Magic vs Detroit Pistons)",
           "probability": null,
           "scraped_tip_demoted": true,
           "source": "SportsGamblerNBA",
@@ -2138,123 +2138,41 @@
           "units": 0
         },
         {
-          "date": "2026-11-23",
+          "date": "2026-11-24",
           "decision": "PASS",
           "edge": null,
-          "game": "Toronto Raptors vs Milwaukee Bucks",
-          "game_start_time": "2026-11-24T00:30Z",
-          "matchup": "Toronto Raptors vs Milwaukee Bucks",
-          "odds": -114,
-          "pick": "Bucks +11.5 (Toronto Raptors vs Milwaukee Bucks)",
-          "probability": null,
-          "result": "win",
-          "scraped_tip_demoted": true,
-          "source": "SportsGamblerNBA",
-          "source_decision": "BET",
-          "source_units": 1,
-          "sport": "NBA",
-          "start_time": "2026-11-24T00:30Z",
-          "units": 0
-        },
-        {
-          "date": "2026-11-23",
-          "decision": "PASS",
-          "edge": null,
-          "game": "Indiana Pacers vs Oklahoma City Thunder",
-          "game_start_time": "2026-11-24T00:30Z",
-          "matchup": "Indiana Pacers vs Oklahoma City Thunder",
-          "odds": -105,
-          "pick": "Thunder -5.5 (Indiana Pacers vs Oklahoma City Thunder)",
-          "probability": null,
-          "result": "loss",
-          "scraped_tip_demoted": true,
-          "source": "SportsGamblerNBA",
-          "source_decision": "BET",
-          "source_units": 1,
-          "sport": "NBA",
-          "start_time": "2026-11-24T00:30Z",
-          "units": 0
-        },
-        {
-          "date": "2026-11-23",
-          "decision": "PASS",
-          "edge": null,
-          "game": "Chicago Bulls vs Cleveland Cavaliers",
-          "game_start_time": "2026-11-24T01:00Z",
-          "matchup": "Chicago Bulls vs Cleveland Cavaliers",
+          "game": "Washington Wizards vs Boston Celtics",
+          "matchup": "Washington Wizards vs Boston Celtics",
           "odds": -110,
-          "pick": "Bulls +8.5 (Chicago Bulls vs Cleveland Cavaliers)",
+          "pick": "Celtics -10.5 (Washington Wizards vs Boston Celtics)",
           "probability": null,
-          "result": "win",
           "scraped_tip_demoted": true,
           "source": "SportsGamblerNBA",
           "source_decision": "BET",
           "source_units": 1,
           "sport": "NBA",
-          "start_time": "2026-11-24T01:00Z",
           "units": 0
         },
         {
-          "date": "2026-11-23",
+          "date": "2026-11-24",
           "decision": "PASS",
           "edge": null,
-          "game": "New Orleans Pelicans vs Phoenix Suns",
-          "game_start_time": "2026-11-24T01:00Z",
-          "matchup": "New Orleans Pelicans vs Phoenix Suns",
-          "odds": -115,
-          "pick": "Suns -2.5 (New Orleans Pelicans vs Phoenix Suns)",
+          "game": "Denver Nuggets vs Dallas Mavericks",
+          "matchup": "Denver Nuggets vs Dallas Mavericks",
+          "odds": -110,
+          "pick": "Nuggets -8.5 (Denver Nuggets vs Dallas Mavericks)",
           "probability": null,
-          "result": "win",
           "scraped_tip_demoted": true,
           "source": "SportsGamblerNBA",
           "source_decision": "BET",
           "source_units": 1,
           "sport": "NBA",
-          "start_time": "2026-11-24T01:00Z",
-          "units": 0
-        },
-        {
-          "date": "2026-11-23",
-          "decision": "PASS",
-          "edge": null,
-          "game": "Houston Rockets vs LA Clippers",
-          "game_start_time": "2026-11-24T01:30Z",
-          "matchup": "Houston Rockets vs LA Clippers",
-          "odds": -114,
-          "pick": "Rockets -12.5 (Houston Rockets vs LA Clippers)",
-          "probability": null,
-          "result": "loss",
-          "scraped_tip_demoted": true,
-          "source": "SportsGamblerNBA",
-          "source_decision": "BET",
-          "source_units": 1,
-          "sport": "NBA",
-          "start_time": "2026-11-24T01:30Z",
-          "units": 0
-        },
-        {
-          "date": "2026-11-23",
-          "decision": "PASS",
-          "edge": null,
-          "game": "Sacramento Kings vs San Antonio Spurs",
-          "game_start_time": "2026-11-24T03:00Z",
-          "matchup": "Sacramento Kings vs San Antonio Spurs",
-          "odds": -114,
-          "pick": "Spurs -10.5 (Sacramento Kings vs San Antonio Spurs)",
-          "probability": null,
-          "result": "win",
-          "scraped_tip_demoted": true,
-          "source": "SportsGamblerNBA",
-          "source_decision": "BET",
-          "source_units": 1,
-          "sport": "NBA",
-          "start_time": "2026-11-24T03:00Z",
           "units": 0
         }
       ],
-      "refreshStatus": "error",
+      "refreshStatus": "ok",
       "scraped_tip_feed": true,
-      "updatedAt": "2026-11-23T19:31:50.355937Z"
+      "updatedAt": "2026-11-24T16:05:51.608158Z"
     },
     "sportsgambler_nba_summer": {
       "date": "2026-07-19",
@@ -2287,11 +2205,11 @@
     "sportsgambler_nfl": {
       "date": "2026-11-24",
       "errors": [],
-      "generatedAt": "2026-11-24T04:27:00.067606Z",
+      "generatedAt": "2026-11-24T16:05:51.608158Z",
       "generatedBy": "github-actions:external-feed-refresh",
-      "lastAttemptAt": "2026-11-24T04:27:00.067606Z",
+      "lastAttemptAt": "2026-11-24T16:05:51.608158Z",
       "lastAttemptDate": "2026-11-24",
-      "lastSuccessAt": "2026-11-24T04:27:00.067606Z",
+      "lastSuccessAt": "2026-11-24T16:05:51.608158Z",
       "meta": {
         "date": "2026-11-24",
         "feed": "sportsgambler_nfl",
@@ -2302,15 +2220,11 @@
           "cfb": 2,
           "nba": 3
         },
-        "optionalErrors": [
-          "nba: empty parse despite nonempty official whitelist (No picks found.)"
-        ],
+        "optionalErrors": [],
         "pick_count": 0,
         "provider": "sportsgambler",
-        "sportErrors": {
-          "nba": "nba: empty parse despite nonempty official whitelist (No picks found.)"
-        },
-        "updatedAt": "2026-11-24T04:27:00.067606Z",
+        "sportErrors": {},
+        "updatedAt": "2026-11-24T16:05:51.608158Z",
         "zeroSlateSports": [
           "mlb",
           "wnba",
@@ -2321,16 +2235,16 @@
       "ok": true,
       "picks": [],
       "refreshStatus": "ok",
-      "updatedAt": "2026-11-24T04:27:00.067606Z"
+      "updatedAt": "2026-11-24T16:05:51.608158Z"
     },
     "sportsgambler_wnba": {
       "date": "2026-11-24",
       "errors": [],
-      "generatedAt": "2026-11-24T04:27:00.067606Z",
+      "generatedAt": "2026-11-24T16:05:51.608158Z",
       "generatedBy": "github-actions:external-feed-refresh",
-      "lastAttemptAt": "2026-11-24T04:27:00.067606Z",
+      "lastAttemptAt": "2026-11-24T16:05:51.608158Z",
       "lastAttemptDate": "2026-11-24",
-      "lastSuccessAt": "2026-11-24T04:27:00.067606Z",
+      "lastSuccessAt": "2026-11-24T16:05:51.608158Z",
       "meta": {
         "date": "2026-11-24",
         "feed": "sportsgambler_wnba",
@@ -2341,15 +2255,11 @@
           "cfb": 2,
           "nba": 3
         },
-        "optionalErrors": [
-          "nba: empty parse despite nonempty official whitelist (No picks found.)"
-        ],
+        "optionalErrors": [],
         "pick_count": 0,
         "provider": "sportsgambler",
-        "sportErrors": {
-          "nba": "nba: empty parse despite nonempty official whitelist (No picks found.)"
-        },
-        "updatedAt": "2026-11-24T04:27:00.067606Z",
+        "sportErrors": {},
+        "updatedAt": "2026-11-24T16:05:51.608158Z",
         "zeroSlateSports": [
           "mlb",
           "wnba",
@@ -2360,7 +2270,7 @@
       "ok": true,
       "picks": [],
       "refreshStatus": "ok",
-      "updatedAt": "2026-11-24T04:27:00.067606Z"
+      "updatedAt": "2026-11-24T16:05:51.608158Z"
     },
     "sportytrader_cfb": {
       "date": "2026-11-24",
@@ -2368,9 +2278,9 @@
       "errors": [
         "cfb: empty parse despite nonempty official whitelist (No SportyTrader CFB picks parsed. | Diagnostics: listingPages=1 cards=0 officialMatchupCards=0.)"
       ],
-      "generatedAt": "2026-11-24T04:27:00.067606Z",
+      "generatedAt": "2026-11-24T16:05:51.608158Z",
       "generatedBy": "github-actions:external-feed-refresh",
-      "lastAttemptAt": "2026-11-24T04:27:00.067606Z",
+      "lastAttemptAt": "2026-11-24T16:05:51.608158Z",
       "lastAttemptDate": "2026-11-24",
       "lastError": "cfb: empty parse despite nonempty official whitelist (No SportyTrader CFB picks parsed. | Diagnostics: listingPages=1 cards=0 officialMatchupCards=0.)",
       "meta": {
@@ -2393,7 +2303,7 @@
         "sportErrors": {
           "cfb": "cfb: empty parse despite nonempty official whitelist (No SportyTrader CFB picks parsed. | Diagnostics: listingPages=1 cards=0 officialMatchupCards=0.)"
         },
-        "updatedAt": "2026-11-24T04:27:00.067606Z",
+        "updatedAt": "2026-11-24T16:05:51.608158Z",
         "zeroSlateSports": [
           "mlb",
           "wnba",
@@ -2404,7 +2314,7 @@
       "ok": false,
       "picks": [],
       "refreshStatus": "error",
-      "updatedAt": "2026-11-24T04:27:00.067606Z"
+      "updatedAt": "2026-11-24T16:05:51.608158Z"
     },
     "sportytrader_fifa_world_cup": {
       "date": "2026-07-19",
@@ -2437,11 +2347,11 @@
     "sportytrader_mlb": {
       "date": "2026-11-24",
       "errors": [],
-      "generatedAt": "2026-11-24T04:27:00.067606Z",
+      "generatedAt": "2026-11-24T16:05:51.608158Z",
       "generatedBy": "github-actions:external-feed-refresh",
-      "lastAttemptAt": "2026-11-24T04:27:00.067606Z",
+      "lastAttemptAt": "2026-11-24T16:05:51.608158Z",
       "lastAttemptDate": "2026-11-24",
-      "lastSuccessAt": "2026-11-24T04:27:00.067606Z",
+      "lastSuccessAt": "2026-11-24T16:05:51.608158Z",
       "meta": {
         "date": "2026-11-24",
         "feed": "sportytrader_mlb",
@@ -2460,7 +2370,7 @@
         "sportErrors": {
           "cfb": "cfb: empty parse despite nonempty official whitelist (No SportyTrader CFB picks parsed. | Diagnostics: listingPages=1 cards=0 officialMatchupCards=0.)"
         },
-        "updatedAt": "2026-11-24T04:27:00.067606Z",
+        "updatedAt": "2026-11-24T16:05:51.608158Z",
         "zeroSlateSports": [
           "mlb",
           "wnba",
@@ -2471,16 +2381,16 @@
       "ok": true,
       "picks": [],
       "refreshStatus": "ok",
-      "updatedAt": "2026-11-24T04:27:00.067606Z"
+      "updatedAt": "2026-11-24T16:05:51.608158Z"
     },
     "sportytrader_nba": {
       "date": "2026-11-24",
       "errors": [],
-      "generatedAt": "2026-11-24T04:27:00.067606Z",
+      "generatedAt": "2026-11-24T16:05:51.608158Z",
       "generatedBy": "github-actions:external-feed-refresh",
-      "lastAttemptAt": "2026-11-24T04:27:00.067606Z",
+      "lastAttemptAt": "2026-11-24T16:05:51.608158Z",
       "lastAttemptDate": "2026-11-24",
-      "lastSuccessAt": "2026-11-24T04:27:00.067606Z",
+      "lastSuccessAt": "2026-11-24T16:05:51.608158Z",
       "meta": {
         "date": "2026-11-24",
         "feed": "sportytrader_nba",
@@ -2499,7 +2409,7 @@
         "sportErrors": {
           "cfb": "cfb: empty parse despite nonempty official whitelist (No SportyTrader CFB picks parsed. | Diagnostics: listingPages=1 cards=0 officialMatchupCards=0.)"
         },
-        "updatedAt": "2026-11-24T04:27:00.067606Z",
+        "updatedAt": "2026-11-24T16:05:51.608158Z",
         "zeroSlateSports": [
           "mlb",
           "wnba",
@@ -2548,7 +2458,7 @@
       ],
       "refreshStatus": "ok",
       "scraped_tip_feed": true,
-      "updatedAt": "2026-11-24T04:27:00.067606Z"
+      "updatedAt": "2026-11-24T16:05:51.608158Z"
     },
     "sportytrader_nba_summer": {
       "date": "2026-07-19",
@@ -2581,11 +2491,11 @@
     "sportytrader_nfl": {
       "date": "2026-11-24",
       "errors": [],
-      "generatedAt": "2026-11-24T04:27:00.067606Z",
+      "generatedAt": "2026-11-24T16:05:51.608158Z",
       "generatedBy": "github-actions:external-feed-refresh",
-      "lastAttemptAt": "2026-11-24T04:27:00.067606Z",
+      "lastAttemptAt": "2026-11-24T16:05:51.608158Z",
       "lastAttemptDate": "2026-11-24",
-      "lastSuccessAt": "2026-11-24T04:27:00.067606Z",
+      "lastSuccessAt": "2026-11-24T16:05:51.608158Z",
       "meta": {
         "date": "2026-11-24",
         "feed": "sportytrader_nfl",
@@ -2604,7 +2514,7 @@
         "sportErrors": {
           "cfb": "cfb: empty parse despite nonempty official whitelist (No SportyTrader CFB picks parsed. | Diagnostics: listingPages=1 cards=0 officialMatchupCards=0.)"
         },
-        "updatedAt": "2026-11-24T04:27:00.067606Z",
+        "updatedAt": "2026-11-24T16:05:51.608158Z",
         "zeroSlateSports": [
           "mlb",
           "wnba",
@@ -2615,16 +2525,16 @@
       "ok": true,
       "picks": [],
       "refreshStatus": "ok",
-      "updatedAt": "2026-11-24T04:27:00.067606Z"
+      "updatedAt": "2026-11-24T16:05:51.608158Z"
     },
     "sportytrader_wnba": {
       "date": "2026-11-24",
       "errors": [],
-      "generatedAt": "2026-11-24T04:27:00.067606Z",
+      "generatedAt": "2026-11-24T16:05:51.608158Z",
       "generatedBy": "github-actions:external-feed-refresh",
-      "lastAttemptAt": "2026-11-24T04:27:00.067606Z",
+      "lastAttemptAt": "2026-11-24T16:05:51.608158Z",
       "lastAttemptDate": "2026-11-24",
-      "lastSuccessAt": "2026-11-24T04:27:00.067606Z",
+      "lastSuccessAt": "2026-11-24T16:05:51.608158Z",
       "meta": {
         "date": "2026-11-24",
         "feed": "sportytrader_wnba",
@@ -2643,7 +2553,7 @@
         "sportErrors": {
           "cfb": "cfb: empty parse despite nonempty official whitelist (No SportyTrader CFB picks parsed. | Diagnostics: listingPages=1 cards=0 officialMatchupCards=0.)"
         },
-        "updatedAt": "2026-11-24T04:27:00.067606Z",
+        "updatedAt": "2026-11-24T16:05:51.608158Z",
         "zeroSlateSports": [
           "mlb",
           "wnba",
@@ -2654,15 +2564,15 @@
       "ok": true,
       "picks": [],
       "refreshStatus": "ok",
-      "updatedAt": "2026-11-24T04:27:00.067606Z"
+      "updatedAt": "2026-11-24T16:05:51.608158Z"
     },
     "tennistonic_tennis": {
       "date": "2026-11-24",
-      "generatedAt": "2026-11-24T16:02:58.877022Z",
-      "generatedBy": "local:external-feed-refresh",
-      "lastAttemptAt": "2026-11-24T16:02:58.877022Z",
+      "generatedAt": "2026-11-24T16:05:51.608158Z",
+      "generatedBy": "github-actions:external-feed-refresh",
+      "lastAttemptAt": "2026-11-24T16:05:51.608158Z",
       "lastAttemptDate": "2026-11-24",
-      "lastSuccessAt": "2026-11-24T16:02:58.877022Z",
+      "lastSuccessAt": "2026-11-24T16:05:51.608158Z",
       "meta": {
         "attemptedUrls": 13,
         "blockedUrls": 0,
@@ -2670,9 +2580,9 @@
         "expectedMatchups": 9,
         "failedUrls": 0,
         "feed": "tennistonic_tennis",
-        "from": "local",
+        "from": "github-actions",
         "interrupted": false,
-        "leagues": "tennis",
+        "leagues": "nba,mlb,wnba,cfb,nfl",
         "matchedPicks": 9,
         "missingMatchups": [],
         "officialMatchups": 11,
@@ -2683,7 +2593,7 @@
           "Luna Maria Cinalli vs Guiomar Maristany Zuleta De Reales",
           "Veronika Erjavec vs Martina Trevisan"
         ],
-        "updatedAt": "2026-11-24T16:02:58.877022Z"
+        "updatedAt": "2026-11-24T16:05:51.608158Z"
       },
       "note": "TennisTonic matched 9 tennis prediction(s) against 11 official 2026-11-24 singles matchup(s).",
       "ok": true,
@@ -2943,15 +2853,26 @@
       ],
       "refreshStatus": "ok",
       "scraped_tip_feed": true,
-      "updatedAt": "2026-11-24T16:02:58.877022Z"
+      "updatedAt": "2026-11-24T16:05:51.608158Z"
     }
   },
   "forebet_cfb": {
     "date": "2026-11-24",
     "generatedAt": "2026-11-24T16:00:32.542659Z",
     "generatedBy": "local:external-feed-refresh",
-    "lastAttemptAt": "2026-11-24T16:00:32.542659Z",
+    "lastAttemptAt": "2026-11-24T16:05:51.608158Z",
     "lastAttemptDate": "2026-11-24",
+    "lastAttemptMeta": {
+      "blockedUrl": "https://www.forebet.com/en/american-football/usa/ncaa",
+      "blockedUrls": 1,
+      "matchedPicks": 0,
+      "missingMatchups": [
+        "Kent State Golden Flashes @ Eastern Michigan Eagles",
+        "Miami (OH) RedHawks @ Western Michigan Broncos"
+      ],
+      "officialMatchups": 2
+    },
+    "lastError": "ForebetCFB: listing fetch blocked by Cloudflare",
     "lastSuccessAt": "2026-11-24T16:00:32.542659Z",
     "meta": {
       "attemptedUrls": 1,
@@ -2969,7 +2890,7 @@
       "updatedAt": "2026-11-24T16:00:32.542659Z"
     },
     "note": "ForebetCFB matched 2 published prediction(s) against 2 official 2026-11-24 matchup(s).",
-    "ok": true,
+    "ok": false,
     "picks": [
       {
         "away_team": "Kent State Golden Flashes",
@@ -3024,43 +2945,53 @@
         "units": 0
       }
     ],
-    "refreshStatus": "ok",
+    "refreshStatus": "error",
     "scraped_tip_feed": true,
     "updatedAt": "2026-11-24T16:00:32.542659Z"
   },
   "forebet_mlb": {
     "date": "2026-11-24",
-    "generatedAt": "2026-11-24T16:00:10.898862Z",
-    "generatedBy": "local:external-feed-refresh",
-    "lastAttemptAt": "2026-11-24T16:00:10.898862Z",
+    "generatedAt": "2026-11-24T16:05:51.608158Z",
+    "generatedBy": "github-actions:external-feed-refresh",
+    "lastAttemptAt": "2026-11-24T16:05:51.608158Z",
     "lastAttemptDate": "2026-11-24",
-    "lastSuccessAt": "2026-11-24T16:00:10.898862Z",
+    "lastSuccessAt": "2026-11-24T16:05:51.608158Z",
     "meta": {
       "attemptedUrls": 0,
       "blockedUrls": 0,
       "date": "2026-11-24",
       "expectedMatchups": 0,
       "feed": "forebet_mlb",
-      "from": "local",
-      "leagues": "mlb,wnba,mls,cfb,nfl",
+      "from": "github-actions",
+      "leagues": "nba,mlb,wnba,cfb,nfl",
       "matchedPicks": 0,
       "missingMatchups": [],
       "officialMatchups": 0,
       "unpublishedMatchups": [],
-      "updatedAt": "2026-11-24T16:00:10.898862Z"
+      "updatedAt": "2026-11-24T16:05:51.608158Z"
     },
     "note": "ForebetMLB has no official 2026-11-24 matchups.",
     "ok": true,
     "picks": [],
     "refreshStatus": "ok",
-    "updatedAt": "2026-11-24T16:00:10.898862Z"
+    "updatedAt": "2026-11-24T16:05:51.608158Z"
   },
   "forebet_mls": {
     "date": "2026-11-24",
     "generatedAt": "2026-11-24T16:00:23.428342Z",
     "generatedBy": "local:external-feed-refresh",
-    "lastAttemptAt": "2026-11-24T16:00:23.428342Z",
+    "lastAttemptAt": "2026-11-24T16:05:51.608158Z",
     "lastAttemptDate": "2026-11-24",
+    "lastAttemptMeta": {
+      "blockedUrl": "https://www.forebet.com/en/football-tips-and-predictions-for-usa/mls",
+      "blockedUrls": 1,
+      "matchedPicks": 0,
+      "missingMatchups": [
+        "Houston Dynamo FC @ San Jose Earthquakes"
+      ],
+      "officialMatchups": 1
+    },
+    "lastError": "ForebetMLS: listing fetch blocked by Cloudflare",
     "lastSuccessAt": "2026-11-24T16:00:23.428342Z",
     "meta": {
       "attemptedUrls": 1,
@@ -3078,7 +3009,7 @@
       "updatedAt": "2026-11-24T16:00:23.428342Z"
     },
     "note": "ForebetMLS matched 1 published prediction(s) against 1 official 2026-11-24 matchup(s).",
-    "ok": true,
+    "ok": false,
     "picks": [
       {
         "away_team": "Houston Dynamo FC",
@@ -3110,7 +3041,7 @@
         "units": 0
       }
     ],
-    "refreshStatus": "ok",
+    "refreshStatus": "error",
     "scraped_tip_feed": true,
     "updatedAt": "2026-11-24T16:00:23.428342Z"
   },
@@ -3118,8 +3049,20 @@
     "date": "2026-11-24",
     "generatedAt": "2026-11-24T16:01:16.723781Z",
     "generatedBy": "local:external-feed-refresh",
-    "lastAttemptAt": "2026-11-24T16:01:16.723781Z",
+    "lastAttemptAt": "2026-11-24T16:05:51.608158Z",
     "lastAttemptDate": "2026-11-24",
+    "lastAttemptMeta": {
+      "blockedUrl": "https://www.forebet.com/en/basketball/usa/nba",
+      "blockedUrls": 1,
+      "matchedPicks": 0,
+      "missingMatchups": [
+        "Detroit Pistons @ Orlando Magic",
+        "Boston Celtics @ Washington Wizards",
+        "Dallas Mavericks @ Denver Nuggets"
+      ],
+      "officialMatchups": 3
+    },
+    "lastError": "ForebetNBA: listing fetch blocked by Cloudflare",
     "lastSuccessAt": "2026-11-24T16:01:16.723781Z",
     "meta": {
       "attemptedUrls": 1,
@@ -3137,7 +3080,7 @@
       "updatedAt": "2026-11-24T16:01:16.723781Z"
     },
     "note": "ForebetNBA matched 3 published prediction(s) against 3 official 2026-11-24 matchup(s).",
-    "ok": true,
+    "ok": false,
     "picks": [
       {
         "away_team": "Detroit Pistons",
@@ -3218,43 +3161,53 @@
         "units": 0
       }
     ],
-    "refreshStatus": "ok",
+    "refreshStatus": "error",
     "scraped_tip_feed": true,
     "updatedAt": "2026-11-24T16:01:16.723781Z"
   },
   "forebet_nfl": {
     "date": "2026-11-24",
-    "generatedAt": "2026-11-24T16:00:57.062089Z",
-    "generatedBy": "local:external-feed-refresh",
-    "lastAttemptAt": "2026-11-24T16:00:57.062089Z",
+    "generatedAt": "2026-11-24T16:05:51.608158Z",
+    "generatedBy": "github-actions:external-feed-refresh",
+    "lastAttemptAt": "2026-11-24T16:05:51.608158Z",
     "lastAttemptDate": "2026-11-24",
-    "lastSuccessAt": "2026-11-24T16:00:57.062089Z",
+    "lastSuccessAt": "2026-11-24T16:05:51.608158Z",
     "meta": {
       "attemptedUrls": 0,
       "blockedUrls": 0,
       "date": "2026-11-24",
       "expectedMatchups": 0,
       "feed": "forebet_nfl",
-      "from": "local",
-      "leagues": "mlb,wnba,mls,cfb,nfl",
+      "from": "github-actions",
+      "leagues": "nba,mlb,wnba,cfb,nfl",
       "matchedPicks": 0,
       "missingMatchups": [],
       "officialMatchups": 0,
       "unpublishedMatchups": [],
-      "updatedAt": "2026-11-24T16:00:57.062089Z"
+      "updatedAt": "2026-11-24T16:05:51.608158Z"
     },
     "note": "ForebetNFL has no official 2026-11-24 matchups.",
     "ok": true,
     "picks": [],
     "refreshStatus": "ok",
-    "updatedAt": "2026-11-24T16:00:57.062089Z"
+    "updatedAt": "2026-11-24T16:05:51.608158Z"
   },
   "forebet_nhl": {
     "date": "2026-11-24",
     "generatedAt": "2026-11-24T16:01:03.448767Z",
     "generatedBy": "local:external-feed-refresh",
-    "lastAttemptAt": "2026-11-24T16:01:03.448767Z",
+    "lastAttemptAt": "2026-11-24T16:05:51.608158Z",
     "lastAttemptDate": "2026-11-24",
+    "lastAttemptMeta": {
+      "blockedUrl": "https://www.forebet.com/en/hockey/usa/nhl",
+      "blockedUrls": 1,
+      "matchedPicks": 0,
+      "missingMatchups": [
+        "Vegas Golden Knights @ Edmonton Oilers"
+      ],
+      "officialMatchups": 1
+    },
+    "lastError": "ForebetNHL: listing fetch blocked by Cloudflare",
     "lastSuccessAt": "2026-11-24T16:01:03.448767Z",
     "meta": {
       "attemptedUrls": 1,
@@ -3272,7 +3225,7 @@
       "updatedAt": "2026-11-24T16:01:03.448767Z"
     },
     "note": "ForebetNHL matched 1 published prediction(s) against 1 official 2026-11-24 matchup(s).",
-    "ok": true,
+    "ok": false,
     "picks": [
       {
         "away_team": "Vegas Golden Knights",
@@ -3301,36 +3254,36 @@
         "units": 0
       }
     ],
-    "refreshStatus": "ok",
+    "refreshStatus": "error",
     "scraped_tip_feed": true,
     "updatedAt": "2026-11-24T16:01:03.448767Z"
   },
   "forebet_wnba": {
     "date": "2026-11-24",
-    "generatedAt": "2026-11-24T16:00:17.147060Z",
-    "generatedBy": "local:external-feed-refresh",
-    "lastAttemptAt": "2026-11-24T16:00:17.147060Z",
+    "generatedAt": "2026-11-24T16:05:51.608158Z",
+    "generatedBy": "github-actions:external-feed-refresh",
+    "lastAttemptAt": "2026-11-24T16:05:51.608158Z",
     "lastAttemptDate": "2026-11-24",
-    "lastSuccessAt": "2026-11-24T16:00:17.147060Z",
+    "lastSuccessAt": "2026-11-24T16:05:51.608158Z",
     "meta": {
       "attemptedUrls": 0,
       "blockedUrls": 0,
       "date": "2026-11-24",
       "expectedMatchups": 0,
       "feed": "forebet_wnba",
-      "from": "local",
-      "leagues": "mlb,wnba,mls,cfb,nfl",
+      "from": "github-actions",
+      "leagues": "nba,mlb,wnba,cfb,nfl",
       "matchedPicks": 0,
       "missingMatchups": [],
       "officialMatchups": 0,
       "unpublishedMatchups": [],
-      "updatedAt": "2026-11-24T16:00:17.147060Z"
+      "updatedAt": "2026-11-24T16:05:51.608158Z"
     },
     "note": "ForebetWNBA has no official 2026-11-24 matchups.",
     "ok": true,
     "picks": [],
     "refreshStatus": "ok",
-    "updatedAt": "2026-11-24T16:00:17.147060Z"
+    "updatedAt": "2026-11-24T16:05:51.608158Z"
   },
   "generatedAt": "2026-11-24T15:54:36.388193Z",
   "generatedBy": "github-actions:model-cache-refresh",
@@ -5281,8 +5234,19 @@
       "date": "2026-11-24",
       "generatedAt": "2026-11-24T16:00:32.542659Z",
       "generatedBy": "local:external-feed-refresh",
-      "lastAttemptAt": "2026-11-24T16:00:32.542659Z",
+      "lastAttemptAt": "2026-11-24T16:05:51.608158Z",
       "lastAttemptDate": "2026-11-24",
+      "lastAttemptMeta": {
+        "blockedUrl": "https://www.forebet.com/en/american-football/usa/ncaa",
+        "blockedUrls": 1,
+        "matchedPicks": 0,
+        "missingMatchups": [
+          "Kent State Golden Flashes @ Eastern Michigan Eagles",
+          "Miami (OH) RedHawks @ Western Michigan Broncos"
+        ],
+        "officialMatchups": 2
+      },
+      "lastError": "ForebetCFB: listing fetch blocked by Cloudflare",
       "lastSuccessAt": "2026-11-24T16:00:32.542659Z",
       "meta": {
         "attemptedUrls": 1,
@@ -5300,7 +5264,7 @@
         "updatedAt": "2026-11-24T16:00:32.542659Z"
       },
       "note": "ForebetCFB matched 2 published prediction(s) against 2 official 2026-11-24 matchup(s).",
-      "ok": true,
+      "ok": false,
       "picks": [
         {
           "away_team": "Kent State Golden Flashes",
@@ -5463,43 +5427,53 @@
           "units": 0.0
         }
       ],
-      "refreshStatus": "ok",
+      "refreshStatus": "error",
       "scraped_tip_feed": true,
       "updatedAt": "2026-11-24T16:00:32.542659Z"
     },
     "forebet_mlb": {
       "date": "2026-11-24",
-      "generatedAt": "2026-11-24T16:00:10.898862Z",
-      "generatedBy": "local:external-feed-refresh",
-      "lastAttemptAt": "2026-11-24T16:00:10.898862Z",
+      "generatedAt": "2026-11-24T16:05:51.608158Z",
+      "generatedBy": "github-actions:external-feed-refresh",
+      "lastAttemptAt": "2026-11-24T16:05:51.608158Z",
       "lastAttemptDate": "2026-11-24",
-      "lastSuccessAt": "2026-11-24T16:00:10.898862Z",
+      "lastSuccessAt": "2026-11-24T16:05:51.608158Z",
       "meta": {
         "attemptedUrls": 0,
         "blockedUrls": 0,
         "date": "2026-11-24",
         "expectedMatchups": 0,
         "feed": "forebet_mlb",
-        "from": "local",
-        "leagues": "mlb,wnba,mls,cfb,nfl",
+        "from": "github-actions",
+        "leagues": "nba,mlb,wnba,cfb,nfl",
         "matchedPicks": 0,
         "missingMatchups": [],
         "officialMatchups": 0,
         "unpublishedMatchups": [],
-        "updatedAt": "2026-11-24T16:00:10.898862Z"
+        "updatedAt": "2026-11-24T16:05:51.608158Z"
       },
       "note": "ForebetMLB has no official 2026-11-24 matchups.",
       "ok": true,
       "picks": [],
       "refreshStatus": "ok",
-      "updatedAt": "2026-11-24T16:00:10.898862Z"
+      "updatedAt": "2026-11-24T16:05:51.608158Z"
     },
     "forebet_mls": {
       "date": "2026-11-24",
       "generatedAt": "2026-11-24T16:00:23.428342Z",
       "generatedBy": "local:external-feed-refresh",
-      "lastAttemptAt": "2026-11-24T16:00:23.428342Z",
+      "lastAttemptAt": "2026-11-24T16:05:51.608158Z",
       "lastAttemptDate": "2026-11-24",
+      "lastAttemptMeta": {
+        "blockedUrl": "https://www.forebet.com/en/football-tips-and-predictions-for-usa/mls",
+        "blockedUrls": 1,
+        "matchedPicks": 0,
+        "missingMatchups": [
+          "Houston Dynamo FC @ San Jose Earthquakes"
+        ],
+        "officialMatchups": 1
+      },
+      "lastError": "ForebetMLS: listing fetch blocked by Cloudflare",
       "lastSuccessAt": "2026-11-24T16:00:23.428342Z",
       "meta": {
         "attemptedUrls": 1,
@@ -5517,7 +5491,7 @@
         "updatedAt": "2026-11-24T16:00:23.428342Z"
       },
       "note": "ForebetMLS matched 1 published prediction(s) against 1 official 2026-11-24 matchup(s).",
-      "ok": true,
+      "ok": false,
       "picks": [
         {
           "away_team": "Houston Dynamo FC",
@@ -5556,7 +5530,7 @@
           "units": 0
         }
       ],
-      "refreshStatus": "ok",
+      "refreshStatus": "error",
       "scraped_tip_feed": true,
       "updatedAt": "2026-11-24T16:00:23.428342Z"
     },
@@ -5564,8 +5538,20 @@
       "date": "2026-11-24",
       "generatedAt": "2026-11-24T16:01:16.723781Z",
       "generatedBy": "local:external-feed-refresh",
-      "lastAttemptAt": "2026-11-24T16:01:16.723781Z",
+      "lastAttemptAt": "2026-11-24T16:05:51.608158Z",
       "lastAttemptDate": "2026-11-24",
+      "lastAttemptMeta": {
+        "blockedUrl": "https://www.forebet.com/en/basketball/usa/nba",
+        "blockedUrls": 1,
+        "matchedPicks": 0,
+        "missingMatchups": [
+          "Detroit Pistons @ Orlando Magic",
+          "Boston Celtics @ Washington Wizards",
+          "Dallas Mavericks @ Denver Nuggets"
+        ],
+        "officialMatchups": 3
+      },
+      "lastError": "ForebetNBA: listing fetch blocked by Cloudflare",
       "lastSuccessAt": "2026-11-24T16:01:16.723781Z",
       "meta": {
         "attemptedUrls": 1,
@@ -5583,7 +5569,7 @@
         "updatedAt": "2026-11-24T16:01:16.723781Z"
       },
       "note": "ForebetNBA matched 3 published prediction(s) against 3 official 2026-11-24 matchup(s).",
-      "ok": true,
+      "ok": false,
       "picks": [
         {
           "away_team": "Detroit Pistons",
@@ -5826,43 +5812,53 @@
           "units": 0.0
         }
       ],
-      "refreshStatus": "ok",
+      "refreshStatus": "error",
       "scraped_tip_feed": true,
       "updatedAt": "2026-11-24T16:01:16.723781Z"
     },
     "forebet_nfl": {
       "date": "2026-11-24",
-      "generatedAt": "2026-11-24T16:00:57.062089Z",
-      "generatedBy": "local:external-feed-refresh",
-      "lastAttemptAt": "2026-11-24T16:00:57.062089Z",
+      "generatedAt": "2026-11-24T16:05:51.608158Z",
+      "generatedBy": "github-actions:external-feed-refresh",
+      "lastAttemptAt": "2026-11-24T16:05:51.608158Z",
       "lastAttemptDate": "2026-11-24",
-      "lastSuccessAt": "2026-11-24T16:00:57.062089Z",
+      "lastSuccessAt": "2026-11-24T16:05:51.608158Z",
       "meta": {
         "attemptedUrls": 0,
         "blockedUrls": 0,
         "date": "2026-11-24",
         "expectedMatchups": 0,
         "feed": "forebet_nfl",
-        "from": "local",
-        "leagues": "mlb,wnba,mls,cfb,nfl",
+        "from": "github-actions",
+        "leagues": "nba,mlb,wnba,cfb,nfl",
         "matchedPicks": 0,
         "missingMatchups": [],
         "officialMatchups": 0,
         "unpublishedMatchups": [],
-        "updatedAt": "2026-11-24T16:00:57.062089Z"
+        "updatedAt": "2026-11-24T16:05:51.608158Z"
       },
       "note": "ForebetNFL has no official 2026-11-24 matchups.",
       "ok": true,
       "picks": [],
       "refreshStatus": "ok",
-      "updatedAt": "2026-11-24T16:00:57.062089Z"
+      "updatedAt": "2026-11-24T16:05:51.608158Z"
     },
     "forebet_nhl": {
       "date": "2026-11-24",
       "generatedAt": "2026-11-24T16:01:03.448767Z",
       "generatedBy": "local:external-feed-refresh",
-      "lastAttemptAt": "2026-11-24T16:01:03.448767Z",
+      "lastAttemptAt": "2026-11-24T16:05:51.608158Z",
       "lastAttemptDate": "2026-11-24",
+      "lastAttemptMeta": {
+        "blockedUrl": "https://www.forebet.com/en/hockey/usa/nhl",
+        "blockedUrls": 1,
+        "matchedPicks": 0,
+        "missingMatchups": [
+          "Vegas Golden Knights @ Edmonton Oilers"
+        ],
+        "officialMatchups": 1
+      },
+      "lastError": "ForebetNHL: listing fetch blocked by Cloudflare",
       "lastSuccessAt": "2026-11-24T16:01:03.448767Z",
       "meta": {
         "attemptedUrls": 1,
@@ -5880,7 +5876,7 @@
         "updatedAt": "2026-11-24T16:01:03.448767Z"
       },
       "note": "ForebetNHL matched 1 published prediction(s) against 1 official 2026-11-24 matchup(s).",
-      "ok": true,
+      "ok": false,
       "picks": [
         {
           "away_team": "Vegas Golden Knights",
@@ -5917,36 +5913,36 @@
           "units": 0
         }
       ],
-      "refreshStatus": "ok",
+      "refreshStatus": "error",
       "scraped_tip_feed": true,
       "updatedAt": "2026-11-24T16:01:03.448767Z"
     },
     "forebet_wnba": {
       "date": "2026-11-24",
-      "generatedAt": "2026-11-24T16:00:17.147060Z",
-      "generatedBy": "local:external-feed-refresh",
-      "lastAttemptAt": "2026-11-24T16:00:17.147060Z",
+      "generatedAt": "2026-11-24T16:05:51.608158Z",
+      "generatedBy": "github-actions:external-feed-refresh",
+      "lastAttemptAt": "2026-11-24T16:05:51.608158Z",
       "lastAttemptDate": "2026-11-24",
-      "lastSuccessAt": "2026-11-24T16:00:17.147060Z",
+      "lastSuccessAt": "2026-11-24T16:05:51.608158Z",
       "meta": {
         "attemptedUrls": 0,
         "blockedUrls": 0,
         "date": "2026-11-24",
         "expectedMatchups": 0,
         "feed": "forebet_wnba",
-        "from": "local",
-        "leagues": "mlb,wnba,mls,cfb,nfl",
+        "from": "github-actions",
+        "leagues": "nba,mlb,wnba,cfb,nfl",
         "matchedPicks": 0,
         "missingMatchups": [],
         "officialMatchups": 0,
         "unpublishedMatchups": [],
-        "updatedAt": "2026-11-24T16:00:17.147060Z"
+        "updatedAt": "2026-11-24T16:05:51.608158Z"
       },
       "note": "ForebetWNBA has no official 2026-11-24 matchups.",
       "ok": true,
       "picks": [],
       "refreshStatus": "ok",
-      "updatedAt": "2026-11-24T16:00:17.147060Z"
+      "updatedAt": "2026-11-24T16:05:51.608158Z"
     },
     "mlb_first_five": {
       "consensus_gate_version": "mlb_team_consensus_v1.2.0",
@@ -11738,11 +11734,11 @@
     "sportsgambler_cfb": {
       "date": "2026-11-24",
       "errors": [],
-      "generatedAt": "2026-11-24T04:27:00.067606Z",
+      "generatedAt": "2026-11-24T16:05:51.608158Z",
       "generatedBy": "github-actions:external-feed-refresh",
-      "lastAttemptAt": "2026-11-24T04:27:00.067606Z",
+      "lastAttemptAt": "2026-11-24T16:05:51.608158Z",
       "lastAttemptDate": "2026-11-24",
-      "lastSuccessAt": "2026-11-24T04:27:00.067606Z",
+      "lastSuccessAt": "2026-11-24T16:05:51.608158Z",
       "meta": {
         "date": "2026-11-24",
         "feed": "sportsgambler_cfb",
@@ -11753,15 +11749,11 @@
           "cfb": 2,
           "nba": 3
         },
-        "optionalErrors": [
-          "nba: empty parse despite nonempty official whitelist (No picks found.)"
-        ],
+        "optionalErrors": [],
         "pick_count": 1,
         "provider": "sportsgambler",
-        "sportErrors": {
-          "nba": "nba: empty parse despite nonempty official whitelist (No picks found.)"
-        },
-        "updatedAt": "2026-11-24T04:27:00.067606Z",
+        "sportErrors": {},
+        "updatedAt": "2026-11-24T16:05:51.608158Z",
         "zeroSlateSports": [
           "mlb",
           "wnba",
@@ -11822,16 +11814,16 @@
       ],
       "refreshStatus": "ok",
       "scraped_tip_feed": true,
-      "updatedAt": "2026-11-24T04:27:00.067606Z"
+      "updatedAt": "2026-11-24T16:05:51.608158Z"
     },
     "sportsgambler_mlb": {
       "date": "2026-11-24",
       "errors": [],
-      "generatedAt": "2026-11-24T04:27:00.067606Z",
+      "generatedAt": "2026-11-24T16:05:51.608158Z",
       "generatedBy": "github-actions:external-feed-refresh",
-      "lastAttemptAt": "2026-11-24T04:27:00.067606Z",
+      "lastAttemptAt": "2026-11-24T16:05:51.608158Z",
       "lastAttemptDate": "2026-11-24",
-      "lastSuccessAt": "2026-11-24T04:27:00.067606Z",
+      "lastSuccessAt": "2026-11-24T16:05:51.608158Z",
       "meta": {
         "date": "2026-11-24",
         "feed": "sportsgambler_mlb",
@@ -11842,15 +11834,11 @@
           "cfb": 2,
           "nba": 3
         },
-        "optionalErrors": [
-          "nba: empty parse despite nonempty official whitelist (No picks found.)"
-        ],
+        "optionalErrors": [],
         "pick_count": 0,
         "provider": "sportsgambler",
-        "sportErrors": {
-          "nba": "nba: empty parse despite nonempty official whitelist (No picks found.)"
-        },
-        "updatedAt": "2026-11-24T04:27:00.067606Z",
+        "sportErrors": {},
+        "updatedAt": "2026-11-24T16:05:51.608158Z",
         "zeroSlateSports": [
           "mlb",
           "wnba",
@@ -11861,94 +11849,75 @@
       "ok": true,
       "picks": [],
       "refreshStatus": "ok",
-      "updatedAt": "2026-11-24T04:27:00.067606Z"
+      "updatedAt": "2026-11-24T16:05:51.608158Z"
     },
     "sportsgambler_nba": {
-      "date": "2026-11-23",
+      "date": "2026-11-24",
       "errors": [],
-      "generatedAt": "2026-11-23T19:31:50.355937Z",
+      "generatedAt": "2026-11-24T16:05:51.608158Z",
       "generatedBy": "github-actions:external-feed-refresh",
-      "lastAttemptAt": "2026-11-24T04:27:00.067606Z",
+      "lastAttemptAt": "2026-11-24T16:05:51.608158Z",
       "lastAttemptDate": "2026-11-24",
-      "lastError": "nba: empty parse despite nonempty official whitelist (No picks found.)",
-      "lastSuccessAt": "2026-11-23T19:31:50.355937Z",
+      "lastSuccessAt": "2026-11-24T16:05:51.608158Z",
       "meta": {
-        "date": "2026-11-23",
+        "date": "2026-11-24",
         "feed": "sportsgambler_nba",
         "from": "github-actions",
         "leagues": "nba,mlb,wnba,cfb,nfl",
         "noPreviewEvidence": {},
         "officialMatchupCounts": {
-          "nba": 10,
-          "nfl": 1
+          "cfb": 2,
+          "nba": 3
         },
         "optionalErrors": [],
-        "pick_count": 9,
+        "pick_count": 3,
         "provider": "sportsgambler",
         "sportErrors": {},
-        "updatedAt": "2026-11-23T19:31:50.355937Z",
+        "updatedAt": "2026-11-24T16:05:51.608158Z",
         "zeroSlateSports": [
           "mlb",
           "wnba",
-          "cfb"
+          "nfl"
         ]
       },
-      "note": "Scheduled sportsgambler_nba refresh returned 9 pick(s).",
-      "ok": false,
+      "note": "Scheduled sportsgambler_nba refresh returned 3 pick(s).",
+      "ok": true,
       "picks": [
         {
-          "date": "2026-11-23",
+          "date": "2026-11-24",
           "decision": "PASS",
           "edge": null,
-          "game": "Philadelphia 76ers vs Portland Trail Blazers",
-          "game_start_time": "2026-11-24T00:00Z",
-          "matchup": "Philadelphia 76ers vs Portland Trail Blazers",
-          "odds": -112,
-          "pick": "Trail Blazers +3.5 (Philadelphia 76ers vs Portland Trail Blazers)",
-          "pregame_snapshot": {
-            "date": "2026-11-23",
-            "decision": "PASS",
-            "edge": null,
-            "game": "Philadelphia 76ers vs Portland Trail Blazers",
-            "matchup": "Philadelphia 76ers vs Portland Trail Blazers",
-            "odds": -112,
-            "pick": "Trail Blazers +3.5 (Philadelphia 76ers vs Portland Trail Blazers)",
-            "probability": null,
-            "scraped_tip_demoted": true,
-            "source": "SportsGamblerNBA",
-            "source_decision": "BET",
-            "source_units": 1,
-            "sport": "NBA",
-            "units": 0
-          },
-          "probability": null,
-          "scraped_tip_demoted": true,
-          "source": "SportsGamblerNBA",
-          "source_decision": "BET",
-          "source_units": 1,
-          "sport": "NBA",
-          "start_time": "2026-11-24T00:00Z",
-          "units": 0
-        },
-        {
-          "date": "2026-11-23",
-          "decision": "PASS",
-          "edge": null,
-          "game": "Charlotte Hornets vs Memphis Grizzlies",
-          "game_start_time": "2026-11-24T00:00Z",
-          "matchup": "Charlotte Hornets vs Memphis Grizzlies",
+          "game": "Orlando Magic vs Detroit Pistons",
+          "market_line": 213.5,
+          "market_no_vig_selected_probability": 0.50433,
+          "market_odds_captured_at": "2026-11-24T16:06:34.239551Z",
+          "market_odds_provider": "espn_scoreboard:DraftKings",
+          "market_over_odds": -112,
+          "market_under_odds": -108,
+          "market_updated_at": "2026-11-24T16:06:34.239551Z",
+          "matchup": "Orlando Magic vs Detroit Pistons",
           "odds": -110,
-          "pick": "Grizzlies -3.5 (Charlotte Hornets vs Memphis Grizzlies)",
+          "opposite_odds": -108,
+          "pick": "Over 213.5 Points (Orlando Magic vs Detroit Pistons)",
           "pregame_snapshot": {
-            "date": "2026-11-23",
+            "date": "2026-11-24",
             "decision": "PASS",
             "edge": null,
-            "game": "Charlotte Hornets vs Memphis Grizzlies",
-            "matchup": "Charlotte Hornets vs Memphis Grizzlies",
+            "game": "Orlando Magic vs Detroit Pistons",
+            "market_line": 213.5,
+            "market_no_vig_selected_probability": 0.50433,
+            "market_odds_captured_at": "2026-11-24T16:06:34.239551Z",
+            "market_odds_provider": "espn_scoreboard:DraftKings",
+            "market_over_odds": -112,
+            "market_under_odds": -108,
+            "market_updated_at": "2026-11-24T16:06:34.239551Z",
+            "matchup": "Orlando Magic vs Detroit Pistons",
             "odds": -110,
-            "pick": "Grizzlies -3.5 (Charlotte Hornets vs Memphis Grizzlies)",
+            "opposite_odds": -108,
+            "pick": "Over 213.5 Points (Orlando Magic vs Detroit Pistons)",
             "probability": null,
             "scraped_tip_demoted": true,
+            "selected_odds": -112,
             "source": "SportsGamblerNBA",
             "source_decision": "BET",
             "source_units": 1,
@@ -11957,43 +11926,7 @@
           },
           "probability": null,
           "scraped_tip_demoted": true,
-          "source": "SportsGamblerNBA",
-          "source_decision": "BET",
-          "source_units": 1,
-          "sport": "NBA",
-          "start_time": "2026-11-24T00:00Z",
-          "units": 0
-        },
-        {
-          "date": "2026-11-23",
-          "decision": "PASS",
-          "edge": null,
-          "game": "Minnesota Timberwolves vs Brooklyn Nets",
-          "grade_supported": false,
-          "market_type": "external_team_mismatch",
-          "matchup": "Minnesota Timberwolves vs Brooklyn Nets",
-          "odds": -106,
-          "pick": "Wolves -12.5 (Minnesota Timberwolves vs Brooklyn Nets)",
-          "pregame_snapshot": {
-            "date": "2026-11-23",
-            "decision": "PASS",
-            "edge": null,
-            "game": "Minnesota Timberwolves vs Brooklyn Nets",
-            "grade_supported": false,
-            "market_type": "external_team_mismatch",
-            "matchup": "Minnesota Timberwolves vs Brooklyn Nets",
-            "odds": -106,
-            "pick": "Wolves -12.5 (Minnesota Timberwolves vs Brooklyn Nets)",
-            "probability": null,
-            "scraped_tip_demoted": true,
-            "source": "SportsGamblerNBA",
-            "source_decision": "BET",
-            "source_units": 1,
-            "sport": "NBA",
-            "units": 0
-          },
-          "probability": null,
-          "scraped_tip_demoted": true,
+          "selected_odds": -112,
           "source": "SportsGamblerNBA",
           "source_decision": "BET",
           "source_units": 1,
@@ -12001,92 +11934,38 @@
           "units": 0
         },
         {
-          "date": "2026-11-23",
+          "date": "2026-11-24",
           "decision": "PASS",
           "edge": null,
-          "game": "Toronto Raptors vs Milwaukee Bucks",
-          "game_start_time": "2026-11-24T00:30Z",
-          "matchup": "Toronto Raptors vs Milwaukee Bucks",
-          "odds": -114,
-          "pick": "Bucks +11.5 (Toronto Raptors vs Milwaukee Bucks)",
-          "pregame_snapshot": {
-            "date": "2026-11-23",
-            "decision": "PASS",
-            "edge": null,
-            "game": "Toronto Raptors vs Milwaukee Bucks",
-            "matchup": "Toronto Raptors vs Milwaukee Bucks",
-            "odds": -114,
-            "pick": "Bucks +11.5 (Toronto Raptors vs Milwaukee Bucks)",
-            "probability": null,
-            "scraped_tip_demoted": true,
-            "source": "SportsGamblerNBA",
-            "source_decision": "BET",
-            "source_units": 1,
-            "sport": "NBA",
-            "units": 0
-          },
-          "probability": null,
-          "scraped_tip_demoted": true,
-          "source": "SportsGamblerNBA",
-          "source_decision": "BET",
-          "source_units": 1,
-          "sport": "NBA",
-          "start_time": "2026-11-24T00:30Z",
-          "units": 0
-        },
-        {
-          "date": "2026-11-23",
-          "decision": "PASS",
-          "edge": null,
-          "game": "Indiana Pacers vs Oklahoma City Thunder",
-          "game_start_time": "2026-11-24T00:30Z",
-          "matchup": "Indiana Pacers vs Oklahoma City Thunder",
-          "odds": -105,
-          "pick": "Thunder -5.5 (Indiana Pacers vs Oklahoma City Thunder)",
-          "pregame_snapshot": {
-            "date": "2026-11-23",
-            "decision": "PASS",
-            "edge": null,
-            "game": "Indiana Pacers vs Oklahoma City Thunder",
-            "matchup": "Indiana Pacers vs Oklahoma City Thunder",
-            "odds": -105,
-            "pick": "Thunder -5.5 (Indiana Pacers vs Oklahoma City Thunder)",
-            "probability": null,
-            "scraped_tip_demoted": true,
-            "source": "SportsGamblerNBA",
-            "source_decision": "BET",
-            "source_units": 1,
-            "sport": "NBA",
-            "units": 0
-          },
-          "probability": null,
-          "scraped_tip_demoted": true,
-          "source": "SportsGamblerNBA",
-          "source_decision": "BET",
-          "source_units": 1,
-          "sport": "NBA",
-          "start_time": "2026-11-24T00:30Z",
-          "units": 0
-        },
-        {
-          "date": "2026-11-23",
-          "decision": "PASS",
-          "edge": null,
-          "game": "Chicago Bulls vs Cleveland Cavaliers",
-          "game_start_time": "2026-11-24T01:00Z",
-          "matchup": "Chicago Bulls vs Cleveland Cavaliers",
+          "game": "Washington Wizards vs Boston Celtics",
+          "market_away_odds": -453,
+          "market_home_odds": 351,
+          "market_no_vig_selected_probability": 0.786982,
+          "market_odds_captured_at": "2026-11-24T16:06:34.239551Z",
+          "market_odds_provider": "espn_scoreboard:DraftKings",
+          "market_updated_at": "2026-11-24T16:06:34.239551Z",
+          "matchup": "Washington Wizards vs Boston Celtics",
           "odds": -110,
-          "pick": "Bulls +8.5 (Chicago Bulls vs Cleveland Cavaliers)",
+          "opposite_odds": 351,
+          "pick": "Celtics -10.5 (Washington Wizards vs Boston Celtics)",
           "pregame_snapshot": {
-            "date": "2026-11-23",
+            "date": "2026-11-24",
             "decision": "PASS",
             "edge": null,
-            "game": "Chicago Bulls vs Cleveland Cavaliers",
-            "matchup": "Chicago Bulls vs Cleveland Cavaliers",
+            "game": "Washington Wizards vs Boston Celtics",
+            "market_away_odds": -453,
+            "market_home_odds": 351,
+            "market_no_vig_selected_probability": 0.786982,
+            "market_odds_captured_at": "2026-11-24T16:06:34.239551Z",
+            "market_odds_provider": "espn_scoreboard:DraftKings",
+            "market_updated_at": "2026-11-24T16:06:34.239551Z",
+            "matchup": "Washington Wizards vs Boston Celtics",
             "odds": -110,
-            "pick": "Bulls +8.5 (Chicago Bulls vs Cleveland Cavaliers)",
+            "opposite_odds": 351,
+            "pick": "Celtics -10.5 (Washington Wizards vs Boston Celtics)",
             "probability": null,
             "scraped_tip_demoted": true,
+            "selected_odds": -453,
             "source": "SportsGamblerNBA",
             "source_decision": "BET",
             "source_units": 1,
@@ -12095,32 +11974,46 @@
           },
           "probability": null,
           "scraped_tip_demoted": true,
+          "selected_odds": -453,
           "source": "SportsGamblerNBA",
           "source_decision": "BET",
           "source_units": 1,
           "sport": "NBA",
-          "start_time": "2026-11-24T01:00Z",
           "units": 0
         },
         {
-          "date": "2026-11-23",
+          "date": "2026-11-24",
           "decision": "PASS",
           "edge": null,
-          "game": "New Orleans Pelicans vs Phoenix Suns",
-          "game_start_time": "2026-11-24T01:00Z",
-          "matchup": "New Orleans Pelicans vs Phoenix Suns",
-          "odds": -115,
-          "pick": "Suns -2.5 (New Orleans Pelicans vs Phoenix Suns)",
+          "game": "Denver Nuggets vs Dallas Mavericks",
+          "market_away_odds": 251,
+          "market_home_odds": -310,
+          "market_no_vig_selected_probability": 0.72632,
+          "market_odds_captured_at": "2026-11-24T16:06:34.239551Z",
+          "market_odds_provider": "espn_scoreboard:DraftKings",
+          "market_updated_at": "2026-11-24T16:06:34.239551Z",
+          "matchup": "Denver Nuggets vs Dallas Mavericks",
+          "odds": -110,
+          "opposite_odds": 251,
+          "pick": "Nuggets -8.5 (Denver Nuggets vs Dallas Mavericks)",
           "pregame_snapshot": {
-            "date": "2026-11-23",
+            "date": "2026-11-24",
             "decision": "PASS",
             "edge": null,
-            "game": "New Orleans Pelicans vs Phoenix Suns",
-            "matchup": "New Orleans Pelicans vs Phoenix Suns",
-            "odds": -115,
-            "pick": "Suns -2.5 (New Orleans Pelicans vs Phoenix Suns)",
+            "game": "Denver Nuggets vs Dallas Mavericks",
+            "market_away_odds": 251,
+            "market_home_odds": -310,
+            "market_no_vig_selected_probability": 0.72632,
+            "market_odds_captured_at": "2026-11-24T16:06:34.239551Z",
+            "market_odds_provider": "espn_scoreboard:DraftKings",
+            "market_updated_at": "2026-11-24T16:06:34.239551Z",
+            "matchup": "Denver Nuggets vs Dallas Mavericks",
+            "odds": -110,
+            "opposite_odds": 251,
+            "pick": "Nuggets -8.5 (Denver Nuggets vs Dallas Mavericks)",
             "probability": null,
             "scraped_tip_demoted": true,
+            "selected_odds": -310,
             "source": "SportsGamblerNBA",
             "source_decision": "BET",
             "source_units": 1,
@@ -12129,94 +12022,26 @@
           },
           "probability": null,
           "scraped_tip_demoted": true,
+          "selected_odds": -310,
           "source": "SportsGamblerNBA",
           "source_decision": "BET",
           "source_units": 1,
           "sport": "NBA",
-          "start_time": "2026-11-24T01:00Z",
-          "units": 0
-        },
-        {
-          "date": "2026-11-23",
-          "decision": "PASS",
-          "edge": null,
-          "game": "Houston Rockets vs LA Clippers",
-          "game_start_time": "2026-11-24T01:30Z",
-          "matchup": "Houston Rockets vs LA Clippers",
-          "odds": -114,
-          "pick": "Rockets -12.5 (Houston Rockets vs LA Clippers)",
-          "pregame_snapshot": {
-            "date": "2026-11-23",
-            "decision": "PASS",
-            "edge": null,
-            "game": "Houston Rockets vs LA Clippers",
-            "matchup": "Houston Rockets vs LA Clippers",
-            "odds": -114,
-            "pick": "Rockets -12.5 (Houston Rockets vs LA Clippers)",
-            "probability": null,
-            "scraped_tip_demoted": true,
-            "source": "SportsGamblerNBA",
-            "source_decision": "BET",
-            "source_units": 1,
-            "sport": "NBA",
-            "units": 0
-          },
-          "probability": null,
-          "scraped_tip_demoted": true,
-          "source": "SportsGamblerNBA",
-          "source_decision": "BET",
-          "source_units": 1,
-          "sport": "NBA",
-          "start_time": "2026-11-24T01:30Z",
-          "units": 0
-        },
-        {
-          "date": "2026-11-23",
-          "decision": "PASS",
-          "edge": null,
-          "game": "Sacramento Kings vs San Antonio Spurs",
-          "game_start_time": "2026-11-24T03:00Z",
-          "matchup": "Sacramento Kings vs San Antonio Spurs",
-          "odds": -114,
-          "pick": "Spurs -10.5 (Sacramento Kings vs San Antonio Spurs)",
-          "pregame_snapshot": {
-            "date": "2026-11-23",
-            "decision": "PASS",
-            "edge": null,
-            "game": "Sacramento Kings vs San Antonio Spurs",
-            "matchup": "Sacramento Kings vs San Antonio Spurs",
-            "odds": -114,
-            "pick": "Spurs -10.5 (Sacramento Kings vs San Antonio Spurs)",
-            "probability": null,
-            "scraped_tip_demoted": true,
-            "source": "SportsGamblerNBA",
-            "source_decision": "BET",
-            "source_units": 1,
-            "sport": "NBA",
-            "units": 0
-          },
-          "probability": null,
-          "scraped_tip_demoted": true,
-          "source": "SportsGamblerNBA",
-          "source_decision": "BET",
-          "source_units": 1,
-          "sport": "NBA",
-          "start_time": "2026-11-24T03:00Z",
           "units": 0
         }
       ],
-      "refreshStatus": "error",
+      "refreshStatus": "ok",
       "scraped_tip_feed": true,
-      "updatedAt": "2026-11-23T19:31:50.355937Z"
+      "updatedAt": "2026-11-24T16:05:51.608158Z"
     },
     "sportsgambler_nfl": {
       "date": "2026-11-24",
       "errors": [],
-      "generatedAt": "2026-11-24T04:27:00.067606Z",
+      "generatedAt": "2026-11-24T16:05:51.608158Z",
       "generatedBy": "github-actions:external-feed-refresh",
-      "lastAttemptAt": "2026-11-24T04:27:00.067606Z",
+      "lastAttemptAt": "2026-11-24T16:05:51.608158Z",
       "lastAttemptDate": "2026-11-24",
-      "lastSuccessAt": "2026-11-24T04:27:00.067606Z",
+      "lastSuccessAt": "2026-11-24T16:05:51.608158Z",
       "meta": {
         "date": "2026-11-24",
         "feed": "sportsgambler_nfl",
@@ -12227,15 +12052,11 @@
           "cfb": 2,
           "nba": 3
         },
-        "optionalErrors": [
-          "nba: empty parse despite nonempty official whitelist (No picks found.)"
-        ],
+        "optionalErrors": [],
         "pick_count": 0,
         "provider": "sportsgambler",
-        "sportErrors": {
-          "nba": "nba: empty parse despite nonempty official whitelist (No picks found.)"
-        },
-        "updatedAt": "2026-11-24T04:27:00.067606Z",
+        "sportErrors": {},
+        "updatedAt": "2026-11-24T16:05:51.608158Z",
         "zeroSlateSports": [
           "mlb",
           "wnba",
@@ -12246,16 +12067,16 @@
       "ok": true,
       "picks": [],
       "refreshStatus": "ok",
-      "updatedAt": "2026-11-24T04:27:00.067606Z"
+      "updatedAt": "2026-11-24T16:05:51.608158Z"
     },
     "sportsgambler_wnba": {
       "date": "2026-11-24",
       "errors": [],
-      "generatedAt": "2026-11-24T04:27:00.067606Z",
+      "generatedAt": "2026-11-24T16:05:51.608158Z",
       "generatedBy": "github-actions:external-feed-refresh",
-      "lastAttemptAt": "2026-11-24T04:27:00.067606Z",
+      "lastAttemptAt": "2026-11-24T16:05:51.608158Z",
       "lastAttemptDate": "2026-11-24",
-      "lastSuccessAt": "2026-11-24T04:27:00.067606Z",
+      "lastSuccessAt": "2026-11-24T16:05:51.608158Z",
       "meta": {
         "date": "2026-11-24",
         "feed": "sportsgambler_wnba",
@@ -12266,15 +12087,11 @@
           "cfb": 2,
           "nba": 3
         },
-        "optionalErrors": [
-          "nba: empty parse despite nonempty official whitelist (No picks found.)"
-        ],
+        "optionalErrors": [],
         "pick_count": 0,
         "provider": "sportsgambler",
-        "sportErrors": {
-          "nba": "nba: empty parse despite nonempty official whitelist (No picks found.)"
-        },
-        "updatedAt": "2026-11-24T04:27:00.067606Z",
+        "sportErrors": {},
+        "updatedAt": "2026-11-24T16:05:51.608158Z",
         "zeroSlateSports": [
           "mlb",
           "wnba",
@@ -12285,7 +12102,7 @@
       "ok": true,
       "picks": [],
       "refreshStatus": "ok",
-      "updatedAt": "2026-11-24T04:27:00.067606Z"
+      "updatedAt": "2026-11-24T16:05:51.608158Z"
     },
     "sportytrader_cfb": {
       "date": "2026-11-24",
@@ -12293,9 +12110,9 @@
       "errors": [
         "cfb: empty parse despite nonempty official whitelist (No SportyTrader CFB picks parsed. | Diagnostics: listingPages=1 cards=0 officialMatchupCards=0.)"
       ],
-      "generatedAt": "2026-11-24T04:27:00.067606Z",
+      "generatedAt": "2026-11-24T16:05:51.608158Z",
       "generatedBy": "github-actions:external-feed-refresh",
-      "lastAttemptAt": "2026-11-24T04:27:00.067606Z",
+      "lastAttemptAt": "2026-11-24T16:05:51.608158Z",
       "lastAttemptDate": "2026-11-24",
       "lastError": "cfb: empty parse despite nonempty official whitelist (No SportyTrader CFB picks parsed. | Diagnostics: listingPages=1 cards=0 officialMatchupCards=0.)",
       "meta": {
@@ -12318,7 +12135,7 @@
         "sportErrors": {
           "cfb": "cfb: empty parse despite nonempty official whitelist (No SportyTrader CFB picks parsed. | Diagnostics: listingPages=1 cards=0 officialMatchupCards=0.)"
         },
-        "updatedAt": "2026-11-24T04:27:00.067606Z",
+        "updatedAt": "2026-11-24T16:05:51.608158Z",
         "zeroSlateSports": [
           "mlb",
           "wnba",
@@ -12329,16 +12146,16 @@
       "ok": false,
       "picks": [],
       "refreshStatus": "error",
-      "updatedAt": "2026-11-24T04:27:00.067606Z"
+      "updatedAt": "2026-11-24T16:05:51.608158Z"
     },
     "sportytrader_mlb": {
       "date": "2026-11-24",
       "errors": [],
-      "generatedAt": "2026-11-24T04:27:00.067606Z",
+      "generatedAt": "2026-11-24T16:05:51.608158Z",
       "generatedBy": "github-actions:external-feed-refresh",
-      "lastAttemptAt": "2026-11-24T04:27:00.067606Z",
+      "lastAttemptAt": "2026-11-24T16:05:51.608158Z",
       "lastAttemptDate": "2026-11-24",
-      "lastSuccessAt": "2026-11-24T04:27:00.067606Z",
+      "lastSuccessAt": "2026-11-24T16:05:51.608158Z",
       "meta": {
         "date": "2026-11-24",
         "feed": "sportytrader_mlb",
@@ -12357,7 +12174,7 @@
         "sportErrors": {
           "cfb": "cfb: empty parse despite nonempty official whitelist (No SportyTrader CFB picks parsed. | Diagnostics: listingPages=1 cards=0 officialMatchupCards=0.)"
         },
-        "updatedAt": "2026-11-24T04:27:00.067606Z",
+        "updatedAt": "2026-11-24T16:05:51.608158Z",
         "zeroSlateSports": [
           "mlb",
           "wnba",
@@ -12368,16 +12185,16 @@
       "ok": true,
       "picks": [],
       "refreshStatus": "ok",
-      "updatedAt": "2026-11-24T04:27:00.067606Z"
+      "updatedAt": "2026-11-24T16:05:51.608158Z"
     },
     "sportytrader_nba": {
       "date": "2026-11-24",
       "errors": [],
-      "generatedAt": "2026-11-24T04:27:00.067606Z",
+      "generatedAt": "2026-11-24T16:05:51.608158Z",
       "generatedBy": "github-actions:external-feed-refresh",
-      "lastAttemptAt": "2026-11-24T04:27:00.067606Z",
+      "lastAttemptAt": "2026-11-24T16:05:51.608158Z",
       "lastAttemptDate": "2026-11-24",
-      "lastSuccessAt": "2026-11-24T04:27:00.067606Z",
+      "lastSuccessAt": "2026-11-24T16:05:51.608158Z",
       "meta": {
         "date": "2026-11-24",
         "feed": "sportytrader_nba",
@@ -12396,7 +12213,7 @@
         "sportErrors": {
           "cfb": "cfb: empty parse despite nonempty official whitelist (No SportyTrader CFB picks parsed. | Diagnostics: listingPages=1 cards=0 officialMatchupCards=0.)"
         },
-        "updatedAt": "2026-11-24T04:27:00.067606Z",
+        "updatedAt": "2026-11-24T16:05:51.608158Z",
         "zeroSlateSports": [
           "mlb",
           "wnba",
@@ -12505,16 +12322,16 @@
       ],
       "refreshStatus": "ok",
       "scraped_tip_feed": true,
-      "updatedAt": "2026-11-24T04:27:00.067606Z"
+      "updatedAt": "2026-11-24T16:05:51.608158Z"
     },
     "sportytrader_nfl": {
       "date": "2026-11-24",
       "errors": [],
-      "generatedAt": "2026-11-24T04:27:00.067606Z",
+      "generatedAt": "2026-11-24T16:05:51.608158Z",
       "generatedBy": "github-actions:external-feed-refresh",
-      "lastAttemptAt": "2026-11-24T04:27:00.067606Z",
+      "lastAttemptAt": "2026-11-24T16:05:51.608158Z",
       "lastAttemptDate": "2026-11-24",
-      "lastSuccessAt": "2026-11-24T04:27:00.067606Z",
+      "lastSuccessAt": "2026-11-24T16:05:51.608158Z",
       "meta": {
         "date": "2026-11-24",
         "feed": "sportytrader_nfl",
@@ -12533,7 +12350,7 @@
         "sportErrors": {
           "cfb": "cfb: empty parse despite nonempty official whitelist (No SportyTrader CFB picks parsed. | Diagnostics: listingPages=1 cards=0 officialMatchupCards=0.)"
         },
-        "updatedAt": "2026-11-24T04:27:00.067606Z",
+        "updatedAt": "2026-11-24T16:05:51.608158Z",
         "zeroSlateSports": [
           "mlb",
           "wnba",
@@ -12544,16 +12361,16 @@
       "ok": true,
       "picks": [],
       "refreshStatus": "ok",
-      "updatedAt": "2026-11-24T04:27:00.067606Z"
+      "updatedAt": "2026-11-24T16:05:51.608158Z"
     },
     "sportytrader_wnba": {
       "date": "2026-11-24",
       "errors": [],
-      "generatedAt": "2026-11-24T04:27:00.067606Z",
+      "generatedAt": "2026-11-24T16:05:51.608158Z",
       "generatedBy": "github-actions:external-feed-refresh",
-      "lastAttemptAt": "2026-11-24T04:27:00.067606Z",
+      "lastAttemptAt": "2026-11-24T16:05:51.608158Z",
       "lastAttemptDate": "2026-11-24",
-      "lastSuccessAt": "2026-11-24T04:27:00.067606Z",
+      "lastSuccessAt": "2026-11-24T16:05:51.608158Z",
       "meta": {
         "date": "2026-11-24",
         "feed": "sportytrader_wnba",
@@ -12572,7 +12389,7 @@
         "sportErrors": {
           "cfb": "cfb: empty parse despite nonempty official whitelist (No SportyTrader CFB picks parsed. | Diagnostics: listingPages=1 cards=0 officialMatchupCards=0.)"
         },
-        "updatedAt": "2026-11-24T04:27:00.067606Z",
+        "updatedAt": "2026-11-24T16:05:51.608158Z",
         "zeroSlateSports": [
           "mlb",
           "wnba",
@@ -12583,7 +12400,7 @@
       "ok": true,
       "picks": [],
       "refreshStatus": "ok",
-      "updatedAt": "2026-11-24T04:27:00.067606Z"
+      "updatedAt": "2026-11-24T16:05:51.608158Z"
     },
     "tennis": {
       "date": "2026-11-24",
@@ -13710,11 +13527,11 @@
     },
     "tennistonic_tennis": {
       "date": "2026-11-24",
-      "generatedAt": "2026-11-24T16:02:58.877022Z",
-      "generatedBy": "local:external-feed-refresh",
-      "lastAttemptAt": "2026-11-24T16:02:58.877022Z",
+      "generatedAt": "2026-11-24T16:05:51.608158Z",
+      "generatedBy": "github-actions:external-feed-refresh",
+      "lastAttemptAt": "2026-11-24T16:05:51.608158Z",
       "lastAttemptDate": "2026-11-24",
-      "lastSuccessAt": "2026-11-24T16:02:58.877022Z",
+      "lastSuccessAt": "2026-11-24T16:05:51.608158Z",
       "meta": {
         "attemptedUrls": 13,
         "blockedUrls": 0,
@@ -13722,9 +13539,9 @@
         "expectedMatchups": 9,
         "failedUrls": 0,
         "feed": "tennistonic_tennis",
-        "from": "local",
+        "from": "github-actions",
         "interrupted": false,
-        "leagues": "tennis",
+        "leagues": "nba,mlb,wnba,cfb,nfl",
         "matchedPicks": 9,
         "missingMatchups": [],
         "officialMatchups": 11,
@@ -13735,7 +13552,7 @@
           "Luna Maria Cinalli vs Guiomar Maristany Zuleta De Reales",
           "Veronika Erjavec vs Martina Trevisan"
         ],
-        "updatedAt": "2026-11-24T16:02:58.877022Z"
+        "updatedAt": "2026-11-24T16:05:51.608158Z"
       },
       "note": "TennisTonic matched 9 tennis prediction(s) against 11 official 2026-11-24 singles matchup(s).",
       "ok": true,
@@ -13995,7 +13812,7 @@
       ],
       "refreshStatus": "ok",
       "scraped_tip_feed": true,
-      "updatedAt": "2026-11-24T16:02:58.877022Z"
+      "updatedAt": "2026-11-24T16:05:51.608158Z"
     },
     "wnba": {
       "date": "2026-11-24",
@@ -18578,7 +18395,7 @@
     "standings_date": "2026-04-17",
     "team_totals_without_mean": 0
   },
-  "publishedAt": "2026-11-24T16:04:49.412109Z",
+  "publishedAt": "2026-11-24T16:06:34.805157Z",
   "scores24_cfb": {
     "date": "2026-11-24",
     "generatedAt": "2026-11-24T15:53:40.948420Z",
@@ -18887,11 +18704,11 @@
   "sportsgambler_cfb": {
     "date": "2026-11-24",
     "errors": [],
-    "generatedAt": "2026-11-24T04:27:00.067606Z",
+    "generatedAt": "2026-11-24T16:05:51.608158Z",
     "generatedBy": "github-actions:external-feed-refresh",
-    "lastAttemptAt": "2026-11-24T04:27:00.067606Z",
+    "lastAttemptAt": "2026-11-24T16:05:51.608158Z",
     "lastAttemptDate": "2026-11-24",
-    "lastSuccessAt": "2026-11-24T04:27:00.067606Z",
+    "lastSuccessAt": "2026-11-24T16:05:51.608158Z",
     "meta": {
       "date": "2026-11-24",
       "feed": "sportsgambler_cfb",
@@ -18902,15 +18719,11 @@
         "cfb": 2,
         "nba": 3
       },
-      "optionalErrors": [
-        "nba: empty parse despite nonempty official whitelist (No picks found.)"
-      ],
+      "optionalErrors": [],
       "pick_count": 1,
       "provider": "sportsgambler",
-      "sportErrors": {
-        "nba": "nba: empty parse despite nonempty official whitelist (No picks found.)"
-      },
-      "updatedAt": "2026-11-24T04:27:00.067606Z",
+      "sportErrors": {},
+      "updatedAt": "2026-11-24T16:05:51.608158Z",
       "zeroSlateSports": [
         "mlb",
         "wnba",
@@ -18939,16 +18752,16 @@
     ],
     "refreshStatus": "ok",
     "scraped_tip_feed": true,
-    "updatedAt": "2026-11-24T04:27:00.067606Z"
+    "updatedAt": "2026-11-24T16:05:51.608158Z"
   },
   "sportsgambler_mlb": {
     "date": "2026-11-24",
     "errors": [],
-    "generatedAt": "2026-11-24T04:27:00.067606Z",
+    "generatedAt": "2026-11-24T16:05:51.608158Z",
     "generatedBy": "github-actions:external-feed-refresh",
-    "lastAttemptAt": "2026-11-24T04:27:00.067606Z",
+    "lastAttemptAt": "2026-11-24T16:05:51.608158Z",
     "lastAttemptDate": "2026-11-24",
-    "lastSuccessAt": "2026-11-24T04:27:00.067606Z",
+    "lastSuccessAt": "2026-11-24T16:05:51.608158Z",
     "meta": {
       "date": "2026-11-24",
       "feed": "sportsgambler_mlb",
@@ -18959,15 +18772,11 @@
         "cfb": 2,
         "nba": 3
       },
-      "optionalErrors": [
-        "nba: empty parse despite nonempty official whitelist (No picks found.)"
-      ],
+      "optionalErrors": [],
       "pick_count": 0,
       "provider": "sportsgambler",
-      "sportErrors": {
-        "nba": "nba: empty parse despite nonempty official whitelist (No picks found.)"
-      },
-      "updatedAt": "2026-11-24T04:27:00.067606Z",
+      "sportErrors": {},
+      "updatedAt": "2026-11-24T16:05:51.608158Z",
       "zeroSlateSports": [
         "mlb",
         "wnba",
@@ -18978,137 +18787,48 @@
     "ok": true,
     "picks": [],
     "refreshStatus": "ok",
-    "updatedAt": "2026-11-24T04:27:00.067606Z"
+    "updatedAt": "2026-11-24T16:05:51.608158Z"
   },
   "sportsgambler_nba": {
-    "date": "2026-11-23",
+    "date": "2026-11-24",
     "errors": [],
-    "generatedAt": "2026-11-23T19:31:50.355937Z",
+    "generatedAt": "2026-11-24T16:05:51.608158Z",
     "generatedBy": "github-actions:external-feed-refresh",
-    "lastAttemptAt": "2026-11-24T04:27:00.067606Z",
+    "lastAttemptAt": "2026-11-24T16:05:51.608158Z",
     "lastAttemptDate": "2026-11-24",
-    "lastError": "nba: empty parse despite nonempty official whitelist (No picks found.)",
-    "lastSuccessAt": "2026-11-23T19:31:50.355937Z",
+    "lastSuccessAt": "2026-11-24T16:05:51.608158Z",
     "meta": {
-      "date": "2026-11-23",
+      "date": "2026-11-24",
       "feed": "sportsgambler_nba",
       "from": "github-actions",
       "leagues": "nba,mlb,wnba,cfb,nfl",
       "noPreviewEvidence": {},
       "officialMatchupCounts": {
-        "nba": 10,
-        "nfl": 1
+        "cfb": 2,
+        "nba": 3
       },
       "optionalErrors": [],
-      "pick_count": 9,
+      "pick_count": 3,
       "provider": "sportsgambler",
       "sportErrors": {},
-      "updatedAt": "2026-11-23T19:31:50.355937Z",
+      "updatedAt": "2026-11-24T16:05:51.608158Z",
       "zeroSlateSports": [
         "mlb",
         "wnba",
-        "cfb"
+        "nfl"
       ]
     },
-    "note": "Scheduled sportsgambler_nba refresh returned 9 pick(s).",
-    "ok": false,
+    "note": "Scheduled sportsgambler_nba refresh returned 3 pick(s).",
+    "ok": true,
     "picks": [
       {
-        "date": "2026-11-23",
+        "date": "2026-11-24",
         "decision": "PASS",
         "edge": null,
-        "game": "Philadelphia 76ers vs Portland Trail Blazers",
-        "game_start_time": "2026-11-24T00:00Z",
-        "matchup": "Philadelphia 76ers vs Portland Trail Blazers",
-        "odds": -112,
-        "pick": "Trail Blazers +3.5 (Philadelphia 76ers vs Portland Trail Blazers)",
-        "pregame_snapshot": {
-          "date": "2026-11-23",
-          "decision": "PASS",
-          "edge": null,
-          "game": "Philadelphia 76ers vs Portland Trail Blazers",
-          "matchup": "Philadelphia 76ers vs Portland Trail Blazers",
-          "odds": -112,
-          "pick": "Trail Blazers +3.5 (Philadelphia 76ers vs Portland Trail Blazers)",
-          "probability": null,
-          "scraped_tip_demoted": true,
-          "source": "SportsGamblerNBA",
-          "source_decision": "BET",
-          "source_units": 1,
-          "sport": "NBA",
-          "units": 0
-        },
-        "probability": null,
-        "scraped_tip_demoted": true,
-        "source": "SportsGamblerNBA",
-        "source_decision": "BET",
-        "source_units": 1,
-        "sport": "NBA",
-        "start_time": "2026-11-24T00:00Z",
-        "units": 0
-      },
-      {
-        "date": "2026-11-23",
-        "decision": "PASS",
-        "edge": null,
-        "game": "Charlotte Hornets vs Memphis Grizzlies",
-        "game_start_time": "2026-11-24T00:00Z",
-        "matchup": "Charlotte Hornets vs Memphis Grizzlies",
+        "game": "Orlando Magic vs Detroit Pistons",
+        "matchup": "Orlando Magic vs Detroit Pistons",
         "odds": -110,
-        "pick": "Grizzlies -3.5 (Charlotte Hornets vs Memphis Grizzlies)",
-        "pregame_snapshot": {
-          "date": "2026-11-23",
-          "decision": "PASS",
-          "edge": null,
-          "game": "Charlotte Hornets vs Memphis Grizzlies",
-          "matchup": "Charlotte Hornets vs Memphis Grizzlies",
-          "odds": -110,
-          "pick": "Grizzlies -3.5 (Charlotte Hornets vs Memphis Grizzlies)",
-          "probability": null,
-          "scraped_tip_demoted": true,
-          "source": "SportsGamblerNBA",
-          "source_decision": "BET",
-          "source_units": 1,
-          "sport": "NBA",
-          "units": 0
-        },
-        "probability": null,
-        "scraped_tip_demoted": true,
-        "source": "SportsGamblerNBA",
-        "source_decision": "BET",
-        "source_units": 1,
-        "sport": "NBA",
-        "start_time": "2026-11-24T00:00Z",
-        "units": 0
-      },
-      {
-        "date": "2026-11-23",
-        "decision": "PASS",
-        "edge": null,
-        "game": "Minnesota Timberwolves vs Brooklyn Nets",
-        "grade_supported": false,
-        "market_type": "external_team_mismatch",
-        "matchup": "Minnesota Timberwolves vs Brooklyn Nets",
-        "odds": -106,
-        "pick": "Wolves -12.5 (Minnesota Timberwolves vs Brooklyn Nets)",
-        "pregame_snapshot": {
-          "date": "2026-11-23",
-          "decision": "PASS",
-          "edge": null,
-          "game": "Minnesota Timberwolves vs Brooklyn Nets",
-          "grade_supported": false,
-          "market_type": "external_team_mismatch",
-          "matchup": "Minnesota Timberwolves vs Brooklyn Nets",
-          "odds": -106,
-          "pick": "Wolves -12.5 (Minnesota Timberwolves vs Brooklyn Nets)",
-          "probability": null,
-          "scraped_tip_demoted": true,
-          "source": "SportsGamblerNBA",
-          "source_decision": "BET",
-          "source_units": 1,
-          "sport": "NBA",
-          "units": 0
-        },
+        "pick": "Over 213.5 Points (Orlando Magic vs Detroit Pistons)",
         "probability": null,
         "scraped_tip_demoted": true,
         "source": "SportsGamblerNBA",
@@ -19118,222 +18838,50 @@
         "units": 0
       },
       {
-        "date": "2026-11-23",
+        "date": "2026-11-24",
         "decision": "PASS",
         "edge": null,
-        "game": "Toronto Raptors vs Milwaukee Bucks",
-        "game_start_time": "2026-11-24T00:30Z",
-        "matchup": "Toronto Raptors vs Milwaukee Bucks",
-        "odds": -114,
-        "pick": "Bucks +11.5 (Toronto Raptors vs Milwaukee Bucks)",
-        "pregame_snapshot": {
-          "date": "2026-11-23",
-          "decision": "PASS",
-          "edge": null,
-          "game": "Toronto Raptors vs Milwaukee Bucks",
-          "matchup": "Toronto Raptors vs Milwaukee Bucks",
-          "odds": -114,
-          "pick": "Bucks +11.5 (Toronto Raptors vs Milwaukee Bucks)",
-          "probability": null,
-          "scraped_tip_demoted": true,
-          "source": "SportsGamblerNBA",
-          "source_decision": "BET",
-          "source_units": 1,
-          "sport": "NBA",
-          "units": 0
-        },
-        "probability": null,
-        "scraped_tip_demoted": true,
-        "source": "SportsGamblerNBA",
-        "source_decision": "BET",
-        "source_units": 1,
-        "sport": "NBA",
-        "start_time": "2026-11-24T00:30Z",
-        "units": 0
-      },
-      {
-        "date": "2026-11-23",
-        "decision": "PASS",
-        "edge": null,
-        "game": "Indiana Pacers vs Oklahoma City Thunder",
-        "game_start_time": "2026-11-24T00:30Z",
-        "matchup": "Indiana Pacers vs Oklahoma City Thunder",
-        "odds": -105,
-        "pick": "Thunder -5.5 (Indiana Pacers vs Oklahoma City Thunder)",
-        "pregame_snapshot": {
-          "date": "2026-11-23",
-          "decision": "PASS",
-          "edge": null,
-          "game": "Indiana Pacers vs Oklahoma City Thunder",
-          "matchup": "Indiana Pacers vs Oklahoma City Thunder",
-          "odds": -105,
-          "pick": "Thunder -5.5 (Indiana Pacers vs Oklahoma City Thunder)",
-          "probability": null,
-          "scraped_tip_demoted": true,
-          "source": "SportsGamblerNBA",
-          "source_decision": "BET",
-          "source_units": 1,
-          "sport": "NBA",
-          "units": 0
-        },
-        "probability": null,
-        "scraped_tip_demoted": true,
-        "source": "SportsGamblerNBA",
-        "source_decision": "BET",
-        "source_units": 1,
-        "sport": "NBA",
-        "start_time": "2026-11-24T00:30Z",
-        "units": 0
-      },
-      {
-        "date": "2026-11-23",
-        "decision": "PASS",
-        "edge": null,
-        "game": "Chicago Bulls vs Cleveland Cavaliers",
-        "game_start_time": "2026-11-24T01:00Z",
-        "matchup": "Chicago Bulls vs Cleveland Cavaliers",
+        "game": "Washington Wizards vs Boston Celtics",
+        "matchup": "Washington Wizards vs Boston Celtics",
         "odds": -110,
-        "pick": "Bulls +8.5 (Chicago Bulls vs Cleveland Cavaliers)",
-        "pregame_snapshot": {
-          "date": "2026-11-23",
-          "decision": "PASS",
-          "edge": null,
-          "game": "Chicago Bulls vs Cleveland Cavaliers",
-          "matchup": "Chicago Bulls vs Cleveland Cavaliers",
-          "odds": -110,
-          "pick": "Bulls +8.5 (Chicago Bulls vs Cleveland Cavaliers)",
-          "probability": null,
-          "scraped_tip_demoted": true,
-          "source": "SportsGamblerNBA",
-          "source_decision": "BET",
-          "source_units": 1,
-          "sport": "NBA",
-          "units": 0
-        },
+        "pick": "Celtics -10.5 (Washington Wizards vs Boston Celtics)",
         "probability": null,
         "scraped_tip_demoted": true,
         "source": "SportsGamblerNBA",
         "source_decision": "BET",
         "source_units": 1,
         "sport": "NBA",
-        "start_time": "2026-11-24T01:00Z",
         "units": 0
       },
       {
-        "date": "2026-11-23",
+        "date": "2026-11-24",
         "decision": "PASS",
         "edge": null,
-        "game": "New Orleans Pelicans vs Phoenix Suns",
-        "game_start_time": "2026-11-24T01:00Z",
-        "matchup": "New Orleans Pelicans vs Phoenix Suns",
-        "odds": -115,
-        "pick": "Suns -2.5 (New Orleans Pelicans vs Phoenix Suns)",
-        "pregame_snapshot": {
-          "date": "2026-11-23",
-          "decision": "PASS",
-          "edge": null,
-          "game": "New Orleans Pelicans vs Phoenix Suns",
-          "matchup": "New Orleans Pelicans vs Phoenix Suns",
-          "odds": -115,
-          "pick": "Suns -2.5 (New Orleans Pelicans vs Phoenix Suns)",
-          "probability": null,
-          "scraped_tip_demoted": true,
-          "source": "SportsGamblerNBA",
-          "source_decision": "BET",
-          "source_units": 1,
-          "sport": "NBA",
-          "units": 0
-        },
+        "game": "Denver Nuggets vs Dallas Mavericks",
+        "matchup": "Denver Nuggets vs Dallas Mavericks",
+        "odds": -110,
+        "pick": "Nuggets -8.5 (Denver Nuggets vs Dallas Mavericks)",
         "probability": null,
         "scraped_tip_demoted": true,
         "source": "SportsGamblerNBA",
         "source_decision": "BET",
         "source_units": 1,
         "sport": "NBA",
-        "start_time": "2026-11-24T01:00Z",
-        "units": 0
-      },
-      {
-        "date": "2026-11-23",
-        "decision": "PASS",
-        "edge": null,
-        "game": "Houston Rockets vs LA Clippers",
-        "game_start_time": "2026-11-24T01:30Z",
-        "matchup": "Houston Rockets vs LA Clippers",
-        "odds": -114,
-        "pick": "Rockets -12.5 (Houston Rockets vs LA Clippers)",
-        "pregame_snapshot": {
-          "date": "2026-11-23",
-          "decision": "PASS",
-          "edge": null,
-          "game": "Houston Rockets vs LA Clippers",
-          "matchup": "Houston Rockets vs LA Clippers",
-          "odds": -114,
-          "pick": "Rockets -12.5 (Houston Rockets vs LA Clippers)",
-          "probability": null,
-          "scraped_tip_demoted": true,
-          "source": "SportsGamblerNBA",
-          "source_decision": "BET",
-          "source_units": 1,
-          "sport": "NBA",
-          "units": 0
-        },
-        "probability": null,
-        "scraped_tip_demoted": true,
-        "source": "SportsGamblerNBA",
-        "source_decision": "BET",
-        "source_units": 1,
-        "sport": "NBA",
-        "start_time": "2026-11-24T01:30Z",
-        "units": 0
-      },
-      {
-        "date": "2026-11-23",
-        "decision": "PASS",
-        "edge": null,
-        "game": "Sacramento Kings vs San Antonio Spurs",
-        "game_start_time": "2026-11-24T03:00Z",
-        "matchup": "Sacramento Kings vs San Antonio Spurs",
-        "odds": -114,
-        "pick": "Spurs -10.5 (Sacramento Kings vs San Antonio Spurs)",
-        "pregame_snapshot": {
-          "date": "2026-11-23",
-          "decision": "PASS",
-          "edge": null,
-          "game": "Sacramento Kings vs San Antonio Spurs",
-          "matchup": "Sacramento Kings vs San Antonio Spurs",
-          "odds": -114,
-          "pick": "Spurs -10.5 (Sacramento Kings vs San Antonio Spurs)",
-          "probability": null,
-          "scraped_tip_demoted": true,
-          "source": "SportsGamblerNBA",
-          "source_decision": "BET",
-          "source_units": 1,
-          "sport": "NBA",
-          "units": 0
-        },
-        "probability": null,
-        "scraped_tip_demoted": true,
-        "source": "SportsGamblerNBA",
-        "source_decision": "BET",
-        "source_units": 1,
-        "sport": "NBA",
-        "start_time": "2026-11-24T03:00Z",
         "units": 0
       }
     ],
-    "refreshStatus": "error",
+    "refreshStatus": "ok",
     "scraped_tip_feed": true,
-    "updatedAt": "2026-11-23T19:31:50.355937Z"
+    "updatedAt": "2026-11-24T16:05:51.608158Z"
   },
   "sportsgambler_nfl": {
     "date": "2026-11-24",
     "errors": [],
-    "generatedAt": "2026-11-24T04:27:00.067606Z",
+    "generatedAt": "2026-11-24T16:05:51.608158Z",
     "generatedBy": "github-actions:external-feed-refresh",
-    "lastAttemptAt": "2026-11-24T04:27:00.067606Z",
+    "lastAttemptAt": "2026-11-24T16:05:51.608158Z",
     "lastAttemptDate": "2026-11-24",
-    "lastSuccessAt": "2026-11-24T04:27:00.067606Z",
+    "lastSuccessAt": "2026-11-24T16:05:51.608158Z",
     "meta": {
       "date": "2026-11-24",
       "feed": "sportsgambler_nfl",
@@ -19344,15 +18892,11 @@
         "cfb": 2,
         "nba": 3
       },
-      "optionalErrors": [
-        "nba: empty parse despite nonempty official whitelist (No picks found.)"
-      ],
+      "optionalErrors": [],
       "pick_count": 0,
       "provider": "sportsgambler",
-      "sportErrors": {
-        "nba": "nba: empty parse despite nonempty official whitelist (No picks found.)"
-      },
-      "updatedAt": "2026-11-24T04:27:00.067606Z",
+      "sportErrors": {},
+      "updatedAt": "2026-11-24T16:05:51.608158Z",
       "zeroSlateSports": [
         "mlb",
         "wnba",
@@ -19363,16 +18907,16 @@
     "ok": true,
     "picks": [],
     "refreshStatus": "ok",
-    "updatedAt": "2026-11-24T04:27:00.067606Z"
+    "updatedAt": "2026-11-24T16:05:51.608158Z"
   },
   "sportsgambler_wnba": {
     "date": "2026-11-24",
     "errors": [],
-    "generatedAt": "2026-11-24T04:27:00.067606Z",
+    "generatedAt": "2026-11-24T16:05:51.608158Z",
     "generatedBy": "github-actions:external-feed-refresh",
-    "lastAttemptAt": "2026-11-24T04:27:00.067606Z",
+    "lastAttemptAt": "2026-11-24T16:05:51.608158Z",
     "lastAttemptDate": "2026-11-24",
-    "lastSuccessAt": "2026-11-24T04:27:00.067606Z",
+    "lastSuccessAt": "2026-11-24T16:05:51.608158Z",
     "meta": {
       "date": "2026-11-24",
       "feed": "sportsgambler_wnba",
@@ -19383,15 +18927,11 @@
         "cfb": 2,
         "nba": 3
       },
-      "optionalErrors": [
-        "nba: empty parse despite nonempty official whitelist (No picks found.)"
-      ],
+      "optionalErrors": [],
       "pick_count": 0,
       "provider": "sportsgambler",
-      "sportErrors": {
-        "nba": "nba: empty parse despite nonempty official whitelist (No picks found.)"
-      },
-      "updatedAt": "2026-11-24T04:27:00.067606Z",
+      "sportErrors": {},
+      "updatedAt": "2026-11-24T16:05:51.608158Z",
       "zeroSlateSports": [
         "mlb",
         "wnba",
@@ -19402,7 +18942,7 @@
     "ok": true,
     "picks": [],
     "refreshStatus": "ok",
-    "updatedAt": "2026-11-24T04:27:00.067606Z"
+    "updatedAt": "2026-11-24T16:05:51.608158Z"
   },
   "sportytrader_cfb": {
     "date": "2026-11-24",
@@ -19410,9 +18950,9 @@
     "errors": [
       "cfb: empty parse despite nonempty official whitelist (No SportyTrader CFB picks parsed. | Diagnostics: listingPages=1 cards=0 officialMatchupCards=0.)"
     ],
-    "generatedAt": "2026-11-24T04:27:00.067606Z",
+    "generatedAt": "2026-11-24T16:05:51.608158Z",
     "generatedBy": "github-actions:external-feed-refresh",
-    "lastAttemptAt": "2026-11-24T04:27:00.067606Z",
+    "lastAttemptAt": "2026-11-24T16:05:51.608158Z",
     "lastAttemptDate": "2026-11-24",
     "lastError": "cfb: empty parse despite nonempty official whitelist (No SportyTrader CFB picks parsed. | Diagnostics: listingPages=1 cards=0 officialMatchupCards=0.)",
     "meta": {
@@ -19435,7 +18975,7 @@
       "sportErrors": {
         "cfb": "cfb: empty parse despite nonempty official whitelist (No SportyTrader CFB picks parsed. | Diagnostics: listingPages=1 cards=0 officialMatchupCards=0.)"
       },
-      "updatedAt": "2026-11-24T04:27:00.067606Z",
+      "updatedAt": "2026-11-24T16:05:51.608158Z",
       "zeroSlateSports": [
         "mlb",
         "wnba",
@@ -19446,16 +18986,16 @@
     "ok": false,
     "picks": [],
     "refreshStatus": "error",
-    "updatedAt": "2026-11-24T04:27:00.067606Z"
+    "updatedAt": "2026-11-24T16:05:51.608158Z"
   },
   "sportytrader_mlb": {
     "date": "2026-11-24",
     "errors": [],
-    "generatedAt": "2026-11-24T04:27:00.067606Z",
+    "generatedAt": "2026-11-24T16:05:51.608158Z",
     "generatedBy": "github-actions:external-feed-refresh",
-    "lastAttemptAt": "2026-11-24T04:27:00.067606Z",
+    "lastAttemptAt": "2026-11-24T16:05:51.608158Z",
     "lastAttemptDate": "2026-11-24",
-    "lastSuccessAt": "2026-11-24T04:27:00.067606Z",
+    "lastSuccessAt": "2026-11-24T16:05:51.608158Z",
     "meta": {
       "date": "2026-11-24",
       "feed": "sportytrader_mlb",
@@ -19474,7 +19014,7 @@
       "sportErrors": {
         "cfb": "cfb: empty parse despite nonempty official whitelist (No SportyTrader CFB picks parsed. | Diagnostics: listingPages=1 cards=0 officialMatchupCards=0.)"
       },
-      "updatedAt": "2026-11-24T04:27:00.067606Z",
+      "updatedAt": "2026-11-24T16:05:51.608158Z",
       "zeroSlateSports": [
         "mlb",
         "wnba",
@@ -19485,16 +19025,16 @@
     "ok": true,
     "picks": [],
     "refreshStatus": "ok",
-    "updatedAt": "2026-11-24T04:27:00.067606Z"
+    "updatedAt": "2026-11-24T16:05:51.608158Z"
   },
   "sportytrader_nba": {
     "date": "2026-11-24",
     "errors": [],
-    "generatedAt": "2026-11-24T04:27:00.067606Z",
+    "generatedAt": "2026-11-24T16:05:51.608158Z",
     "generatedBy": "github-actions:external-feed-refresh",
-    "lastAttemptAt": "2026-11-24T04:27:00.067606Z",
+    "lastAttemptAt": "2026-11-24T16:05:51.608158Z",
     "lastAttemptDate": "2026-11-24",
-    "lastSuccessAt": "2026-11-24T04:27:00.067606Z",
+    "lastSuccessAt": "2026-11-24T16:05:51.608158Z",
     "meta": {
       "date": "2026-11-24",
       "feed": "sportytrader_nba",
@@ -19513,7 +19053,7 @@
       "sportErrors": {
         "cfb": "cfb: empty parse despite nonempty official whitelist (No SportyTrader CFB picks parsed. | Diagnostics: listingPages=1 cards=0 officialMatchupCards=0.)"
       },
-      "updatedAt": "2026-11-24T04:27:00.067606Z",
+      "updatedAt": "2026-11-24T16:05:51.608158Z",
       "zeroSlateSports": [
         "mlb",
         "wnba",
@@ -19558,16 +19098,16 @@
     ],
     "refreshStatus": "ok",
     "scraped_tip_feed": true,
-    "updatedAt": "2026-11-24T04:27:00.067606Z"
+    "updatedAt": "2026-11-24T16:05:51.608158Z"
   },
   "sportytrader_nfl": {
     "date": "2026-11-24",
     "errors": [],
-    "generatedAt": "2026-11-24T04:27:00.067606Z",
+    "generatedAt": "2026-11-24T16:05:51.608158Z",
     "generatedBy": "github-actions:external-feed-refresh",
-    "lastAttemptAt": "2026-11-24T04:27:00.067606Z",
+    "lastAttemptAt": "2026-11-24T16:05:51.608158Z",
     "lastAttemptDate": "2026-11-24",
-    "lastSuccessAt": "2026-11-24T04:27:00.067606Z",
+    "lastSuccessAt": "2026-11-24T16:05:51.608158Z",
     "meta": {
       "date": "2026-11-24",
       "feed": "sportytrader_nfl",
@@ -19586,7 +19126,7 @@
       "sportErrors": {
         "cfb": "cfb: empty parse despite nonempty official whitelist (No SportyTrader CFB picks parsed. | Diagnostics: listingPages=1 cards=0 officialMatchupCards=0.)"
       },
-      "updatedAt": "2026-11-24T04:27:00.067606Z",
+      "updatedAt": "2026-11-24T16:05:51.608158Z",
       "zeroSlateSports": [
         "mlb",
         "wnba",
@@ -19597,16 +19137,16 @@
     "ok": true,
     "picks": [],
     "refreshStatus": "ok",
-    "updatedAt": "2026-11-24T04:27:00.067606Z"
+    "updatedAt": "2026-11-24T16:05:51.608158Z"
   },
   "sportytrader_wnba": {
     "date": "2026-11-24",
     "errors": [],
-    "generatedAt": "2026-11-24T04:27:00.067606Z",
+    "generatedAt": "2026-11-24T16:05:51.608158Z",
     "generatedBy": "github-actions:external-feed-refresh",
-    "lastAttemptAt": "2026-11-24T04:27:00.067606Z",
+    "lastAttemptAt": "2026-11-24T16:05:51.608158Z",
     "lastAttemptDate": "2026-11-24",
-    "lastSuccessAt": "2026-11-24T04:27:00.067606Z",
+    "lastSuccessAt": "2026-11-24T16:05:51.608158Z",
     "meta": {
       "date": "2026-11-24",
       "feed": "sportytrader_wnba",
@@ -19625,7 +19165,7 @@
       "sportErrors": {
         "cfb": "cfb: empty parse despite nonempty official whitelist (No SportyTrader CFB picks parsed. | Diagnostics: listingPages=1 cards=0 officialMatchupCards=0.)"
       },
-      "updatedAt": "2026-11-24T04:27:00.067606Z",
+      "updatedAt": "2026-11-24T16:05:51.608158Z",
       "zeroSlateSports": [
         "mlb",
         "wnba",
@@ -19636,15 +19176,15 @@
     "ok": true,
     "picks": [],
     "refreshStatus": "ok",
-    "updatedAt": "2026-11-24T04:27:00.067606Z"
+    "updatedAt": "2026-11-24T16:05:51.608158Z"
   },
   "tennistonic_tennis": {
     "date": "2026-11-24",
-    "generatedAt": "2026-11-24T16:02:58.877022Z",
-    "generatedBy": "local:external-feed-refresh",
-    "lastAttemptAt": "2026-11-24T16:02:58.877022Z",
+    "generatedAt": "2026-11-24T16:05:51.608158Z",
+    "generatedBy": "github-actions:external-feed-refresh",
+    "lastAttemptAt": "2026-11-24T16:05:51.608158Z",
     "lastAttemptDate": "2026-11-24",
-    "lastSuccessAt": "2026-11-24T16:02:58.877022Z",
+    "lastSuccessAt": "2026-11-24T16:05:51.608158Z",
     "meta": {
       "attemptedUrls": 13,
       "blockedUrls": 0,
@@ -19652,9 +19192,9 @@
       "expectedMatchups": 9,
       "failedUrls": 0,
       "feed": "tennistonic_tennis",
-      "from": "local",
+      "from": "github-actions",
       "interrupted": false,
-      "leagues": "tennis",
+      "leagues": "nba,mlb,wnba,cfb,nfl",
       "matchedPicks": 9,
       "missingMatchups": [],
       "officialMatchups": 11,
@@ -19665,7 +19205,7 @@
         "Luna Maria Cinalli vs Guiomar Maristany Zuleta De Reales",
         "Veronika Erjavec vs Martina Trevisan"
       ],
-      "updatedAt": "2026-11-24T16:02:58.877022Z"
+      "updatedAt": "2026-11-24T16:05:51.608158Z"
     },
     "note": "TennisTonic matched 9 tennis prediction(s) against 11 official 2026-11-24 singles matchup(s).",
     "ok": true,
@@ -19925,9 +19465,9 @@
     ],
     "refreshStatus": "ok",
     "scraped_tip_feed": true,
-    "updatedAt": "2026-11-24T16:02:58.877022Z"
+    "updatedAt": "2026-11-24T16:05:51.608158Z"
   },
-  "updatedAt": "2026-11-24T16:03:42.768956Z",
+  "updatedAt": "2026-11-24T16:05:51.608158Z",
   "wnba": {
     "date": "2026-11-24",
     "note": "No WNBA picks today \u2014 off-season or no edge found.",
